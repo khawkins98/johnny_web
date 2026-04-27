@@ -73,7 +73,7 @@ const getSoundFxSource = (config, context, data) => {
             source.connect();
             callback.call();
         } else {
-            fetch('data/SCRANTIC.SCR').then((response) => response.arrayBuffer()).then((fileBuffer) => {
+            fetch(`${import.meta.env.BASE_URL}data/SCRANTIC.SCR`).then((response) => response.arrayBuffer()).then((fileBuffer) => {
                 const data = new DataView(fileBuffer);
                 const size = data.getInt32(sampleOffsets[index] + 4, true) + 8;
                 const buffer = data.buffer.slice(sampleOffsets[index], sampleOffsets[index] + size);

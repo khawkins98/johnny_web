@@ -7,9 +7,10 @@ export const run = async () => {
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
     mainContext.clearRect(0, 0, 640, 480);
 
+    const base = import.meta.env.BASE_URL;
     const [resIndex, resFile] = await Promise.all([
-        fetch('data/RESOURCE.MAP'),
-        fetch('data/RESOURCE.001'),
+        fetch(`${base}data/RESOURCE.MAP`),
+        fetch(`${base}data/RESOURCE.001`),
     ]);
     
     const res = loadResources(await resIndex.arrayBuffer(), await resFile.arrayBuffer());

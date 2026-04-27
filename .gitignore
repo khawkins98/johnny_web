@@ -1,6 +1,11 @@
-/src/data
+# game data files (user-supplied, proprietary — do not commit)
+/public/data
+
+# build output
 dist
+dumps
+
+# tooling
 node_modules
-build
+.DS_Store
 server-log.txt
-/data

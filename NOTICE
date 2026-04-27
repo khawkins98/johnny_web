@@ -1,0 +1,37 @@
+# NOTICE
+
+## Third-Party Intellectual Property
+
+**Johnny Castaway** is a screensaver originally created by **Dynamix, Inc.**,
+a subsidiary of **Sierra On-Line, Inc.**, and was first published in 1992.
+
+> *Johnny Castaway* and all associated characters, artwork, audio, and game
+> data are trademarks and copyrighted works of Dynamix, Inc. / Sierra On-Line,
+> Inc. Rights to Sierra On-Line intellectual property were subsequently acquired
+> by **Activision Blizzard, Inc.**, which is the current rights holder.
+
+This project — `johnny_web` — is an independent, clean-room reimplementation
+of the screensaver's behaviour written in JavaScript. It contains **no original
+game assets**. The source files required to run the screensaver
+(`RESOURCE.MAP`, `RESOURCE.001`, `SCRANTIC.SCR`) are proprietary, are not
+distributed with this project, and are **not covered by the MIT license** under
+which this source code is released.
+
+If you own a legitimate copy of the original Johnny Castaway screensaver you
+may use those files locally for personal, non-commercial use consistent with
+your ownership rights. Redistribution of those files is not permitted.
+
+## Original Project
+
+This repository is a hard fork of
+[xesf/castaway](https://github.com/xesf/castaway) by Alexandre Fontoura,
+whose original work is gratefully acknowledged.
+
+## Special Thanks (from the original project)
+
+- **Jérémie Guillaume** (jno6809) — sharing findings from
+  [jc_reborn](https://github.com/jno6809/jc_reborn)
+- **Hans Milling** (nivs1978) — C# remake
+  [Johnny-Castaway-Open-Source](https://github.com/nivs1978/Johnny-Castaway-Open-Source)
+- **Vasco Costa** (vcosta) — DGDS engine work in
+  [ScummVM](https://github.com/vcosta/scummvm/tree/master/engines/dgds)

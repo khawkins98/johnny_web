@@ -41,33 +41,55 @@ List of new features to add to Johnny Castaway experience:
 
 ## Usage
 
-Create a "data" folder in the "src" directory and place the original files.
-* SCRANTIC.SCR
-* RESOURCE.MAP
-* RESOURCE.001
+> **Note:** The game data files (`RESOURCE.MAP`, `RESOURCE.001`, `SCRANTIC.SCR`) are
+> proprietary and not included in this repository. You need a legitimate copy of
+> the original Johnny Castaway screensaver. See [NOTICE](NOTICE) for details.
 
-Install:
-* http-server (you can use "brew install http-server")
+### Setup
 
-### Run Johnny Castaway
+```bash
+npm install
+```
 
-Run this commands in the root folder:
+Place your original game files in `public/data/`:
 
-> cd src
+```
+public/
+  data/
+    RESOURCE.MAP
+    RESOURCE.001
+    SCRANTIC.SCR
+```
 
-> http-server -c-1
+### Development
 
-> open localhost:8080
+```bash
+npm run dev       # start Vite dev server at http://localhost:5173
+```
+
+### Production build
+
+```bash
+npm run build     # outputs to dist/
+npm run preview   # serve the dist/ build locally
+```
 
 ### Dump Resources
 
-This application allows you to extract the resources of Johnny Castaway. A data/dump folder will be created when application is executed.
+Extracts game assets (images, audio, scripts) into a `dumps/` folder at the project root.
 
-> cd src
+```bash
+npm run dump
+```
 
-> chmod +x ./dump.mjs
+## GitHub Pages
 
-> ./dump.mjs
+Pushes to `main` automatically deploy to GitHub Pages via the workflow in
+`.github/workflows/deploy.yml`. Enable Pages in your repo settings
+(**Settings → Pages → Source: GitHub Actions**).
+
+If your repo lives at a path other than `/johnny_web/`, update `VITE_BASE_PATH`
+in the workflow file.
 
 ## Spetial Thanks
 
@@ -76,6 +98,8 @@ This application allows you to extract the resources of Johnny Castaway. A data/
 * Hans Milling (nivs1978) for publishing his C# attempt to remake Johnny Castaway (https://github.com/nivs1978/Johnny-Castaway-Open-Source)
 
 * Vasco Costa (vcosta) for his efforst in the DGDS ScummVM engine (https://github.com/vcosta/scummvm/tree/master/engines/dgds)
+
+See [NOTICE](NOTICE) for full IP and attribution details.
 
 ## DGDS Viewer
 

@@ -12,8 +12,21 @@ Thanks for your interest in contributing to johnny_web! Please follow these guid
 ## Commit Style
 
 - **Squash your commits** before merging. Each PR should land as a single, well-described commit on `main`.
-- Write commit messages in the imperative mood: `Add wave animation`, not `Added wave animation`.
-- Keep the subject line under 72 characters. Use the body for context if needed.
+- Use **[Conventional Commits](https://www.conventionalcommits.org)** format:
+  ```
+  <type>(<optional scope>): <description>
+
+  [optional body]
+  ```
+  Common types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
+- Keep the subject line under 72 characters.
+
+Examples:
+```
+feat(audio): support stereo sample playback
+fix(resource): handle missing PAL entries gracefully
+docs: update setup instructions for Vite
+```
 
 ## Changelog
 
