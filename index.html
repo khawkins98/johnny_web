@@ -22,6 +22,60 @@
                 width: 640px;
                 height: 480px;
             }
+            #data-error {
+                display: none;
+                position: absolute;
+                inset: 0;
+                z-index: 10;
+                background: #0a0a0a;
+                border: 1px solid #333;
+                padding: 40px 48px;
+                box-sizing: border-box;
+                color: #ccc;
+                font-family: monospace;
+            }
+            #data-error h2 {
+                margin: 0 0 12px;
+                font-size: 15px;
+                color: #e07070;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+            }
+            #data-error p {
+                margin: 0 0 20px;
+                font-size: 13px;
+                line-height: 1.6;
+                color: #999;
+            }
+            #data-error ul {
+                margin: 0 0 20px;
+                padding: 0;
+                list-style: none;
+            }
+            #data-error ul li {
+                font-size: 13px;
+                padding: 4px 0;
+                color: #e07070;
+            }
+            #data-error ul li::before {
+                content: '✗  ';
+            }
+            #data-error ul li.ok {
+                color: #70b070;
+            }
+            #data-error ul li.ok::before {
+                content: '✓  ';
+            }
+            #data-error .instruction {
+                font-size: 12px;
+                color: #666;
+                border-top: 1px solid #222;
+                padding-top: 16px;
+                line-height: 1.7;
+            }
+            #data-error .path {
+                color: #8ab4d4;
+            }
         </style>
     </head>
     <body>
@@ -30,6 +84,25 @@
         <div id="root" class="background" style="display: block; width: 100%; overflow-x: auto">
             <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
             <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
+
+            <div id="data-error" role="alert" aria-live="assertive">
+                <h2>Game data required</h2>
+                <p>
+                    Johnny Castaway requires the original proprietary game files,
+                    which are not included in this project. See
+                    <a href="NOTICE" style="color:#8ab4d4">NOTICE</a> for details.
+                </p>
+                <ul id="data-error-files"></ul>
+                <div class="instruction">
+                    Place the files above in
+                    <span class="path">public/data/</span>
+                    relative to the project root, then reload the page.<br>
+                    See the <a href="README.md" style="color:#8ab4d4">README</a>
+                    for acquisition instructions, including a verified
+                    <a href="https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m" style="color:#8ab4d4" target="_blank" rel="noopener">
+                        Internet Archive source</a>.
+                </div>
+            </div>
         </div>
 
         <script type="module" src="./src/index.mjs"></script>

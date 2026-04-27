@@ -41,25 +41,46 @@ List of new features to add to Johnny Castaway experience:
 
 ## Usage
 
-> **Note:** The game data files (`RESOURCE.MAP`, `RESOURCE.001`, `SCRANTIC.SCR`) are
-> proprietary and not included in this repository. You need a legitimate copy of
-> the original Johnny Castaway screensaver. See [NOTICE](NOTICE) for details.
+## Obtaining the Game Data Files
 
-### Setup
+The screensaver requires three proprietary files that are not included in this
+repository. These files originate from the original 1993 Windows 3.1 floppy
+distribution by Sierra On-Line.
+
+**Legal note:** Johnny Castaway is technically still under copyright (see
+[NOTICE](NOTICE)). It has never been officially released as freeware.
+However, it has been commercially unavailable for 30+ years, is widely
+considered abandonware, and no enforcement action has ever been publicly
+reported. Obtaining and using it for personal, non-commercial purposes is your
+own legal call.
+
+### Known sources
+
+| Source | What you get | Notes |
+|--------|-------------|-------|
+| [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.img` inside a ZIP | Extract the ZIP, then extract the `.img` with 7-zip to get the raw files |
+| [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP | Requires JavaScript in browser |
+
+### Extracting from the Internet Archive floppy image
 
 ```bash
-npm install
+# 1. Download the non-flux ZIP (~1.4 MB)
+curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
+
+# 2. Extract the floppy image from the ZIP
+unzip "Screen Antics*.zip"
+
+# 3. Extract the game files from the floppy image (requires 7-zip)
+7z e "*.img" RESOURCE.MAP RESOURCE.001 SCRANTIC.SCR
+
+# 4. Move into place
+mkdir -p public/data
+mv RESOURCE.MAP RESOURCE.001 SCRANTIC.SCR public/data/
 ```
 
-Place your original game files in `public/data/`:
+On macOS, install 7-zip with `brew install sevenzip` (command: `7zz`).
 
-```
-public/
-  data/
-    RESOURCE.MAP
-    RESOURCE.001
-    SCRANTIC.SCR
-```
+
 
 ### Development
 
