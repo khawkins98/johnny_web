@@ -1,26 +1,20 @@
-# castaway
+# johnny_web
 
-The aim of this project is to provide a complete re-implemtation of the Johnny Castaway Screen Saver created by Dynamix (Sierra On-Line Subsidiary) using Javascript modules.
+A web-native reimplementation of the Johnny Castaway screensaver originally created by Dynamix (Sierra On-Line). This project is a hard fork of [xesf/castaway](https://github.com/xesf/castaway), modernized with a focus on idiomatic, standards-based web development.
 
 ![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
-## Live Demo
-
-[Check here the current development state](https://castaway.xesf.net)
-
 ## Purpose
 
-* Re-implementation of the Johnny Castaway Screen Saver;
+* Reimplementation of the Johnny Castaway screensaver in the browser;
 
-* Learn the Dynamix Game Development System (DGDS);
+* Modernize the codebase toward web-native patterns (ES modules, Web APIs, no bundler dependencies where possible);
 
-* Document the files format used;
+* Learn and document the Dynamix Game Development System (DGDS) file formats;
 
-* Dump tools using NodeJS Shell Script;
+* Provide dump tools via Node.js for resource extraction;
 
-* Focus on taking advantage of the modern web development languages and the usage of ES modules;
-
-* Have fun implementing it!!
+* Have fun doing it!!
 
 ## Enhancements Roadmap
 
