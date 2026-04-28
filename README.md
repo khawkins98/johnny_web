@@ -1,6 +1,6 @@
 # johnny_web
 
-A web-native reimplementation of the Johnny Castaway screensaver originally created by Dynamix (Sierra On-Line). This project is a hard fork of [xesf/castaway](https://github.com/xesf/castaway), modernized with a focus on idiomatic, standards-based web development.
+A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver originally created by Dynamix (Sierra On-Line) in 1992. This project is a hard fork of [xesf/castaway](https://github.com/xesf/castaway), modernized with a focus on idiomatic, standards-based web development.
 
 ![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
@@ -44,8 +44,8 @@ List of new features to add to Johnny Castaway experience:
 ## Obtaining the Game Data Files
 
 The screensaver requires three proprietary files that are not included in this
-repository. These files originate from the original 1993 Windows 3.1 floppy
-distribution by Sierra On-Line.
+repository. These files originate from the original 1992/1993 Windows 3.1 floppy
+distribution by Sierra On-Line. See [Wikipedia](https://en.wikipedia.org/wiki/Johnny_Castaway) for history.
 
 **Legal note:** Johnny Castaway is technically still under copyright (see
 [NOTICE](NOTICE)). It has never been officially released as freeware.
