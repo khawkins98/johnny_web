@@ -5,6 +5,9 @@
 dist
 dumps
 
+# Vite dev-server dependency pre-bundle cache
+.vite/
+
 # tooling
 node_modules
 .DS_Store
