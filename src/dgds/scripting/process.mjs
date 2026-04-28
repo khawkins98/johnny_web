@@ -782,7 +782,12 @@ const runScripts = () => {
         clearContext(state.context);
 
         if (state.island) {
-            drawBackground(state, state.mainContext);
+            // Background resources are loaded by LOAD_SCREEN in the TTM prologue, which runs
+            // on the first child scene. The main ADS state never runs LOAD_SCREEN directly, so
+            // look for resources from the first child state that has them. Falls back to main
+            // state (no-op draw) until a child state has loaded them.
+            const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
+            drawBackground(bgState, state.mainContext);
         }
         const saveBkg = state.saveBkg[0];
         if (saveBkg.canDraw) {
