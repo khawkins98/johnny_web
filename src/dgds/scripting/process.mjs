@@ -21,6 +21,16 @@ import { PALETTE } from '../../scrantic/palette.mjs';
 
 const fps = 1000 / 60;
 
+// Debug logging: active on localhost / 127.0.0.1 or when ?debug is in the URL.
+const isDebugMode = (() => {
+    try {
+        return window.location.hostname === 'localhost' ||
+               window.location.hostname === '127.0.0.1' ||
+               new URLSearchParams(window.location.search).has('debug');
+    } catch { return false; }
+})();
+const debugLog = isDebugMode ? (...args) => console.log('[DGDS]', ...args) : () => {};
+
 let state = null;
 
 const clearContext = (context) => {
@@ -195,6 +205,7 @@ const FADE_IN = (state) => { };
 // END clears the child scenes.
 const ADS_FADE_OUT = (state) => {
     if (state.continue) {
+        debugLog('FADE_OUT: starting');
         state.fadingOut = true;
         state.fadeOpacity = 0;
         state.continue = false;
@@ -554,7 +565,11 @@ const PLAY_SCENE = (state) => {
 
     // Block until all newly-added ('active') scenes have completed their first loop.
     // Scenes already 'running' or 'completed' do not block advancement.
-    state.continue = !state.scenes.some(s => s.lifecycle === 'active');
+    const waiting = state.scenes.filter(s => s.lifecycle === 'active');
+    state.continue = waiting.length === 0;
+    if (isDebugMode && waiting.length > 0) {
+        debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${waiting.map(s => `${s.sceneIdx}:${s.tagId}`).join(', ')}`);
+    }
 };
 
 const PLAY_SCENE_2 = (state) => { };
@@ -856,9 +871,14 @@ const runScripts = () => {
     
         const scene = state.data.scenes[state.currentScene];
         if (scene !== undefined) {
+            const prevScene = state.currentScene;
             exitFrame = runScript(state, scene.script, true);
+            if (state.currentScene !== prevScene) {
+                debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (tagId ${state.data.scenes[state.currentScene]?.tagId ?? 'done'})`);
+            }
         } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
             // All main ADS scenes played and no child scenes remain — done.
+            debugLog('ADS cycle complete — calling onComplete');
             exitFrame = true;
         }
         
@@ -886,8 +906,10 @@ const runScripts = () => {
         if (state.fadingOut) {
             state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
             state.context.fillRect(0, 0, 640, 480);
-            // Clear only after drawing so the full-black frame is visible before the next gag.
-            if (state.fadeOpacity >= 1 && state.continue) {
+            // Once fully black, clear after drawing so the overlay covers the END-fires frame
+            // but is gone before the next gag starts — regardless of state.continue.
+            if (state.fadeOpacity >= 1) {
+                debugLog('FADE_OUT: complete, clearing overlay');
                 state.fadingOut = false;
             }
         }
@@ -998,6 +1020,7 @@ export const startProcess = (initialState) => {
     state.audioManager = initialState.audioManager || createAudioManager({ soundFxVolume: 0.50 });
 
     if (state.type === 'ADS') {
+        debugLog(`ADS cycle starting: ${state.data.scenes.length} scenes in "${state.data?.name ?? '?'}"`);
         state.data.resources.forEach(r => {
             const entry = state.entries.find(e => e.name === r.name);
             if (entry !== undefined) {
