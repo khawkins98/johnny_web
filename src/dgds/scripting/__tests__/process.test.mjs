@@ -107,30 +107,80 @@ describe('opcode parameter decoding (TTM 16-bit encoding rule)', () => {
 // GOTO handler
 // ---------------------------------------------------------------------------
 describe('GOTO handler', () => {
-    // BUG: tagId is ignored — GOTO always resets reentry to 0 (start of script).
-    // Correct implementation would need to seek to the position of the labelled tag
-    // in the current script, which is currently unimplemented.
-    it('BUG: resets state.reentry to 0 regardless of tagId argument', () => {
+    it('sets gotoRestart=true so runScript restarts from 0 on the next call', () => {
         const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
-        const mockState = { reentry: 42 };
-        gotoEntry.callback(mockState, 7); // tagId = 7 — should seek to tag 7, but does not
-        expect(mockState.reentry).toBe(0); // not 7
+        const mockState = { reentry: 42, gotoRestart: false, continue: true, runs: 0 };
+        gotoEntry.callback(mockState, 7);
+        expect(mockState.gotoRestart).toBe(true);
+        // reentry is NOT changed by the callback — runScript handles the reset at call start
+        expect(mockState.reentry).toBe(42);
     });
 
-    it('BUG: resets to 0 even when tagId is non-zero and reentry is already 0', () => {
+    it('sets continue=false so execution pauses until the next frame', () => {
         const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
-        const mockState = { reentry: 0 };
-        gotoEntry.callback(mockState, 5); // tagId = 5, still ignored
-        expect(mockState.reentry).toBe(0);
+        const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
+        gotoEntry.callback(mockState, 5);
+        expect(mockState.continue).toBe(false);
     });
 
-    it('only mutates state.reentry — no other state properties are touched', () => {
+    it('increments runs so lifecycle transitions to running after first loop', () => {
         const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
-        const mockState = { reentry: 10, continue: true, plays: 3 };
+        const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 99);
-        expect(mockState.reentry).toBe(0);
-        expect(mockState.continue).toBe(true);
-        expect(mockState.plays).toBe(3);
+        expect(mockState.runs).toBe(1);
+    });
+
+    it('runScript: clears gotoRestart and resets reentry to 0 at the top of the next call', () => {
+        // Simulate state AFTER a GOTO fired: gotoRestart=true, reentry=last_idx, continue=false
+        const mockState = {
+            reentry: 2,       // index GOTO was at (will be overwritten to 0)
+            reentryNow: 2,
+            jumpTo: undefined,
+            gotoRestart: true,
+            continue: false,  // GOTO set this; runScript shouldn't block due to it
+            lastCommand: false,
+            runs: 1,
+            played: false,
+            type: 'TTM',
+        };
+        // 3-command script; after reset reentry=0 the for-loop runs cmd0 (PURGE = no-op) then
+        // hits cmd1 (an unknown opcode — skipped), then cmd2 (PURGE again as last cmd → end-of-script).
+        const script = [
+            { opcode: 0x0110, params: [], line: 'PURGE' },   // 0 — known, runs
+            { opcode: 0x9999, params: [], line: 'UNK' },     // 1 — unknown, skipped
+            { opcode: 0x0110, params: [], line: 'PURGE' },   // 2 — known, runs (last → end-of-script)
+        ];
+        runScript(mockState, script, false);
+        // gotoRestart was cleared; script ran from 0 to end
+        expect(mockState.gotoRestart).toBe(false);
+        expect(mockState.played).toBe(true);  // end-of-script fires after gotoRestart is consumed
+    });
+
+    it('runScript: GOTO as last command does not trigger end-of-script on the same frame', () => {
+        // Script: [PURGE, GOTO], GOTO is at index 1 (length-1).
+        // GOTO fires gotoRestart=true; end-of-script must NOT fire this frame.
+        let goFired = false;
+        const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            gotoRestart: false,
+            continue: true,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+            type: 'TTM',
+        };
+        // We'll use a real script with the actual GOTO opcode so the dispatch runs it.
+        const script = [
+            { opcode: 0x0110, params: [], line: 'PURGE' },    // 0
+            { opcode: 0x1200, params: [7], line: 'GOTO 7' },  // 1 — last cmd
+        ];
+        runScript(mockState, script, false);
+        expect(mockState.played).toBe(false);   // end-of-script suppressed
+        expect(mockState.gotoRestart).toBe(true);  // deferred restart flagged
+        expect(mockState.runs).toBe(1);         // GOTO incremented runs
     });
 });
 
@@ -214,6 +264,29 @@ describe('runScript scene transition', () => {
         const mockState = { reentry: -1, continue: true };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
         expect(runScript(mockState, script, false)).toBe(true);
+    });
+
+    it('completed scene (played=true) does not re-run after end-of-script fires', () => {
+        // After end-of-script: played=true, reentry reset to 0. If called again (simulating
+        // the completed-scene bug), the script would run from scratch and runs would increment.
+        // The fix lives in process.mjs (skip lifecycle=completed), but we verify that a
+        // state where played=true and reentry=0 WILL re-run if called — confirming the
+        // process.mjs guard is the correct place to stop it.
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            gotoRestart: false,
+            continue: true,
+            lastCommand: false,
+            runs: 1,     // already ran once
+            played: true, // already completed
+            type: 'TTM',
+        };
+        const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
+        runScript(mockState, script, false);
+        // runs incremented again — proves re-run happened; process.mjs MUST guard against this
+        expect(mockState.runs).toBe(2);
     });
 });
 

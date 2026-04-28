@@ -103,10 +103,9 @@ Every `GOTO` in `MJREAD.TTM` targets the same tag the script belongs to:
 - `GOTO 112` inside tag 112 "gull book"
 - `GOTO 82` inside tag 82 "johnny mad"
 
-The current implementation (`state.reentry = 0`) correctly handles these
-because each child scene runs only its own tag's script. If cross-tag GOTOs
-are ever needed, the handler would need to switch the scene's `script`
-reference and reset `reentry`.
+The implementation restarts the current scene's script from index 0, which is
+correct for all observed self-loops. If cross-tag GOTOs are ever needed, the
+handler would need to switch the scene's `script` reference and reset `reentry`.
 
 ### PLAY_SCENE_2 is ADD_SCENE + PLAY_SCENE Combined
 
@@ -203,9 +202,66 @@ started.
 PLAY_SCENE — the first parameter is the embedded ADD_SCENE opcode (0x2005 =
 8197), followed by the standard ADD_SCENE arguments.
 
----
+### 6. Completed Scenes Re-Run Every Frame (fixed this session)
 
-## Architectural Decisions
+**Symptom**: `TTM done: 1:12(LOAD SHAPES)` and `TTM done: 1:11(FREE SHAPES)`
+appearing **once per frame** throughout the session (1000+ times in a
+2725-line debug log), causing visual glitching because `FREE SHAPES`
+re-runs `DRAW_BACKGROUND` (clearing sprites) on every frame.
+
+**Root cause**: `runScripts` called `runScript` on every scene in
+`state.scenes` regardless of `lifecycle`. Scenes with `played=true`
+(completed) had their `reentry` reset to 0 after end-of-script, so they
+started again on the next frame. Short scenes with no `UPDATE` (like
+`LOAD SHAPES`) completed in a single tick; scenes with `UPDATE` as the
+last command (like `FREE SHAPES`) took two ticks (one to set the delay,
+one to fire). Both looped forever.
+
+**Fix** (`process.mjs`): Skip `runScript` for scenes where
+`lifecycle === 'completed'`. Still draw their last frame and tick their
+timers:
+```js
+if (s.lifecycle !== 'completed') {
+    runScript(s.state, s.script);
+    if (s.state.played) { s.lifecycle = 'completed'; }
+    else if (s.state.runs > 0) { s.lifecycle = 'running'; }
+}
+if (s.state.timer > 0) { ... }  // always tick timers
+```
+
+### 7. GOTO Was a Silent No-Op (fixed this session)
+
+**Symptom**: Animation scenes that use `GOTO` (looping animations like
+"flip pages", "john sleep", "gull book", "johnny mad") would complete
+after a single pass instead of looping. No observable crash, but all
+looping animations in `MJREAD.TTM` would play once and freeze.
+
+**Root cause**: `GOTO` callback set `state.reentry = 0`, but immediately
+after the callback returned, the `runScript` for-loop ran:
+```js
+state.reentry = i;  // ← overwrote GOTO's reentry=0 with the GOTO command's own index
+```
+If GOTO was the last command (`i === script.length - 1`), the end-of-script
+check fired: `played=true`, `reentry=0`, `runs++`. The scene then sat in
+`state.scenes` with `played=true`, appearing 'completed' after one pass.
+
+**Fix** (`script-runner.mjs`):
+1. `GOTO` sets `state.gotoRestart = true; state.continue = false; state.runs++;`
+   instead of `state.reentry = 0`. The flag survives the `state.reentry = i`
+   overwrite.
+2. At the **top** of `runScript` (before the for-loop): if `gotoRestart` is set,
+   clear it, reset `reentry = 0`, and restore `continue = true` so the fresh run
+   isn't blocked.
+3. End-of-script condition gates on `!state.gotoRestart` to prevent a GOTO that
+   is the last command from falsely completing the script on the same frame.
+
+**Interaction with Bug 6**: Both fixes must be applied together. Fixing "skip
+completed scenes" without fixing GOTO would cause looping animations to play
+once and freeze (they'd still reach `played=true` since GOTO was broken). With
+both fixes: GOTO-looping scenes loop indefinitely until `STOP_SCENE` removes
+them, and single-play scenes complete once and freeze on their last frame.
+
+
 
 ### Phase 3 Extraction Order
 

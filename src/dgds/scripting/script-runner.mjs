@@ -101,7 +101,13 @@ const GOTO = (state, tagId) => {
     // All GOTOs observed so far are self-loops (GOTO within own tag's script).
     // Cross-tag jumps are not yet supported — they would require switching state.script.
     debugLog(`TTM loop: ${sceneLabel(state.scenesRes, state.sceneIdx, tagId)}`);
-    state.reentry = 0;
+    // Signal runScript to restart from index 0 at the top of the NEXT call (not this one).
+    // Setting reentry=0 here is useless because the for-loop overwrites it with `reentry=i`
+    // immediately after the callback returns. Instead, the gotoRestart flag is checked at
+    // the top of runScript before the for-loop begins.
+    state.gotoRestart = true;
+    state.continue = false;  // pause execution until next frame (like UPDATE)
+    state.runs++;             // count completed loops so PLAY_SCENE can unblock
 };
 
 const SET_COLORS = (state, fc, bc) => {
@@ -599,6 +605,15 @@ export const runScript = (state, script, main = false) => {
     if (script === undefined || state.reentry === -1) {
         return true;
     }
+    // GOTO sets gotoRestart=true to request a restart from index 0 on the NEXT call.
+    // This cannot be done inside the GOTO callback itself because the for-loop below
+    // overwrites state.reentry with the current index immediately after the callback returns.
+    // Also restore continue=true so the fresh run isn't blocked by the paused state GOTO left.
+    if (state.gotoRestart) {
+        state.gotoRestart = false;
+        state.reentry = 0;
+        state.continue = true;
+    }
     const dispatchTable = state.type === 'ADS' ? ADSDispatch : TTMDispatch;
     for (let i = state.reentry; i < script.length; i++) {
         const c = script[i];
@@ -623,7 +638,7 @@ export const runScript = (state, script, main = false) => {
             break;
         }
     }
-    if (state.reentry === (script.length - 1)) {
+    if (state.reentry === (script.length - 1) && !state.gotoRestart) {
         state.lastCommand = true;
         state.reentry = 0;
         state.runs++;

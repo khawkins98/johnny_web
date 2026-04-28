@@ -68,14 +68,19 @@ const runScripts = () => {
 
         if (!state.continue) {
             state.scenes.forEach(s => {
-                runScript(s.state, s.script);
-                // Update lifecycle based on execution result.
-                if (s.state.played) {
-                    s.lifecycle = 'completed';
-                } else if (s.state.runs > 0) {
-                    s.lifecycle = 'running';
+                // Don't re-run scripts that have already completed — they should freeze on their
+                // last frame. GOTO-looping scenes stay 'running' indefinitely; only single-play
+                // scenes (no GOTO) reach 'completed'.
+                if (s.lifecycle !== 'completed') {
+                    runScript(s.state, s.script);
+                    // Update lifecycle based on execution result.
+                    if (s.state.played) {
+                        s.lifecycle = 'completed';
+                    } else if (s.state.runs > 0) {
+                        s.lifecycle = 'running';
+                    }
                 }
-                // Tick down any active timer so IF_PLAYED's timer check works correctly.
+                // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
                 if (s.state.timer > 0) {
                     s.state.timer = Math.max(0, s.state.timer - state.frameDelta);
                 }

@@ -34,6 +34,7 @@ export const initialState = {
     elapsedTimer: 0,
     timer: 0,
     delay: 0,
+    gotoRestart: false,
 };
 
 /**
