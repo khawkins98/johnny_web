@@ -4,42 +4,32 @@ A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/
 
 ![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
+## Getting started
+
+```bash
+npm install
+npm run dev       # http://localhost:5173
+```
+
+Game data files are required — see [Obtaining the Game Data Files](#obtaining-the-game-data-files) below.
+
 ## Purpose
 
-* Reimplementation of the Johnny Castaway screensaver in the browser;
-
-* Modernize the codebase toward web-native patterns (ES modules, Web APIs, no bundler dependencies where possible);
-
-* Learn and document the Dynamix Game Development System (DGDS) file formats;
-
-* Provide dump tools via Node.js for resource extraction;
-
-* Have fun doing it!!
+- Reimplementation of the Johnny Castaway screensaver in the browser
+- Modernize the codebase toward web-native patterns (ES modules, Web APIs, Vite)
+- Learn and document the Dynamix Game Development System (DGDS) file formats
+- Provide extraction and dump tools via Node.js
 
 ## Enhancements Roadmap
 
-List of new features to add to Johnny Castaway experience:
-* Day/Night loop in 24h instead of 8h
-* Day/Night based on user location sunrise and sunset
-* Moving cloulds
-* Add waves like the static screen
-* Accelarate time
-* Tides based on user locations with real time coutry low tide info
-* Play Full Story Sequence
-    * Choose single activities to play
-* Number of full complete stories played worldwide
-* Total hours worldwide played
-* Statistics per Activity
-    * Total Jogging
-    * Fishing
-    * etc.
-* Extend festive days from the original - could be based on user location
-
-## Documents
-
-[Resource Index File Format](docs/resindex.md)
-
-## Usage
+- Day/Night loop in 24 h instead of 8 h
+- Day/Night based on user location sunrise and sunset
+- Moving clouds
+- Add waves like the static screen
+- Accelerate time
+- Tides based on user location with real-time tide data
+- Play full story sequence / choose single activities
+- Extend festive days from the original (could be location-based)
 
 ## Obtaining the Game Data Files
 
@@ -89,28 +79,15 @@ npm run extract -- "<path-to-downloaded.zip>"
 The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and
 `SCRANTIC.SCR` and then cleans up all temporary files.
 
+## npm scripts
 
-
-### Development
-
-```bash
-npm run dev       # start Vite dev server at http://localhost:5173
-```
-
-### Production build
-
-```bash
-npm run build     # outputs to dist/
-npm run preview   # serve the dist/ build locally
-```
-
-### Dump Resources
-
-Extracts game assets (images, audio, scripts) into a `dumps/` folder at the project root.
-
-```bash
-npm run dump
-```
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server at http://localhost:5173 |
+| `npm run build` | Production build to `dist/` |
+| `npm run preview` | Serve the `dist/` build locally |
+| `npm run extract -- "<zip>"` | Extract game data from Archive.org ZIP |
+| `npm run dump` | Dump game assets to `dumps/` for inspection |
 
 ## GitHub Pages
 
@@ -121,16 +98,13 @@ Pushes to `main` automatically deploy to GitHub Pages via the workflow in
 If your repo lives at a path other than `/johnny_web/`, update `VITE_BASE_PATH`
 in the workflow file.
 
-## Spetial Thanks
+## Docs
 
-* Jérémie Guillaume (jno6809) for sharing his findings while developing Johnn Reborn (https://github.com/jno6809/jc_reborn)
+- [Resource Index File Format](docs/resindex.md)
+- [NOTICE](NOTICE) — IP attribution and copyright details
+- [CHANGELOG](CHANGELOG.md)
+- [CONTRIBUTING](CONTRIBUTING.md)
 
-* Hans Milling (nivs1978) for publishing his C# attempt to remake Johnny Castaway (https://github.com/nivs1978/Johnny-Castaway-Open-Source)
+## Acknowledgements
 
-* Vasco Costa (vcosta) for his efforst in the DGDS ScummVM engine (https://github.com/vcosta/scummvm/tree/master/engines/dgds)
-
-See [NOTICE](NOTICE) for full IP and attribution details.
-
-## DGDS Viewer
-
-I've create a DGDS Resource Viewer while I was building the initial version of castaway. I've then split it into its own project and it can be found here: https://github.com/xesf/dgds-viewer
+See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.

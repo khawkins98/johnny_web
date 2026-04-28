@@ -47,9 +47,8 @@ docs: update setup instructions for Vite
 ## Getting Started
 
 ```bash
-cd src
-http-server -c-1
-# open http://localhost:8080
+npm install
+npm run dev   # http://localhost:5173
 ```
 
-See the [README](README.md) for full setup instructions.
+See the [README](README.md) for full setup and game data extraction instructions.
