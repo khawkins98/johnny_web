@@ -556,9 +556,9 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
 }
 
 const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
-    // NOTE: scenesRes is 0-indexed; sceneIdx in ADD_SCENE is 1-based → scenesRes[sceneIdx - 1].
-    // A sceneIdx of 0 would return undefined (logged below).
-    const ttm = state.scenesRes[sceneIdx - 1];
+    // scenesRes is indexed by the resource ID declared in the ADS [RESOURCES] block.
+    // IDs are 1-based and may be non-sequential, so we look up directly by ID.
+    const ttm = state.scenesRes[sceneIdx];
     if (ttm === undefined || ttm.scenes === undefined) {
         console.log('add failed ttm', sceneIdx, tagId);
         return;
@@ -907,7 +907,9 @@ export const startProcess = (initialState) => {
         state.data.resources.forEach(r => {
             const entry = state.entries.find(e => e.name === r.name);
             if (entry !== undefined) {
-                state.scenesRes.push(loadResourceEntry(entry));
+                // Index by the resource's own ID (which can be non-sequential, e.g. 1,2,4,5).
+                // ADD_SCENE uses these IDs directly, so we must preserve the mapping.
+                state.scenesRes[r.id] = loadResourceEntry(entry);
             }
         });
     }
