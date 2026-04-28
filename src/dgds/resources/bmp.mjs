@@ -1,3 +1,17 @@
+/**
+ * BMP sprite sheet resource parser.
+ *
+ * BMP files contain one or more indexed-color images packed as 4-bit nibbles (2 pixels per byte).
+ * The INF block lists per-image widths then heights. The BIN block contains the compressed pixel
+ * data for all images concatenated.
+ *
+ * PERF: Each pixel is stored as a plain JS object {index, a, r, g, b}. A 640×480 image creates
+ * 307,200 objects. Consider replacing with Uint8ClampedArray or ImageData for memory efficiency.
+ *
+ * NOTE: Pixel packing is 4-bit: even pixelIndex reads the high nibble (>>4); odd reads the low
+ * nibble (&0x0f) and advances dataIndex. If an image's width is odd, pixelIndex and dataIndex
+ * may become misaligned between rows.
+ */
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 

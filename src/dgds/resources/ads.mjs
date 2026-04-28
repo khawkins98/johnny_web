@@ -1,3 +1,14 @@
+/**
+ * ADS (Animation Director Script) resource parser.
+ *
+ * ADS files are the top-level animation sequencers. They contain:
+ *  - RES block: list of TTM resources (by name) used by this script
+ *  - SCR block: the compressed main script (opcode stream)
+ *  - TAG block: named labels that divide the script into scenes
+ *
+ * Parsed output includes `scripts` (all commands in order) and `scenes` (commands grouped by tag).
+ * process.mjs iterates `scenes[]` by index, running each scene's script in turn.
+ */
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 
@@ -84,6 +95,8 @@ export const loadADSResourceEntry = (entry) => {
     let lineNumber = 1;
     let indent = 0;
     let innerOffset = 0;
+    // NOTE: prevTagId starts at 0. The first scenes.push() will produce a scene with tagId 0,
+    // representing the script block before the first TAG opcode (effectively a global prologue).
     let prevTagId = 0;
     const scripts = [];
     const scenes = [];
@@ -155,6 +168,10 @@ export const loadADSResourceEntry = (entry) => {
         lineNumber += 1;
         scripts.push(command);
     }
+
+    // BUG: The last scene's commands accumulate in sceneScripts but are never pushed to scenes[].
+    // scenes[] is missing its final entry — the last tagged section of the ADS script never runs.
+    // Compare with ttm.mjs which correctly pushes after the loop.
 
     return {
         name: entry.name,

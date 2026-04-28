@@ -1,3 +1,21 @@
+/**
+ * Web Audio API manager for DGDS game audio.
+ *
+ * Audio samples are embedded in SCRANTIC.SCR as raw PCM/audio blocks. sampleOffsets[] maps
+ * sample index (as used by PLAY_SAMPLE opcodes) to byte offsets in that file. Each entry is
+ * a 4-byte header + size field followed by raw audio data.
+ *
+ * NOTE: sampleOffsets are hardcoded for Johnny Castaway v1.01 (Int. 1.4.93). A different
+ * version of the game data would require recalibrating these offsets.
+ *
+ * NOTE: sampleOffsets[0] and sampleOffsets[11] are -1, meaning those indices have no sample.
+ * NOTE: An index beyond the sampleOffsets array bounds would not be caught by the === -1 check
+ * in source.load(), since undefined !== -1, and the fetch would proceed with sampleOffsets[index]
+ * being undefined (offset 0 in the file, yielding wrong/corrupt data).
+ *
+ * NOTE: The full SCRANTIC.SCR file (~295 KB) is fetched from the network for every cache miss.
+ * Only the relevant slice is decoded. A range-request approach would reduce bandwidth.
+ */
 const samplesSourceCache = [];
 
 export const sampleOffsets = [

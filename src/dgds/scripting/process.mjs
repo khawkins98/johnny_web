@@ -1,3 +1,19 @@
+/**
+ * DGDS process engine — interprets ADS (Animation Director Scripts) and TTM (Tiny Templated Movies).
+ *
+ * Architecture:
+ *  - ADS: high-level sequencer that steps through `data.scenes[]` one at a time. Each scene can
+ *    spawn concurrent TTM sub-scenes via ADD_SCENE/PLAY_SCENE and gate progression with conditionals.
+ *  - TTM: per-frame opcode stream for drawing sprites, playing audio, setting delays, etc.
+ *  - `runScript()` advances a script one command per rAF tick, pausing when state.continue becomes
+ *    false (e.g. UPDATE delay not elapsed) and resuming via state.reentry next tick.
+ *
+ * Limitations / known issues:
+ *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
+ *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
+ *  - NOTE: Active console.log calls remain throughout this file (runScript, startProcess,
+ *    PLAY_SCENE, getSceneState). Remove before a production build.
+ */
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
 import { drawImage, drawScreen, getPaletteColor } from '../graphics.mjs';
@@ -40,6 +56,8 @@ const drawContext = (state, index) => {
 }
 
 // FIXME Improve this code repetition
+// NOTE: Cloud movement timing uses absolute Date.now() offsets rather than the fps-based tick
+// delta used by the main loop. Cloud speed is tied to wall-clock time, not frame rate.
 const drawBackground = (state, context) => {
     // Draw background / ocean / night
     if (bkgScreen) {
@@ -152,6 +170,8 @@ const SET_BACKGROUND = (state, index) => {
 };
 
 const GOTO = (state, tagId) => {
+    // BUG: tagId is ignored; always resets reentry to 0 (start of current script).
+    // Correct behavior requires finding the script position for tagId, which is unknown.
     state.reentry = 0; // TODO check for other scenes
 };
 
@@ -167,6 +187,9 @@ const SET_COLORS = (state, fc, bc) => {
 const SET_FRAME1 = (state) => { };
 
 const SET_TIMER = (state, delay, timer) => {
+    // NOTE: state.timer is set but never consumed or decremented anywhere in the main loop.
+    // IF_PLAYED checks `scene.state.timer === 0`, which is always true — timer-based scene
+    // removal/branching is effectively dead.
     // state.delay = ((delay === 0 ? 1 : delay) * 20);
     state.timer = timer * 20 + ((delay === 0 ? 1 : delay) * 20);
 };
@@ -204,6 +227,10 @@ const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
+    // NOTE: Commented out — region capture is unimplemented. state.save[] slots are initialized
+    // (see startProcess) but canDraw never becomes true and no image data is written, so
+    // drawContext() is effectively a no-op. This means the scorecard/overlay compositing layer
+    // (SET_BACKGROUND → drawContext) does not restore captured content as intended.
     // const save = state.save[state.saveIndex];
     // save.canDraw = true;
     // save.x = x;
@@ -431,6 +458,11 @@ const LOAD_PALETTE = (state) => { };
 const ADS_UNKNOWN_0 = (state) => { };
 
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
+    // TODO: Entirely commented out — ADS conditional "skip block if scene not yet played" is
+    // unimplemented. Without this, IF_NOT_PLAYED/IF_NOT_RUNNING/IF_RUNNING blocks always execute
+    // unconditionally, which can cause incorrect scene sequencing.
+    // NOTE: The stub below also has a type error: it checks state.played as an array, but
+    // state.played is a boolean in the current implementation.
     // if (state.continue) {
     //     state.continue = false;
     // }
@@ -509,8 +541,8 @@ const PLAY_SCENE = (state) => {
         canContinue = true;
     }
 
-    console.log("Remove Scenes", removeScenes.slice(0));
-    console.log("Scenes", scenes.slice(0));
+    console.log("Remove Scenes", removeScenes.slice(0)); // BUG: debug log, remove before release
+    console.log("Scenes", scenes.slice(0)); // BUG: debug log, remove before release
     
     state.continue = canContinue;
 };
@@ -550,6 +582,8 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
 }
 
 const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
+    // NOTE: scenesRes is 0-indexed; sceneIdx in ADD_SCENE is 1-based → scenesRes[sceneIdx - 1].
+    // A sceneIdx of 0 would return undefined (logged below).
     const ttm = scenesRes[sceneIdx - 1];
     if (ttm === undefined || ttm.scenes === undefined) {
         console.log('add failed ttm', sceneIdx, tagId);
@@ -571,6 +605,8 @@ const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         return;
     }
     if (!scenes.length) {
+        // BUG: unshift mutates the shared script array from scenesRes. Re-adding the same scene
+        // keeps prepending the prologue, permanently corrupting the parsed TTM data for future runs.
         s.script.unshift(...ttm.scenes[0].script);
         s.state = Object.assign({}, state, stateInit);
     } else {
@@ -625,6 +661,9 @@ const ADS_FADE_OUT = (state) => { };
 const RUN_SCRIPT = (state) => { };
 
 const END = (state) => {
+    // NOTE: END toggles state.continue. The authoritative end-of-script signal is detected in
+    // runScript() when reentry reaches script.length-1, which sets state.played = true and
+    // advances currentScene. This toggle is a secondary signal used by the scene cleanup path.
     if (!state.continue) {
         state.continue = true;
     } else if (state.continue) {
@@ -682,6 +721,12 @@ const CommandType = [
     { opcode: 0xF020, callback: LOAD_IMAGE },
     { opcode: 0xF050, callback: LOAD_PALETTE },
     // ADS COMMANDS
+    // BUG: Several ADS-only opcodes duplicate TTM opcode values. CommandType.find() returns the
+    // first match, so the ADS callbacks below are unreachable:
+    //   STOP_SCENE  (0x2010) → shadowed by SET_FRAME1
+    //   ADS_FADE_OUT (0xf010) → shadowed by LOAD_SCREEN (0xF010 === 0xf010 in JS)
+    //   ADS_UNKNOWN_6 (0x4000) → shadowed by SET_CLIP_REGION
+    // Fix: maintain separate TTM and ADS dispatch tables keyed by script type.
     { opcode: 0x1070, callback: ADS_UNKNOWN_0 },
     { opcode: 0x1330, callback: IF_NOT_PLAYED },
     { opcode: 0x1350, callback: IF_PLAYED },
@@ -705,6 +750,9 @@ const CommandType = [
 ];
 
 const runScript = (state, script, main = false) => {
+    // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
+    // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
+    // TTM child scenes use their own state objects (each has its own reentry).
     if (script === undefined || state.reentry === -1) {
         return true;
     }
@@ -784,6 +832,9 @@ const runScripts = () => {
 };
 
 export const startProcess = (initialState) => {
+    // NOTE: The ...initialState spread at the end silently overrides all defaults above it.
+    // Callers should only pass the expected keys (context, mainContext, entries, data, type,
+    // audioManager, onComplete) to avoid accidentally clobbering runtime state.
     // FIXME this state needs a deep clean up
     state = {
         data: null,

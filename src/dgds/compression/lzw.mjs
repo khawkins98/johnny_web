@@ -1,4 +1,16 @@
 /* eslint-disable */
+/**
+ * LZW decompressor for DGDS resource data.
+ *
+ * This is a variant of LZW used by the DGDS engine. Key notes:
+ *  - Code 256 is the clear/reset signal (not end-of-data).
+ *  - Initial freeEntry is 257; after a reset it is set to 256, so the first post-reset
+ *    entry occupies slot 256 (the clear code slot). This is non-standard but works with
+ *    DGDS data in practice.
+ *  - NOTE: The entire decompression loop is wrapped in a try/catch. Any error returns
+ *    partial (possibly corrupt) pixel data silently — callers have no way to detect truncation.
+ *  - getBits reads across byte boundaries using a running current byte + nextBit cursor.
+ */
 const getBits = (data, offset, numBits, current, nextBit) => {
     let value = 0, innerOffset = 0;
     if (numBits === 0) {
