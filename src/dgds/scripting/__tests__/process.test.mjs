@@ -629,3 +629,90 @@ describe('ADS_FADE_OUT handler', () => {
         expect(entry.callback.name).toBe('ADS_FADE_OUT');
     });
 });
+
+// ---------------------------------------------------------------------------
+// Characterization tests — lock down critical cross-cutting behaviors
+// ---------------------------------------------------------------------------
+
+// Scenario A: PLAY_SCENE remove-before-add ordering
+describe('PLAY_SCENE — remove-before-add ordering', () => {
+    let consoleSpy;
+    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+    afterEach(() => { consoleSpy.mockRestore(); });
+
+    it('records removed scenes in playedHistory before processing addScenes', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+        const mockState = {
+            continue: true,
+            playedHistory: new Set(),
+            scenes: [{ sceneIdx: 1, tagId: 5, lifecycle: 'running', state: { played: true } }],
+            removeScenes: [{ sceneIdx: 1, tagId: 5 }],
+            // addScenes references sceneIdx=1 which is absent from scenesRes
+            // → getSceneState early-returns before document.createElement
+            addScenes: [{ sceneIdx: 1, tagId: 7, retriesDelay: 0 }],
+            scenesRes: {},
+        };
+        entry.callback(mockState);
+        // Remove phase ran first: scene 1:5 recorded and spliced out
+        expect(mockState.playedHistory.has('1:5')).toBe(true);
+        expect(mockState.removeScenes).toHaveLength(0);
+        expect(mockState.scenes.find(s => s.sceneIdx === 1 && s.tagId === 5)).toBeUndefined();
+        // addScenes phase ran but found no TTM data, so nothing added
+        expect(mockState.addScenes).toHaveLength(0);
+    });
+});
+
+// Scenario B & C: END batch-clear semantics
+describe('END — batch-clear semantics', () => {
+    it('clears all scenes and records each in playedHistory when lastCommand=true', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const mockState = {
+            continue: true,
+            lastCommand: true,
+            scenes: [{ sceneIdx: 1, tagId: 5, state: { played: true } }],
+            playedHistory: new Set(),
+        };
+        entry.callback(mockState);
+        expect(mockState.scenes).toHaveLength(0);
+        expect(mockState.playedHistory.has('1:5')).toBe(true);
+        expect(mockState.continue).toBe(true);
+    });
+
+    it('does NOT clear scenes when lastCommand=false', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const mockState = {
+            continue: true,
+            lastCommand: false,
+            scenes: [{ sceneIdx: 1, tagId: 5, state: { played: true } }],
+            playedHistory: new Set(),
+        };
+        entry.callback(mockState);
+        expect(mockState.scenes).toHaveLength(1);
+        expect(mockState.playedHistory.size).toBe(0);
+    });
+});
+
+// Scenario D: runScript TTM completion sets played=true, runs=1
+describe('runScript — TTM script completion', () => {
+    let consoleSpy;
+    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+    afterEach(() => { consoleSpy.mockRestore(); });
+
+    it('sets played=true and runs=1 after completing a single-command TTM script', () => {
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            continue: true,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+            type: 'TTM',
+            currentScene: 0,
+        };
+        const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
+        runScript(mockState, script, false);
+        expect(mockState.played).toBe(true);
+        expect(mockState.runs).toBe(1);
+    });
+});
