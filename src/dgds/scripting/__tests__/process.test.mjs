@@ -150,11 +150,13 @@ describe('runScript scene transition', () => {
     });
 
     it('increments currentScene after the last command completes when main=true', () => {
-        // A single-command ADS script using PURGE (0x0110, no-op callback).
-        // When runScript reaches the final command with main=true it must set
-        // state.played=true and advance state.currentScene.
+        // A single-command ADS script using PURGE (0x0110, not in ADSDispatch so skipped).
+        // When runScript exhausts script[0] as last entry, reentry===0===length-1 triggers
+        // end-of-script: played=true and currentScene advances.
         const mockState = {
             reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
             continue: true,
             lastCommand: false,
             runs: 0,
@@ -171,6 +173,8 @@ describe('runScript scene transition', () => {
     it('does NOT increment currentScene when main=false (TTM child scene)', () => {
         const mockState = {
             reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
             continue: true,
             lastCommand: false,
             runs: 0,
@@ -187,6 +191,8 @@ describe('runScript scene transition', () => {
     it('increments state.runs on each completed script pass', () => {
         const mockState = {
             reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
             continue: true,
             lastCommand: false,
             runs: 0,
@@ -208,5 +214,318 @@ describe('runScript scene transition', () => {
         const mockState = { reentry: -1, continue: true };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
         expect(runScript(mockState, script, false)).toBe(true);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// SET_TIMER handler
+// ---------------------------------------------------------------------------
+describe('SET_TIMER handler', () => {
+    const entry = CommandType.find(e => e.opcode === 0x2020);
+
+    it('sets timer to timer*20 + delay*20', () => {
+        const mockState = { timer: 0 };
+        entry.callback(mockState, 3, 5); // delay=3, timer=5
+        expect(mockState.timer).toBe(5 * 20 + 3 * 20); // 160
+    });
+
+    it('uses delay=1 when delay argument is 0', () => {
+        const mockState = { timer: 0 };
+        entry.callback(mockState, 0, 5); // delay=0 → treated as 1
+        expect(mockState.timer).toBe(5 * 20 + 1 * 20); // 120
+    });
+});
+
+// ---------------------------------------------------------------------------
+// IF_NOT_PLAYED handler
+// ---------------------------------------------------------------------------
+describe('IF_NOT_PLAYED handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1330);
+
+    const makeState = (played, script) => ({
+        playedHistory: new Set(played),
+        data: { scenes: [{ script }] },
+        currentScene: 0,
+        reentryNow: 0,
+        jumpTo: undefined,
+    });
+
+    it('does not set jumpTo when scene is NOT in playedHistory (execute block)', () => {
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },
+            { opcode: 0x1430, params: [] },
+            { opcode: 0xfff0, params: [] },
+        ];
+        const state = makeState([], script);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('sets jumpTo to endIfIdx+1 when scene IS in playedHistory (skip block)', () => {
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },  // index 0: IF_NOT_PLAYED
+            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0xfff0, params: [] },       // index 2: END_IF
+            { opcode: 0x1430, params: [] },       // index 3: after block
+        ];
+        const state = makeState(['1:7'], script);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+
+    it('leaves jumpTo undefined when no END_IF found (graceful no-op)', () => {
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },
+            { opcode: 0x1430, params: [] },
+        ];
+        const state = makeState(['1:7'], script);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('correctly uses composite "sceneIdx:tagId" key — different tagId does not match', () => {
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },
+            { opcode: 0xfff0, params: [] },
+        ];
+        // '1:8' in history but checking '1:7' — should NOT trigger a jump
+        const state = makeState(['1:8'], script);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// IF_NOT_RUNNING handler
+// ---------------------------------------------------------------------------
+describe('IF_NOT_RUNNING handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1360);
+
+    const makeState = (scenes) => ({
+        scenes,
+        data: { scenes: [{ script: [
+            { opcode: 0x1360, params: [1, 7] },  // index 0
+            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0xfff0, params: [] },       // index 2: END_IF
+            { opcode: 0x1430, params: [] },       // index 3: after block
+        ]}] },
+        currentScene: 0,
+        reentryNow: 0,
+        jumpTo: undefined,
+    });
+
+    it('sets jumpTo to skip block when scene lifecycle is "active"', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+
+    it('sets jumpTo to skip block when scene lifecycle is "running"', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+
+    it('does not set jumpTo when scene lifecycle is "completed"', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('does not set jumpTo when scene is absent from scenes[]', () => {
+        const state = makeState([]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// IF_RUNNING handler
+// ---------------------------------------------------------------------------
+describe('IF_RUNNING handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1370);
+
+    const makeState = (scenes) => ({
+        scenes,
+        data: { scenes: [{ script: [
+            { opcode: 0x1370, params: [1, 7] },  // index 0
+            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0xfff0, params: [] },       // index 2: END_IF
+            { opcode: 0x1430, params: [] },       // index 3: after block
+        ]}] },
+        currentScene: 0,
+        reentryNow: 0,
+        jumpTo: undefined,
+    });
+
+    it('does not set jumpTo when scene lifecycle is "active" (execute block)', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('does not set jumpTo when scene lifecycle is "running" (execute block)', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('sets jumpTo when scene is absent (not running → skip block)', () => {
+        const state = makeState([]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+
+    it('sets jumpTo when scene lifecycle is "completed" (no longer running → skip block)', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// runScript — jumpTo / reentryNow mechanism
+// ---------------------------------------------------------------------------
+describe('runScript jumpTo mechanism', () => {
+    let origAndCallback;
+
+    beforeEach(() => {
+        origAndCallback = ADSDispatch.find(e => e.opcode === 0x1420).callback;
+    });
+
+    afterEach(() => {
+        ADSDispatch.find(e => e.opcode === 0x1420).callback = origAndCallback;
+    });
+
+    it('skips the block when IF_NOT_PLAYED fires (scene already in playedHistory)', () => {
+        // Script: IF_NOT_PLAYED | OR (inside block) | END_IF | OR (after block)
+        // IF_NOT_PLAYED sees '1:7' in history → sets jumpTo=3, skipping indices 1-2.
+        // Execution resumes at index 3. Index 3 is the last command, so played=true.
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },  // 0: IF_NOT_PLAYED
+            { opcode: 0x1430, params: [] },       // 1: OR — inside block (skipped)
+            { opcode: 0xfff0, params: [] },       // 2: END_IF
+            { opcode: 0x1430, params: [] },       // 3: OR — after block (runs)
+        ];
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            continue: true,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+            type: 'ADS',
+            currentScene: 0,
+            playedHistory: new Set(['1:7']),
+            data: { scenes: [{ script }] },
+            scenes: [],
+        };
+        runScript(mockState, script, true);
+        expect(mockState.played).toBe(true);
+        expect(mockState.currentScene).toBe(1);
+    });
+
+    it('does not skip the block when IF_NOT_PLAYED fires (scene NOT in playedHistory)', () => {
+        const script = [
+            { opcode: 0x1330, params: [1, 7] },  // 0: IF_NOT_PLAYED — NOT in history → no jump
+            { opcode: 0x1430, params: [] },       // 1: OR — executes normally
+            { opcode: 0xfff0, params: [] },       // 2: END_IF — executes normally
+            { opcode: 0x1430, params: [] },       // 3: OR — executes normally
+        ];
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            continue: true,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+            type: 'ADS',
+            currentScene: 0,
+            playedHistory: new Set(),
+            data: { scenes: [{ script }] },
+            scenes: [],
+        };
+        runScript(mockState, script, true);
+        // All 4 commands ran; last one (index 3) sets reentry=3 → end-of-script
+        expect(mockState.played).toBe(true);
+        expect(mockState.currentScene).toBe(1);
+    });
+
+    it('sets state.reentryNow to the index of each command before invoking its callback', () => {
+        let capturedIdx = -1;
+        const andEntry = ADSDispatch.find(e => e.opcode === 0x1420);
+        andEntry.callback = (state, ...params) => {
+            capturedIdx = state.reentryNow;
+            origAndCallback(state, ...params);
+        };
+        const script = [
+            { opcode: 0x1430, params: [] },  // 0: OR (no spy)
+            { opcode: 0x1420, params: [] },  // 1: AND (spy captures reentryNow)
+        ];
+        const mockState = {
+            reentry: 0,
+            reentryNow: 0,
+            jumpTo: undefined,
+            continue: true,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+            type: 'ADS',
+            currentScene: 0,
+            playedHistory: new Set(),
+            data: { scenes: [{ script }] },
+            scenes: [],
+        };
+        runScript(mockState, script, true);
+        expect(capturedIdx).toBe(1);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// PLAY_SCENE — playedHistory tracking
+// ---------------------------------------------------------------------------
+describe('PLAY_SCENE playedHistory tracking', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+
+    it('adds removed scenes to playedHistory before splicing them out', () => {
+        const mockState = {
+            continue: true,
+            playedHistory: new Set(),
+            scenes: [{ sceneIdx: 1, tagId: 7, state: { played: true, timer: 0 } }],
+            removeScenes: [{ sceneIdx: 1, tagId: 7 }],
+            addScenes: [],
+            scenesRes: {},
+        };
+        entry.callback(mockState);
+        expect(mockState.playedHistory.has('1:7')).toBe(true);
+        expect(mockState.scenes).toHaveLength(0);
+    });
+
+    it('does not mark playedHistory if the scene is not found in scenes[]', () => {
+        const mockState = {
+            continue: true,
+            playedHistory: new Set(),
+            scenes: [],
+            removeScenes: [{ sceneIdx: 1, tagId: 7 }],
+            addScenes: [],
+            scenesRes: {},
+        };
+        entry.callback(mockState);
+        expect(mockState.playedHistory.has('1:7')).toBe(false);
+    });
+
+    it('is a no-op when continue is false', () => {
+        const mockState = {
+            continue: false,
+            playedHistory: new Set(),
+            scenes: [{ sceneIdx: 1, tagId: 7, state: {} }],
+            removeScenes: [{ sceneIdx: 1, tagId: 7 }],
+            addScenes: [],
+        };
+        entry.callback(mockState);
+        expect(mockState.playedHistory.size).toBe(0);
+        expect(mockState.scenes).toHaveLength(1);
     });
 });
