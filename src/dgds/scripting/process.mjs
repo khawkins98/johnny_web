@@ -11,7 +11,7 @@
  * Limitations / known issues:
  *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
  *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
- *  - NOTE: Several TTM opcodes remain stubs (FADE_OUT, FADE_IN, SAVE_REGION, GOTO full-jump,
+ *  - NOTE: Several TTM opcodes remain stubs (FADE_IN, SAVE_REGION, GOTO full-jump,
  *    region save/restore). These are deferred to Phase 2 of the refactor. */
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
@@ -188,6 +188,25 @@ const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
 
 const FADE_OUT = (state) => { };
 const FADE_IN = (state) => { };
+
+// ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent
+// frame the opacity increases. Once fully black, unblocks and lets END advance the scene.
+// The overlay is drawn in runScripts so it remains visible for the final frame even after
+// END clears the child scenes.
+const ADS_FADE_OUT = (state) => {
+    if (state.continue) {
+        state.fadingOut = true;
+        state.fadeOpacity = 0;
+        state.continue = false;
+        return;
+    }
+    state.fadeOpacity = Math.min(1, state.fadeOpacity + state.frameDelta / 400);
+    if (state.fadeOpacity >= 1) {
+        // Unblock so END can fire — fadingOut stays true so runScripts still draws the
+        // full-black overlay on this frame, then clears fadingOut after drawing.
+        state.continue = true;
+    }
+};
 
 const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
     const save = state.saveBkg[0];
@@ -533,16 +552,9 @@ const PLAY_SCENE = (state) => {
         }
     }
 
-    let canContinue = false;
-    state.scenes.forEach(s => {
-        canContinue = canContinue | (s.state.runs > 0) ? true : false;
-    });
-
-    if (state.scenes.length === 0) {
-        canContinue = true;
-    }
-
-    state.continue = canContinue;
+    // Block until all newly-added ('active') scenes have completed their first loop.
+    // Scenes already 'running' or 'completed' do not block advancement.
+    state.continue = !state.scenes.some(s => s.lifecycle === 'active');
 };
 
 const PLAY_SCENE_2 = (state) => { };
@@ -676,7 +688,6 @@ const RANDOM_END = (state) => {
 };
 
 const ADS_UNKNOWN_6 = (state) => { };
-const ADS_FADE_OUT = (state) => { };
 const RUN_SCRIPT = (state) => { };
 
 const END = (state) => {
@@ -869,6 +880,18 @@ const runScripts = () => {
                 state.context.drawImage(s.state.context.canvas, 0, 0);
             });
         }
+
+        // Draw fade-to-black overlay on top of composited sprites (applied whether or not
+        // child scenes are running, so the overlay shows on the END-fires frame too).
+        if (state.fadingOut) {
+            state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
+            state.context.fillRect(0, 0, 640, 480);
+            // Clear only after drawing so the full-black frame is visible before the next gag.
+            if (state.fadeOpacity >= 1 && state.continue) {
+                state.fadingOut = false;
+            }
+        }
+
         return exitFrame;
     } else {
         if (state.island) {
@@ -933,6 +956,8 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         reentryNow: 0,
         jumpTo: undefined,
+        fadingOut: false,
+        fadeOpacity: 0,
         ...initialState,
     };
 

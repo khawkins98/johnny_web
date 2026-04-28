@@ -529,3 +529,103 @@ describe('PLAY_SCENE playedHistory tracking', () => {
         expect(mockState.scenes).toHaveLength(1);
     });
 });
+
+// ---------------------------------------------------------------------------
+// PLAY_SCENE — canContinue (lifecycle-based blocking)
+// ---------------------------------------------------------------------------
+describe('PLAY_SCENE canContinue logic', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+
+    it('unblocks immediately when scenes list is empty', () => {
+        const state = { continue: false, scenes: [], removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {} };
+        entry.callback(state);
+        expect(state.continue).toBe(true);
+    });
+
+    it('unblocks when all scenes are "running" (no "active" scenes waiting)', () => {
+        const state = {
+            continue: false,
+            scenes: [
+                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: {} },
+                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: {} },
+            ],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+        entry.callback(state);
+        expect(state.continue).toBe(true);
+    });
+
+    it('stays blocked when any scene is "active" (newly added, not yet looped)', () => {
+        const state = {
+            continue: false,
+            scenes: [
+                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { runs: 3 } },
+                { sceneIdx: 1, tagId: 2, lifecycle: 'active',  state: { runs: 0 } },
+            ],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+        entry.callback(state);
+        expect(state.continue).toBe(false);
+    });
+
+    it('does NOT unblock prematurely when old "running" scenes coexist with new "active" scene', () => {
+        // Regression: previous canContinue logic used bitwise-OR sticky ratchet that
+        // returned true as soon as any scene had runs > 0, even if a newly-added scene
+        // (lifecycle:'active', runs:0) had not yet run.
+        const state = {
+            continue: false,
+            scenes: [
+                { sceneIdx: 5, tagId: 42, lifecycle: 'running', state: { runs: 5 } },
+                { sceneIdx: 5, tagId: 12, lifecycle: 'active',  state: { runs: 0 } },
+            ],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+        entry.callback(state);
+        expect(state.continue).toBe(false);
+    });
+
+    it('unblocks when all scenes are "completed"', () => {
+        const state = {
+            continue: false,
+            scenes: [{ sceneIdx: 1, tagId: 1, lifecycle: 'completed', state: {} }],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+        entry.callback(state);
+        expect(state.continue).toBe(true);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// ADS_FADE_OUT — fade-to-black animation
+// ---------------------------------------------------------------------------
+describe('ADS_FADE_OUT handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0xf010);
+
+    it('starts the fade on first call (continue=true): sets fadingOut, opacity=0, blocks', () => {
+        const state = { continue: true, fadingOut: false, fadeOpacity: 0, frameDelta: 16 };
+        entry.callback(state);
+        expect(state.fadingOut).toBe(true);
+        expect(state.fadeOpacity).toBe(0);
+        expect(state.continue).toBe(false);
+    });
+
+    it('increments opacity each frame while fading (continue=false)', () => {
+        const state = { continue: false, fadingOut: true, fadeOpacity: 0.5, frameDelta: 100 };
+        entry.callback(state);
+        expect(state.fadeOpacity).toBeCloseTo(0.75); // 0.5 + 100/400
+        expect(state.continue).toBe(false);
+    });
+
+    it('clamps opacity at 1 and unblocks when fade is complete', () => {
+        const state = { continue: false, fadingOut: true, fadeOpacity: 0.95, frameDelta: 100 };
+        entry.callback(state);
+        expect(state.fadeOpacity).toBe(1);
+        expect(state.fadingOut).toBe(true);  // still true so runScripts draws the black frame
+        expect(state.continue).toBe(true);   // unblocks so END can fire
+    });
+
+    it('is named ADS_FADE_OUT in the dispatch table', () => {
+        expect(entry).toBeDefined();
+        expect(entry.callback.name).toBe('ADS_FADE_OUT');
+    });
+});
