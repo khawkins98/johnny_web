@@ -521,9 +521,6 @@ const PLAY_SCENE = (state) => {
         canContinue = true;
     }
 
-    console.log("Remove Scenes", state.removeScenes.slice(0)); // BUG: debug log, remove before release
-    console.log("Scenes", state.scenes.slice(0)); // BUG: debug log, remove before release
-    
     state.continue = canContinue;
 };
 
@@ -745,9 +742,6 @@ export const runScript = (state, script, main = false) => {
         if (!type) {
             continue;
         }
-        if (main) {
-            console.log(c.line);
-        }
         if (i === (script.length - 1)) {
             state.lastCommand = true;
         }
@@ -767,6 +761,9 @@ export const runScript = (state, script, main = false) => {
         state.played = true;
         if (main) {
             state.currentScene++;
+            // Reset lastCommand so the next ADS scene's intermediate END doesn't
+            // inherit the stale "final command" flag and prematurely clear child scenes.
+            state.lastCommand = false;
         }
         if (state.type === 'TTM') {
             return true;
@@ -917,7 +914,6 @@ export const startProcess = (initialState) => {
             }
         });
     }
-    console.log(state.data.scenes);
     mainloop();
 
     return state;
