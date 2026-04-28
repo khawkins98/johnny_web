@@ -500,13 +500,10 @@ const PLAY_SCENE = (state) => {
         }
         if (state.addScenes.length > 0) {
             state.addScenes.forEach(s => {
-                state.scenes.push(getSceneState(
-                    state,
-                    s.sceneIdx,
-                    s.tagId, 
-                    s.retriesDelay,
-                    s.unk,
-                ));
+                const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
+                if (scene !== undefined) {
+                    state.scenes.push(scene);
+                }
             });
             state.addScenes = [];
         }
