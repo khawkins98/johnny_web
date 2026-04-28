@@ -11,8 +11,8 @@
  * Limitations / known issues:
  *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
  *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
- *  - NOTE: Active console.log calls remain throughout this file (runScript, startProcess,
- *    PLAY_SCENE, getSceneState). Remove before a production build. */
+ *  - NOTE: Several TTM opcodes remain stubs (FADE_OUT, FADE_IN, SAVE_REGION, GOTO full-jump,
+ *    region save/restore). These are deferred to Phase 2 of the refactor. */
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
 import { drawImage, drawScreen, getPaletteColor } from '../graphics.mjs';
@@ -167,10 +167,8 @@ const SET_COLORS = (state, fc, bc) => {
 const SET_FRAME1 = (state) => { };
 
 const SET_TIMER = (state, delay, timer) => {
-    // NOTE: state.timer is set but never consumed or decremented anywhere in the main loop.
-    // IF_PLAYED checks `scene.state.timer === 0`, which is always true — timer-based scene
-    // removal/branching is effectively dead.
-    // state.delay = ((delay === 0 ? 1 : delay) * 20);
+    // Timer in milliseconds. Decremented each frame (in runScripts) by state.frameDelta.
+    // IF_PLAYED checks scene.state.timer === 0 to allow scene removal once the timer expires.
     state.timer = timer * 20 + ((delay === 0 ? 1 : delay) * 20);
 };
 
@@ -438,23 +436,19 @@ const LOAD_PALETTE = (state) => { };
 const ADS_UNKNOWN_0 = (state) => { };
 
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
-    // TODO: Entirely commented out — ADS conditional "skip block if scene not yet played" is
-    // unimplemented. Without this, IF_NOT_PLAYED/IF_NOT_RUNNING/IF_RUNNING blocks always execute
-    // unconditionally, which can cause incorrect scene sequencing.
-    // NOTE: The stub below also has a type error: it checks state.played as an array, but
-    // state.played is a boolean in the current implementation.
-    // if (state.continue) {
-    //     state.continue = false;
-    // }
-    // if (state.played.length > 0) {
-    //     const scene = state.played.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
-    //     if (scene !== undefined) {
-    //         state.continue = true;
-    //         // TODO OR Skip
-    //     }
-    // } else {
-    //     state.continue = true;
-    // }
+    // Block the current script if the scene has NOT yet played this ADS run
+    // (i.e., should execute the block). Skip the block if it HAS played.
+    if (!state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
+        // Not played yet → execute the block (continue = true, no jump needed)
+        return;
+    }
+    // Already played → skip to after the matching END_IF
+    const script = state.data.scenes[state.currentScene].script;
+    const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+    if (endIfIdx !== -1) {
+        // jumpTo is read by runScript after the callback to advance past END_IF
+        state.jumpTo = endIfIdx + 1;
+    }
 };
 
 const IF_PLAYED = (state, sceneIdx, tagId) => {
@@ -482,8 +476,34 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     }
 };
 
-const IF_NOT_RUNNING = (state) => { };
-const IF_RUNNING = (state) => { };
+const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
+    // Block if the scene IS currently active (skip block if already running).
+    // "Running" = in state.scenes with lifecycle 'active' or 'running'.
+    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
+    if (isRunning) {
+        // Scene is running → skip this block (find END_IF and jump past it)
+        const script = state.data.scenes[state.currentScene].script;
+        const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+        if (endIfIdx !== -1) {
+            state.jumpTo = endIfIdx + 1;
+        }
+    }
+    // else: not running → execute the block (continue = true, no jump)
+};
+
+const IF_RUNNING = (state, sceneIdx, tagId) => {
+    // Block if the scene is NOT currently active (skip block if NOT running).
+    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
+    if (!isRunning) {
+        const script = state.data.scenes[state.currentScene].script;
+        const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+        if (endIfIdx !== -1) {
+            state.jumpTo = endIfIdx + 1;
+        }
+    }
+};
 const AND = (state) => { };
 const OR = (state) => { };
 
@@ -494,7 +514,11 @@ const PLAY_SCENE = (state) => {
         if (state.removeScenes.length > 0) {
             state.removeScenes.forEach(s => {
                 const index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId);
-                if (index !== -1) state.scenes.splice(index, 1);
+                if (index !== -1) {
+                    // Record in history before removing so IF_NOT_PLAYED works correctly.
+                    state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
+                    state.scenes.splice(index, 1);
+                }
             });
             state.removeScenes = [];
         }
@@ -573,18 +597,39 @@ const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
 
     const stateInit = { ...initialState, type: 'TTM', context: canvas.getContext('2d') };
 
-    const s = Object.assign({ sceneIdx, delay, retries }, scene);
+    const s = Object.assign({ sceneIdx, delay, retries, lifecycle: 'active' }, scene);
     if (s.script === undefined) {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;
     }
     if (!state.scenes.length) {
-        // Prepend the TTM prologue (scenes[0]) into a new array to avoid mutating
-        // the shared parsed script in scenesRes.
+        // First TTM scene: prepend the TTM prologue (scenes[0]) so it loads resources,
+        // then copy main ADS state as the base (provides audioManager, entries, island, etc.).
         s.script = [...ttm.scenes[0].script, ...s.script];
         s.state = Object.assign({}, state, stateInit);
     } else {
-        s.state = Object.assign({}, state.scenes[0].state, stateInit);
+        // Subsequent TTM scenes: start from main ADS state, then overlay only the
+        // prologue-loaded assets from the first sibling (res[], background, palette, canvases).
+        // Finally apply stateInit to reset all runtime fields (reentry, played, runs, etc.)
+        // so we don't inherit stale execution state from the sibling.
+        const firstSibling = state.scenes[0].state;
+        s.state = Object.assign(
+            {},
+            state,                         // base: ADS config (audioManager, entries, island…)
+            {                              // prologue-loaded assets from first sibling
+                res: firstSibling.res,
+                bkgScreen: firstSibling.bkgScreen,
+                bkgRes: firstSibling.bkgRes,
+                bkgRaft: firstSibling.bkgRaft,
+                bkgOcean: firstSibling.bkgOcean,
+                saveBkg: firstSibling.saveBkg,
+                save: firstSibling.save,
+                tmpContext: firstSibling.tmpContext,
+                foregroundColor: firstSibling.foregroundColor,
+                backgroundColor: firstSibling.backgroundColor,
+            },
+            stateInit,                     // fresh runtime state (reentry=0, played=false…)
+        );
     }
     return s;
 };
@@ -645,6 +690,8 @@ const END = (state) => {
     }
     const scene = state.scenes.find(s => s.state.played);
     if (state.lastCommand && scene !== undefined) {
+        // Batch-clear all child scenes; record each in history so IF_NOT_PLAYED sees them.
+        state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
         state.scenes = [];
         state.continue = true;
     }
@@ -742,8 +789,16 @@ export const runScript = (state, script, main = false) => {
         if (i === (script.length - 1)) {
             state.lastCommand = true;
         }
+        state.reentryNow = i;  // expose current index to callbacks (e.g. IF_NOT_PLAYED jump)
         type.callback(state, ...c.params);
-        state.reentry = i;
+        if (state.jumpTo !== undefined) {
+            // Callback requested a forward jump (e.g. IF_NOT_PLAYED skipping a block).
+            i = state.jumpTo - 1;  // -1 because the loop will i++ before next iteration
+            state.reentry = i;
+            state.jumpTo = undefined;
+        } else {
+            state.reentry = i;
+        }
         if (!state.continue) {
             break;
         }
@@ -799,6 +854,16 @@ const runScripts = () => {
         if (!state.continue) {
             state.scenes.forEach(s => {
                 runScript(s.state, s.script);
+                // Update lifecycle based on execution result.
+                if (s.state.played) {
+                    s.lifecycle = 'completed';
+                } else if (s.state.runs > 0) {
+                    s.lifecycle = 'running';
+                }
+                // Tick down any active timer so IF_PLAYED's timer check works correctly.
+                if (s.state.timer > 0) {
+                    s.state.timer = Math.max(0, s.state.timer - state.frameDelta);
+                }
             });
             state.scenes.forEach(s => {
                 state.context.drawImage(s.state.context.canvas, 0, 0);
@@ -864,6 +929,10 @@ export const startProcess = (initialState) => {
         played: false,
         runs: 0,
         lastCommand: false,
+        playedHistory: new Set(),
+        frameDelta: 0,
+        reentryNow: 0,
+        jumpTo: undefined,
         ...initialState,
     };
 
@@ -936,6 +1005,7 @@ const mainloop = () => {
 
     state.tick = Date.now();
     const elapsed = state.tick - state.prevTick;
+    state.frameDelta = elapsed;
 
     if (elapsed > fps) {
         state.prevTick = state.tick - (elapsed % fps);
