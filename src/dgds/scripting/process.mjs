@@ -20,28 +20,9 @@ import { drawImage, drawScreen, getPaletteColor } from '../graphics.mjs';
 
 import { PALETTE } from '../../scrantic/palette.mjs';
 
-let tick = null;
-let prevTick = Date.now();
-let elapsed = null;
 const fps = 1000 / 60;
 
 let state = null;
-let currentScene = 0;
-
-let scenesRes = [];
-let scenes = [];
-let scenesRandom = [];
-let addScenes = [];
-let removeScenes = [];
-
-let bkgScreen = null;
-let bkgRes = null;
-let bkgOcean = [];
-let bkgRaft = null;
-let cloudIdx = Math.floor((Math.random() * 3) + 15);
-let cloudX = Math.floor((Math.random() * 640));
-let cloudY = Math.floor((Math.random() * 80));
-let cloudElapsed = 0;
 
 const clearContext = (context) => {
     context.clearRect(0, 0, 640, 480);
@@ -60,59 +41,59 @@ const drawContext = (state, index) => {
 // delta used by the main loop. Cloud speed is tied to wall-clock time, not frame rate.
 const drawBackground = (state, context) => {
     // Draw background / ocean / night
-    if (bkgScreen) {
-        drawScreen(bkgScreen, context);
+    if (state.bkgScreen) {
+        drawScreen(state.bkgScreen, context);
     }
 
     if (state.island) {
         const posX = (state.island === 1) ? 288 : 16;
 
-        if (!cloudElapsed) {
-            cloudElapsed = Math.floor((Math.random() * 640)) + Date.now();
+        if (!state.cloudElapsed) {
+            state.cloudElapsed = Math.floor((Math.random() * 640)) + Date.now();
         }
-        if (Date.now() > cloudElapsed) {
-            cloudElapsed = 0;
-            cloudX--;
+        if (Date.now() > state.cloudElapsed) {
+            state.cloudElapsed = 0;
+            state.cloudX--;
         }
 
         // Draw island
-        if (bkgRes) {
+        if (state.bkgRes) {
             // Draw clouds (random and animated)
-            let image = bkgRes.images[cloudIdx];
+            let image = state.bkgRes.images[state.cloudIdx];
             drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, cloudX, cloudY, image.width, image.height);
+            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, state.cloudX, state.cloudY, image.width, image.height);
 
             // Draw raft based on state
-            image = bkgRaft.images[3];
+            image = state.bkgRaft.images[3];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 222, 268, image.width, image.height);
 
             // isle
-            image = bkgRes.images[0];
+            image = state.bkgRes.images[0];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX, 280, image.width, image.height);
 
             // palm tree
-            image = bkgRes.images[14];
+            image = state.bkgRes.images[14];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 108, 280, image.width, image.height);
-            image = bkgRes.images[13];
+            image = state.bkgRes.images[13];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 154, 148, image.width, image.height);
-            image = bkgRes.images[12];
+            image = state.bkgRes.images[12];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 77, 122, image.width, image.height);
             
             // Draw shore with animations
-            image = bkgRes.images[3];
+            image = state.bkgRes.images[3];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX - 13, 305, image.width, image.height);
 
-            image = bkgRes.images[6];
+            image = state.bkgRes.images[6];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 76, 320, image.width, image.height);
 
-            image = bkgRes.images[10];
+            image = state.bkgRes.images[10];
             drawImage(image, state.tmpContext, 0, 0);
             context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 230, 303, image.width, image.height);
 
@@ -380,58 +361,58 @@ const SCREEN_TYPE = {
 
 const loadBackground = (state) => {
     // Load background assets if not loaded yet
-    if (!bkgRes) {
+    if (!state.bkgRes) {
         const entry = state.entries.find(e => e.name === 'BACKGRND.BMP');
         if (entry !== undefined) {
-            bkgRes = loadResourceEntry(entry);
+            state.bkgRes = loadResourceEntry(entry);
         }
     }
 }
 
 const loadRaft = (state) => {
-    if (!bkgRaft) {
+    if (!state.bkgRaft) {
         const entry = state.entries.find(e => e.name === 'MRAFT.BMP');
         if (entry !== undefined) {
-            bkgRaft = loadResourceEntry(entry);
+            state.bkgRaft = loadResourceEntry(entry);
         }
     }
 }
 
 const loadOcean = (state) => {
-    if (bkgOcean.length === 0) {
+    if (state.bkgOcean.length === 0) {
         // FIXME shorten this code later
         let entry = state.entries.find(e => e.name === 'OCEAN00.SCR');
         if (entry !== undefined) {
-            bkgOcean.push(loadResourceEntry(entry));
+            state.bkgOcean.push(loadResourceEntry(entry));
         }
         entry = state.entries.find(e => e.name === 'OCEAN01.SCR');
         if (entry !== undefined) {
-            bkgOcean.push(loadResourceEntry(entry));
+            state.bkgOcean.push(loadResourceEntry(entry));
         }
         entry = state.entries.find(e => e.name === 'OCEAN02.SCR');
         if (entry !== undefined) {
-            bkgOcean.push(loadResourceEntry(entry));
+            state.bkgOcean.push(loadResourceEntry(entry));
         }
         entry = state.entries.find(e => e.name === 'NIGHT.SCR');
         if (entry !== undefined) {
-            bkgOcean.push(loadResourceEntry(entry));
+            state.bkgOcean.push(loadResourceEntry(entry));
         }
         const isNight = false; // TODO: kept for future adaptation — implement day/night cycle
         let oceanIdx = Math.floor((Math.random() * 4)); // 0 to 3 (index 4 reserved for night)
         if (isNight) {
             oceanIdx = 4; // night ocean background
         }
-        bkgScreen = bkgOcean[oceanIdx];
+        state.bkgScreen = state.bkgOcean[oceanIdx];
     }
 }
 
 const LOAD_SCREEN = (state, name) => {
     state.island = SCREEN_TYPE[name];
     
-    if (!bkgScreen) {
+    if (!state.bkgScreen) {
         const entry = state.entries.find(e => e.name === name);
         if (entry !== undefined) {
-            bkgScreen = loadResourceEntry(entry);
+            state.bkgScreen = loadResourceEntry(entry);
         }
     }
 
@@ -481,12 +462,12 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     if (state.continue) {
         state.continue = false;
     }
-    let scene = scenes.find(s => 
+    let scene = state.scenes.find(s => 
         s.sceneIdx === sceneIdx && s.tagId === tagId
         && s.state.played);
     if (scene !== undefined) {
         if (scene.state.timer === 0) {
-            removeScenes.push({
+            state.removeScenes.push({
                 sceneIdx,
                 tagId,
             });
@@ -495,7 +476,7 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
         return;
     }
 
-    scene = scenes.find(s => 
+    scene = state.scenes.find(s => 
         s.sceneIdx === sceneIdx && s.tagId === tagId);
     if (scene === undefined) {
         state.continue = true;
@@ -511,16 +492,16 @@ const PLAY_SCENE = (state) => {
     if (state.continue) {
         state.continue = false;
 
-        if (removeScenes.length > 0) {
-            removeScenes.forEach(s => {
-                const index = scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId);
-                if (index !== -1) scenes.splice(index, 1);
+        if (state.removeScenes.length > 0) {
+            state.removeScenes.forEach(s => {
+                const index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId);
+                if (index !== -1) state.scenes.splice(index, 1);
             });
-            removeScenes = [];
+            state.removeScenes = [];
         }
-        if (addScenes.length > 0) {
-            addScenes.forEach(s => {
-                scenes.push(getSceneState(
+        if (state.addScenes.length > 0) {
+            state.addScenes.forEach(s => {
+                state.scenes.push(getSceneState(
                     state,
                     s.sceneIdx,
                     s.tagId, 
@@ -528,21 +509,21 @@ const PLAY_SCENE = (state) => {
                     s.unk,
                 ));
             });
-            addScenes = [];
+            state.addScenes = [];
         }
     }
 
     let canContinue = false;
-    scenes.forEach(s => {
+    state.scenes.forEach(s => {
         canContinue = canContinue | (s.state.runs > 0) ? true : false;
     });
 
-    if (scenes.length === 0) {
+    if (state.scenes.length === 0) {
         canContinue = true;
     }
 
-    console.log("Remove Scenes", removeScenes.slice(0)); // BUG: debug log, remove before release
-    console.log("Scenes", scenes.slice(0)); // BUG: debug log, remove before release
+    console.log("Remove Scenes", state.removeScenes.slice(0)); // BUG: debug log, remove before release
+    console.log("Scenes", state.scenes.slice(0)); // BUG: debug log, remove before release
     
     state.continue = canContinue;
 };
@@ -564,7 +545,7 @@ const initialState = {
 
 const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
     if (state.randomize) {
-        scenesRandom.push({
+        state.scenesRandom.push({
             sceneIdx,
             tagId, 
             retriesDelay,
@@ -573,7 +554,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
         return;    
     }
 
-    addScenes.push({
+    state.addScenes.push({
         sceneIdx,
         tagId, 
         retriesDelay,
@@ -584,7 +565,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
 const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     // NOTE: scenesRes is 0-indexed; sceneIdx in ADD_SCENE is 1-based → scenesRes[sceneIdx - 1].
     // A sceneIdx of 0 would return undefined (logged below).
-    const ttm = scenesRes[sceneIdx - 1];
+    const ttm = state.scenesRes[sceneIdx - 1];
     if (ttm === undefined || ttm.scenes === undefined) {
         console.log('add failed ttm', sceneIdx, tagId);
         return;
@@ -604,19 +585,19 @@ const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;
     }
-    if (!scenes.length) {
+    if (!state.scenes.length) {
         // BUG: unshift mutates the shared script array from scenesRes. Re-adding the same scene
         // keeps prepending the prologue, permanently corrupting the parsed TTM data for future runs.
         s.script.unshift(...ttm.scenes[0].script);
         s.state = Object.assign({}, state, stateInit);
     } else {
-        s.state = Object.assign({}, scenes[0].state, stateInit);
+        s.state = Object.assign({}, state.scenes[0].state, stateInit);
     }
     return s;
 };
 
 const STOP_SCENE = (state, sceneIdx, tagId, retries) => {
-    removeScenes.push({
+    state.removeScenes.push({
         sceneIdx,
         tagId,
         retries,
@@ -642,15 +623,15 @@ const STOP_SCENE = (state, sceneIdx, tagId, retries) => {
 
 const RANDOM_START = (state) => {
     state.randomize = true;
-    scenesRandom = [];
+    state.scenesRandom = [];
 };
 
 const RANDOM_UNKNOWN_0 = (state) => { };
 
 const RANDOM_END = (state) => {
     state.randomize = false;
-    const index = Math.floor((Math.random() * scenesRandom.length));
-    const scene = scenesRandom[index];
+    const index = Math.floor((Math.random() * state.scenesRandom.length));
+    const scene = state.scenesRandom[index];
     if (scene !== undefined) {
         ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.retriesDelay, scene.unk);
     }
@@ -669,9 +650,9 @@ const END = (state) => {
     } else if (state.continue) {
         state.continue = false;
     }
-    const scene = scenes.find(s => s.state.played);
+    const scene = state.scenes.find(s => s.state.played);
     if (state.lastCommand && scene !== undefined) {
-        scenes = [];
+        state.scenes = [];
         state.continue = true;
     }
 };
@@ -783,7 +764,7 @@ const runScript = (state, script, main = false) => {
         }
         state.played = true;
         if (main) {
-            currentScene++;
+            state.currentScene++;
         }
         if (state.type === 'TTM') {
             return true;
@@ -806,19 +787,19 @@ const runScripts = () => {
             state.context.drawImage(saveBkg.context.canvas, 0, 0);
         }
     
-        const scene = state.data.scenes[currentScene];
+        const scene = state.data.scenes[state.currentScene];
         if (scene !== undefined) {
             exitFrame = runScript(state, scene.script, true);
-        } else if (scenes.length === 0 && addScenes.length === 0) {
+        } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
             // All main ADS scenes played and no child scenes remain — done.
             exitFrame = true;
         }
         
         if (!state.continue) {
-            scenes.forEach(s => {
+            state.scenes.forEach(s => {
                 runScript(s.state, s.script);
             });
-            scenes.forEach(s => {
+            state.scenes.forEach(s => {
                 state.context.drawImage(s.state.context.canvas, 0, 0);
             });
         }
@@ -837,6 +818,22 @@ export const startProcess = (initialState) => {
     // audioManager, onComplete) to avoid accidentally clobbering runtime state.
     // FIXME this state needs a deep clean up
     state = {
+        currentScene: 0,
+        scenesRes: [],
+        scenes: [],
+        scenesRandom: [],
+        addScenes: [],
+        removeScenes: [],
+        bkgScreen: null,
+        bkgRes: null,
+        bkgOcean: [],
+        bkgRaft: null,
+        cloudIdx: Math.floor((Math.random() * 3) + 15),
+        cloudX: Math.floor((Math.random() * 640)),
+        cloudY: Math.floor((Math.random() * 80)),
+        cloudElapsed: 0,
+        tick: null,
+        prevTick: Date.now(),
         data: null,
         context: null,
         tmpContext: null,
@@ -868,16 +865,6 @@ export const startProcess = (initialState) => {
         lastCommand: false,
         ...initialState,
     };
-    bkgScreen = null;
-    bkgRes = null;
-    bkgOcean = [];
-    bkgRaft = null;
-    currentScene = 0;
-    scenes = [];
-    scenesRes = [];
-    addScenes = [];
-    removeScenes = [];
-    scenesRandom = [];
 
     // temp canvas
     const tmpCanvas = document.createElement("canvas");
@@ -919,7 +906,7 @@ export const startProcess = (initialState) => {
         state.data.resources.forEach(r => {
             const entry = state.entries.find(e => e.name === r.name);
             if (entry !== undefined) {
-                scenesRes.push(loadResourceEntry(entry));
+                state.scenesRes.push(loadResourceEntry(entry));
             }
         });
     }
@@ -930,28 +917,10 @@ export const startProcess = (initialState) => {
 };
 
 export const stopProcess = () => {
-    if (state && state.frameId) {
+    if (state?.frameId) {
         cancelAnimationFrame(state.frameId);
     }
-
-    tick = null;
-    prevTick = Date.now();
-    elapsed = null;
-
     state = null;
-    currentScene = 0;
-
-    scenesRes = [];
-    scenes = [];
-
-    bkgScreen = null;
-    bkgRes = null;
-    bkgOcean = [];
-    bkgRaft = null;
-    cloudIdx = Math.floor((Math.random() * 3) + 15);
-    cloudX = Math.floor((Math.random() * 640));
-    cloudY = Math.floor((Math.random() * 80));
-    cloudElapsed = 0;
 };
 
 window.requestAnimationFrame = window.requestAnimationFrame
@@ -963,11 +932,11 @@ window.requestAnimationFrame = window.requestAnimationFrame
 const mainloop = () => {
     state.frameId = requestAnimationFrame(mainloop);
 
-    tick = Date.now();
-    elapsed = tick - prevTick;
+    state.tick = Date.now();
+    const elapsed = state.tick - state.prevTick;
 
     if (elapsed > fps) {
-        prevTick = tick - (elapsed % fps);
+        state.prevTick = state.tick - (elapsed % fps);
     }
 
     if (runScripts()) {
