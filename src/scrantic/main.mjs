@@ -69,6 +69,6 @@ function showDataError(missing, detail) {
         if (detailEl) detailEl.textContent = detail;
     }
 
-    overlay.style.display = 'block';
+    overlay.classList.add('visible');
     console.error('[johnny_web]', missing.join(', '), detail ?? '');
 }
