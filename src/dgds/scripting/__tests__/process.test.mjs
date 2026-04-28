@@ -716,3 +716,40 @@ describe('runScript — TTM script completion', () => {
         expect(mockState.runs).toBe(1);
     });
 });
+
+// ---------------------------------------------------------------------------
+// PLAY_SCENE_2: combined ADD_SCENE + PLAY_SCENE
+// ---------------------------------------------------------------------------
+describe('PLAY_SCENE_2', () => {
+    let consoleSpy;
+    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
+    afterEach(() => { consoleSpy.mockRestore(); });
+
+    it('enqueues the scene and blocks on active scenes (combines ADD_SCENE + PLAY_SCENE)', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0x1520);
+        expect(entry).toBeDefined();
+
+        const state = {
+            continue: true,
+            randomize: false,
+            addScenes: [],
+            removeScenes: [],
+            scenes: [],
+            scenesRes: {},          // no TTM data → getSceneState returns undefined
+            playedHistory: new Set(),
+        };
+
+        // Params mirror binary: embedded ADD_SCENE opcode (0x2005 = 8197), sceneIdx, tagId, retriesDelay, unk
+        entry.callback(state, 0x2005, 4, 22, 0, 1);
+
+        // addScenes was flushed (PLAY_SCENE ran), no active scenes → unblocked
+        expect(state.addScenes).toHaveLength(0);
+        // removeScenes also flushed
+        expect(state.removeScenes).toHaveLength(0);
+        // Since scenesRes has no TTM data, getSceneState returned undefined → scenes still empty
+        expect(state.scenes).toHaveLength(0);
+        // continue is true: no active (lifecycle='active') scenes to block on
+        expect(state.continue).toBe(true);
+    });
+});
+

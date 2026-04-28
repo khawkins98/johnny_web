@@ -213,6 +213,7 @@ export const startProcess = (initialState) => {
                 state.scenesRes[r.id] = loadResourceEntry(entry);
             }
         });
+        debugLog('scenesRes:', state.scenesRes.map((r, i) => r ? `[${i}]=${r.name}` : null).filter(Boolean).join(', '));
     }
     mainloop();
 

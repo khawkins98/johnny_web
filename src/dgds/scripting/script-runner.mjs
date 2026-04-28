@@ -445,7 +445,12 @@ const PLAY_SCENE = (state) => {
     }
 };
 
-const PLAY_SCENE_2 = (state) => { };
+// PLAY_SCENE_2 is an ADD_SCENE + PLAY_SCENE combined. The first param is the
+// embedded ADD_SCENE opcode (0x2005), followed by the normal ADD_SCENE args.
+const PLAY_SCENE_2 = (state, _opcode, sceneIdx, tagId, retriesDelay, unk) => {
+    ADD_SCENE(state, sceneIdx, tagId, retriesDelay, unk);
+    PLAY_SCENE(state);
+};
 
 const STOP_SCENE = (state, sceneIdx, tagId, retries) => {
     state.removeScenes.push({
