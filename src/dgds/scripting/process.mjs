@@ -330,6 +330,10 @@ const SELECT_SAMPLE = (state) => { };
 const DESELECT_SAMPLE = (state) => { };
 
 const PLAY_SAMPLE = (state, index) => {
+    // Resume AudioContext if suspended (browser autoplay policy belt-and-suspenders).
+    if (state.audioManager?.context?.state === 'suspended') {
+        state.audioManager.context.resume();
+    }
     const sampleSource = state.audioManager.getSoundFxSource();
     sampleSource.load(index, () => {
         sampleSource.play();
@@ -475,13 +479,10 @@ const PLAY_SCENE = (state) => {
     if (state.continue) {
         state.continue = false;
 
-        console.log("Scenes", scenes.slice(0));
-        console.log("Remove Scenes", removeScenes.slice(0));
-
         if (removeScenes.length > 0) {
             removeScenes.forEach(s => {
-                const index = scenes.indexOf(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
-                scenes.splice(index, 1);
+                const index = scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId);
+                if (index !== -1) scenes.splice(index, 1);
             });
             removeScenes = [];
         }
@@ -512,7 +513,7 @@ const PLAY_SCENE = (state) => {
     console.log("Scenes", scenes.slice(0));
     
     state.continue = canContinue;
-}; // runScripts has the continue logic 
+};
 
 const PLAY_SCENE_2 = (state) => { };
 
@@ -760,6 +761,9 @@ const runScripts = () => {
         const scene = state.data.scenes[currentScene];
         if (scene !== undefined) {
             exitFrame = runScript(state, scene.script, true);
+        } else if (scenes.length === 0 && addScenes.length === 0) {
+            // All main ADS scenes played and no child scenes remain — done.
+            exitFrame = true;
         }
         
         if (!state.continue) {
@@ -818,6 +822,11 @@ export const startProcess = (initialState) => {
     bkgOcean = [];
     bkgRaft = null;
     currentScene = 0;
+    scenes = [];
+    scenesRes = [];
+    addScenes = [];
+    removeScenes = [];
+    scenesRandom = [];
 
     // temp canvas
     const tmpCanvas = document.createElement("canvas");
@@ -851,7 +860,9 @@ export const startProcess = (initialState) => {
         canDraw: false,
     });
 
-    state.audioManager = createAudioManager({ soundFxVolume: 0.50 });
+    // Use the audioManager passed in (created during user interaction for autoplay
+    // policy compliance). Fall back to creating one if not provided.
+    state.audioManager = initialState.audioManager || createAudioManager({ soundFxVolume: 0.50 });
 
     if (state.type === 'ADS') {
         state.data.resources.forEach(r => {
@@ -910,6 +921,9 @@ const mainloop = () => {
 
     if (runScripts()) {
         cancelAnimationFrame(state.frameId);
+        if (typeof state.onComplete === 'function') {
+            state.onComplete();
+        }
     }
 }
 /* eslint-enable */

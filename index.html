@@ -22,6 +22,35 @@
                 width: 640px;
                 height: 480px;
             }
+            #start-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 10;
+                background: rgba(0,0,0,0.65);
+                justify-content: center;
+                align-items: center;
+            }
+            #start-overlay.visible {
+                display: flex;
+            }
+            #start-btn {
+                background: #111;
+                color: #ccc;
+                border: 1px solid #444;
+                border-radius: 4px;
+                padding: 14px 40px;
+                font-family: monospace;
+                font-size: 14px;
+                cursor: pointer;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+            #start-btn:hover {
+                background: #222;
+                color: #fff;
+                border-color: #666;
+            }
             #data-error {
                 display: none;
                 position: fixed;
@@ -106,6 +135,10 @@
         <div id="root" class="background">
             <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
             <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
+
+            <div id="start-overlay">
+                <button id="start-btn">▶ Play</button>
+            </div>
 
             <div id="data-error" role="alert" aria-live="assertive">
                 <div id="data-error-card">

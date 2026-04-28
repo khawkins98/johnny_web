@@ -1,6 +1,6 @@
 import { drawScreen } from '../dgds/graphics.mjs';
-import { loadResources, loadResourceEntry } from '../dgds/resource.mjs';
-import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
+import { loadResources } from '../dgds/resource.mjs';
+import { createAudioManager } from '../dgds/audio.mjs';
 import Story from './story.mjs';
 
 export const run = async () => {
@@ -9,6 +9,7 @@ export const run = async () => {
 
     const base = import.meta.env.BASE_URL;
 
+    // Load resources immediately so errors surface before any user interaction.
     let resMapResp, resFileResp;
     try {
         [resMapResp, resFileResp] = await Promise.all([
@@ -48,11 +49,33 @@ export const run = async () => {
     const introRes = resource.loadEntry('INTRO.SCR');
     drawScreen(introRes, mainContext);
 
-    await new Promise(r => setTimeout(r, window.location.hostname === 'localhost' ? 1000 : 3000));
+    // Gate audio and animation behind a user gesture (browser autoplay policy).
+    // AudioContext is created synchronously inside the click callback so the
+    // browser's user-activation requirement is satisfied.
+    const audioManager = await waitForStart();
 
     const story = new Story(resource);
-    await story.play();
+    while (true) {
+        await story.play(audioManager);
+    }
 };
+
+/**
+ * Show the start overlay and resolve with a fresh AudioManager once the user
+ * clicks. AudioContext must be constructed synchronously inside the click
+ * handler — creating it after an await loses the user-activation context.
+ */
+function waitForStart() {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('start-overlay');
+        const btn = document.getElementById('start-btn');
+        overlay.classList.add('visible');
+        btn.addEventListener('click', () => {
+            overlay.classList.remove('visible');
+            resolve(createAudioManager({ soundFxVolume: 0.50 }));
+        }, { once: true });
+    });
+}
 
 function showDataError(missing, detail) {
     const overlay = document.getElementById('data-error');

@@ -15,7 +15,7 @@ export default class Story {
         return StoryScenes[randomSceneIndex];
     }
 
-    async play() {
+    play(audioManager) {
         if (this.startDate !== (new Date()).toLocaleDateString()) {
             this.currentDay += 1;
         }
@@ -30,13 +30,17 @@ export default class Story {
 
         const scene = this.getRandomScene();
         const data = this.resource.loadEntry(scene.name);
-        
-        startProcess({
-            type: 'ADS',
-            context,
-            mainContext,
-            data,
-            entries: this.resource.entries,
+
+        return new Promise((resolve) => {
+            startProcess({
+                type: 'ADS',
+                context,
+                mainContext,
+                data,
+                entries: this.resource.entries,
+                audioManager,
+                onComplete: resolve,
+            });
         });
     }
 };
