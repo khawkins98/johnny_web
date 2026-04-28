@@ -9,57 +9,66 @@ export const run = async () => {
 
     const base = import.meta.env.BASE_URL;
 
-    let resIndex, resFile;
+    let resMapResp, resFileResp;
     try {
-        [resIndex, resFile] = await Promise.all([
+        [resMapResp, resFileResp] = await Promise.all([
             fetch(`${base}data/RESOURCE.MAP`),
             fetch(`${base}data/RESOURCE.001`),
         ]);
+    } catch {
+        showDataError(['RESOURCE.MAP', 'RESOURCE.001']);
+        return;
+    }
+
+    // Vite's dev server returns 200 + text/html (SPA history fallback) for
+    // files that don't exist, so content-type is a more reliable signal than ok.
+    const isMissing = r => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
+    const missing = [
+        isMissing(resMapResp) && 'RESOURCE.MAP',
+        isMissing(resFileResp) && 'RESOURCE.001',
+    ].filter(Boolean);
+
+    if (missing.length) {
+        showDataError(missing);
+        return;
+    }
+
+    let res;
+    try {
+        res = loadResources(
+            await resMapResp.arrayBuffer(),
+            await resFileResp.arrayBuffer(),
+        );
     } catch (err) {
-        showDataError(mainContext, 'Network error loading game data. See console.');
-        throw err;
+        showDataError(['RESOURCE.MAP', 'RESOURCE.001'], `Could not parse game data: ${err.message}`);
+        return;
     }
 
-    if (!resIndex.ok || !resFile.ok) {
-        const missing = [
-            !resIndex.ok && 'RESOURCE.MAP',
-            !resFile.ok  && 'RESOURCE.001',
-        ].filter(Boolean).join(', ');
-        const msg = `Missing game data: ${missing}. Place original files in public/data/.`;
-        showDataError(mainContext, msg);
-        throw new Error(msg);
-    }
-
-    const res = loadResources(await resIndex.arrayBuffer(), await resFile.arrayBuffer());
     const resource = res.getResource('RESOURCE.001');
-
     const introRes = resource.loadEntry('INTRO.SCR');
     drawScreen(introRes, mainContext);
 
-    await new Promise(r => setTimeout(r, window.location.hostname === 'localhost' ? 1000: 3000));
+    await new Promise(r => setTimeout(r, window.location.hostname === 'localhost' ? 1000 : 3000));
 
     const story = new Story(resource);
     await story.play();
 };
 
-function showDataError(ctx, message) {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, 640, 480);
-    ctx.fillStyle = '#f66';
-    ctx.font = 'bold 14px monospace';
-    const words = message.split(' ');
-    let line = '';
-    let y = 40;
-    for (const word of words) {
-        const test = line ? `${line} ${word}` : word;
-        if (ctx.measureText(test).width > 580) {
-            ctx.fillText(line, 30, y);
-            y += 20;
-            line = word;
-        } else {
-            line = test;
-        }
+function showDataError(missing, detail) {
+    const overlay = document.getElementById('data-error');
+    const list = document.getElementById('data-error-files');
+    if (!overlay || !list) return;
+
+    const allFiles = ['RESOURCE.MAP', 'RESOURCE.001', 'SCRANTIC.SCR'];
+    list.innerHTML = allFiles
+        .map(f => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`)
+        .join('');
+
+    if (detail) {
+        const detailEl = overlay.querySelector('.detail');
+        if (detailEl) detailEl.textContent = detail;
     }
-    if (line) ctx.fillText(line, 30, y);
-    console.error('[johnny_web]', message);
+
+    overlay.style.display = 'block';
+    console.error('[johnny_web]', missing.join(', '), detail ?? '');
 }

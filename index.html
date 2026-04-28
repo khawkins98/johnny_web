@@ -66,7 +66,15 @@
             #data-error ul li.ok::before {
                 content: '✓  ';
             }
-            #data-error .instruction {
+            #data-error .detail {
+                margin: 8px 0 16px;
+                font-size: 11px;
+                color: #555;
+                font-style: italic;
+            }
+            #data-error .detail:empty {
+                display: none;
+            }
                 font-size: 12px;
                 color: #666;
                 border-top: 1px solid #222;
@@ -93,6 +101,7 @@
                     <a href="NOTICE" style="color:#8ab4d4">NOTICE</a> for details.
                 </p>
                 <ul id="data-error-files"></ul>
+                <p class="detail"></p>
                 <div class="instruction">
                     Place the files above in
                     <span class="path">public/data/</span>
