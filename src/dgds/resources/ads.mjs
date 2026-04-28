@@ -169,9 +169,13 @@ export const loadADSResourceEntry = (entry) => {
         scripts.push(command);
     }
 
-    // BUG: The last scene's commands accumulate in sceneScripts but are never pushed to scenes[].
-    // scenes[] is missing its final entry — the last tagged section of the ADS script never runs.
-    // Compare with ttm.mjs which correctly pushes after the loop.
+    // Push the final scene (mirrors what ttm.mjs does after its loop).
+    if (prevTagId && sceneScripts.length > 0) {
+        scenes.push({
+            tagId: prevTagId,
+            script: sceneScripts,
+        });
+    }
 
     return {
         name: entry.name,

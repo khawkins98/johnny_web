@@ -7,11 +7,6 @@ import { loadADSResourceEntry } from '../ads.mjs';
 // length, not its contents — yielding wrong results for uncompressed SCR blocks.
 // All fixtures below use RLE (compressionType=1) to avoid this bug.
 
-// BUG: The last scene's commands accumulate in sceneScripts but are never pushed to
-// scenes[] after the loop ends. scenes[] is therefore always missing its final entry.
-// See the `// BUG:` comment in ads.mjs. Compare with ttm.mjs which correctly pushes
-// after the loop. Tests below assert the current (buggy) behaviour.
-
 // Fixture layout (78 bytes):
 //
 //  VER block (13 bytes, offsets 0-12)
@@ -140,14 +135,14 @@ describe('loadADSResourceEntry', () => {
         expect(scripts[1].line).toContain('END');
     });
 
-    it('BUG: scenes.length === 0 — the final scene block is never pushed after the loop', () => {
-        // With one TAG reference (id=1) then END: prevTagId is 0 when the first tag is
-        // encountered, so the `if (prevTagId)` guard suppresses the push. After the loop
-        // the pending sceneScripts (containing END) are never flushed. This is the
-        // documented bug in ads.mjs — compare ttm.mjs which pushes after the loop.
-        // BUG: last scene never pushed — see ads.mjs annotation.
+    it('scenes contains the final scene block after the loop (last-scene bug fixed)', () => {
+        // With one TAG reference (id=1) then END: after the fix, the pending sceneScripts
+        // accumulated after the last tag are flushed into scenes[] after the loop completes,
+        // mirroring the behaviour of ttm.mjs.
         const { scenes } = loadADSResourceEntry(makeADSEntry());
-        expect(scenes).toHaveLength(0);
+        expect(scenes).toHaveLength(1);
+        expect(scenes[0].script).toHaveLength(1); // the END command
+        expect(scenes[0].script[0].opcode).toBe(0xFFFF);
     });
 
     it('throws when the VER header is wrong', () => {

@@ -12,8 +12,7 @@
  *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
  *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
  *  - NOTE: Active console.log calls remain throughout this file (runScript, startProcess,
- *    PLAY_SCENE, getSceneState). Remove before a production build.
- */
+ *    PLAY_SCENE, getSceneState). Remove before a production build. */
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
 import { drawImage, drawScreen, getPaletteColor } from '../graphics.mjs';
@@ -578,7 +577,7 @@ const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     canvas.width = 640;
     canvas.height = 480;
 
-    const stateInit = { ...initialState, context: canvas.getContext('2d') };
+    const stateInit = { ...initialState, type: 'TTM', context: canvas.getContext('2d') };
 
     const s = Object.assign({ sceneIdx, delay, retries }, scene);
     if (s.script === undefined) {
@@ -586,9 +585,9 @@ const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         return;
     }
     if (!state.scenes.length) {
-        // BUG: unshift mutates the shared script array from scenesRes. Re-adding the same scene
-        // keeps prepending the prologue, permanently corrupting the parsed TTM data for future runs.
-        s.script.unshift(...ttm.scenes[0].script);
+        // Prepend the TTM prologue (scenes[0]) into a new array to avoid mutating
+        // the shared parsed script in scenesRes.
+        s.script = [...ttm.scenes[0].script, ...s.script];
         s.state = Object.assign({}, state, stateInit);
     } else {
         s.state = Object.assign({}, state.scenes[0].state, stateInit);
@@ -660,8 +659,7 @@ const END = (state) => {
 // CUSTOM COMMAND
 const END_IF = (state) => { };
 
-export const CommandType = [
-    // TTM COMMANDS
+export const TTMDispatch = [
     { opcode: 0x0020, callback: SAVE_BACKGROUND },
     { opcode: 0x0080, callback: DRAW_BACKGROUND },
     { opcode: 0x0110, callback: PURGE },
@@ -672,7 +670,7 @@ export const CommandType = [
     { opcode: 0x1100, callback: TTM_UNKNOWN_0 },
     { opcode: 0x1110, callback: SET_SCENE },
     { opcode: 0x1120, callback: SET_BACKGROUND },
-    { opcode: 0x1200, callback: GOTO }, 
+    { opcode: 0x1200, callback: GOTO },
     { opcode: 0x2000, callback: SET_COLORS },
     { opcode: 0x2010, callback: SET_FRAME1 },
     { opcode: 0x2020, callback: SET_TIMER },
@@ -701,13 +699,12 @@ export const CommandType = [
     { opcode: 0xF010, callback: LOAD_SCREEN },
     { opcode: 0xF020, callback: LOAD_IMAGE },
     { opcode: 0xF050, callback: LOAD_PALETTE },
-    // ADS COMMANDS
-    // BUG: Several ADS-only opcodes duplicate TTM opcode values. CommandType.find() returns the
-    // first match, so the ADS callbacks below are unreachable:
-    //   STOP_SCENE  (0x2010) → shadowed by SET_FRAME1
-    //   ADS_FADE_OUT (0xf010) → shadowed by LOAD_SCREEN (0xF010 === 0xf010 in JS)
-    //   ADS_UNKNOWN_6 (0x4000) → shadowed by SET_CLIP_REGION
-    // Fix: maintain separate TTM and ADS dispatch tables keyed by script type.
+];
+
+// ADS-only opcodes. Kept separate from TTMDispatch so that opcodes sharing hex values
+// with TTM entries (0x2010 STOP_SCENE, 0x4000 ADS_UNKNOWN_6, 0xf010 ADS_FADE_OUT) are
+// reachable. runScript() selects the correct table based on state.type.
+export const ADSDispatch = [
     { opcode: 0x1070, callback: ADS_UNKNOWN_0 },
     { opcode: 0x1330, callback: IF_NOT_PLAYED },
     { opcode: 0x1350, callback: IF_PLAYED },
@@ -724,11 +721,15 @@ export const CommandType = [
     { opcode: 0x30ff, callback: RANDOM_END },
     { opcode: 0x4000, callback: ADS_UNKNOWN_6 },
     { opcode: 0xf010, callback: ADS_FADE_OUT },
-    { opcode: 0xf200, callback: RUN_SCRIPT }, 
+    { opcode: 0xf200, callback: RUN_SCRIPT },
     { opcode: 0xffff, callback: END },
     // CUSTOM: Added for text script
     { opcode: 0xfff0, callback: END_IF },
 ];
+
+// Combined table kept for introspection/backward compatibility. Use TTMDispatch or
+// ADSDispatch for actual dispatch — do not call .find() on this directly.
+export const CommandType = [...TTMDispatch, ...ADSDispatch];
 
 export const runScript = (state, script, main = false) => {
     // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
@@ -737,9 +738,10 @@ export const runScript = (state, script, main = false) => {
     if (script === undefined || state.reentry === -1) {
         return true;
     }
+    const dispatchTable = state.type === 'ADS' ? ADSDispatch : TTMDispatch;
     for (let i = state.reentry; i < script.length; i++) {
         const c = script[i];
-        const type = CommandType.find(ct => ct.opcode === c.opcode);
+        const type = dispatchTable.find(ct => ct.opcode === c.opcode);
         if (!type) {
             continue;
         }

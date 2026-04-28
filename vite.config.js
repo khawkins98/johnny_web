@@ -7,4 +7,13 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.mjs'],
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.mjs'],
+      exclude: ['src/**/*.test.mjs', 'src/extract.mjs', 'src/dump.mjs'],
+    },
+  },
 });

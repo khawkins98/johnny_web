@@ -2,18 +2,14 @@
  * Unit tests for the process.mjs opcode interpreter.
  *
  * Scope: pure/synchronous aspects only — no DOM, no canvas, no rAF.
- * The CommandType dispatch table and individual opcode handlers are tested by
+ * The CommandType dispatch tables and individual opcode handlers are tested by
  * exercising their callback functions directly with minimal mock state objects.
  *
- * Known bugs documented inline:
- *  1. Duplicate opcode table: STOP_SCENE (0x2010) is unreachable because SET_FRAME1
- *     occupies the same value earlier in the single combined TTM+ADS array.
- *  2. Script mutation: getSceneState() calls s.script.unshift(...) which permanently
- *     corrupts the parsed TTM scene data — not testable in isolation without mocking.
- *  3. GOTO no-op: the GOTO handler ignores tagId and always resets reentry to 0.
+ * Known remaining bugs documented inline:
+ *  1. GOTO no-op: the GOTO handler ignores tagId and always resets reentry to 0.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CommandType, runScript } from '../process.mjs';
+import { CommandType, TTMDispatch, ADSDispatch, runScript } from '../process.mjs';
 
 // ---------------------------------------------------------------------------
 // CommandType dispatch table
@@ -31,19 +27,32 @@ describe('CommandType dispatch table', () => {
         }
     });
 
-    // BUG: duplicate opcode — STOP_SCENE unreachable.
-    // CommandType is a single flat array shared by both TTM and ADS dispatching.
-    // 0x2010 appears twice: first as SET_FRAME1 (TTM) then as STOP_SCENE (ADS).
-    // Array.find() always returns the first match, so the STOP_SCENE callback can
-    // never be reached via the normal dispatch path.
-    it('BUG: opcode 0x2010 resolves to SET_FRAME1, not STOP_SCENE (duplicate-opcode bug)', () => {
-        const entry = CommandType.find(e => e.opcode === 0x2010);
+    it('TTMDispatch: opcode 0x2010 resolves to SET_FRAME1', () => {
+        const entry = TTMDispatch.find(e => e.opcode === 0x2010);
         expect(entry).toBeDefined();
-        expect(entry.callback.name).toBe('SET_FRAME1'); // not 'STOP_SCENE'
+        expect(entry.callback.name).toBe('SET_FRAME1');
     });
 
-    it('GOTO entry exists at opcode 0x1200 with a valid callback', () => {
-        const entry = CommandType.find(e => e.opcode === 0x1200);
+    it('ADSDispatch: opcode 0x2010 resolves to STOP_SCENE (correctly separated from TTM)', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0x2010);
+        expect(entry).toBeDefined();
+        expect(entry.callback.name).toBe('STOP_SCENE');
+    });
+
+    it('TTMDispatch: opcode 0xF010 resolves to LOAD_SCREEN', () => {
+        const entry = TTMDispatch.find(e => e.opcode === 0xF010);
+        expect(entry).toBeDefined();
+        expect(entry.callback.name).toBe('LOAD_SCREEN');
+    });
+
+    it('ADSDispatch: opcode 0xf010 resolves to ADS_FADE_OUT (correctly separated from TTM)', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0xf010);
+        expect(entry).toBeDefined();
+        expect(entry.callback.name).toBe('ADS_FADE_OUT');
+    });
+
+    it('GOTO entry exists at opcode 0x1200 in TTMDispatch with a valid callback', () => {
+        const entry = TTMDispatch.find(e => e.opcode === 0x1200);
         expect(entry).toBeDefined();
         expect(typeof entry.callback).toBe('function');
     });
@@ -51,13 +60,6 @@ describe('CommandType dispatch table', () => {
     it('GOTO callback is named GOTO', () => {
         const entry = CommandType.find(e => e.opcode === 0x1200);
         expect(entry.callback.name).toBe('GOTO');
-    });
-
-    // BUG: ADS_FADE_OUT (0xf010) is also shadowed by LOAD_SCREEN (0xF010 === 0xf010 in JS).
-    it('BUG: opcode 0xf010 resolves to LOAD_SCREEN, not ADS_FADE_OUT (duplicate-opcode bug)', () => {
-        const entry = CommandType.find(e => e.opcode === 0xf010);
-        expect(entry).toBeDefined();
-        expect(entry.callback.name).toBe('LOAD_SCREEN'); // not 'ADS_FADE_OUT'
     });
 });
 

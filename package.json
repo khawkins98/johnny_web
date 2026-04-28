@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "dump": "node src/dump.mjs",
     "extract": "node src/extract.mjs"
   },
@@ -14,6 +17,9 @@
     "node-pkware": "^5.9.1"
   },
   "devDependencies": {
-    "vite": "^6.0.0"
+    "@vitest/coverage-v8": "^4.1.5",
+    "jsdom": "^29.1.0",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.5"
   }
 }
