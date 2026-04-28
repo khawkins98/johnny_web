@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "dump": "node src/dump.mjs"
+    "dump": "node src/dump.mjs",
+    "extract": "node src/extract.mjs"
+  },
+  "dependencies": {
+    "node-pkware": "^5.9.1"
   },
   "devDependencies": {
     "vite": "^6.0.0"

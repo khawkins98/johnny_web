@@ -58,27 +58,36 @@ own legal call.
 
 | Source | What you get | Notes |
 |--------|-------------|-------|
-| [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.img` inside a ZIP | Extract the ZIP, then extract the `.img` with 7-zip to get the raw files |
+| [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `npm run extract` below |
 | [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP | Requires JavaScript in browser |
 
 ### Extracting from the Internet Archive floppy image
 
+The `extract` script handles everything: it unpacks the ZIP, mounts the floppy
+image, and decompresses the TSComp archives used by the original installer.
+
+**Prerequisites** (one-time setup):
+
 ```bash
-# 1. Download the non-flux ZIP (~1.4 MB)
-curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
+# macOS
+brew install mtools
 
-# 2. Extract the floppy image from the ZIP
-unzip "Screen Antics*.zip"
-
-# 3. Extract the game files from the floppy image (requires 7-zip)
-7z e "*.img" RESOURCE.MAP RESOURCE.001 SCRANTIC.SCR
-
-# 4. Move into place
-mkdir -p public/data
-mv RESOURCE.MAP RESOURCE.001 SCRANTIC.SCR public/data/
+# Linux (Debian/Ubuntu)
+apt install mtools unzip
 ```
 
-On macOS, install 7-zip with `brew install sevenzip` (command: `7zz`).
+**Run the extractor:**
+
+```bash
+# 1. Download the ZIP from Internet Archive (~1.4 MB)
+curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
+
+# 2. Extract the game data files into public/data/
+npm run extract -- "<path-to-downloaded.zip>"
+```
+
+The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and
+`SCRANTIC.SCR` and then cleans up all temporary files.
 
 
 
