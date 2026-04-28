@@ -10,6 +10,8 @@ export const drawImage = (image, context, posX, posY) => {
     context.putImageData(img, posX, posY);
 };
 
+// Kept for future adaptation: dirty-region blit — useful for rendering optimisation
+// once per-sprite invalidation regions are tracked.
 export const drawImageDirty = (image, context, posX, posY, dX, dY, dW, dH) => {
     const img = context.createImageData(image.width, image.height);
     for (let p = 0; p < image.pixels.length; p += 1) {
@@ -22,6 +24,8 @@ export const drawImageDirty = (image, context, posX, posY, dX, dY, dW, dH) => {
     context.putImageData(img, posX, posY, dX, dY, dW, dH);
 };
 
+// Kept for future adaptation: sprite sheet / atlas debug view — renders all
+// frames of a BMP resource side-by-side; useful for tooling and visual tests.
 export const drawAllImages = (data, context) => {
     let posX = 0;
     let totalWidth = 0;
@@ -48,6 +52,8 @@ export const drawAllImages = (data, context) => {
     }
 };
 
+// Kept for future adaptation: palette debug view — renders all palette entries
+// as colour swatches; useful for theme/palette tooling.
 export const drawPalette = (data, context) => {
     context.canvas.width = 640;
     context.canvas.height = 480;
