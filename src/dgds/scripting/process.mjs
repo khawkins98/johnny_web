@@ -660,7 +660,7 @@ const END = (state) => {
 // CUSTOM COMMAND
 const END_IF = (state) => { };
 
-const CommandType = [
+export const CommandType = [
     // TTM COMMANDS
     { opcode: 0x0020, callback: SAVE_BACKGROUND },
     { opcode: 0x0080, callback: DRAW_BACKGROUND },
@@ -730,7 +730,7 @@ const CommandType = [
     { opcode: 0xfff0, callback: END_IF },
 ];
 
-const runScript = (state, script, main = false) => {
+export const runScript = (state, script, main = false) => {
     // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
     // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
     // TTM child scenes use their own state objects (each has its own reentry).
