@@ -37,6 +37,15 @@ export const isDebugMode = (() => {
 
 export const debugLog = isDebugMode ? (...args) => console.log('[DGDS]', ...args) : () => {};
 
+/**
+ * Build a human-readable label for a TTM child scene, including the tag
+ * description if available: e.g. "4:113(flip pages)" or "4:113".
+ */
+const sceneLabel = (scenesRes, sceneIdx, tagId) => {
+    const desc = scenesRes?.[sceneIdx]?.tags?.find(t => t.id === tagId)?.description;
+    return desc ? `${sceneIdx}:${tagId}(${desc})` : `${sceneIdx}:${tagId}`;
+};
+
 // ---------------------------------------------------------------------------
 // TTM opcode callbacks
 // ---------------------------------------------------------------------------
@@ -89,9 +98,10 @@ const SET_BACKGROUND = (state, index) => {
 };
 
 const GOTO = (state, tagId) => {
-    // BUG: tagId is ignored; always resets reentry to 0 (start of current script).
-    // Correct behavior requires finding the script position for tagId, which is unknown.
-    state.reentry = 0; // TODO check for other scenes
+    // All GOTOs observed so far are self-loops (GOTO within own tag's script).
+    // Cross-tag jumps are not yet supported — they would require switching state.script.
+    debugLog(`TTM loop: ${sceneLabel(state.scenesRes, state.sceneIdx, tagId)}`);
+    state.reentry = 0;
 };
 
 const SET_COLORS = (state, fc, bc) => {
@@ -420,6 +430,7 @@ const PLAY_SCENE = (state) => {
                 if (index !== -1) {
                     // Record in history before removing so IF_NOT_PLAYED works correctly.
                     state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
+                    debugLog(`STOP_SCENE: ${sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)}`);
                     state.scenes.splice(index, 1);
                 }
             });
@@ -429,6 +440,7 @@ const PLAY_SCENE = (state) => {
             state.addScenes.forEach(s => {
                 const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
                 if (scene !== undefined) {
+                    debugLog(`ADD_SCENE: ${sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)}`);
                     state.scenes.push(scene);
                 }
             });
@@ -441,7 +453,7 @@ const PLAY_SCENE = (state) => {
     const waiting = state.scenes.filter(s => s.lifecycle === 'active');
     state.continue = waiting.length === 0;
     if (isDebugMode && waiting.length > 0) {
-        debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${waiting.map(s => `${s.sceneIdx}:${s.tagId}`).join(', ')}`);
+        debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).join(', ')}`);
     }
 };
 
@@ -626,6 +638,9 @@ export const runScript = (state, script, main = false) => {
             state.lastCommand = false;
         }
         if (state.type === 'TTM') {
+            if (state.sceneIdx !== undefined) {
+                debugLog(`TTM done: ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)}`);
+            }
             return true;
         }
     }
