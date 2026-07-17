@@ -154,7 +154,6 @@ export const startProcess = (initialState) => {
     // NOTE: The ...initialState spread at the end silently overrides all defaults above it.
     // Callers should only pass the expected keys (context, mainContext, entries, data, type,
     // audioManager, onComplete) to avoid accidentally clobbering runtime state.
-    // FIXME this state needs a deep clean up
     state = {
         currentScene: 0,
         scenesRes: [],

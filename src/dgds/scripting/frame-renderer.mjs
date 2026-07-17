@@ -26,7 +26,7 @@ export const drawContext = (state, index) => {
 // ---------------------------------------------------------------------------
 // Background renderer
 //
-// FIXME Improve this code repetition
+//
 // NOTE: Cloud movement timing uses absolute Date.now() offsets rather than the fps-based tick
 // delta used by the main loop. Cloud speed is tied to wall-clock time, not frame rate.
 // ---------------------------------------------------------------------------
@@ -131,23 +131,12 @@ export const loadRaft = (state) => {
 
 export const loadOcean = (state) => {
     if (state.bkgOcean.length === 0) {
-        // FIXME shorten this code later
-        let entry = state.entries.find(e => e.name === 'OCEAN00.SCR');
-        if (entry !== undefined) {
-            state.bkgOcean.push(loadResourceEntry(entry));
-        }
-        entry = state.entries.find(e => e.name === 'OCEAN01.SCR');
-        if (entry !== undefined) {
-            state.bkgOcean.push(loadResourceEntry(entry));
-        }
-        entry = state.entries.find(e => e.name === 'OCEAN02.SCR');
-        if (entry !== undefined) {
-            state.bkgOcean.push(loadResourceEntry(entry));
-        }
-        entry = state.entries.find(e => e.name === 'NIGHT.SCR');
-        if (entry !== undefined) {
-            state.bkgOcean.push(loadResourceEntry(entry));
-        }
+        ['OCEAN00.SCR', 'OCEAN01.SCR', 'OCEAN02.SCR', 'NIGHT.SCR'].forEach(name => {
+            const entry = state.entries.find(e => e.name === name);
+            if (entry !== undefined) {
+                state.bkgOcean.push(loadResourceEntry(entry));
+            }
+        });
     }
     
     const timeMode = localStorage.getItem('jc-time') || 'original';
