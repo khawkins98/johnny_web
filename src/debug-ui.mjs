@@ -27,9 +27,9 @@ export function setupDebugUI() {
     // Drag capability
     let isDragging = false;
     let dragStartX, dragStartY, initialX, initialY;
-    
+
     const title = document.createElement('div');
-    title.innerHTML = '<span style="font-family: system-ui, sans-serif;">🛠</span> Developer Tools';
+    title.innerHTML = '⎈ Developer Tools';
     title.style.fontFamily = "'Caveat', cursive";
     title.style.fontSize = '24px';
     title.style.fontWeight = 'bold';
@@ -39,7 +39,7 @@ export function setupDebugUI() {
     title.style.paddingBottom = '5px';
     title.style.cursor = 'move';
     title.style.userSelect = 'none';
-    
+
     title.addEventListener('mousedown', (e) => {
         isDragging = true;
         dragStartX = e.clientX;
@@ -47,10 +47,10 @@ export function setupDebugUI() {
         const rect = container.getBoundingClientRect();
         initialX = rect.left;
         initialY = rect.top;
-        
+
         // Disable transition during drag
         container.style.transition = 'none';
-        
+
         // Remove right constraint since we are positioning by left/top
         container.style.right = 'auto';
         container.style.left = initialX + 'px';
@@ -119,7 +119,7 @@ export function setupDebugUI() {
             sortedScenes.forEach(scene => {
                 if (scene.tagId && scene.tagId.id) {
                     const currentId = scene.tagId.id;
-                    
+
                     // Add stubs for missing IDs in the sequence
                     for (let i = prevId + 1; i < currentId; i++) {
                         const stub = document.createElement('option');
@@ -133,7 +133,7 @@ export function setupDebugUI() {
                     option.value = currentId;
                     option.innerText = `${currentId}: ${scene.tagId.description}`;
                     select.appendChild(option);
-                    
+
                     prevId = currentId;
                 }
             });
@@ -143,7 +143,7 @@ export function setupDebugUI() {
     const jumpBtn = document.createElement('button');
     jumpBtn.innerText = 'Jump to Gag';
     jumpBtn.style.cssText = controlStyle;
-    
+
     jumpBtn.addEventListener('click', () => {
         const tagId = Number(select.value);
         __DEBUG__.jumpToScene(tagId);
