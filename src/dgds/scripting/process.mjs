@@ -70,7 +70,7 @@ const runScripts = () => {
             exitFrame = true;
         }
 
-        if (!state.continue) {
+        if (!state.continue || scene === undefined) {
             state.scenes.forEach(s => {
                 // Don't re-run scripts that have already completed — they should freeze on their
                 // last frame. GOTO-looping scenes stay 'running' indefinitely; only single-play

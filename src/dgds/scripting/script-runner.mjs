@@ -344,7 +344,7 @@ const ADS_UNKNOWN_0 = (state) => { };
  * END_IF decrements; returns the index where depth reaches 0.
  * Returns -1 if no matching END_IF is found.
  */
-const IF_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370, 0x3010]);
+const IF_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370]);
 const findMatchingEndIf = (script, ifIndex) => {
     let depth = 1;
     for (let i = ifIndex + 1; i < script.length; i++) {
@@ -356,127 +356,123 @@ const findMatchingEndIf = (script, ifIndex) => {
     return -1;
 };
 
-const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
-    // Reset any OR-chain state: IF_NOT_PLAYED starts a fresh conditional.
+const handleIfCondition = (state, conditionPassed) => {
+    const wasOrMode = state.orMode;
     state.orMode = false;
-    state.orChainPassed = false;
-
-    if (!state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
-        return; // not played yet → execute the block
+    
+    if (!wasOrMode) {
+        state.orChainPassed = false;
     }
-    // Already played → skip to after the matching END_IF
+    
+    if (state.orChainPassed) {
+        conditionPassed = true;
+    } else if (conditionPassed && wasOrMode) {
+        state.orChainPassed = true;
+    }
+    
     const script = state.data.scenes[state.currentScene].script;
-    const endIfIdx = findMatchingEndIf(script, state.reentryNow);
-    if (endIfIdx !== -1) {
-        state.jumpTo = endIfIdx + 1;
+    const nextOpcode = script[state.reentryNow + 1]?.opcode;
+    
+    if (nextOpcode === 0x1430) { // OR
+        if (conditionPassed) {
+            state.orChainPassed = true;
+        }
+        state.continue = true;
+        return;
     }
+    
+    if (nextOpcode === 0x1420) { // AND
+        if (!conditionPassed) {
+            // Short-circuit: fail the entire AND chain immediately.
+            const endIfIdx = findMatchingEndIf(script, state.reentryNow);
+            if (endIfIdx !== -1) {
+                state.jumpTo = endIfIdx + 1;
+            }
+            state.orChainPassed = false;
+        }
+        state.continue = true;
+        return;
+    }
+    
+    // Terminal condition (no AND/OR follows)
+    if (!conditionPassed) {
+        const endIfIdx = findMatchingEndIf(script, state.reentryNow);
+        if (endIfIdx !== -1) {
+            state.jumpTo = endIfIdx + 1;
+        }
+    }
+    
+    state.orChainPassed = false;
+    state.continue = true;
 };
 
-/**
- * IF_PLAYED — blocks until a child TTM scene has completed, then executes the body.
- *
- * OR-chain semantics (mirrors ScummVM / jc_reborn):
- *   - OR (0x1430) sets state.orMode = true before the next IF_PLAYED.
- *   - IF_PLAYED accumulates state.orChainPassed; once any condition in the chain
- *     passes, subsequent IF_PLAYEDs in the same chain pass through unconditionally.
- *   - When no OR precedes the IF_PLAYED, the chain is reset.
- *
- * "Never added" semantics:
- *   - Scene not in scenes[] and not in playedHistory = was never added this cycle.
- *   - If more OR conditions follow → don't skip yet (chain continues).
- *   - Otherwise → skip to matching END_IF (block body should not execute).
- */
+const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
+    if (state.orMode && state.orChainPassed) {
+        handleIfCondition(state, true);
+        return;
+    }
+
+    const played = state.playedHistory.has(`${sceneIdx}:${tagId}`) ||
+        state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId && s.state.played);
+    
+    handleIfCondition(state, !played);
+};
+
 const IF_PLAYED = (state, sceneIdx, tagId) => {
     if (state.continue) {
         state.continue = false;
     }
 
-    const wasOrMode = state.orMode;
-    state.orMode = false;
-    if (!wasOrMode) {
-        // Fresh chain — reset accumulated result.
-        state.orChainPassed = false;
-    }
-
-    // Once any condition in an OR chain passed, pass through unconditionally.
-    if (state.orChainPassed) {
+    if (state.orMode && state.orChainPassed) {
         state.continue = true;
+        handleIfCondition(state, true);
         return;
     }
 
-    // Check active scenes that have already played.
-    let scene = state.scenes.find(s =>
-        s.sceneIdx === sceneIdx && s.tagId === tagId && s.state.played);
-    if (scene !== undefined) {
-        if (scene.state.timer === 0) {
-            state.removeScenes.push({ sceneIdx, tagId });
-        }
-        state.orChainPassed = true;
-        state.continue = true;
-        return;
-    }
-
-    // Check scenes cleared by a previous END (cross-scene played tracking).
     if (state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
-        state.orChainPassed = true;
         state.continue = true;
+        handleIfCondition(state, true);
         return;
     }
 
-    // Scene is in scenes[] but has not yet played → keep blocking.
-    scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+
     if (scene !== undefined) {
-        state.orChainPassed = false;
-        return; // state.continue stays false
-    }
-
-    // Scene was never added this cycle.
-    const script = state.data.scenes[state.currentScene].script;
-    const nextOpcode = script[state.reentryNow + 1]?.opcode;
-    if (nextOpcode === 0x1430 || nextOpcode === 0x1420) {
-        // More OR/AND conditions follow — don't skip yet; continue the chain.
-        state.orChainPassed = false;
-        state.continue = true;
+        if (scene.state.played) {
+            if (scene.state.timer === 0) {
+                state.removeScenes.push({ sceneIdx, tagId });
+            }
+            state.continue = true;
+            handleIfCondition(state, true);
+        } else {
+            // Still playing -> BLOCK (keep state.continue = false)
+        }
         return;
     }
 
-    // Terminal condition and all conditions failed → skip the block body.
-    const endIfIdx = findMatchingEndIf(script, state.reentryNow);
-    if (endIfIdx !== -1) {
-        state.jumpTo = endIfIdx + 1;
-    }
-    state.orChainPassed = false;
+    // Never added this cycle -> evaluate false
     state.continue = true;
+    handleIfCondition(state, false);
 };
 
 const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
-    state.orMode = false;
-    state.orChainPassed = false;
-
+    if (state.orMode && state.orChainPassed) {
+        handleIfCondition(state, true);
+        return;
+    }
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    if (isRunning) {
-        const script = state.data.scenes[state.currentScene].script;
-        const endIfIdx = findMatchingEndIf(script, state.reentryNow);
-        if (endIfIdx !== -1) {
-            state.jumpTo = endIfIdx + 1;
-        }
-    }
+    handleIfCondition(state, !isRunning);
 };
 
 const IF_RUNNING = (state, sceneIdx, tagId) => {
-    state.orMode = false;
-    state.orChainPassed = false;
-
+    if (state.orMode && state.orChainPassed) {
+        handleIfCondition(state, true);
+        return;
+    }
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    if (!isRunning) {
-        const script = state.data.scenes[state.currentScene].script;
-        const endIfIdx = findMatchingEndIf(script, state.reentryNow);
-        if (endIfIdx !== -1) {
-            state.jumpTo = endIfIdx + 1;
-        }
-    }
+    handleIfCondition(state, isRunning);
 };
 
 const AND = (state) => { };

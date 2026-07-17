@@ -48,6 +48,9 @@ export const drawBackground = (state, context) => {
         if (Date.now() > state.cloudElapsed) {
             state.cloudElapsed = 0;
             state.cloudX--;
+            if (state.cloudX < -200) {
+                state.cloudX = 640;
+            }
         }
 
         // Draw island
