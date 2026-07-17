@@ -28,7 +28,7 @@ import {
 } from './script-runner.mjs';
 
 // Re-export public API (tests and callers import from process.mjs)
-export { runScript, TTMDispatch, ADSDispatch, CommandType } from './script-runner.mjs';
+export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
 
 const fps = 1000 / 60;
 
@@ -58,7 +58,11 @@ const runScripts = () => {
             const prevScene = state.currentScene;
             exitFrame = runScript(state, scene.script, true);
             if (state.currentScene !== prevScene) {
-                debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (tagId ${state.data.scenes[state.currentScene]?.tagId ?? 'done'})`);
+                const tagInfo = state.data.scenes[state.currentScene]?.tagId;
+                const tagDesc = !tagInfo ? 'done'
+                    : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
+                    : tagInfo;
+                debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
             }
         } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
             // All main ADS scenes played and no child scenes remain — done.
@@ -86,7 +90,13 @@ const runScripts = () => {
                 }
             });
             state.scenes.forEach(s => {
-                state.context.drawImage(s.state.context.canvas, 0, 0);
+                // Completed scenes (played once, no GOTO loop) stay in state.scenes for
+                // IF_PLAYED tracking but should not keep rendering their last frame — doing
+                // so would ghost the previous animation behind the next sequential scene.
+                // GOTO-looping scenes stay 'running' and continue compositing.
+                if (s.lifecycle !== 'completed') {
+                    state.context.drawImage(s.state.context.canvas, 0, 0);
+                }
             });
         }
 
@@ -164,6 +174,8 @@ export const startProcess = (initialState) => {
         runs: 0,
         lastCommand: false,
         playedHistory: new Set(),
+        orMode: false,
+        orChainPassed: false,
         frameDelta: 0,
         reentryNow: 0,
         jumpTo: undefined,

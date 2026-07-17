@@ -5,7 +5,7 @@
  * (in script-runner.mjs) and the compositing loop (runScripts in process.mjs).
  */
 import { loadResourceEntry } from '../resource.mjs';
-import { drawImage, drawScreen } from '../graphics.mjs';
+import { buildSpriteCanvas } from '../graphics.mjs';
 
 // ---------------------------------------------------------------------------
 // Canvas helpers
@@ -34,7 +34,9 @@ export const drawContext = (state, index) => {
 export const drawBackground = (state, context) => {
     // Draw background / ocean / night
     if (state.bkgScreen) {
-        drawScreen(state.bkgScreen, context);
+        context.clearRect(0, 0, 640, 480);
+        const bgCanvas = buildSpriteCanvas(state.bkgScreen.images[0]);
+        if (bgCanvas) context.drawImage(bgCanvas, 0, 0);
     }
 
     if (state.island) {
@@ -50,45 +52,25 @@ export const drawBackground = (state, context) => {
 
         // Draw island
         if (state.bkgRes) {
+            const blit = (img, dx, dy) => {
+                const c = buildSpriteCanvas(img);
+                if (c) context.drawImage(c, 0, 0, img.width, img.height, dx, dy, img.width, img.height);
+            };
+
             // Draw clouds (random and animated)
-            let image = state.bkgRes.images[state.cloudIdx];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, state.cloudX, state.cloudY, image.width, image.height);
-
+            blit(state.bkgRes.images[state.cloudIdx], state.cloudX, state.cloudY);
             // Draw raft based on state
-            image = state.bkgRaft.images[3];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 222, 268, image.width, image.height);
-
+            blit(state.bkgRaft.images[3], posX + 222, 268);
             // isle
-            image = state.bkgRes.images[0];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX, 280, image.width, image.height);
-
+            blit(state.bkgRes.images[0], posX, 280);
             // palm tree
-            image = state.bkgRes.images[14];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 108, 280, image.width, image.height);
-            image = state.bkgRes.images[13];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 154, 148, image.width, image.height);
-            image = state.bkgRes.images[12];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 77, 122, image.width, image.height);
-
+            blit(state.bkgRes.images[14], posX + 108, 280);
+            blit(state.bkgRes.images[13], posX + 154, 148);
+            blit(state.bkgRes.images[12], posX + 77, 122);
             // Draw shore with animations
-            image = state.bkgRes.images[3];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX - 13, 305, image.width, image.height);
-
-            image = state.bkgRes.images[6];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 76, 320, image.width, image.height);
-
-            image = state.bkgRes.images[10];
-            drawImage(image, state.tmpContext, 0, 0);
-            context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, posX + 230, 303, image.width, image.height);
-
+            blit(state.bkgRes.images[3], posX - 13, 305);
+            blit(state.bkgRes.images[6], posX + 76, 320);
+            blit(state.bkgRes.images[10], posX + 230, 303);
             // Draw low tide
         }
     }

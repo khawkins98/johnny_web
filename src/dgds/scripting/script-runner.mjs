@@ -7,7 +7,7 @@
  * Re-exported by process.mjs for backward-compat.
  */
 import { loadResourceEntry } from '../resource.mjs';
-import { drawImage, getPaletteColor } from '../graphics.mjs';
+import { buildSpriteCanvas, getPaletteColor } from '../graphics.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState, initialState } from './scene-factory.mjs';
 import {
@@ -35,7 +35,15 @@ export const isDebugMode = (() => {
     } catch { return false; }
 })();
 
+// Verbose mode: ?debug=verbose logs per-opcode details (DRAW_SPRITE frames, PLAY_SAMPLE, GOTO loops).
+export const isVerboseMode = (() => {
+    try {
+        return new URLSearchParams(window.location.search).get('debug') === 'verbose';
+    } catch { return false; }
+})();
+
 export const debugLog = isDebugMode ? (...args) => console.log('[DGDS]', ...args) : () => {};
+export const verboseLog = isVerboseMode ? (...args) => console.log('[DGDS:V]', ...args) : () => {};
 
 /**
  * Build a human-readable label for a TTM child scene, including the tag
@@ -53,8 +61,13 @@ const sceneLabel = (scenesRes, sceneIdx, tagId) => {
 const SAVE_BACKGROUND = (state) => { };
 
 const DRAW_BACKGROUND = (state) => {
-    // RESTORE_REGION(state, 0, 0, 0, 0);
-    drawBackground(state, state.mainContext);
+    // No-op in the per-scene-canvas architecture.
+    // In the original DGDS engine this restored the saved background region behind
+    // a sprite (software blitting: save→draw sprite→restore). In our architecture
+    // each TTM scene has a transparent off-screen canvas; the island background is
+    // drawn once per frame by the main compositor (runScripts → drawBackground →
+    // mainCanvas) with current cloud state, so calling drawBackground again from a
+    // child scene would overwrite it with stale (snapshot-at-creation) cloud positions.
 };
 
 const PURGE = (state) => {
@@ -100,7 +113,7 @@ const SET_BACKGROUND = (state, index) => {
 const GOTO = (state, tagId) => {
     // All GOTOs observed so far are self-loops (GOTO within own tag's script).
     // Cross-tag jumps are not yet supported — they would require switching state.script.
-    debugLog(`TTM loop: ${sceneLabel(state.scenesRes, state.sceneIdx, tagId)}`);
+    verboseLog(`TTM loop: ${sceneLabel(state.scenesRes, state.sceneIdx, tagId)}`);
     // Signal runScript to restart from index 0 at the top of the NEXT call (not this one).
     // Setting reentry=0 here is useless because the for-loop overwrites it with `reentry=i`
     // immediately after the callback returns. Instead, the gotoRestart flag is checked at
@@ -226,41 +239,37 @@ const DRAW_BUBBLE = (state, x, y, width, height) => {
 };
 
 const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
-    if (state.res[slot] === undefined) {
-        return;
-    }
+    if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
-    if (image !== undefined) {
-        state.context.save();
-        state.context.beginPath();
-        state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
-        state.context.clip();
-
-        drawImage(image, state.tmpContext, 0, 0);
-        state.context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, offsetX, offsetY, image.width, image.height);
-        state.context.restore();
-    }
+    if (image === undefined) return;
+    const spriteCanvas = buildSpriteCanvas(image);
+    if (!spriteCanvas) return;
+    verboseLog(`DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
+    state.context.save();
+    state.context.beginPath();
+    state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
+    state.context.clip();
+    state.context.drawImage(spriteCanvas, 0, 0, image.width, image.height, offsetX, offsetY, image.width, image.height);
+    state.context.restore();
 };
 
 const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
-    if (state.res[slot] === undefined) {
-        return;
-    }
+    if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
-    if (image !== undefined) {
-        state.context.save();
-        state.context.beginPath();
-        state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
-        state.context.clip();
-
-        drawImage(image, state.tmpContext, 0, 0);
-        state.context.save();
-        state.context.translate(image.width, 0);
-        state.context.scale(-1, 1);
-        state.context.drawImage(state.tmpContext.canvas, 0, 0, image.width, image.height, -offsetX, offsetY, image.width, image.height);
-        state.context.restore();
-        state.context.restore();
-    }
+    if (image === undefined) return;
+    const spriteCanvas = buildSpriteCanvas(image);
+    if (!spriteCanvas) return;
+    verboseLog(`DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
+    state.context.save();
+    state.context.beginPath();
+    state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
+    state.context.clip();
+    state.context.save();
+    state.context.translate(image.width, 0);
+    state.context.scale(-1, 1);
+    state.context.drawImage(spriteCanvas, 0, 0, image.width, image.height, -offsetX, offsetY, image.width, image.height);
+    state.context.restore();
+    state.context.restore();
 };
 
 const DRAW_SPRITE1 = (state) => { };
@@ -268,7 +277,6 @@ const DRAW_SPRITE3 = (state) => { };
 
 const clearScreen = (state, index) => {
     clearContext(state.context);
-    clearContext(state.tmpContext);
     drawContext(state);
 };
 
@@ -330,70 +338,141 @@ const LOAD_PALETTE = (state) => { };
 
 const ADS_UNKNOWN_0 = (state) => { };
 
+/**
+ * Find the matching END_IF (0xfff0) for an IF opcode at `ifIndex`.
+ * Scans forward tracking nesting depth: IF opcodes increment depth,
+ * END_IF decrements; returns the index where depth reaches 0.
+ * Returns -1 if no matching END_IF is found.
+ */
+const IF_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370, 0x3010]);
+const findMatchingEndIf = (script, ifIndex) => {
+    let depth = 1;
+    for (let i = ifIndex + 1; i < script.length; i++) {
+        if (IF_OPCODES.has(script[i].opcode)) depth++;
+        else if (script[i].opcode === 0xfff0) {
+            if (--depth === 0) return i;
+        }
+    }
+    return -1;
+};
+
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
-    // Block the current script if the scene has NOT yet played this ADS run
-    // (i.e., should execute the block). Skip the block if it HAS played.
+    // Reset any OR-chain state: IF_NOT_PLAYED starts a fresh conditional.
+    state.orMode = false;
+    state.orChainPassed = false;
+
     if (!state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
-        // Not played yet → execute the block (continue = true, no jump needed)
-        return;
+        return; // not played yet → execute the block
     }
     // Already played → skip to after the matching END_IF
     const script = state.data.scenes[state.currentScene].script;
-    const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+    const endIfIdx = findMatchingEndIf(script, state.reentryNow);
     if (endIfIdx !== -1) {
-        // jumpTo is read by runScript after the callback to advance past END_IF
         state.jumpTo = endIfIdx + 1;
     }
 };
 
+/**
+ * IF_PLAYED — blocks until a child TTM scene has completed, then executes the body.
+ *
+ * OR-chain semantics (mirrors ScummVM / jc_reborn):
+ *   - OR (0x1430) sets state.orMode = true before the next IF_PLAYED.
+ *   - IF_PLAYED accumulates state.orChainPassed; once any condition in the chain
+ *     passes, subsequent IF_PLAYEDs in the same chain pass through unconditionally.
+ *   - When no OR precedes the IF_PLAYED, the chain is reset.
+ *
+ * "Never added" semantics:
+ *   - Scene not in scenes[] and not in playedHistory = was never added this cycle.
+ *   - If more OR conditions follow → don't skip yet (chain continues).
+ *   - Otherwise → skip to matching END_IF (block body should not execute).
+ */
 const IF_PLAYED = (state, sceneIdx, tagId) => {
     if (state.continue) {
         state.continue = false;
     }
-    let scene = state.scenes.find(s =>
-        s.sceneIdx === sceneIdx && s.tagId === tagId
-        && s.state.played);
-    if (scene !== undefined) {
-        if (scene.state.timer === 0) {
-            state.removeScenes.push({
-                sceneIdx,
-                tagId,
-            });
-        }
+
+    const wasOrMode = state.orMode;
+    state.orMode = false;
+    if (!wasOrMode) {
+        // Fresh chain — reset accumulated result.
+        state.orChainPassed = false;
+    }
+
+    // Once any condition in an OR chain passed, pass through unconditionally.
+    if (state.orChainPassed) {
         state.continue = true;
         return;
     }
 
-    scene = state.scenes.find(s =>
-        s.sceneIdx === sceneIdx && s.tagId === tagId);
-    if (scene === undefined) {
+    // Check active scenes that have already played.
+    let scene = state.scenes.find(s =>
+        s.sceneIdx === sceneIdx && s.tagId === tagId && s.state.played);
+    if (scene !== undefined) {
+        if (scene.state.timer === 0) {
+            state.removeScenes.push({ sceneIdx, tagId });
+        }
+        state.orChainPassed = true;
         state.continue = true;
+        return;
     }
+
+    // Check scenes cleared by a previous END (cross-scene played tracking).
+    if (state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
+        state.orChainPassed = true;
+        state.continue = true;
+        return;
+    }
+
+    // Scene is in scenes[] but has not yet played → keep blocking.
+    scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    if (scene !== undefined) {
+        state.orChainPassed = false;
+        return; // state.continue stays false
+    }
+
+    // Scene was never added this cycle.
+    const script = state.data.scenes[state.currentScene].script;
+    const nextOpcode = script[state.reentryNow + 1]?.opcode;
+    if (nextOpcode === 0x1430 || nextOpcode === 0x1420) {
+        // More OR/AND conditions follow — don't skip yet; continue the chain.
+        state.orChainPassed = false;
+        state.continue = true;
+        return;
+    }
+
+    // Terminal condition and all conditions failed → skip the block body.
+    const endIfIdx = findMatchingEndIf(script, state.reentryNow);
+    if (endIfIdx !== -1) {
+        state.jumpTo = endIfIdx + 1;
+    }
+    state.orChainPassed = false;
+    state.continue = true;
 };
 
 const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
-    // Block if the scene IS currently active (skip block if already running).
-    // "Running" = in state.scenes with lifecycle 'active' or 'running'.
+    state.orMode = false;
+    state.orChainPassed = false;
+
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
     if (isRunning) {
-        // Scene is running → skip this block (find END_IF and jump past it)
         const script = state.data.scenes[state.currentScene].script;
-        const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+        const endIfIdx = findMatchingEndIf(script, state.reentryNow);
         if (endIfIdx !== -1) {
             state.jumpTo = endIfIdx + 1;
         }
     }
-    // else: not running → execute the block (continue = true, no jump)
 };
 
 const IF_RUNNING = (state, sceneIdx, tagId) => {
-    // Block if the scene is NOT currently active (skip block if NOT running).
+    state.orMode = false;
+    state.orChainPassed = false;
+
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
     if (!isRunning) {
         const script = state.data.scenes[state.currentScene].script;
-        const endIfIdx = script.findIndex((c, idx) => idx > state.reentryNow && c.opcode === 0xfff0);
+        const endIfIdx = findMatchingEndIf(script, state.reentryNow);
         if (endIfIdx !== -1) {
             state.jumpTo = endIfIdx + 1;
         }
@@ -401,7 +480,7 @@ const IF_RUNNING = (state, sceneIdx, tagId) => {
 };
 
 const AND = (state) => { };
-const OR = (state) => { };
+const OR = (state) => { state.orMode = true; };
 
 // ---------------------------------------------------------------------------
 // More ADS callbacks that depend on getSceneState
@@ -429,6 +508,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
 const PLAY_SCENE = (state) => {
     if (state.continue) {
         state.continue = false;
+        state._lastPlaySceneLabel = undefined;  // reset so the first-block is always logged
 
         if (state.removeScenes.length > 0) {
             state.removeScenes.forEach(s => {
@@ -459,7 +539,12 @@ const PLAY_SCENE = (state) => {
     const waiting = state.scenes.filter(s => s.lifecycle === 'active');
     state.continue = waiting.length === 0;
     if (isDebugMode && waiting.length > 0) {
-        debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).join(', ')}`);
+        // Sort labels so the comparison is stable regardless of iteration order.
+        const label = waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).sort().join(', ');
+        if (label !== state._lastPlaySceneLabel) {
+            state._lastPlaySceneLabel = label;
+            debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${label}`);
+        }
     }
 };
 
@@ -506,9 +591,10 @@ const END = (state) => {
     } else if (state.continue) {
         state.continue = false;
     }
-    const scene = state.scenes.find(s => s.state.played);
-    if (state.lastCommand && scene !== undefined) {
-        // Batch-clear all child scenes; record each in history so IF_NOT_PLAYED sees them.
+    if (state.lastCommand) {
+        // Batch-clear all child scenes unconditionally — including GOTO-looping scenes that
+        // never reach played=true. Without this, a looping scene (e.g. "frenzied dance")
+        // would persist into the next ADS gag and ghost over it.
         state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
         state.scenes = [];
         state.continue = true;
@@ -651,6 +737,9 @@ export const runScript = (state, script, main = false) => {
             // Reset lastCommand so the next ADS scene's intermediate END doesn't
             // inherit the stale "final command" flag and prematurely clear child scenes.
             state.lastCommand = false;
+            // Reset OR-chain state so it doesn't bleed into the next ADS scene.
+            state.orMode = false;
+            state.orChainPassed = false;
         }
         if (state.type === 'TTM') {
             if (state.sceneIdx !== undefined) {

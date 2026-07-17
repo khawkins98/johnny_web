@@ -457,6 +457,150 @@ describe('IF_RUNNING handler', () => {
 });
 
 // ---------------------------------------------------------------------------
+// IF_PLAYED handler
+// ---------------------------------------------------------------------------
+describe('IF_PLAYED handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x1350);
+    const orEntry = ADSDispatch.find(e => e.opcode === 0x1430);
+
+    // Minimal script with IF_PLAYED at index 0, body at 1, END_IF at 2, after at 3.
+    const flatScript = [
+        { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED
+        { opcode: 0x2005, params: [] },       // 1: ADD_SCENE (body)
+        { opcode: 0xfff0, params: [] },       // 2: END_IF
+        { opcode: 0x1510, params: [] },       // 3: PLAY_SCENE (after)
+    ];
+
+    const makeState = (scenes = [], history = [], script = flatScript) => ({
+        continue: true,
+        scenes,
+        playedHistory: new Set(history),
+        removeScenes: [],
+        orMode: false,
+        orChainPassed: false,
+        data: { scenes: [{ script }] },
+        currentScene: 0,
+        reentryNow: 0,
+        jumpTo: undefined,
+    });
+
+    it('blocks (continue=false) when scene is in scenes[] but not yet played', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active', state: { played: false, timer: 0 } }]);
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('passes (continue=true) when scene is in scenes[] and played=true', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed', state: { played: true, timer: 0 } }]);
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.removeScenes).toEqual([{ sceneIdx: 1, tagId: 7 }]);
+    });
+
+    it('passes via playedHistory when scene was cleared by END (cross-scene check)', () => {
+        const state = makeState([], ['1:7']); // scenes[] empty, but history has it
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBeUndefined(); // no skip needed — body should run
+    });
+
+    it('skips block when scene was never added (not in scenes or history)', () => {
+        const state = makeState([], []);
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBe(3); // jump past END_IF at index 2 → index 3
+    });
+
+    it('does NOT skip when never-added but OR follows (chain continues)', () => {
+        // Script: IF_PLAYED(1:7) OR IF_PLAYED(1:8) body END_IF
+        const script = [
+            { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED 1:7 (never added)
+            { opcode: 0x1430, params: [] },       // 1: OR ← nextOpcode, don't skip yet
+            { opcode: 0x1350, params: [1, 8] },  // 2: IF_PLAYED 1:8
+            { opcode: 0x2005, params: [] },       // 3: body
+            { opcode: 0xfff0, params: [] },       // 4: END_IF
+        ];
+        const state = makeState([], [], script);
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBeUndefined(); // chain must continue
+    });
+
+    it('OR chain: once one condition passes, subsequent IF_PLAYEDs pass through', () => {
+        // Scenario: 1:8 played → OR fires → IF_PLAYED 1:7 (never added) should pass through.
+        const script = [
+            { opcode: 0x1350, params: [1, 8] },  // 0: IF_PLAYED 1:8 (played) → orChainPassed=true
+            { opcode: 0x1430, params: [] },       // 1: OR
+            { opcode: 0x1350, params: [1, 7] },  // 2: IF_PLAYED 1:7 (never added)
+        ];
+        const state = makeState(
+            [{ sceneIdx: 1, tagId: 8, lifecycle: 'completed', state: { played: true, timer: 0 } }],
+            [],
+            script,
+        );
+        // Fire IF_PLAYED 1:8 → passes, orChainPassed=true
+        state.reentryNow = 0;
+        entry.callback(state, 1, 8);
+        expect(state.orChainPassed).toBe(true);
+        expect(state.continue).toBe(true);
+
+        // Fire OR → sets orMode=true
+        orEntry.callback(state);
+        expect(state.orMode).toBe(true);
+
+        // Fire IF_PLAYED 1:7 (never added) — should pass through because orChainPassed=true
+        state.reentryNow = 2;
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('OR chain: all conditions fail → terminal IF_PLAYED skips block', () => {
+        const script = [
+            { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED 1:7 (never added, OR follows)
+            { opcode: 0x1430, params: [] },       // 1: OR
+            { opcode: 0x1350, params: [1, 8] },  // 2: IF_PLAYED 1:8 (never added, nothing follows)
+            { opcode: 0x2005, params: [] },       // 3: body
+            { opcode: 0xfff0, params: [] },       // 4: END_IF
+        ];
+        const state = makeState([], [], script);
+
+        // First: IF_PLAYED 1:7 — never added, OR at pos 1 follows → don't skip
+        state.reentryNow = 0;
+        entry.callback(state, 1, 7);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBeUndefined();
+
+        // OR fires
+        orEntry.callback(state);
+
+        // IF_PLAYED 1:8 — never added, pos 3 = ADD_SCENE (not OR) → skip to END_IF
+        state.reentryNow = 2;
+        entry.callback(state, 1, 8);
+        expect(state.continue).toBe(true);
+        expect(state.jumpTo).toBe(5); // past END_IF at 4 → index 5
+    });
+
+    it('findMatchingEndIf skips nested END_IFs correctly', () => {
+        // Script: IF_PLAYED(outer) IF_PLAYED(inner) body END_IF(inner) END_IF(outer) after
+        const script = [
+            { opcode: 0x1350, params: [1, 7] },  // 0: outer IF_PLAYED
+            { opcode: 0x1350, params: [1, 8] },  // 1: inner IF_PLAYED (inside body)
+            { opcode: 0x2005, params: [] },       // 2: body
+            { opcode: 0xfff0, params: [] },       // 3: END_IF (inner)
+            { opcode: 0xfff0, params: [] },       // 4: END_IF (outer) ← target
+            { opcode: 0x1510, params: [] },       // 5: after
+        ];
+        const state = makeState([], [], script);
+        // Outer IF_PLAYED never added, no OR follows → skip to matching END_IF
+        state.reentryNow = 0;
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(5); // past END_IF at 4 → index 5
+    });
+});
+
+// ---------------------------------------------------------------------------
 // runScript — jumpTo / reentryNow mechanism
 // ---------------------------------------------------------------------------
 describe('runScript jumpTo mechanism', () => {
@@ -748,6 +892,23 @@ describe('END — batch-clear semantics', () => {
         entry.callback(mockState);
         expect(mockState.scenes).toHaveLength(0);
         expect(mockState.playedHistory.has('1:5')).toBe(true);
+        expect(mockState.continue).toBe(true);
+    });
+
+    it('clears GOTO-looping scenes (played=false) when lastCommand=true', () => {
+        // Regression: GOTO-looping scenes never set played=true, so the old
+        // `scene !== undefined` guard skipped the batch-clear, leaving them in
+        // state.scenes to ghost over the next ADS gag.
+        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const mockState = {
+            continue: true,
+            lastCommand: true,
+            scenes: [{ sceneIdx: 6, tagId: 28, state: { played: false } }],  // frenzied dance (GOTO loop)
+            playedHistory: new Set(),
+        };
+        entry.callback(mockState);
+        expect(mockState.scenes).toHaveLength(0);
+        expect(mockState.playedHistory.has('6:28')).toBe(true);
         expect(mockState.continue).toBe(true);
     });
 
