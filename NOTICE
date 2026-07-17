@@ -17,11 +17,13 @@ shut down in 2008. No official freeware or open-source release has ever been
 made by the rights holder. It is widely circulated on abandonware archives. Use
 of the original game data files is your own legal responsibility.
 
+**Supported Game Data:** This engine implementation, including hardcoded audio sample offsets and rendering assumptions, is specifically calibrated for **Johnny Castaway v1.01 (Int. 1.4.93)**. Other builds of the game data may not load correctly or may play incorrect audio samples.
+
 ## Original Project
 
 This repository is a hard fork of
 [xesf/castaway](https://github.com/xesf/castaway) by Alexandre Fontoura,
-whose original work is gratefully acknowledged.
+whose original work is gratefully acknowledged. For a modern desktop viewer capable of inspecting these DGDS assets, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer).
 
 ## Special Thanks (from the original project)
 

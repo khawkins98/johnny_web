@@ -1,6 +1,6 @@
 # johnny_web
 
-A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver originally created by Dynamix (Sierra On-Line) in 1992. This project is a hard fork of [xesf/castaway](https://github.com/xesf/castaway), modernized with a focus on idiomatic, standards-based web development.
+A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver originally created by Dynamix (Sierra On-Line) in 1992. This project was hard forked from [xesf/castaway](https://github.com/xesf/castaway) and considerably revamed with a focus on idiomatic, standards-based web development.
 
 ![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
@@ -18,18 +18,7 @@ Game data files are required — see [Obtaining the Game Data Files](#obtaining-
 - Reimplementation of the Johnny Castaway screensaver in the browser
 - Modernize the codebase toward web-native patterns (ES modules, Web APIs, Vite)
 - Learn and document the Dynamix Game Development System (DGDS) file formats
-- Provide extraction and dump tools via Node.js
-
-## Enhancements Roadmap
-
-- Day/Night loop in 24 h instead of 8 h
-- Day/Night based on user location sunrise and sunset
-- Moving clouds
-- Add waves like the static screen
-- Accelerate time
-- Tides based on user location with real-time tide data
-- Play full story sequence / choose single activities
-- Extend festive days from the original (could be location-based)
+- Provide extraction and dump tools via Node.js (for a full desktop asset viewer, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer))
 
 ## Obtaining the Screensaver Data Files
 
@@ -95,6 +84,8 @@ files.
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve the `dist/` build locally |
 | `npm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
+| `npm test` | Run the Vitest test suite |
+| `npm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
 | `npm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
 ## GitHub Pages
