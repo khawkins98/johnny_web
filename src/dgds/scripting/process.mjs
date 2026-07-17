@@ -64,9 +64,15 @@ const runScripts = () => {
                     : tagInfo;
                 debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
                 
-                // Clear any lingering fade-out from the previous scene
-                state.fadingOut = false;
-                state.fadeOpacity = 0;
+                // Instead of instantly popping the curtain, smoothly fade it in over the next few frames
+                if (state.fadeOpacity >= 1) {
+                    state.fadingOut = false;
+                    state.fadingIn = true;
+                    state.fadeOpacity = 1;
+                } else {
+                    state.fadingOut = false;
+                    state.fadeOpacity = 0;
+                }
             }
         } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
             // All main ADS scenes played and no child scenes remain — done.
@@ -106,16 +112,24 @@ const runScripts = () => {
 
         // Draw fade-to-black overlay on top of composited sprites (applied whether or not
         // child scenes are running, so the overlay shows on the END-fires frame too).
-        if (state.fadingOut) {
+        if (state.fadingOut || state.fadingIn) {
             state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
             state.context.fillRect(0, 0, 640, 480);
             
-            // Do NOT clear the overlay once it reaches 1. It must remain black to hide 
-            // any subsequent hidden cleanup animations (like "Walk out of water") until
-            // the next root gag sequence starts.
-            if (state.fadeOpacity >= 1 && state.fadeOpacity < 1.1) {
-                debugLog('FADE_OUT: complete, holding curtain');
-                state.fadeOpacity = 1.1; // lock it so we don't spam the log
+            if (state.fadingOut) {
+                // Do NOT clear the overlay once it reaches 1. It must remain black to hide 
+                // any subsequent hidden cleanup animations (like "Walk out of water") until
+                // the next root gag sequence starts.
+                if (state.fadeOpacity >= 1 && state.fadeOpacity < 1.1) {
+                    debugLog('FADE_OUT: complete, holding curtain');
+                    state.fadeOpacity = 1.1; // lock it so we don't spam the log
+                }
+            } else if (state.fadingIn) {
+                state.fadeOpacity -= state.frameDelta / 400;
+                if (state.fadeOpacity <= 0) {
+                    state.fadingIn = false;
+                    state.fadeOpacity = 0;
+                }
             }
         }
 
