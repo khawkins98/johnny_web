@@ -82,7 +82,7 @@ export const decompressLZW = (data, offset, length) => {
                     code = oldCode;
                 }
                 while (code >= 256) {
-                    if (code > 4095) {
+                    if (code > 4095 || !codeTable[code]) {
                         break;
                     }
                     decodeStack[stackIndex] = codeTable[code].append;
