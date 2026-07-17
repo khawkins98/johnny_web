@@ -317,6 +317,7 @@ describe('IF_NOT_PLAYED handler', () => {
 
     const makeState = (played, script) => ({
         playedHistory: new Set(played),
+        scenes: [],
         data: { scenes: [{ script }] },
         currentScene: 0,
         reentryNow: 0,
@@ -326,7 +327,7 @@ describe('IF_NOT_PLAYED handler', () => {
     it('does not set jumpTo when scene is NOT in playedHistory (execute block)', () => {
         const script = [
             { opcode: 0x1330, params: [1, 7] },
-            { opcode: 0x1430, params: [] },
+            { opcode: 0x2005, params: [] },
             { opcode: 0xfff0, params: [] },
         ];
         const state = makeState([], script);
@@ -337,9 +338,9 @@ describe('IF_NOT_PLAYED handler', () => {
     it('sets jumpTo to endIfIdx+1 when scene IS in playedHistory (skip block)', () => {
         const script = [
             { opcode: 0x1330, params: [1, 7] },  // index 0: IF_NOT_PLAYED
-            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0x2005, params: [] },       // index 1: inside block
             { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x1430, params: [] },       // index 3: after block
+            { opcode: 0x2005, params: [] },       // index 3: after block
         ];
         const state = makeState(['1:7'], script);
         entry.callback(state, 1, 7);
@@ -378,9 +379,9 @@ describe('IF_NOT_RUNNING handler', () => {
         scenes,
         data: { scenes: [{ script: [
             { opcode: 0x1360, params: [1, 7] },  // index 0
-            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0x2005, params: [] },       // index 1: inside block
             { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x1430, params: [] },       // index 3: after block
+            { opcode: 0x2005, params: [] },       // index 3: after block
         ]}] },
         currentScene: 0,
         reentryNow: 0,
@@ -422,9 +423,9 @@ describe('IF_RUNNING handler', () => {
         scenes,
         data: { scenes: [{ script: [
             { opcode: 0x1370, params: [1, 7] },  // index 0
-            { opcode: 0x1430, params: [] },       // index 1: inside block
+            { opcode: 0x2005, params: [] },       // index 1: inside block
             { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x1430, params: [] },       // index 3: after block
+            { opcode: 0x2005, params: [] },       // index 3: after block
         ]}] },
         currentScene: 0,
         reentryNow: 0,

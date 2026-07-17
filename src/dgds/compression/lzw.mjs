@@ -54,7 +54,7 @@ export const decompressLZW = (data, offset, length) => {
     pdata.push(oldCode);
 
     try {
-        while (offset < length) {
+        while (offset < length && offset < data.byteLength) {
             const { value, innerOffset, c, nb } = getBits(data, offset, numBits, current, nextBit);
             const newCode = value;
             nextBit = nb;
