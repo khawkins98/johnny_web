@@ -42,7 +42,9 @@ export const isVerboseMode = (() => {
     } catch { return false; }
 })();
 
-export const debugLog = isDebugMode ? (...args) => console.log('[DGDS]', ...args) : () => {};
+const getTimestamp = () => new Date().toISOString().substring(11, 23);
+
+export const debugLog = isDebugMode ? (...args) => console.log(`[DGDS] [${getTimestamp()}]`, ...args) : () => {};
 
 export const sceneLog = (state, action, target = '') => {
     if (!isDebugMode) return;
@@ -64,10 +66,10 @@ export const sceneLog = (state, action, target = '') => {
     const tgtStr = target.padEnd(25, ' ');
     const cycStr = cycles ? `(${cycles})` : '';
 
-    console.log(`${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
+    console.log(`[${getTimestamp()}] ${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
 };
 
-export const verboseLog = isVerboseMode ? (...args) => console.log('[DGDS:V]', ...args) : () => {};
+export const verboseLog = isVerboseMode ? (...args) => console.log(`[DGDS:V] [${getTimestamp()}]`, ...args) : () => {};
 
 /**
  * Build a human-readable label for a TTM child scene, including the tag
