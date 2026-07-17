@@ -19,22 +19,13 @@ Game data files are required — see [Obtaining the Game Data Files](#obtaining-
 - Modernize the codebase toward web-native patterns (ES modules, Web APIs, Vite)
 - Learn and document the Dynamix Game Development System (DGDS) file formats
 - Provide extraction and dump tools via Node.js (for a full desktop asset viewer, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer))
+- Learn something, play with AI as a helper
 
 ## Obtaining the Screensaver Data Files
 
 The screensaver requires three proprietary data files that are not included in
 this repository. These files originate from the original 1992/1993 Windows 3.1
-floppy distribution by Sierra On-Line. See
-[Wikipedia](https://en.wikipedia.org/wiki/Johnny_Castaway) for history.
-
-**Legal note:** Johnny Castaway is  still under copyright (see
-[NOTICE](NOTICE)). It has never been released as freeware.
-However, it has been commercially unavailable for 30+ years, is widely
-considered abandonware, and no enforcement action has ever been publicly
-reported. Obtaining and using it for personal, non-commercial purposes is your
-own legal call.
-
-### Known sources
+floppy distribution by Sierra On-Line.
 
 | Source | What you get | Notes |
 |--------|-------------|-------|
