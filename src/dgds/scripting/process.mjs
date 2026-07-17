@@ -125,12 +125,12 @@ const runScripts = () => {
             state.context.fillRect(0, 0, 640, 480);
             
             if (state.fadingOut) {
-                // Do NOT clear the overlay once it reaches 1. It must remain black to hide 
-                // any subsequent hidden cleanup animations (like "Walk out of water") until
-                // the next root gag sequence starts.
-                if (state.fadeOpacity >= 1 && state.fadeOpacity < 1.1) {
-                    debugLog('FADE_OUT: complete, holding curtain');
-                    state.fadeOpacity = 1.1; // lock it so we don't spam the log
+                // Once fully black, clear after drawing so the overlay covers the END-fires frame
+                // but is gone before the next script continues. This allows post-fade scenes
+                // like "Walk out of water" to be visible.
+                if (state.fadeOpacity >= 1) {
+                    debugLog('FADE_OUT: complete, clearing overlay');
+                    state.fadingOut = false;
                 }
             } else if (state.fadingIn) {
                 state.fadeOpacity -= state.frameDelta / 400;
