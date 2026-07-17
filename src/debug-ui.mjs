@@ -14,9 +14,16 @@ export function setupDebugUI() {
     container.style.fontFamily = 'monospace';
     container.style.fontSize = '12px';
     container.style.border = '1px solid #444';
-    container.style.display = 'flex';
+    container.style.display = 'none'; // Hidden by default
     container.style.flexDirection = 'column';
     container.style.gap = '8px';
+
+    // Toggle on "D" keypress
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'd' || e.key === 'D') {
+            container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+        }
+    });
 
     const title = document.createElement('div');
     title.innerText = '🛠 Debug Menu';
