@@ -296,16 +296,16 @@ describe('runScript scene transition', () => {
 describe('SET_TIMER handler', () => {
     const entry = CommandType.find(e => e.opcode === 0x2020);
 
-    it('sets timer to timer*20 + delay*20', () => {
+    it('sets timer to timer*55 + delay*55', () => {
         const mockState = { timer: 0 };
         entry.callback(mockState, 3, 5); // delay=3, timer=5
-        expect(mockState.timer).toBe(5 * 20 + 3 * 20); // 160
+        expect(mockState.timer).toBe(5 * 55 + 3 * 55); // 440
     });
 
     it('uses delay=1 when delay argument is 0', () => {
         const mockState = { timer: 0 };
         entry.callback(mockState, 0, 5); // delay=0 → treated as 1
-        expect(mockState.timer).toBe(5 * 20 + 1 * 20); // 120
+        expect(mockState.timer).toBe(5 * 55 + 1 * 55); // 330
     });
 });
 

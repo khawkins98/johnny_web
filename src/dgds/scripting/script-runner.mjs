@@ -117,7 +117,7 @@ const UPDATE = (state) => {
 };
 
 const SET_DELAY = (state, delay) => {
-    state.delay = ((delay === 0 ? 1 : delay) * 20);
+    state.delay = ((delay === 0 ? 1 : delay) * 55);
 };
 
 const SLOT_IMAGE = (state, slot) => {
@@ -164,7 +164,7 @@ const SET_TIMER = (state, delay, timer) => {
     // Timer in milliseconds. Decremented each frame (in runScripts) by state.frameDelta.
     // IF_PLAYED checks scene.state.timer === 0 to allow scene removal once the timer expires.
     state.hasTimer = true;
-    state.timer = timer * 20 + ((delay === 0 ? 1 : delay) * 20);
+    state.timer = timer * 55 + ((delay === 0 ? 1 : delay) * 55);
 };
 
 const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
