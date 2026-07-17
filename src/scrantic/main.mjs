@@ -1,7 +1,7 @@
 import { drawScreen } from '../dgds/graphics.mjs';
 import { loadResources } from '../dgds/resource.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
-import Story from './story.mjs';
+import { startProcess } from '../dgds/scripting/process.mjs';
 import { setupDebugUI } from '../debug-ui.mjs';
 
 export const run = async () => {
@@ -57,9 +57,24 @@ export const run = async () => {
 
     setupDebugUI();
 
-    const story = new Story(resource);
+    const context = document.getElementById('canvas').getContext('2d');
+    const data = resource.loadEntry('ACTIVITY.ADS');
+
     while (true) {
-        await story.play(audioManager);
+        context.clearRect(0, 0, 640, 480);
+        mainContext.clearRect(0, 0, 640, 480);
+        
+        await new Promise((resolve) => {
+            startProcess({
+                type: 'ADS',
+                context,
+                mainContext,
+                data,
+                entries: resource.entries,
+                audioManager,
+                onComplete: resolve,
+            });
+        });
     }
 };
 

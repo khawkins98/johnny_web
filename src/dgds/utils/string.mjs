@@ -5,13 +5,6 @@
  * @param {*} length Max size of the string
  */
 export const getString = (buffer, offset, length = 100) => {
-    let str = '';
-    for (let i = 0; i < length; i += 1) {
-        const char = buffer.getUint8(offset + i);
-        if (char === 0) {
-            break;
-        }
-        str += String.fromCharCode(char);
-    }
-    return str;
+    const slice = new Uint8Array(buffer.buffer, buffer.byteOffset + offset, length);
+    return new TextDecoder().decode(slice).replace(/\0.*$/, '');
 };
