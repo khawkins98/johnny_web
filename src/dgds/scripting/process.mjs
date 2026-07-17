@@ -103,13 +103,12 @@ const runScripts = () => {
                 }
             });
             state.scenes.forEach(s => {
-                // Completed scenes (played once, no GOTO loop) stay in state.scenes for
-                // IF_PLAYED tracking but should not keep rendering their last frame — doing
-                // so would ghost the previous animation behind the next sequential scene.
-                // GOTO-looping scenes stay 'running' and continue compositing.
-                if (!s._wasCompleted) {
-                    state.context.drawImage(s.state.context.canvas, 0, 0);
-                }
+                // Completed scenes stay in state.scenes until the ADS script explicitly removes
+                // them via STOP_SCENE or IF_PLAYED. In the original engine, because the screen
+                // was not cleared every frame, a completed scene would remain frozen on its last
+                // frame. We replicate this by continuously compositing the scene's canvas until
+                // it is explicitly removed from the active list.
+                state.context.drawImage(s.state.context.canvas, 0, 0);
             });
 
             // Draw the captured background regions ON TOP of the sprites

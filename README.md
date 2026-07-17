@@ -27,24 +27,19 @@ this repository. These files originate from the original 1992/1993 Windows 3.1
 floppy distribution by Sierra On-Line. See
 [Wikipedia](https://en.wikipedia.org/wiki/Johnny_Castaway) for history.
 
-**Legal note:** Johnny Castaway is technically still under copyright (see
-[NOTICE](NOTICE)). It has never been officially released as freeware.
+**Legal note:** Johnny Castaway is  still under copyright (see
+[NOTICE](NOTICE)). It has never been released as freeware.
 However, it has been commercially unavailable for 30+ years, is widely
 considered abandonware, and no enforcement action has ever been publicly
 reported. Obtaining and using it for personal, non-commercial purposes is your
 own legal call.
-
-**Note for GitHub Pages users:** The deployed version at
-https://johnny_web.pages.dev (or your repo's GitHub Pages URL) includes the
-screensaver data automatically and works out of the box. You only need to
-extract the data files if you're running locally.
 
 ### Known sources
 
 | Source | What you get | Notes |
 |--------|-------------|-------|
 | [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `pnpm run extract` below |
-| [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP | Requires JavaScript in browser |
+| [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP |  |
 
 ### Extracting from the Internet Archive floppy image
 
@@ -87,29 +82,6 @@ files.
 | `pnpm test` | Run the Vitest test suite |
 | `pnpm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
 | `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
-
-## GitHub Pages
-
-Pushes to `main` automatically deploy to GitHub Pages via the workflow in
-`.github/workflows/deploy.yml`. The workflow downloads and extracts the game
-data from the Internet Archive, so the deployed version is fully functional.
-
-Enable Pages in your repo settings
-(**Settings → Pages → Source: GitHub Actions**).
-
-If your repo lives at a path other than `/johnny_web/`, update `VITE_BASE_PATH`
-in the workflow file.
-
-**Note:** For local development, you still need to extract the game data files
-yourself (see below). The GitHub Pages deployment handles this automatically.
-
-## Docs
-
-- [Resource Index File Format](docs/resindex.md)
-- [Architecture](docs/architecture.md)
-- [NOTICE](NOTICE) — IP attribution and copyright details
-- [CHANGELOG](CHANGELOG.md)
-- [CONTRIBUTING](CONTRIBUTING.md)
 
 ## Acknowledgements
 
