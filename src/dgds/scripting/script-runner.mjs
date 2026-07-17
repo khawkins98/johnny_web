@@ -144,9 +144,6 @@ const GOTO = (state, tagId) => {
             }
         }
     }
-    state.delay = 0;
-    state.timer = 0;
-    state.elapsed = 0;
     state.gotoRestart = true;
     state.continue = false;  // pause execution until next frame (like UPDATE)
     state.runs++;             // count completed loops so PLAY_SCENE can unblock
@@ -477,9 +474,7 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
 
     if (scene !== undefined) {
         if (isSceneDone(scene)) {
-            if (scene.state.hasTimer) {
-                state.removeScenes.push({ sceneIdx, tagId });
-            }
+            state.removeScenes.push({ sceneIdx, tagId });
             state.continue = true;
             handleIfCondition(state, true);
         } else {
