@@ -7,8 +7,8 @@ A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/
 ## Getting started
 
 ```bash
-npm install
-npm run dev       # http://localhost:5173
+pnpm install
+pnpm run dev       # http://localhost:5173
 ```
 
 Game data files are required — see [Obtaining the Game Data Files](#obtaining-the-game-data-files) below.
@@ -43,7 +43,7 @@ extract the data files if you're running locally.
 
 | Source | What you get | Notes |
 |--------|-------------|-------|
-| [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `npm run extract` below |
+| [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `pnpm run extract` below |
 | [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP | Requires JavaScript in browser |
 
 ### Extracting from the Internet Archive floppy image
@@ -69,24 +69,24 @@ apt install mtools unzip
 curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
 
 # 2. Extract the game data files into public/data/
-npm run extract -- "<path-to-downloaded.zip>"
+pnpm run extract -- "<path-to-downloaded.zip>"
 ```
 
 The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and
 `SCRANTIC.SCR` (the screensaver data files) and then cleans up all temporary
 files.
 
-## npm scripts
+## pnpm scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server at http://localhost:5173 |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Serve the `dist/` build locally |
-| `npm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
-| `npm test` | Run the Vitest test suite |
-| `npm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
-| `npm run dump` | Dump screensaver assets to `dumps/` for inspection |
+| `pnpm run dev` | Start Vite dev server at http://localhost:5173 |
+| `pnpm run build` | Production build to `dist/` |
+| `pnpm run preview` | Serve the `dist/` build locally |
+| `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
+| `pnpm test` | Run the Vitest test suite |
+| `pnpm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
+| `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
 ## GitHub Pages
 
