@@ -1,4 +1,3 @@
-import { StoryScenes } from './scrantic/metadata/scenes.mjs';
 import { __DEBUG__ } from './dgds/scripting/process.mjs';
 
 export function setupDebugUI() {
@@ -21,7 +20,12 @@ export function setupDebugUI() {
     // Toggle on "D" keypress
     window.addEventListener('keydown', (e) => {
         if (e.key === 'd' || e.key === 'D') {
-            container.style.display = container.style.display === 'none' ? 'flex' : 'none';
+            if (container.style.display === 'none') {
+                container.style.display = 'flex';
+                populateSelect(); // Load actual scenes from engine
+            } else {
+                container.style.display = 'none';
+            }
         }
     });
 
@@ -44,14 +48,20 @@ export function setupDebugUI() {
     select.style.border = '1px solid #555';
     select.style.padding = '2px 4px';
 
-    StoryScenes.forEach(scene => {
-        if (scene.tag) {
-            const option = document.createElement('option');
-            option.value = scene.tag;
-            option.innerText = `${scene.tag}: ${scene.description}`;
-            select.appendChild(option);
+    const populateSelect = () => {
+        select.innerHTML = ''; // clear
+        const state = __DEBUG__.getState();
+        if (state && state.data && state.data.scenes) {
+            state.data.scenes.forEach(scene => {
+                if (scene.tagId && scene.tagId.id) {
+                    const option = document.createElement('option');
+                    option.value = scene.tagId.id;
+                    option.innerText = `${scene.tagId.id}: ${scene.tagId.description}`;
+                    select.appendChild(option);
+                }
+            });
         }
-    });
+    };
 
     const jumpBtn = document.createElement('button');
     jumpBtn.innerText = 'Jump to Gag';
