@@ -89,6 +89,9 @@ const runScripts = () => {
                             s.retries--;
                             s.state.played = false;
                             s.state.reentry = 0; // Rewind script to start
+                            s.state.delay = 0;
+                            s.state.timer = 0;
+                            s.state.elapsed = 0;
                         } else {
                             s.lifecycle = 'completed';
                         }

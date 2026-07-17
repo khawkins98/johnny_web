@@ -155,6 +155,23 @@ export const loadADSResourceEntry = (entry) => {
         } else {
             command.tag = tags.find((t) => t.id === command.opcode);
             command.line += `${command.tag.description}`;
+
+            while (indent) {
+                indent -= 1;
+                const endIfCmd = {
+                    opcode: 0xfff0,
+                    lineNumber,
+                    line: 'END_IF',
+                    indent,
+                    tag: null,
+                    params: []
+                };
+                scripts.push(endIfCmd);
+                sceneScripts.push(endIfCmd);
+                lineNumber += 1;
+            }
+            command.lineNumber = lineNumber;
+
             command.indent = 0;
             indent = 0;
             if (prevTagId) {
@@ -169,6 +186,21 @@ export const loadADSResourceEntry = (entry) => {
 
         lineNumber += 1;
         scripts.push(command);
+    }
+
+    while (indent) {
+        indent -= 1;
+        const endIfCmd = {
+            opcode: 0xfff0,
+            lineNumber,
+            line: 'END_IF',
+            indent,
+            tag: null,
+            params: []
+        };
+        scripts.push(endIfCmd);
+        sceneScripts.push(endIfCmd);
+        lineNumber += 1;
     }
 
     // Push the final scene (mirrors what ttm.mjs does after its loop).

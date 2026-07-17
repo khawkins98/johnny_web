@@ -97,7 +97,9 @@ const DRAW_BACKGROUND = (state) => {
 };
 
 const PURGE = (state) => {
-    // state.purge = true;
+    if (state.saveBkg && state.saveBkg[0]) {
+        state.saveBkg[0].canDraw = false;
+    }
 };
 
 const UPDATE = (state) => {
@@ -142,6 +144,9 @@ const GOTO = (state, tagId) => {
             }
         }
     }
+    state.delay = 0;
+    state.timer = 0;
+    state.elapsed = 0;
     state.gotoRestart = true;
     state.continue = false;  // pause execution until next frame (like UPDATE)
     state.runs++;             // count completed loops so PLAY_SCENE can unblock
@@ -621,6 +626,12 @@ const END = (state) => {
         // would persist into the next ADS gag and ghost over it.
         state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
         state.scenes = [];
+        state.addScenes = [];
+        state.removeScenes = [];
+        state.scenesRandom = [];
+        if (state.saveBkg && state.saveBkg[0]) {
+            state.saveBkg[0].canDraw = false;
+        }
         state.continue = true;
     }
 };
