@@ -2,8 +2,8 @@
 /**
  * npm run extract -- "<path-to-zip>"
  *
- * Extracts the three game data files needed by johnny_web from the original
- * Johnny Castaway floppy disk ZIP image available on Archive.org:
+ * Extracts the three screensaver data files needed by johnny_web from the
+ * original Johnny Castaway floppy disk ZIP image available on Archive.org:
  *
  *   https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m
  *

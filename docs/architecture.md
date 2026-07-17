@@ -8,7 +8,7 @@
 
 `johnny_web` is a browser-native reimplementation of the *Johnny Castaway* animated screensaver (1992, Dynamix/Sierra On-Line). The original ran on DOS and Windows 3.1 using the **Dynamix Game Development System (DGDS)** engine. This project reads the proprietary binary resource files from the original floppy disk image, parses them entirely in JavaScript, and renders the animation on an HTML5 Canvas.
 
-The project does **not** include any original game data — users must supply their own copy of the floppy disk image (freely available on the Internet Archive). A Node.js extraction script (`npm run extract`) automates the pipeline from the Archive.org ZIP to the three game files the browser needs: `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`.
+The project does **not** include any original screensaver data — users must supply their own copy of the floppy disk image (freely available on the Internet Archive). A Node.js extraction script (`npm run extract`) automates the pipeline from the Archive.org ZIP to the three screensaver data files the browser needs: `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`.
 
 This is a working but incomplete implementation. Several opcodes are stubs, multiple known bugs affect scene sequencing, and the audio system uses hardcoded byte offsets tied to a specific version of the game data. The "Known bugs and limitations" section is mandatory reading before touching `process.mjs`.
 
@@ -22,15 +22,12 @@ johnny_web/
 ├── vite.config.js              # Vite config; VITE_BASE_PATH controls deploy prefix
 ├── package.json                # Scripts: dev | build | preview | extract | dump
 ├── src/
-│   ├── index.mjs               # Entry point: imports run() from scrantic/main.mjs
+│   ├── main.mjs                # Entry point: imports run() from scrantic/main.mjs
+│   ├── debug-ui.mjs            # Debug UI overlay for scene inspection
 │   ├── extract.mjs             # CLI tool: ZIP → floppy image → public/data/
 │   ├── scrantic/               # High-level game logic (orchestration layer)
 │   │   ├── main.mjs            # run(): resource fetch, error handling, play loop
-│   │   ├── story.mjs           # Story class: picks random scene, calls startProcess
-│   │   ├── palette.mjs         # Hardcoded 16-colour EGA palette (PALETTE[])
-│   │   └── metadata/
-│   │       ├── scenes.mjs      # StoryScenes[]: 10 scene descriptors for ACTIVITY.ADS
-│   │       └── types.mjs       # FlagType, PointType, HeadingType enums
+│   │   └── palette.mjs         # Hardcoded 16-colour EGA palette (PALETTE[])
 │   └── dgds/                   # Low-level DGDS engine implementation
 │       ├── resource.mjs        # RESOURCE.MAP + RESOURCE.001 parser; dispatch to loaders
 │       ├── graphics.mjs        # drawImage / drawScreen helpers (pixel object → ImageData)
@@ -69,9 +66,9 @@ johnny_web/
 
 ## 3. Startup flow
 
-1. **`index.html` loads** — declares two stacked `<canvas>` elements (`#mainCanvas` z-index 0, `#canvas` z-index 1) and two hidden overlay `<div>`s (`#start-overlay`, `#data-error`). Includes `src/index.mjs` as a `type="module"` script.
+1. **`index.html` loads** — declares two stacked `<canvas>` elements (`#mainCanvas` z-index 0, `#canvas` z-index 1) and two hidden overlay `<div>`s (`#start-overlay`, `#data-error`). Includes `src/main.mjs` as a `type="module"` script.
 
-2. **`src/index.mjs`** immediately calls `run()` from `scrantic/main.mjs`.
+2. **`src/main.mjs`** immediately calls `run()`.
 
 3. **`main.mjs: run()`** fetches `data/RESOURCE.MAP` and `data/RESOURCE.001` in parallel via `Promise.all`. Missing files are detected by checking the HTTP status and `Content-Type` (Vite's dev server returns `text/html` for non-existent paths rather than a 404). On failure, the `#data-error` overlay is shown and execution halts.
 
@@ -83,21 +80,20 @@ johnny_web/
 
 7. **Inside the click handler** (still synchronous relative to the user gesture): `createAudioManager()` constructs a new `AudioContext`. This **must** happen synchronously in the click handler; constructing `AudioContext` after any `await` loses the browser's user-activation context and the audio will be blocked.
 
-8. **`story.play(audioManager)` is called in an infinite `while(true)` loop.** Each call picks a random scene from `StoryScenes`, loads the corresponding `ACTIVITY.ADS` entry, and calls `startProcess()`. The promise resolves when `state.onComplete()` fires at the end of the scene, at which point the loop iterates for the next scene.
+8. **`startProcess()` is called in an infinite `while(true)` loop.** Each call loads `ACTIVITY.ADS` and runs the ADS opcode stream. The promise resolves when the ADS cycle completes (all scenes played, child scenes cleared), at which point the loop iterates for the next cycle.
 
 ```
 page load
   └─ run()
-       ├─ fetch RESOURCE.MAP + RESOURCE.001  (parallel)
-       │    └─ on error → show #data-error
-       ├─ loadResources()
-       ├─ drawScreen(INTRO.SCR, mainContext)
-       ├─ waitForStart()  →  [user clicks]
-       │    └─ createAudioManager()   ← must be synchronous in click handler
-       └─ while(true)
-            └─ story.play(audioManager)
-                 └─ startProcess({ type:'ADS', data, ... })
-                      └─ rAF mainloop → onComplete → next iteration
+        ├─ fetch RESOURCE.MAP + RESOURCE.001  (parallel)
+        │    └─ on error → show #data-error
+        ├─ loadResources()
+        ├─ drawScreen(INTRO.SCR, mainContext)
+        ├─ waitForStart()  →  [user clicks]
+        │    └─ createAudioManager()   ← must be synchronous in click handler
+        └─ while(true)
+             └─ startProcess({ type:'ADS', data, ... })
+                  └─ rAF mainloop → onComplete → next iteration
 ```
 
 ---
@@ -582,81 +578,35 @@ Note: an index beyond the bounds of `sampleOffsets` will not be caught by the `-
 
 ## 12. Known bugs and limitations
 
-### ~~Bug 1: Duplicate opcode values in `CommandType[]`~~ — FIXED
-
-~~`CommandType[]` in `process.mjs` merges TTM and ADS opcodes into a single array. `Array.find()` returns the **first** match, so these ADS callbacks are permanently unreachable:~~
-
-~~- `STOP_SCENE` (0x2010) — shadowed by TTM `SET_FRAME1`~~
-~~- `ADS_FADE_OUT` (0xF010) — shadowed by TTM `LOAD_SCREEN`~~
-~~- `ADS_UNKNOWN_6` (0x4000) — shadowed by TTM `SET_CLIP_REGION`~~
-
-**Fix implemented:** `script-runner.mjs` exports separate `TTMDispatch[]` and `ADSDispatch[]` tables. `runScript()` selects the correct table based on `state.type`.
-
-### Bug 2: `GOTO` ignores its `tagId` parameter (self-loops work; cross-tag deferred)
+### Bug 1: `GOTO` ignores its `tagId` parameter (self-loops work; cross-tag deferred)
 
 The `GOTO` (0x1200) handler resets `state.reentry` to 0 via a deferred `gotoRestart` flag, which loops the current script. Self-referential GOTOs (the only kind observed in the game data) work correctly. Cross-tag jumps (GOTO to a different scene in the same TTM) are not yet implemented — the tag offset is not recorded during parsing.
 
-### ~~Bug 3: Conditional ADS opcodes are unimplemented~~ — FIXED
+### Bug 2: Conditional ADS opcodes are unimplemented
 
-~~`IF_NOT_PLAYED` (0x1330), `IF_NOT_RUNNING` (0x1360), and `IF_RUNNING` (0x1370) are empty stubs.~~
-
-**Fix implemented:** All three conditionals are fully implemented in `script-runner.mjs`. `IF_NOT_PLAYED` uses `state.playedHistory`. `IF_RUNNING` / `IF_NOT_RUNNING` use `scene.lifecycle`. `IF_PLAYED` supports OR-chain semantics and `playedHistory` cross-scene tracking. `findMatchingEndIf()` handles nested `END_IF` blocks correctly.
-
-### ~~Bug 4: `SET_TIMER` dead code~~ — FIXED
-
-~~`SET_TIMER` (via TTM opcode 0x2020) sets `state.timer` but nothing in the main loop decremented or checked it. Timer-based scene branching was dead.~~
-
-**Fix implemented:** `runScripts()` in `process.mjs` decrements all child scene timers by `state.frameDelta` each frame: `s.state.timer = Math.max(0, s.state.timer - state.frameDelta)`.
-
-### Bug 5: `SAVE_IMAGE_REGION` is commented out
+`IF_NOT_PLAYED` (0x1330), `IF_NOT_RUNNING` (0x1360), and `IF_RUNNING` (0x1370) are empty stubs.
 
 The `SAVE_IMAGE_REGION` handler body is commented out. The `state.save[]` slots are initialised (three off-screen canvases) but `canDraw` is never set to `true`. `drawContext()`, which would composite these saved regions, is effectively a no-op. Scorecard/overlay compositing via `SET_BACKGROUND → drawContext` does not work.
 
-### ~~Bug 6: `getSceneState` mutates shared parsed data~~ — FIXED
-
-~~The first time a TTM scene was added, `getSceneState` called `s.script.unshift(...ttm.scenes[0].script)` which mutated the shared parsed TTM resource.~~
-
-**Fix implemented:** `scene-factory.mjs` now creates a new array: `s.script = [...ttm.scenes[0].script, ...s.script]`, leaving the parsed resource untouched.
-
-### ~~Bug 7: Last ADS scene never runs~~ — FIXED
-
-~~In `ads.mjs`, the scene-splitting loop pushed a `scenes[]` entry only when it encountered a tag opcode, so the final scene's commands were silently dropped.~~
-
-**Fix implemented:** `ads.mjs` unconditionally pushes the final scene after the loop ends.
-
-### Bug 8: `StoryScenes` tag metadata is never used
+### Bug 4: `StoryScenes` tag metadata is never used
 
 `StoryScenes` in `metadata/scenes.mjs` has 10 entries, all pointing at `ACTIVITY.ADS` with different `tag` values, distinct `description` strings, and scene flags (`FlagType`, `PointType`, `HeadingType`). However, `story.play()` only passes `scene.name` to `resource.loadEntry()` and then calls `startProcess()` without forwarding the `tag` or any flag. Every "random" scene selection loads and plays the same complete `ACTIVITY.ADS` from the beginning, ignoring the intended tag-based scene selection entirely.
 
-### Bug 9: Hardcoded 16-colour palette
+### Bug 5: Hardcoded 16-colour palette
 
 `src/scrantic/palette.mjs` exports a hardcoded 16-entry EGA palette. All BMP and SCR pixel data is decoded using this palette. The PAL resource loader (`pal.mjs`) correctly parses 256-entry VGA palettes from game data (with 6-bit RGB values scaled by 4 to 8-bit), but the parsed palette is never wired into the rendering path. Dynamic palette switching (e.g. for a night mode) requires extending the pipeline.
 
-### Bug 10: Single-process-only state
+### Bug 6: Single-process-only state
 
 All engine state (`state`, `scenes[]`, `scenesRes[]`, `bkgScreen`, etc.) is module-level. There is no support for running multiple concurrent ADS processes. Calling `startProcess()` unconditionally replaces any running process without cleanly stopping it (though it does cancel the previous rAF frame via reset of `state`).
 
-### Bug 11: Cloud timing tied to wall clock
+### Bug 7: Cloud timing tied to wall clock
 
 `drawBackground()` uses `Date.now()` comparisons for cloud movement, independent of the rAF frame delta. Cloud speed is therefore tied to wall-clock time, not to the 60 fps frame budget. On a machine that drops frames, the cloud will still advance at the same real-time rate, creating a disconnect between cloud speed and animation playback speed.
 
-### ~~Bug 12: Debug `console.log` calls throughout `process.mjs`~~ — Improved
+### Bug 8: Debug `console.log` calls throughout `process.mjs`
 
-~~Multiple active `console.log` calls produced continuous output during normal operation.~~
-
-**Improvement:** All debug logging is now gated on `isDebugMode` (URL param `debug=1`) or `isVerboseMode` (URL param `verbose=1`). Production runs produce no console output.
-
-### ~~Bug 13: Ghost-frame duplication from completed scenes~~ — FIXED
-
-After a single-play TTM scene finished (`lifecycle='completed'`), it remained in `scenes[]` for `IF_PLAYED` tracking, but its off-screen canvas still held the last rendered frame. The compositor continued to `drawImage` that canvas each frame, ghosting the final frame of the completed scene over subsequent sequential scenes.
-
-**Fix:** In `process.mjs` compositor loop: `if (s.lifecycle !== 'completed') state.context.drawImage(s.state.context.canvas, 0, 0)`.
-
-### ~~Bug 14: Orphaned GOTO-looping scenes persist across gags~~ — FIXED
-
-The `END` batch-clear was gated on `scene !== undefined` where `scene = state.scenes.find(s => s.state.played)`. GOTO-looping scenes never set `played=true` (they loop via `gotoRestart`), so the guard failed when a gag ended with an active looping animation — the batch-clear was skipped and the looping scene persisted into the next ADS gag.
-
-**Fix:** `if (state.lastCommand)` — unconditional; looping scenes are recorded in `playedHistory` before clearing.
+Multiple active `console.log` calls produce continuous output during normal operation.
 
 ---
 
@@ -664,7 +614,7 @@ The `END` batch-clear was gated on `scene !== undefined` where `scene = state.sc
 
 - **Typed pixel buffers** — replace per-pixel `{index, a, r, g, b}` objects with `Uint8ClampedArray` or construct `ImageData` directly during decode. A 640 × 480 image currently allocates 307,200 plain objects.
 - **Implement `GOTO` correctly** — record each tag's opcode index during parsing; use it in `GOTO` to set `state.reentry` to the correct position for cross-tag jumps.
-- **Tag-based scene selection** — pass `scene.tag` from `StoryScenes` through to `startProcess` and use it to seek to the correct ADS scene, enabling the 10 distinct scene variants.
+- **Tag-based scene selection** — implement scene selection logic to enable the 10 distinct scene variants.
 - **Load palette from PAL resource** — wire `pal.mjs` output into the BMP/SCR rendering path to support palette-swapped backgrounds.
 - **Implement `SAVE_IMAGE_REGION`** — restore the commented-out region capture to enable scorecard compositing.
 - **Audio range requests** — replace the full `SCRANTIC.SCR` fetch on each cache miss with an HTTP range request for the relevant byte slice.

@@ -442,6 +442,8 @@ const handleIfCondition = (state, conditionPassed) => {
     state.continue = true;
 };
 
+const isSceneDone = (s) => s.state.hasTimer ? s.state.timer === 0 : s.state.played;
+
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
     if (state.orMode && state.orChainPassed) {
         handleIfCondition(state, true);
@@ -449,7 +451,7 @@ const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
     }
 
     const played = state.playedHistory.has(`${sceneIdx}:${tagId}`) ||
-        state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId && s.state.played);
+        state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId && isSceneDone(s));
     
     handleIfCondition(state, !played);
 };
@@ -474,8 +476,8 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
 
     if (scene !== undefined) {
-        if (scene.state.played || (scene.state.hasTimer && scene.state.timer === 0)) {
-            if (scene.state.timer === 0) {
+        if (isSceneDone(scene)) {
+            if (scene.state.hasTimer) {
                 state.removeScenes.push({ sceneIdx, tagId });
             }
             state.continue = true;

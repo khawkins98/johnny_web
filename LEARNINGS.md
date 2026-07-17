@@ -1,8 +1,8 @@
 # LEARNINGS
 
 Discoveries, design decisions, and hard-won insights from reverse-engineering
-and modernising the DGDS animation engine that powers _Castaway_ (the Johnny
-adventure demo).
+and modernising the DGDS animation engine that powers the Johnny Castaway
+screensaver.
 
 ---
 
@@ -280,7 +280,7 @@ caches an offscreen canvas on first use (`image._canvas`). Subsequent frames cal
 
 The pixel loop now runs exactly once per image per process lifetime.
 
-### 12. Completed Scenes Ghost-Frame Duplication
+### Bug 12: Completed Scenes Ghost-Frame Duplication
 
 **Symptom**: When Johnny walks to the palm tree, two Johnnys are visible
 simultaneously — one "frozen" from the walk animation, one from the new
@@ -317,7 +317,7 @@ state.scenes.forEach(s => {
 });
 ```
 
-### 13. GOTO-Looping Scenes Ghosting Over Subsequent Gags
+### Bug 13: GOTO-Looping Scenes Ghosting Over Subsequent Gags
 
 **Symptom**: After a gag that ends with a looping animation (e.g., NATIVE 1's
 "frenzied dance", `6:28`), the animation continues rendering — visibly overlaid
@@ -344,7 +344,7 @@ if (state.lastCommand) {
 A regression test was added to cover the GOTO-looping case (a scene with
 `played: false` must still be cleared and recorded in `playedHistory`).
 
-### 9. `IF_PLAYED` Passed Through When Scene Was Never Added
+### Bug 9: `IF_PLAYED` Passed Through When Scene Was Never Added
 
 **Symptom**: MJ's dive surfacing gag (TTM scene 2:2) always played, even in the
 ~50% of frames where the underwater-bubbles gag (1:14) was not selected by
@@ -366,7 +366,7 @@ of GAG DIVES passed regardless of whether those scenes had ever run.
 `playedHistory` is populated by `PLAY_SCENE` (when flushing `removeScenes`) and
 `END` (batch-clear). It persists until the full ADS cycle restarts.
 
-### 10. `OR` Chains Were No-Ops; Logic Semantics Wrong
+### Bug 10: `OR` Chains Were No-Ops; Logic Semantics Wrong
 
 **Symptom**: In GAG DIVES, the triple OR chain (`IF_PLAYED 1:8 OR 1:7 OR 1:9`)
 could fail to guard the `RANDOM_START` body correctly.
@@ -395,7 +395,7 @@ IF_PLAYED:
   elif never added (terminal) → skip to findMatchingEndIf
 ```
 
-### 11. `findIndex` Found Wrong `END_IF` in Nested Blocks
+### Bug 11: `findIndex` Found Wrong `END_IF` in Nested Blocks
 
 **Root cause**: All `IF_*` callbacks used `script.findIndex(... opcode === 0xfff0)`
 — finds the _first_ `END_IF` after current position, not the _matching_ one for
@@ -568,6 +568,3 @@ water) but has no character activity.
   (Values seen: 1199 / 32768 in ACTIVITY.ADS.)
 - What is resource id=3 that is _absent_ from ACTIVITY.ADS? Possibly a
   resource that was removed during development.
-- `PLAY_SCENE` blocks on `'active'` scenes. Should it also block on
-  `'running'` scenes in some contexts? The current behaviour matches the
-  observed sequencing in dev console output.

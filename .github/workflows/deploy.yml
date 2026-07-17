@@ -28,7 +28,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip mtools
+
       - run: npm ci
+
+      - name: Extract game data
+        run: |
+          curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
+          npm run extract -- "Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
 
       - name: Build
         run: npm run build

@@ -44,6 +44,12 @@ docs: update setup instructions for Vite
 - Prefer native Web APIs over third-party libraries where reasonable.
 - Run the project locally and verify your change works before opening a PR.
 
+## Debugging
+
+- Enable debug mode via `?debug` URL parameter for scene-level logging
+- Enable verbose mode via `?debug=verbose` for per-opcode detail
+- Use the debug UI overlay (press `D` key) to inspect scene state
+
 ## Getting Started
 
 ```bash

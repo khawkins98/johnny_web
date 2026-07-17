@@ -9,7 +9,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 ### Added
 - `npm run extract` script (`src/extract.mjs`) — unpacks the Archive.org floppy ZIP, mounts the `.ima` image via `mtools`, and decompresses the TSComp/PKWARE archives to `public/data/`
 - `node-pkware` dependency for PKWARE DCL implode decompression
-- Full-viewport error overlay (`#data-error`) shown when game data files are missing or unreadable, with per-file status list and download guidance
+- Full-viewport error overlay (`#data-error`) shown when screensaver data files are missing or unreadable, with per-file status list and download guidance
 - GitHub Pages deployment workflow (`.github/workflows/deploy.yml`)
 - `npm run dump` script for inspecting extracted game assets
 

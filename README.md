@@ -31,11 +31,12 @@ Game data files are required — see [Obtaining the Game Data Files](#obtaining-
 - Play full story sequence / choose single activities
 - Extend festive days from the original (could be location-based)
 
-## Obtaining the Game Data Files
+## Obtaining the Screensaver Data Files
 
-The screensaver requires three proprietary files that are not included in this
-repository. These files originate from the original 1992/1993 Windows 3.1 floppy
-distribution by Sierra On-Line. See [Wikipedia](https://en.wikipedia.org/wiki/Johnny_Castaway) for history.
+The screensaver requires three proprietary data files that are not included in
+this repository. These files originate from the original 1992/1993 Windows 3.1
+floppy distribution by Sierra On-Line. See
+[Wikipedia](https://en.wikipedia.org/wiki/Johnny_Castaway) for history.
 
 **Legal note:** Johnny Castaway is technically still under copyright (see
 [NOTICE](NOTICE)). It has never been officially released as freeware.
@@ -43,6 +44,11 @@ However, it has been commercially unavailable for 30+ years, is widely
 considered abandonware, and no enforcement action has ever been publicly
 reported. Obtaining and using it for personal, non-commercial purposes is your
 own legal call.
+
+**Note for GitHub Pages users:** The deployed version at
+https://johnny_web.pages.dev (or your repo's GitHub Pages URL) includes the
+screensaver data automatically and works out of the box. You only need to
+extract the data files if you're running locally.
 
 ### Known sources
 
@@ -54,7 +60,8 @@ own legal call.
 ### Extracting from the Internet Archive floppy image
 
 The `extract` script handles everything: it unpacks the ZIP, mounts the floppy
-image, and decompresses the TSComp archives used by the original installer.
+image, and decompresses the TSComp archives used by the original installer to
+produce the screensaver data files.
 
 **Prerequisites** (one-time setup):
 
@@ -77,7 +84,8 @@ npm run extract -- "<path-to-downloaded.zip>"
 ```
 
 The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and
-`SCRANTIC.SCR` and then cleans up all temporary files.
+`SCRANTIC.SCR` (the screensaver data files) and then cleans up all temporary
+files.
 
 ## npm scripts
 
@@ -86,21 +94,28 @@ The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and
 | `npm run dev` | Start Vite dev server at http://localhost:5173 |
 | `npm run build` | Production build to `dist/` |
 | `npm run preview` | Serve the `dist/` build locally |
-| `npm run extract -- "<zip>"` | Extract game data from Archive.org ZIP |
-| `npm run dump` | Dump game assets to `dumps/` for inspection |
+| `npm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
+| `npm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
 ## GitHub Pages
 
 Pushes to `main` automatically deploy to GitHub Pages via the workflow in
-`.github/workflows/deploy.yml`. Enable Pages in your repo settings
+`.github/workflows/deploy.yml`. The workflow downloads and extracts the game
+data from the Internet Archive, so the deployed version is fully functional.
+
+Enable Pages in your repo settings
 (**Settings → Pages → Source: GitHub Actions**).
 
 If your repo lives at a path other than `/johnny_web/`, update `VITE_BASE_PATH`
 in the workflow file.
 
+**Note:** For local development, you still need to extract the game data files
+yourself (see below). The GitHub Pages deployment handles this automatically.
+
 ## Docs
 
 - [Resource Index File Format](docs/resindex.md)
+- [Architecture](docs/architecture.md)
 - [NOTICE](NOTICE) — IP attribution and copyright details
 - [CHANGELOG](CHANGELOG.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
