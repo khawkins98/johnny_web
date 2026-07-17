@@ -109,6 +109,7 @@ const UPDATE = (state) => {
         }
         state.continue = false;
         state.elapsed = state.delay + Date.now();
+        state.delay = 0;
     }
     if (Date.now() > state.elapsed) {
         state.elapsed = 0;
@@ -775,13 +776,10 @@ export const runScript = (state, script, main = false) => {
             break;
         }
     }
-    if (state.reentry === (script.length - 1) && !state.gotoRestart) {
+    if (state.reentry === (script.length - 1) && !state.gotoRestart && state.continue) {
         state.lastCommand = true;
         state.reentry = 0;
         state.runs++;
-        if (!state.continue) {
-            state.continue = true;
-        }
         state.played = true;
         if (main) {
             state.currentScene++;
