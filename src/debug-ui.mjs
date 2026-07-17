@@ -52,7 +52,14 @@ export function setupDebugUI() {
         select.innerHTML = ''; // clear
         const state = __DEBUG__.getState();
         if (state && state.data && state.data.scenes) {
-            state.data.scenes.forEach(scene => {
+            // Sort scenes numerically by tag ID
+            const sortedScenes = [...state.data.scenes].sort((a, b) => {
+                const idA = a.tagId && a.tagId.id ? a.tagId.id : 0;
+                const idB = b.tagId && b.tagId.id ? b.tagId.id : 0;
+                return idA - idB;
+            });
+
+            sortedScenes.forEach(scene => {
                 if (scene.tagId && scene.tagId.id) {
                     const option = document.createElement('option');
                     option.value = scene.tagId.id;
