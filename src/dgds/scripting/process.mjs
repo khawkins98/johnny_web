@@ -328,16 +328,16 @@ const mainloop = () => {
 
     state.tick = Date.now();
     const elapsed = state.tick - state.prevTick;
-    state.frameDelta = elapsed;
 
-    if (elapsed > fps) {
+    if (elapsed >= fps) {
+        state.frameDelta = elapsed;
         state.prevTick = state.tick - (elapsed % fps);
-    }
 
-    if (runScripts()) {
-        cancelAnimationFrame(state.frameId);
-        if (typeof state.onComplete === 'function') {
-            state.onComplete();
+        if (runScripts()) {
+            cancelAnimationFrame(state.frameId);
+            if (typeof state.onComplete === 'function') {
+                state.onComplete();
+            }
         }
     }
 }
