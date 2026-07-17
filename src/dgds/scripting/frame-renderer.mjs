@@ -41,16 +41,33 @@ export const drawBackground = (state, context) => {
 
     if (state.island) {
         const posX = (state.island === 1) ? 288 : 16;
+        const cloudsOn = localStorage.getItem('jc-clouds') === 'on';
+        const wavesOn = localStorage.getItem('jc-waves') === 'on';
 
-        if (!state.cloudElapsed) {
-            state.cloudElapsed = Math.floor((Math.random() * 640)) + Date.now();
-        }
-        if (Date.now() > state.cloudElapsed) {
-            state.cloudElapsed = 0;
-            state.cloudX--;
-            if (state.cloudX < -200) {
-                state.cloudX = 640;
+        if (cloudsOn) {
+            if (!state.cloudElapsed) {
+                state.cloudElapsed = Math.floor((Math.random() * 640)) + Date.now();
             }
+            if (Date.now() > state.cloudElapsed) {
+                state.cloudElapsed = 0;
+                state.cloudX--;
+                if (state.cloudX < -200) {
+                    state.cloudX = 640;
+                }
+            }
+        }
+
+        if (wavesOn) {
+            if (!state.waveElapsed) {
+                state.waveElapsed = Date.now() + 250;
+                state.waveFrame = 0;
+            }
+            if (Date.now() > state.waveElapsed) {
+                state.waveElapsed = Date.now() + 250;
+                state.waveFrame++;
+            }
+        } else {
+            state.waveFrame = 0;
         }
 
         // Draw island
@@ -70,10 +87,12 @@ export const drawBackground = (state, context) => {
             blit(state.bkgRes.images[14], posX + 108, 280);
             blit(state.bkgRes.images[13], posX + 154, 148);
             blit(state.bkgRes.images[12], posX + 77, 122);
+            
             // Draw shore with animations
-            blit(state.bkgRes.images[3], posX - 13, 305);
-            blit(state.bkgRes.images[6], posX + 76, 320);
-            blit(state.bkgRes.images[10], posX + 230, 303);
+            const wf = state.waveFrame || 0;
+            blit(state.bkgRes.images[3 + (wf % 3)], posX - 13, 305);
+            blit(state.bkgRes.images[6 + (wf % 4)], posX + 76, 320);
+            blit(state.bkgRes.images[10 + (wf % 2)], posX + 230, 303);
             // Draw low tide
         }
     }
@@ -130,7 +149,16 @@ export const loadOcean = (state) => {
             state.bkgOcean.push(loadResourceEntry(entry));
         }
     }
-    const isNight = state.isNightMode === true;
+    
+    const timeMode = localStorage.getItem('jc-time') || 'original';
+    let isNight = false;
+    if (timeMode === 'local') {
+        const hour = new Date().getHours();
+        isNight = hour < 6 || hour >= 18;
+    } else {
+        isNight = state.isNightMode === true;
+    }
+    
     const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3); // 0 to 2 for day, 3 for night
     state.bkgScreen = state.bkgOcean[oceanIdx];
 };

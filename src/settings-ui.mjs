@@ -188,7 +188,61 @@ export function setupSettingsUI(audioManager) {
     audioRow.appendChild(audioBtn);
     modal.appendChild(audioRow);
 
-    // Debug Palette
+    // Moving Clouds Toggle
+    const cloudsRow = document.createElement('div');
+    cloudsRow.className = 'settings-row';
+    const cloudsLabel = document.createElement('span');
+    cloudsLabel.innerText = 'Moving Clouds:';
+    const cloudsSelect = document.createElement('select');
+    [{val: 'on', text: 'Drifting'}, {val: 'off', text: 'Static (Original)'}].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.val;
+        opt.innerText = o.text;
+        cloudsSelect.appendChild(opt);
+    });
+    cloudsSelect.value = localStorage.getItem('jc-clouds') || 'off';
+    cloudsSelect.onchange = (e) => localStorage.setItem('jc-clouds', e.target.value);
+    cloudsRow.appendChild(cloudsLabel);
+    cloudsRow.appendChild(cloudsSelect);
+    modal.appendChild(cloudsRow);
+
+    // Animated Waves Toggle
+    const wavesRow = document.createElement('div');
+    wavesRow.className = 'settings-row';
+    const wavesLabel = document.createElement('span');
+    wavesLabel.innerText = 'Animated Waves:';
+    const wavesSelect = document.createElement('select');
+    [{val: 'on', text: 'Rolling'}, {val: 'off', text: 'Static (Original)'}].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.val;
+        opt.innerText = o.text;
+        wavesSelect.appendChild(opt);
+    });
+    wavesSelect.value = localStorage.getItem('jc-waves') || 'off';
+    wavesSelect.onchange = (e) => localStorage.setItem('jc-waves', e.target.value);
+    wavesRow.appendChild(wavesLabel);
+    wavesRow.appendChild(wavesSelect);
+    modal.appendChild(wavesRow);
+
+    // Time of Day
+    const timeRow = document.createElement('div');
+    timeRow.className = 'settings-row';
+    const timeLabel = document.createElement('span');
+    timeLabel.innerText = 'Time of Day:';
+    const timeSelect = document.createElement('select');
+    [{val: 'original', text: 'Always Day (Original)'}, {val: 'local', text: 'Match Local Time'}].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.val;
+        opt.innerText = o.text;
+        timeSelect.appendChild(opt);
+    });
+    timeSelect.value = localStorage.getItem('jc-time') || 'original';
+    timeSelect.onchange = (e) => localStorage.setItem('jc-time', e.target.value);
+    timeRow.appendChild(timeLabel);
+    timeRow.appendChild(timeSelect);
+    modal.appendChild(timeRow);
+
+
     const debugRow = document.createElement('div');
     debugRow.className = 'settings-row';
     const debugLabel = document.createElement('span');
