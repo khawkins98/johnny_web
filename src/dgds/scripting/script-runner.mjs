@@ -43,6 +43,30 @@ export const isVerboseMode = (() => {
 })();
 
 export const debugLog = isDebugMode ? (...args) => console.log('[DGDS]', ...args) : () => {};
+
+export const sceneLog = (state, action, target = '') => {
+    if (!isDebugMode) return;
+    
+    let gagId = '?';
+    if (state.data && state.data.scenes && state.data.scenes[state.currentScene]) {
+        const tId = state.data.scenes[state.currentScene].tagId;
+        gagId = typeof tId === 'object' ? tId.id : (tId ?? '?');
+    }
+
+    let timerStr = '';
+    let runStr = '';
+    if (state.timer !== undefined && state.timer > 0) timerStr = `T:${Math.round(state.timer)}`;
+    if (state.runs !== undefined && state.runs > 0) runStr = `R:${state.runs}`;
+    const cycles = [timerStr, runStr].filter(Boolean).join(' ');
+
+    const gagStr = `[Gag ${String(gagId).padEnd(2, ' ')}]`.padEnd(9, ' ');
+    const actStr = action.padEnd(12, ' ');
+    const tgtStr = target.padEnd(25, ' ');
+    const cycStr = cycles ? `(${cycles})` : '';
+
+    console.log(`${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
+};
+
 export const verboseLog = isVerboseMode ? (...args) => console.log('[DGDS:V]', ...args) : () => {};
 
 /**
@@ -512,7 +536,7 @@ const PLAY_SCENE = (state) => {
                 if (index !== -1) {
                     // Record in history before removing so IF_NOT_PLAYED works correctly.
                     state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
-                    debugLog(`STOP_SCENE: ${sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)}`);
+                    sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.splice(index, 1);
                 }
             });
@@ -522,7 +546,7 @@ const PLAY_SCENE = (state) => {
             state.addScenes.forEach(s => {
                 const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
                 if (scene !== undefined) {
-                    debugLog(`ADD_SCENE: ${sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)}`);
+                    sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.push(scene);
                 }
             });
@@ -539,7 +563,7 @@ const PLAY_SCENE = (state) => {
         const label = waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).sort().join(', ');
         if (label !== state._lastPlaySceneLabel) {
             state._lastPlaySceneLabel = label;
-            debugLog(`PLAY_SCENE: blocking — waiting for ${waiting.length} active scene(s): ${label}`);
+            sceneLog(state, 'PLAY_BLOCK', label);
         }
     }
 };
@@ -739,7 +763,7 @@ export const runScript = (state, script, main = false) => {
         }
         if (state.type === 'TTM') {
             if (state.sceneIdx !== undefined) {
-                debugLog(`TTM done: ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)}`);
+                sceneLog(state, 'TTM_DONE', sceneLabel(state.scenesRes, state.sceneIdx, state.tagId));
             }
             return true;
         }
