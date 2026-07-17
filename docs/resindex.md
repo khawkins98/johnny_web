@@ -2,21 +2,21 @@
 
 Resource Map is a file containing index information about resources.
 
-It allow us to identify which resource files need to be imported and the details of each entry of that resource file.
+It allows us to identify which resource files need to be imported and the details of each entry of that resource file.
 
 # Engine
 Dynamix Game Development System (DGDS) - an engine originally created by Dynamix based on Sierra pre-existing engine.
 
 ## Games
-- Johny Castaway Screen Saver
-- Quarky & Quaysoo's Turbo Science, 
-- Heart of China, 
-- The Adventures of Willy Beamish, 
+- Johnny Castaway Screen Saver
+- Quarky & Quaysoo's Turbo Science
+- Heart of China
+- The Adventures of Willy Beamish
 - Rise of the Dragon
 
-# Format
+## Format
 
-It is composed by:
+It is composed of:
 - Header
 - Resource List
     - Resource Entries
@@ -38,7 +38,7 @@ The header is static with length of 6 bytes
 
 For each numResources entries from Header section do the following:
 
-- *u8: name
+- u8: name
     - List of characters containing name of the resource file
     - Static size of 13 characters
     - Last byte is always zero to allow string termination
@@ -56,7 +56,7 @@ For each numEntries from Resource List do the following:
     - Decompressed entry size
     - This will help understanding which entries need to be decompressed. More details on the Resource file format documentation
 
-- u32: offest
+- u32: offset
     - Offset of the entry inside the Resource file
 
 Note, to get the size of each of the compressed entries, you just need to calculate the different between the offsets.
@@ -66,7 +66,7 @@ Note, to get the size of each of the compressed entries, you just need to calcul
 At the end of this implementation, you should be ready to parse the Resource files, which will be describe in a separate document file.
 
 # Document History
-- v0.0.1 2018-11-09: First document draft
+- v0.0.1 (2018-11-09): First document draft
 
 # Author
 Alexandre Fontoura aka xesf
