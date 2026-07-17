@@ -2,6 +2,7 @@ import { drawScreen } from '../dgds/graphics.mjs';
 import { loadResources } from '../dgds/resource.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import Story from './story.mjs';
+import { setupDebugUI } from '../debug-ui.mjs';
 
 export const run = async () => {
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
@@ -53,6 +54,8 @@ export const run = async () => {
     // AudioContext is created synchronously inside the click callback so the
     // browser's user-activation requirement is satisfied.
     const audioManager = await waitForStart();
+
+    setupDebugUI();
 
     const story = new Story(resource);
     while (true) {

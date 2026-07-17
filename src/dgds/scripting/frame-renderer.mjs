@@ -126,11 +126,8 @@ export const loadOcean = (state) => {
         if (entry !== undefined) {
             state.bkgOcean.push(loadResourceEntry(entry));
         }
-        const isNight = false; // TODO: kept for future adaptation — implement day/night cycle
-        let oceanIdx = Math.floor((Math.random() * 4)); // 0 to 3 (index 4 reserved for night)
-        if (isNight) {
-            oceanIdx = 4; // night ocean background
-        }
+        const isNight = state.isNightMode === true;
+        const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3); // 0 to 2 for day, 3 for night
         state.bkgScreen = state.bkgOcean[oceanIdx];
     }
 };

@@ -244,6 +244,42 @@ export const stopProcess = () => {
     state = null;
 };
 
+// Expose state manipulators for the debug UI
+export const __DEBUG__ = {
+    jumpToScene: (tagId) => {
+        if (!state || state.type !== 'ADS') return;
+        const sceneIndex = state.data.scenes.findIndex(s => s.tagId === tagId);
+        if (sceneIndex !== -1) {
+            state.currentScene = sceneIndex;
+            state.scenes = []; // Clear active child scenes
+            state.addScenes = [];
+            state.removeScenes = [];
+            state.playedHistory.clear();
+            state.continue = true;
+            state.reentryNow = 0;
+            state.jumpTo = undefined;
+            state.lastCommand = false;
+            state.orMode = false;
+            state.orChainPassed = false;
+            if (state.context) clearContext(state.context);
+            if (state.tmpContext) clearContext(state.tmpContext);
+            debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
+        }
+    },
+    setNightMode: (isNight) => {
+        if (!state || state.type !== 'ADS') return;
+        state.isNightMode = isNight;
+        // Re-run ocean selection if ocean was loaded
+        if (state.bkgOcean.length > 0) {
+            const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3);
+            state.bkgScreen = state.bkgOcean[oceanIdx];
+            // force redraw
+            if (state.mainContext) drawBackground(state, state.mainContext);
+        }
+    },
+    getState: () => state
+};
+
 window.requestAnimationFrame = window.requestAnimationFrame
     || window.mozRequestAnimationFrame
     || window.webkitRequestAnimationFrame
