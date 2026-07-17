@@ -34,63 +34,7 @@ export const drawImage = (image, context, posX, posY) => {
     context.putImageData(img, posX, posY);
 };
 
-// Kept for future adaptation: dirty-region blit — useful for rendering optimisation
-// once per-sprite invalidation regions are tracked.
-export const drawImageDirty = (image, context, posX, posY, dX, dY, dW, dH) => {
-    const img = context.createImageData(image.width, image.height);
-    for (let p = 0; p < image.pixels.length; p += 1) {
-        img.data[(p * 4) + 0] = image.pixels[p].r;
-        img.data[(p * 4) + 1] = image.pixels[p].g;
-        img.data[(p * 4) + 2] = image.pixels[p].b;
-        img.data[(p * 4) + 3] = image.pixels[p].a;
-    }
 
-    context.putImageData(img, posX, posY, dX, dY, dW, dH);
-};
-
-// Kept for future adaptation: sprite sheet / atlas debug view — renders all
-// frames of a BMP resource side-by-side; useful for tooling and visual tests.
-export const drawAllImages = (data, context) => {
-    let posX = 0;
-    let totalWidth = 0;
-    let maxHeight = 0;
-
-    for (let i = 0; i < data.images.length; i += 1) {
-        const image = data.images[i];
-        totalWidth += image.width;
-        if (image.height > maxHeight) {
-            maxHeight = image.height;
-        }
-    }
-
-    context.fillStyle = 'black';
-    context.fillRect(0, 0, totalWidth, maxHeight);
-
-    context.canvas.width = totalWidth;
-    context.canvas.height = maxHeight;
-
-    for (let i = 0; i < data.images.length; i += 1) {
-        const image = data.images[i];
-        drawImage(image, context, posX, 0);
-        posX += image.width;
-    }
-};
-
-// Kept for future adaptation: palette debug view — renders all palette entries
-// as colour swatches; useful for theme/palette tooling.
-export const drawPalette = (data, context) => {
-    context.canvas.width = 640;
-    context.canvas.height = 480;
-
-    context.fillStyle = 'black';
-    context.fillRect(0, 0, 640, 480);
-
-    for (let p = 0; p < data.palette.length; p += 1) {
-        const c = data.palette[p];
-        context.fillStyle = getPaletteColor(c);
-        context.fillRect(p * 2, 0, 2, 480);
-    }
-};
 
 export const drawScreen = (data, context) => {
     context.fillStyle = 'black';

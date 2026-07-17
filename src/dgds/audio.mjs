@@ -45,7 +45,6 @@ const getSoundFxSource = (config, context, data) => {
         bufferSource: null,
         gainNode: context.createGain(),
         lowPassFilter: context.createBiquadFilter(),
-        pause: () => {}, // kept for future adaptation: pause/resume audio support
         data
     };
     source.lowPassFilter.type = 'allpass';
