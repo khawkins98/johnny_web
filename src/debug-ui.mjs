@@ -59,12 +59,26 @@ export function setupDebugUI() {
                 return idA - idB;
             });
 
+            let prevId = 0;
             sortedScenes.forEach(scene => {
                 if (scene.tagId && scene.tagId.id) {
+                    const currentId = scene.tagId.id;
+                    
+                    // Add stubs for missing IDs in the sequence
+                    for (let i = prevId + 1; i < currentId; i++) {
+                        const stub = document.createElement('option');
+                        stub.value = i;
+                        stub.innerText = `${i}: [MISSING IN ORIGINAL GAME]`;
+                        stub.disabled = true;
+                        select.appendChild(stub);
+                    }
+
                     const option = document.createElement('option');
-                    option.value = scene.tagId.id;
-                    option.innerText = `${scene.tagId.id}: ${scene.tagId.description}`;
+                    option.value = currentId;
+                    option.innerText = `${currentId}: ${scene.tagId.description}`;
                     select.appendChild(option);
+                    
+                    prevId = currentId;
                 }
             });
         }
