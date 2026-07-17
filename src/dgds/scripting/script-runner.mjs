@@ -529,6 +529,11 @@ const OR = (state) => { state.orMode = true; };
 // ---------------------------------------------------------------------------
 
 const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
+    // Only add if not already running or pending addition
+    const inScenes = state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const inAddScenes = state.addScenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    if (inScenes || inAddScenes) return;
+
     if (state.randomize) {
         state.scenesRandom.push({
             sceneIdx,
