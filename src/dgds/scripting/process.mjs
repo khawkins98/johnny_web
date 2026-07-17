@@ -248,7 +248,7 @@ export const stopProcess = () => {
 export const __DEBUG__ = {
     jumpToScene: (tagId) => {
         if (!state || state.type !== 'ADS') return;
-        const sceneIndex = state.data.scenes.findIndex(s => s.tagId === tagId);
+        const sceneIndex = state.data.scenes.findIndex(s => s.tagId && s.tagId.id === tagId);
         if (sceneIndex !== -1) {
             state.currentScene = sceneIndex;
             state.scenes = []; // Clear active child scenes
@@ -269,12 +269,22 @@ export const __DEBUG__ = {
     setNightMode: (isNight) => {
         if (!state || state.type !== 'ADS') return;
         state.isNightMode = isNight;
-        // Re-run ocean selection if ocean was loaded
-        if (state.bkgOcean.length > 0) {
-            const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3);
+        const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3);
+        
+        // Update root state
+        if (state.bkgOcean && state.bkgOcean.length > 0) {
             state.bkgScreen = state.bkgOcean[oceanIdx];
-            // force redraw
-            if (state.mainContext) drawBackground(state, state.mainContext);
+        }
+        // Update all child scenes that have ocean loaded
+        state.scenes.forEach(s => {
+            if (s.state && s.state.bkgOcean && s.state.bkgOcean.length > 0) {
+                s.state.bkgScreen = s.state.bkgOcean[oceanIdx];
+            }
+        });
+        
+        if (state.mainContext) {
+            const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
+            drawBackground(bgState, state.mainContext);
         }
     },
     getState: () => state
