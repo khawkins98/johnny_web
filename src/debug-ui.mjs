@@ -21,13 +21,15 @@ export function setupDebugUI() {
     container.style.gap = '10px';
     container.style.width = '400px';
     container.style.maxHeight = '80vh';
+    container.style.resize = 'both';
+    container.style.overflow = 'hidden';
 
     // Drag capability
     let isDragging = false;
     let dragStartX, dragStartY, initialX, initialY;
     
     const title = document.createElement('div');
-    title.innerText = '🛠 Developer Tools';
+    title.innerHTML = '<span style="font-family: system-ui, sans-serif;">🛠</span> Developer Tools';
     title.style.fontFamily = "'Caveat', cursive";
     title.style.fontSize = '24px';
     title.style.fontWeight = 'bold';
