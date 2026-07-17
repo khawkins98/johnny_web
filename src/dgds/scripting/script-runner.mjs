@@ -212,13 +212,19 @@ const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
-    // NOTE: Commented out — region capture is unimplemented. state.save[] slots are initialized
-    // (see startProcess) but canDraw never becomes true and no image data is written, so
-    // drawContext() is effectively a no-op. This means the scorecard/overlay compositing layer
-    // (SET_BACKGROUND → drawContext) does not restore captured content as intended.
-    // const save = state.save[state.saveIndex];
-    // save.canDraw = true;
-    // ...
+    const save = state.save[state.saveIndex];
+    save.canDraw = true;
+    save.x = x;
+    save.y = y;
+    save.width = width;
+    save.height = height;
+
+    save.context.clearRect(0, 0, 640, 480);
+    save.context.drawImage(
+        state.context.canvas,
+        x, y, width, height,
+        x, y, width, height,
+    );
 };
 
 const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
@@ -226,13 +232,9 @@ const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
 const SAVE_REGION = (state, x, y, width, height) => { };
 
 const RESTORE_REGION = (state, x, y, width, height) => {
-    const save = state.saveBkg[0];
-    save.canDraw = false;
-    save.x = 0;
-    save.y = 0;
-    save.width = 0;
-    save.height = 0;
-    clearContext(save.context);
+    // DO NOT clear saveBkg[0]. 
+    // Simply clear the specified region on the child scene's offscreen canvas.
+    state.context.clearRect(x, y, width, height);
 };
 
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
@@ -540,16 +542,6 @@ const PLAY_SCENE = (state) => {
                     state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
                     sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.splice(index, 1);
-                    
-                    if (s.retries > 1) {
-                        state.addScenes.push({
-                            sceneIdx: s.sceneIdx,
-                            tagId: s.tagId,
-                            retriesDelay: 0,
-                            unk: 0,
-                            retries: s.retries - 1
-                        });
-                    }
                 }
             });
             state.removeScenes = [];

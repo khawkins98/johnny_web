@@ -35,6 +35,8 @@ export const initialState = {
     timer: 0,
     delay: 0,
     gotoRestart: false,
+    elapsed: 0,
+    clip: { x: 0, y: 0, width: 640, height: 480 },
 };
 
 /**

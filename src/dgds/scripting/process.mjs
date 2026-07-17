@@ -48,11 +48,6 @@ const runScripts = () => {
             const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
             drawBackground(bgState, state.mainContext);
         }
-        const saveBkg = state.saveBkg[0];
-        if (saveBkg.canDraw) {
-            state.context.drawImage(saveBkg.context.canvas, 0, 0);
-        }
-
         const scene = state.data.scenes[state.currentScene];
         if (scene !== undefined) {
             const prevScene = state.currentScene;
@@ -88,9 +83,15 @@ const runScripts = () => {
                 s._wasCompleted = s.lifecycle === 'completed';
                 if (!s._wasCompleted) {
                     s.lifecycle = 'running';
-                    runScript(s.state, s.script);
+                    runScript(s.state, s.state.script || s.script);
                     if (s.state.played) {
-                        s.lifecycle = 'completed';
+                        if (s.retries > 0) {
+                            s.retries--;
+                            s.state.played = false;
+                            s.state.reentry = 0; // Rewind script to start
+                        } else {
+                            s.lifecycle = 'completed';
+                        }
                     }
                 }
                 // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
@@ -107,6 +108,12 @@ const runScripts = () => {
                     state.context.drawImage(s.state.context.canvas, 0, 0);
                 }
             });
+
+            // Draw the captured background regions ON TOP of the sprites
+            const saveBkg = state.saveBkg[0];
+            if (saveBkg.canDraw) {
+                state.context.drawImage(saveBkg.context.canvas, 0, 0);
+            }
         }
 
         // Draw fade-to-black overlay on top of composited sprites (applied whether or not
