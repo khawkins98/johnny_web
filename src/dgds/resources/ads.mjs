@@ -136,14 +136,16 @@ export const loadADSResourceEntry = (entry) => {
                 command.indent = 0;
                 while (indent) {
                     indent -= 1;
-                    scripts.push({
+                    const endIfCmd = {
                         opcode: 0xfff0,
                         lineNumber,
                         line: 'END_IF',
                         indent,
                         tag: null,
                         params: []
-                    });
+                    };
+                    scripts.push(endIfCmd);
+                    sceneScripts.push(endIfCmd);
                     lineNumber += 1;
                 }
                 indent = 0;

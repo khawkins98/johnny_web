@@ -282,7 +282,7 @@ export const __DEBUG__ = {
             state.removeScenes = [];
             state.playedHistory.clear();
             state.continue = true;
-            state.reentryNow = 0;
+            state.reentry = 0;
             state.jumpTo = undefined;
             state.lastCommand = false;
             state.orMode = false;
