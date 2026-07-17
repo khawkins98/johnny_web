@@ -83,15 +83,14 @@ const runScripts = () => {
         if (!state.continue || scene === undefined) {
             state.scenes.forEach(s => {
                 // Don't re-run scripts that have already completed — they should freeze on their
-                // last frame. GOTO-looping scenes stay 'running' indefinitely; only single-play
+                // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
                 // scenes (no GOTO) reach 'completed'.
-                if (s.lifecycle !== 'completed') {
+                s._wasCompleted = s.lifecycle === 'completed';
+                if (!s._wasCompleted) {
+                    s.lifecycle = 'running';
                     runScript(s.state, s.script);
-                    // Update lifecycle based on execution result.
                     if (s.state.played) {
                         s.lifecycle = 'completed';
-                    } else if (s.state.runs > 0) {
-                        s.lifecycle = 'running';
                     }
                 }
                 // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
@@ -104,7 +103,7 @@ const runScripts = () => {
                 // IF_PLAYED tracking but should not keep rendering their last frame — doing
                 // so would ghost the previous animation behind the next sequential scene.
                 // GOTO-looping scenes stay 'running' and continue compositing.
-                if (s.lifecycle !== 'completed') {
+                if (!s._wasCompleted) {
                     state.context.drawImage(s.state.context.canvas, 0, 0);
                 }
             });

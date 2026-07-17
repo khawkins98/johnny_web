@@ -111,11 +111,6 @@ const UPDATE = (state) => {
     if (Date.now() > state.elapsed) {
         state.elapsed = 0;
         state.continue = true;
-        // TODO not reaching here for some reason
-        if (state.lastCommand) {
-            state.lastCommand = false;
-            state.played = true; // time is over since last update
-        }
     }
 };
 
@@ -137,13 +132,16 @@ const SET_BACKGROUND = (state, index) => {
 };
 
 const GOTO = (state, tagId) => {
-    // All GOTOs observed so far are self-loops (GOTO within own tag's script).
-    // Cross-tag jumps are not yet supported — they would require switching state.script.
-    verboseLog(`TTM loop: ${sceneLabel(state.scenesRes, state.sceneIdx, tagId)}`);
-    // Signal runScript to restart from index 0 at the top of the NEXT call (not this one).
-    // Setting reentry=0 here is useless because the for-loop overwrites it with `reentry=i`
-    // immediately after the callback returns. Instead, the gotoRestart flag is checked at
-    // the top of runScript before the for-loop begins.
+    if (tagId !== state.tagId) {
+        if (state.scenesRes && state.sceneIdx !== undefined) {
+            const newScene = state.scenesRes[state.sceneIdx].scenes.find(s => s.tagId === tagId);
+            if (newScene) {
+                state.script = newScene.script;
+                state.tagId = tagId;
+                state.reentry = 0;
+            }
+        }
+    }
     state.gotoRestart = true;
     state.continue = false;  // pause execution until next frame (like UPDATE)
     state.runs++;             // count completed loops so PLAY_SCENE can unblock
@@ -207,7 +205,7 @@ const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
     save.height = height;
 
     save.context.drawImage(
-        state.context.canvas,
+        state.mainContext.canvas,
         x, y, width, height,
         x, y, width, height,
     );
@@ -374,8 +372,10 @@ const IF_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370]);
 const findMatchingEndIf = (script, ifIndex) => {
     let depth = 1;
     for (let i = ifIndex + 1; i < script.length; i++) {
-        if (IF_OPCODES.has(script[i].opcode)) depth++;
-        else if (script[i].opcode === 0xfff0) {
+        if (IF_OPCODES.has(script[i].opcode)) {
+            const prevOp = script[i - 1]?.opcode;
+            if (prevOp !== 0x1420 && prevOp !== 0x1430) depth++; 
+        } else if (script[i].opcode === 0xfff0) {
             if (--depth === 0) return i;
         }
     }
@@ -540,6 +540,16 @@ const PLAY_SCENE = (state) => {
                     state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
                     sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.splice(index, 1);
+                    
+                    if (s.retries > 1) {
+                        state.addScenes.push({
+                            sceneIdx: s.sceneIdx,
+                            tagId: s.tagId,
+                            retriesDelay: 0,
+                            unk: 0,
+                            retries: s.retries - 1
+                        });
+                    }
                 }
             });
             state.removeScenes = [];
