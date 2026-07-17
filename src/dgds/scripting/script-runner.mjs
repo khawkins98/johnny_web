@@ -116,8 +116,20 @@ const UPDATE = (state) => {
     }
 };
 
+/**
+ * DGDS/DOS Hardware Timer Constant
+ *
+ * In 1992 (when Johnny Castaway was released for Windows 3.1), the standard 
+ * system hardware timer (PIT) ticked exactly 18.2 times per second. 
+ * 1000ms / 18.2 = ~54.9ms per tick.
+ * 
+ * DGDS engine scripts define all of their timing delays in terms of these ticks.
+ * A script delay of "1" means "wait for 1 tick" (approx 55 milliseconds).
+ */
+export const DOS_TICK_MS = 55;
+
 const SET_DELAY = (state, delay) => {
-    state.delay = ((delay === 0 ? 1 : delay) * 55);
+    state.delay = ((delay === 0 ? 1 : delay) * DOS_TICK_MS);
 };
 
 const SLOT_IMAGE = (state, slot) => {
@@ -164,7 +176,7 @@ const SET_TIMER = (state, delay, timer) => {
     // Timer in milliseconds. Decremented each frame (in runScripts) by state.frameDelta.
     // IF_PLAYED checks scene.state.timer === 0 to allow scene removal once the timer expires.
     state.hasTimer = true;
-    state.timer = timer * 55 + ((delay === 0 ? 1 : delay) * 55);
+    state.timer = timer * DOS_TICK_MS + ((delay === 0 ? 1 : delay) * DOS_TICK_MS);
 };
 
 const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {

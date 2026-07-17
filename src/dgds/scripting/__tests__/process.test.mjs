@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CommandType, TTMDispatch, ADSDispatch, runScript } from '../process.mjs';
+import { DOS_TICK_MS } from '../script-runner.mjs';
 
 // ---------------------------------------------------------------------------
 // CommandType dispatch table
@@ -296,16 +297,16 @@ describe('runScript scene transition', () => {
 describe('SET_TIMER handler', () => {
     const entry = CommandType.find(e => e.opcode === 0x2020);
 
-    it('sets timer to timer*55 + delay*55', () => {
+    it(`sets timer to timer*${DOS_TICK_MS} + delay*${DOS_TICK_MS}`, () => {
         const mockState = { timer: 0 };
         entry.callback(mockState, 3, 5); // delay=3, timer=5
-        expect(mockState.timer).toBe(5 * 55 + 3 * 55); // 440
+        expect(mockState.timer).toBe(5 * DOS_TICK_MS + 3 * DOS_TICK_MS); // 440
     });
 
     it('uses delay=1 when delay argument is 0', () => {
         const mockState = { timer: 0 };
         entry.callback(mockState, 0, 5); // delay=0 → treated as 1
-        expect(mockState.timer).toBe(5 * 55 + 1 * 55); // 330
+        expect(mockState.timer).toBe(5 * DOS_TICK_MS + 1 * DOS_TICK_MS); // 330
     });
 });
 
