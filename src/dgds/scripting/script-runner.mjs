@@ -166,6 +166,7 @@ const SET_FRAME1 = (state) => { };
 const SET_TIMER = (state, delay, timer) => {
     // Timer in milliseconds. Decremented each frame (in runScripts) by state.frameDelta.
     // IF_PLAYED checks scene.state.timer === 0 to allow scene removal once the timer expires.
+    state.hasTimer = true;
     state.timer = timer * 20 + ((delay === 0 ? 1 : delay) * 20);
 };
 
@@ -376,7 +377,7 @@ const ADS_UNKNOWN_0 = (state) => { };
  * Returns -1 if no matching END_IF is found.
  */
 const IF_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370]);
-const findMatchingEndIf = (script, ifIndex) => {
+const findMatchingEndIf = (script, ifIndex, stopAtOr = false) => {
     let depth = 1;
     for (let i = ifIndex + 1; i < script.length; i++) {
         if (IF_OPCODES.has(script[i].opcode)) {
@@ -384,6 +385,8 @@ const findMatchingEndIf = (script, ifIndex) => {
             if (prevOp !== 0x1420 && prevOp !== 0x1430) depth++; 
         } else if (script[i].opcode === 0xfff0) {
             if (--depth === 0) return i;
+        } else if (stopAtOr && script[i].opcode === 0x1430 && depth === 1) {
+            return i - 1; // Return the index BEFORE the OR, so jumpTo = i (the OR opcode)
         }
     }
     return -1;
@@ -417,7 +420,7 @@ const handleIfCondition = (state, conditionPassed) => {
     if (nextOpcode === 0x1420) { // AND
         if (!conditionPassed) {
             // Short-circuit: fail the entire AND chain immediately.
-            const endIfIdx = findMatchingEndIf(script, state.reentryNow);
+            const endIfIdx = findMatchingEndIf(script, state.reentryNow, true);
             if (endIfIdx !== -1) {
                 state.jumpTo = endIfIdx + 1;
             }
@@ -471,7 +474,7 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
 
     if (scene !== undefined) {
-        if (scene.state.played) {
+        if (scene.state.played || (scene.state.hasTimer && scene.state.timer === 0)) {
             if (scene.state.timer === 0) {
                 state.removeScenes.push({ sceneIdx, tagId });
             }
@@ -555,6 +558,10 @@ const PLAY_SCENE = (state) => {
             state.addScenes.forEach(s => {
                 const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
                 if (scene !== undefined) {
+                    if (state.scenes.length === 0) {
+                        // Synchronously run the prologue so siblings can clone its loaded assets
+                        runScript(scene.state, scene.script || scene.state.script);
+                    }
                     sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.push(scene);
                 }
