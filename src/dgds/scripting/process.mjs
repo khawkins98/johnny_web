@@ -63,6 +63,10 @@ const runScripts = () => {
                     : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
                     : tagInfo;
                 debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
+                
+                // Clear any lingering fade-out from the previous scene
+                state.fadingOut = false;
+                state.fadeOpacity = 0;
             }
         } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
             // All main ADS scenes played and no child scenes remain — done.
@@ -105,11 +109,13 @@ const runScripts = () => {
         if (state.fadingOut) {
             state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
             state.context.fillRect(0, 0, 640, 480);
-            // Once fully black, clear after drawing so the overlay covers the END-fires frame
-            // but is gone before the next gag starts — regardless of state.continue.
-            if (state.fadeOpacity >= 1) {
-                debugLog('FADE_OUT: complete, clearing overlay');
-                state.fadingOut = false;
+            
+            // Do NOT clear the overlay once it reaches 1. It must remain black to hide 
+            // any subsequent hidden cleanup animations (like "Walk out of water") until
+            // the next root gag sequence starts.
+            if (state.fadeOpacity >= 1 && state.fadeOpacity < 1.1) {
+                debugLog('FADE_OUT: complete, holding curtain');
+                state.fadeOpacity = 1.1; // lock it so we don't spam the log
             }
         }
 
