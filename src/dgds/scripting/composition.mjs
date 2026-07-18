@@ -17,8 +17,18 @@ export const composeTtmFrame = (state) => {
         }
     }
 
-    // ADS sequence order is the painter's order.
-    for (const scene of state.scenes || []) {
+    // The original engine traverses its TTM sequence table in declaration
+    // order on every presentation frame. ADS insertion order only says when a
+    // sequence started; using it as z-order lets later-started cleanup layers
+    // cover siblings that should be painted after them.
+    const layers = [...(state.scenes || [])].sort((left, right) => {
+        const leftOrder = left.paintOrder || {};
+        const rightOrder = right.paintOrder || {};
+        return (leftOrder.resource ?? 0) - (rightOrder.resource ?? 0)
+            || (leftOrder.sequence ?? 0) - (rightOrder.sequence ?? 0);
+    });
+
+    for (const scene of layers) {
         if (scene.state?.surface) {
             state.surface.drawSurface(scene.state.surface);
         }
@@ -27,11 +37,12 @@ export const composeTtmFrame = (state) => {
     if (state.trace?.active) {
         state.trace.record('composition', {
             tick: state.tick,
-            layers: (state.scenes || []).map(scene => ({
+            layers: layers.map(scene => ({
                 sceneIdx: scene.sceneIdx,
                 tagId: scene.tagId,
                 lifecycle: scene.lifecycle,
                 execution: scene.execution?.status || null,
+                paintOrder: scene.paintOrder || null,
                 revision: scene.state?.layerRevision || 0,
             })),
             ...(state.trace.pixelHashes ? { pixels: state.surface.fingerprint?.() ?? null } : {}),

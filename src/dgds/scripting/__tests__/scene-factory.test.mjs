@@ -103,7 +103,10 @@ describe('TTM runtime state boundary', () => {
         const parent = {
             scenesRes: [undefined, ttm(10), ttm(20)],
             scenes: [],
-            data: { scenes: [{ tagId: 1 }] },
+            data: {
+                scenes: [{ tagId: 1 }],
+                resources: [{ id: 2 }, { id: 1 }],
+            },
             currentScene: 0,
             entries: [],
             surface: createRecordingSurface(),
@@ -126,6 +129,9 @@ describe('TTM runtime state boundary', () => {
 
         expect(first.script).toHaveLength(2);
         expect(sibling.script).toHaveLength(1);
+        expect(first.paintOrder).toEqual({ resource: 1, sequence: 1 });
+        expect(sibling.paintOrder).toEqual({ resource: 1, sequence: 2 });
+        expect(otherResource.paintOrder).toEqual({ resource: 0, sequence: 1 });
         expect(first.environment.owner).toBe(first);
         expect(sibling.environment).toBe(first.environment);
         expect(canRunTtmScene(first)).toBe(true);

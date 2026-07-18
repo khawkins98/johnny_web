@@ -174,11 +174,24 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         console.log('add failed ttm', sceneIdx, tagId);
         return;
     }
-    const scene = ttm.scenes.find(s => s.tagId === tagId);
+    const sequenceOrder = ttm.scenes.findIndex(s => s.tagId === tagId);
+    const scene = ttm.scenes[sequenceOrder];
     const retries = retriesDelay >= 0 ? retriesDelay : 0;
     const delay = retriesDelay < 0 ? retriesDelay : state.delay;
 
-    const s = Object.assign({ sceneIdx, delay, retries, lifecycle: 'active' }, scene);
+    const resourceOrder = state.data?.resources?.findIndex(resource => resource.id === sceneIdx) ?? -1;
+    const s = Object.assign({
+        sceneIdx,
+        delay,
+        retries,
+        lifecycle: 'active',
+        // DGDS repaints active TTM sequences in resource/declaration order. ADS
+        // start order is scheduling state, not painter state.
+        paintOrder: {
+            resource: resourceOrder < 0 ? sceneIdx : resourceOrder,
+            sequence: sequenceOrder,
+        },
+    }, scene);
     if (s.script === undefined) {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;

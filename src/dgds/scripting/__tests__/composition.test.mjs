@@ -47,4 +47,33 @@ describe('DGDS frame composition', () => {
             { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
         ]);
     });
+
+    it('paints TTM declaration order instead of ADS start order', () => {
+        const surface = createRecordingSurface();
+        const firstDeclaredLayer = createRecordingSurface();
+        const secondDeclaredLayer = createRecordingSurface();
+        const state = {
+            surface,
+            ttmEnvironments: new Map(),
+            scenes: [
+                {
+                    paintOrder: { resource: 0, sequence: 21 },
+                    state: { surface: secondDeclaredLayer },
+                },
+                {
+                    paintOrder: { resource: 0, sequence: 3 },
+                    state: { surface: firstDeclaredLayer },
+                },
+            ],
+        };
+
+        composeTtmFrame(state);
+
+        expect(surface.commands).toEqual([
+            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
+            { operation: 'drawSurface', source: firstDeclaredLayer, rect: undefined },
+            { operation: 'drawSurface', source: secondDeclaredLayer, rect: undefined },
+        ]);
+        expect(state.scenes[0].state.surface).toBe(secondDeclaredLayer);
+    });
 });
