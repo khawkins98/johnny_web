@@ -28,7 +28,7 @@ import { pendingExecution } from './execution-outcome.mjs';
  * Default runtime fields reset for every new scene execution.
  * These are always FRESH per scene — never inherited from siblings.
  */
-export const initialState = {
+const initialState = {
     reentry: 0,
     lastCommand: false,
     runs: 0,
@@ -128,7 +128,7 @@ const cloneSaveSlots = (slots, surfaceFactory) => (slots || []).map(source => {
 });
 
 /** Allocate the mutable resources owned by a single loaded TTM environment. */
-export const createTtmEnvironmentAssets = (parent) => {
+const createTtmEnvironmentAssets = (parent) => {
     if (typeof parent.surfaceFactory !== 'function') {
         throw new TypeError('TTM runtime requires an injected surfaceFactory');
     }

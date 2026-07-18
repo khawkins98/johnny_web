@@ -8,7 +8,7 @@ export const selectOceanIndex = (state, isNight) => {
     return isNight ? nightIndex : Math.floor(state.random() * dayCount);
 };
 
-export const loadBackgroundAssets = state => {
+const loadBackgroundAssets = state => {
     const profile = state.game?.background;
     if (!profile) return;
     for (const asset of profile.assets || []) {

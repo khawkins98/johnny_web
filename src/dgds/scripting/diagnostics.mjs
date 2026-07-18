@@ -1,6 +1,6 @@
 const MODES = new Set(['off', 'on', 'verbose']);
 
-export const modeState = (mode) => Object.freeze({
+const modeState = (mode) => Object.freeze({
     mode,
     enabled: mode !== 'off',
     ui: mode !== 'off',

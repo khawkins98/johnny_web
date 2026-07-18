@@ -1,6 +1,6 @@
 import { isFrameBoundary } from './frame-timing.mjs';
 
-export const DEFAULT_TIMING_PROFILE = 'faithful-browser';
+const DEFAULT_TIMING_PROFILE = 'faithful-browser';
 
 const browserYieldFloor = ticks => Math.max(1, ticks);
 

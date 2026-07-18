@@ -4,7 +4,7 @@
  * TTM opcodes emit these authored directives without knowing how a host turns
  * them into waits, animation frames, or wall-clock deadlines.
  */
-export const DGDS_FRAME_BOUNDARY = 'dgds-frame-boundary';
+const DGDS_FRAME_BOUNDARY = 'dgds-frame-boundary';
 
 export const createFrameBoundary = delayTicks => Object.freeze({
     type: DGDS_FRAME_BOUNDARY,
@@ -12,4 +12,3 @@ export const createFrameBoundary = delayTicks => Object.freeze({
 });
 
 export const isFrameBoundary = value => value?.type === DGDS_FRAME_BOUNDARY;
-

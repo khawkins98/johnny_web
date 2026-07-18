@@ -22,7 +22,7 @@ export const buildSpriteCanvas = (image) => {
     return c;
 };
 
-export const drawImage = (image, context, posX, posY) => {
+const drawImage = (image, context, posX, posY) => {
     const img = context.createImageData(image.width, image.height);
     for (let p = 0; p < image.pixels.length; p += 1) {
         img.data[(p * 4) + 0] = image.pixels[p].r;

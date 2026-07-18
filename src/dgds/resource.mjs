@@ -9,7 +9,7 @@ import { loadTTMResourceEntry } from './resources/ttm.mjs';
 const INDEX_STRING_SIZE = 12;
 const INDEX_HEADER_SIZE = 6;
 
-export const ResourceType = [
+const ResourceType = [
     { type: 'ADS', callback: loadADSResourceEntry }, // Animation sequences
     { type: 'BMP', callback: loadBMPResourceEntry }, // Various raw images
     { type: 'PAL', callback: loadPALResourceEntry }, // VGA palette

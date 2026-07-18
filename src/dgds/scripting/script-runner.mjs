@@ -25,7 +25,7 @@ export const debugLog = (...args) => {
     if (diagnostics.console) console.log(`[DGDS] [${getTimestamp()}]`, ...args);
 };
 
-export const sceneLog = (state, action, target = '') => {
+const sceneLog = (state, action, target = '') => {
     let gagId = state.gagId ?? '?';
     if (state.data && state.data.scenes && state.data.scenes[state.currentScene]) {
         const tId = state.data.scenes[state.currentScene].tagId;
@@ -56,7 +56,7 @@ export const sceneLog = (state, action, target = '') => {
     console.log(`[${getTimestamp()}] ${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
 };
 
-export const verboseLog = (...args) => {
+const verboseLog = (...args) => {
     if (diagnostics.verbose) console.log(`[DGDS:V] [${getTimestamp()}]`, ...args);
 };
 

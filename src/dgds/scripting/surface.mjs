@@ -8,8 +8,8 @@
  */
 import { buildSpriteCanvas, getPaletteColor } from '../graphics.mjs';
 
-export const SURFACE_WIDTH = 640;
-export const SURFACE_HEIGHT = 480;
+const SURFACE_WIDTH = 640;
+const SURFACE_HEIGHT = 480;
 
 const fullSurface = () => ({ x: 0, y: 0, width: SURFACE_WIDTH, height: SURFACE_HEIGHT });
 const normalizeRect = (rect) => rect
