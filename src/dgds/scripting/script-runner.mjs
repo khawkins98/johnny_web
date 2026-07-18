@@ -49,7 +49,7 @@ export const debugLog = isDebugMode ? (...args) => console.log(`[DGDS] [${getTim
 export const sceneLog = (state, action, target = '') => {
     if (!isDebugMode) return;
     
-    let gagId = '?';
+    let gagId = state.gagId ?? '?';
     if (state.data && state.data.scenes && state.data.scenes[state.currentScene]) {
         const tId = state.data.scenes[state.currentScene].tagId;
         gagId = typeof tId === 'object' ? tId.id : (tId ?? '?');

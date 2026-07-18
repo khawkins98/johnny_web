@@ -490,9 +490,11 @@ ADS opcodes can spawn TTM clips as concurrent child scenes:
 `getSceneState()` in `scene-factory.mjs` constructs a child state object per scene:
 - Looks up the TTM resource by `sceneIdx` in `scenesRes[]`.
 - Finds the matching `tagId` scene in the TTM's `scenes[]`.
-- Creates a new off-screen 640 × 480 canvas.
-- **First scene (empty `scenes[]`):** prepends the TTM prologue (scenes[0] — loads sprites/backgrounds), then copies the main ADS state as the base.
-- **Subsequent scenes:** inherits prologue-loaded assets (`res[]`, `bkgScreen`, `bkgRes`, `bkgRaft`, `bkgOcean`, `saveBkg`, `save`, `tmpContext`, palette) from the first sibling, while resetting all execution state (`reentry`, `played`, `runs`, `continue`, etc.) to fresh values.
+- Uses the process-owned 640 × 480 sprite composition canvas.
+- **First scene (empty `scenes[]`):** prepends the TTM prologue (scenes[0] — loads sprites/backgrounds), then receives an explicit TTM runtime contract containing host services, drawing state, and resource handles.
+- **Subsequent scenes:** receive the same explicit contract but inherit prologue-loaded assets (`res[]`, backgrounds, save buffers, palette) from the first sibling. Execution state (`reentry`, `played`, `runs`, `continue`, etc.) is always fresh.
+
+ADS-only fields such as `currentScene`, add/remove queues, condition-chain state, played history, and fade state are not visible to child TTM interpreters.
 
 **Note:** the sibling-asset inheritance reads `state.scenes[0].state`. This is sound in practice because the prologue scene (LOAD SHAPES) is never explicitly STOP_SCENE'd until a FREE SHAPES opcode runs later — it stays in `scenes[]` (with `lifecycle === 'completed'`) for the duration of the gag.
 
@@ -576,11 +578,11 @@ Note: an index beyond the bounds of `sampleOffsets` will not be caught by the `-
 
 ### Bug 1: Rendering operations are still coupled to Canvas
 
-TTM drawing callbacks directly mutate per-scene Canvas contexts. A faithful logical framebuffer and a Canvas presentation adapter are still needed to isolate DGDS save/store/get-put semantics from browser compositing.
+TTM drawing callbacks directly mutate the shared sprite Canvas. A faithful logical framebuffer and a Canvas presentation adapter are still needed to isolate DGDS save/store/get-put semantics from browser compositing.
 
-### Bug 2: Scene state ownership is overly broad
+### Bug 2: Shared sprite surface limits scene isolation
 
-`getSceneState()` begins by copying most of the ADS root state into a child object and then shares selected mutable resources from the first sibling. Execution fields are reset explicitly, but the broad copy makes ownership difficult to audit and remains the next major engine boundary to tighten.
+TTM scenes now receive explicit runtime state, but they intentionally draw into one shared sprite Canvas to approximate the original composition buffer. This fixes accumulation between sibling animations but means scene-local rendering cannot yet be replayed or inspected independently.
 
 ### Bug 3: Region save and restore semantics are incomplete
 
@@ -607,7 +609,7 @@ Failed TTM lookups in `scene-factory.mjs` call `console.log` directly rather tha
 ## 13. Potential improvements
 
 - **Typed pixel buffers** — replace per-pixel `{index, a, r, g, b}` objects with `Uint8ClampedArray` or construct `ImageData` directly during decode. A 640 × 480 image currently allocates 307,200 plain objects.
-- **Separate machine and host state** — replace broad ADS-to-TTM object copying with explicit execution, resource, rendering, and host state records.
+- **Separate framebuffer and presentation** — introduce a logical DGDS surface contract and make Canvas a browser presentation adapter.
 - **Load palette from PAL resource** — wire `pal.mjs` output into the BMP/SCR rendering path to support palette-swapped backgrounds.
 - **Implement `SAVE_IMAGE_REGION`** — restore the commented-out region capture to enable scorecard compositing.
 - **Audio range requests** — replace the full `SCRANTIC.SCR` fetch on each cache miss with an HTTP range request for the relevant byte slice.

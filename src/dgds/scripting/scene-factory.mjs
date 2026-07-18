@@ -14,9 +14,11 @@
  *    reentry, played, runs, continue, delay, timer, lastCommand, skip, elapsedTimer.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
- *  BASE from the parent ADS state:
- *    audioManager, entries, island, and all other ADS configuration fields.
- *    Provides the runtime environment (audio, resource list, world state) to each TTM scene.
+ *  HOST SERVICES from the parent ADS state:
+ *    audioManager, entries, scenesRes, random, and the unified sprite context.
+ *
+ * ADS controller fields (scene queues, condition state, fades, and ADS program
+ * counters) are deliberately not copied into child TTM states.
  */
 
 /**
@@ -40,6 +42,52 @@ export const initialState = {
 };
 
 /**
+ * Construct the explicit host/resource contract visible to a TTM interpreter.
+ * `assets` is either the ADS root for the first child or the first sibling whose
+ * prologue has already populated the shared caches.
+ */
+export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
+    ...initialState,
+    clip: { ...initialState.clip },
+    type: 'TTM',
+    sceneIdx,
+    tagId,
+    gagId: parent.data?.scenes?.[parent.currentScene]?.tagId,
+    context: parent.spriteContext,
+    allScenes: parent.scenes,
+
+    // Host services
+    entries: parent.entries,
+    audioManager: parent.audioManager,
+    scenesRes: parent.scenesRes,
+    random: parent.random,
+
+    // Shared/cached DGDS resources
+    res: assets.res || [],
+    bkgScreen: assets.bkgScreen || null,
+    bkgRes: assets.bkgRes || null,
+    bkgRaft: assets.bkgRaft || null,
+    bkgOcean: assets.bkgOcean || [],
+    saveBkg: assets.saveBkg,
+    save: assets.save,
+    tmpContext: assets.tmpContext,
+
+    // Drawing and world values required by TTM opcodes/background composition
+    slot: 0,
+    saveIndex: 0,
+    island: assets.island ?? parent.island ?? 1,
+    isNightMode: parent.isNightMode === true,
+    foregroundColor: assets.foregroundColor,
+    backgroundColor: assets.backgroundColor,
+    cloudIdx: assets.cloudIdx,
+    cloudX: assets.cloudX,
+    cloudY: assets.cloudY,
+    cloudElapsed: assets.cloudElapsed || 0,
+    waveElapsed: assets.waveElapsed || 0,
+    waveFrame: assets.waveFrame || 0,
+});
+
+/**
  * Build the full state object for a newly spawned TTM scene.
  * See module docblock for the complete field-sharing policy.
  */
@@ -55,10 +103,6 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     const retries = retriesDelay >= 0 ? retriesDelay : 0;
     const delay = retriesDelay < 0 ? retriesDelay : state.delay;
 
-    // Store identity in the child state so runScript can label log messages.
-    // TTM scenes all share the unified spriteContext.
-    const stateInit = { ...initialState, type: 'TTM', context: state.spriteContext, sceneIdx, tagId };
-
     const s = Object.assign({ sceneIdx, delay, retries, lifecycle: 'active' }, scene);
     if (s.script === undefined) {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
@@ -66,32 +110,14 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     }
     if (!state.scenes.length) {
         // First TTM scene: prepend the TTM prologue (scenes[0]) so it loads resources,
-        // then copy main ADS state as the base (provides audioManager, entries, island, etc.).
+        // then start with the root's explicit resource/cache handles.
         s.script = [...ttm.scenes[0].script, ...s.script];
-        s.state = Object.assign({}, state, stateInit);
+        s.state = createTtmRuntimeState(state, state, sceneIdx, tagId);
     } else {
-        // Subsequent TTM scenes: start from main ADS state, then overlay only the
-        // prologue-loaded assets from the first sibling (res[], background, palette, canvases).
-        // Finally apply stateInit to reset all runtime fields (reentry, played, runs, etc.)
-        // so we don't inherit stale execution state from the sibling.
+        // Subsequent scenes share only prologue-loaded assets and host services;
+        // execution state is always fresh.
         const firstSibling = state.scenes[0].state;
-        s.state = Object.assign(
-            {},
-            state,                         // base: ADS config (audioManager, entries, island…)
-            {                              // prologue-loaded assets from first sibling (SHARED)
-                res: firstSibling.res,
-                bkgScreen: firstSibling.bkgScreen,
-                bkgRes: firstSibling.bkgRes,
-                bkgRaft: firstSibling.bkgRaft,
-                bkgOcean: firstSibling.bkgOcean,
-                saveBkg: firstSibling.saveBkg,
-                save: firstSibling.save,
-                tmpContext: firstSibling.tmpContext,
-                foregroundColor: firstSibling.foregroundColor,
-                backgroundColor: firstSibling.backgroundColor,
-            },
-            stateInit,                     // fresh runtime state (reentry=0, played=false…) — FRESH
-        );
+        s.state = createTtmRuntimeState(state, firstSibling, sceneIdx, tagId);
     }
     return s;
 };
