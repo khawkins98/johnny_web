@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TTMDispatch, ADSDispatch, runScript } from '../script-runner.mjs';
 import { ExecutionStatus, executionOutcome } from '../execution-outcome.mjs';
 import { ADSCommandType } from '../../data/scripting.mjs';
+import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
 // ---------------------------------------------------------------------------
 // Opcode dispatch tables
@@ -992,6 +993,8 @@ describe('ADS_FADE_OUT handler', () => {
             scenesRandom: [{}],
             playedHistory: new Set(),
             surface,
+            frameOperations: [],
+            presentFrameOperation: presentSurfaceFrameOperation,
             saveBkg: [{ canDraw: true }],
         };
 

@@ -51,6 +51,8 @@ for the target dependency direction.
 | `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
+| `src/dgds/scripting/frame-operation.mjs` | Host-neutral drawing operation contract |
+| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to retained logical surfaces |
 | `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
 | `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
@@ -124,6 +126,13 @@ browser audio adapter consumes those operations after the tick and separately
 records whether playback started or was unavailable. Audio host state therefore
 cannot block ADS/TTM scheduling.
 
+Drawing opcodes similarly emit logical frame operations. Primitive drawing,
+sprites, saved regions, GET/PUT frame starts, and script-requested clears do not
+call a retained surface. The current surface presenter consumes each operation
+synchronously so a later opcode in the same script observes the faithful
+GET/PUT result. `DgdsRuntime.tick()` returns the emitted operations for
+conformance tests and future non-Canvas presenters.
+
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
@@ -149,7 +158,8 @@ ADS condition branches stage scene additions and removals:
 ## Frame composition
 
 The browser page has a background canvas and a foreground presentation canvas.
-TTM opcodes never address either directly.
+TTM opcodes never address either directly. They emit frame operations; the
+retained-surface presenter applies them to per-scene logical surfaces.
 
 For every rendered logical frame, `composeTtmFrame()`:
 
@@ -178,7 +188,7 @@ cloud/wave behavior uses the injected compatibility profile.
 | Engine need | Injected/browser implementation |
 |---|---|
 | Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
-| Drawing | logical surface → Canvas adapter |
+| Drawing | frame operations → retained-surface presenter → Canvas adapter |
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
 | Optional wall time | compatibility profile |
@@ -221,10 +231,10 @@ automation may read it directly or use the Vite-only persistence endpoint.
 - The browser background renderer is still separate from the logical TTM
   composition and still contains Johnny-specific asset names/layout, so some
   original buffer-copy behavior and the game-package boundary require more work.
-- `DgdsRuntime` still invokes injected drawing presenters. Audio is now emitted
-  as logical operations, but frame/presentation operations remain to be
-  extracted before this becomes the deterministic `DgdsMachine` described by
-  ADR 0001.
+- Opcode drawing and audio are now logical operations. Final scene composition,
+  background selection, fades, and Canvas presentation still live in
+  `DgdsRuntime`; those must be extracted before it becomes the deterministic
+  `DgdsMachine` described by ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

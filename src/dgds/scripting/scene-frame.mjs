@@ -1,4 +1,5 @@
 import { traceEvent } from './trace.mjs';
+import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 
 /**
  * Begin a new logical TTM frame and optionally seed it from a GET/PUT slot.
@@ -8,11 +9,13 @@ import { traceEvent } from './trace.mjs';
  */
 export const beginSceneFrame = (state, restoreSlot) => {
     const save = state.save[restoreSlot];
-    state.surface.clear();
     state.layerRevision = (state.layerRevision || 0) + 1;
+    emitFrameOperation(state, {
+        type: FrameOperationType.BEGIN_SCENE_FRAME,
+        restoreSlot,
+    });
 
     if (save?.canDraw) {
-        state.surface.replaceRegionFrom(save.surface, save);
         traceEvent(state, 'scene-frame-begin', {
             restoreSlot,
             restored: true,

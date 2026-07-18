@@ -16,7 +16,8 @@
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
- *    audioOperations, entries, scenesRes, random, and a fresh scene-layer surface.
+ *    audioOperations, frameOperations, the frame presenter, entries, scenesRes,
+ *    random, and a fresh scene-layer surface.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -65,6 +66,8 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     // Host services
     entries: parent.entries,
     audioOperations: parent.audioOperations,
+    frameOperations: parent.frameOperations,
+    presentFrameOperation: parent.presentFrameOperation,
     scenesRes: parent.scenesRes,
     random: parent.random,
     compatibility: parent.compatibility,

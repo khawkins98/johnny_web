@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TTMDispatch } from '../script-runner.mjs';
 import { createCanvasSurface, createCanvasSurfaceElement, createRecordingSurface } from '../surface.mjs';
+import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
 const opcode = value => TTMDispatch.find(entry => entry.opcode === value).callback;
+const withPresenter = state => ({
+    frameOperations: [],
+    presentFrameOperation: presentSurfaceFrameOperation,
+    ...state,
+});
 
 const createMockContext = () => ({
     canvas: {},
@@ -90,14 +96,14 @@ describe('TTM drawing opcode surface contract', () => {
         const surface = createRecordingSurface();
         const image = { width: 10, height: 20, pixels: [] };
         const clip = { x: 1, y: 2, width: 30, height: 40 };
-        const state = {
+        const state = withPresenter({
             surface,
             res: [{ images: [image] }],
             clip,
             scenesRes: [],
             sceneIdx: 1,
             tagId: 2,
-        };
+        });
 
         opcode(0xa500)(state, 50, 60, 0, 0);
         opcode(0xa520)(state, 70, 80, 0, 0);
@@ -106,12 +112,16 @@ describe('TTM drawing opcode surface contract', () => {
             { operation: 'drawSprite', image, x: 50, y: 60, options: { clip, flipX: false } },
             { operation: 'drawSprite', image, x: 70, y: 80, options: { clip, flipX: true } },
         ]);
+        expect(state.frameOperations).toMatchObject([
+            { type: 'draw-sprite', frame: 0, slot: 0, x: 50, y: 60, flipX: false },
+            { type: 'draw-sprite', frame: 0, slot: 0, x: 70, y: 80, flipX: true },
+        ]);
     });
 
     it('routes primitive drawing through the surface', () => {
         const surface = createRecordingSurface();
         const color = { r: 12, g: 34, b: 56 };
-        const state = { surface, foregroundColor: color };
+        const state = withPresenter({ surface, foregroundColor: color });
 
         opcode(0xa0a0)(state, 1, 2, 3, 4);
         opcode(0xa100)(state, 5, 6, 7, 8);
@@ -122,13 +132,18 @@ describe('TTM drawing opcode surface contract', () => {
             { operation: 'fillRect', x: 5, y: 6, width: 7, height: 8, color },
             { operation: 'fillCircle', x: 25, y: 35, radius: 15, color: 'white' },
         ]);
+        expect(state.frameOperations.map(operation => operation.type)).toEqual([
+            'draw-line',
+            'fill-rect',
+            'fill-circle',
+        ]);
     });
 
     it('captures and overwrites GET/PUT regions through surfaces', () => {
         const surface = createRecordingSurface();
         const savedSurface = createRecordingSurface();
         const save = { surface: savedSurface, canDraw: false, x: 0, y: 0, width: 0, height: 0 };
-        const state = { surface, save: [save], saveIndex: 0 };
+        const state = withPresenter({ surface, save: [save], saveIndex: 0 });
 
         opcode(0x4210)(state, 10, 20, 30, 40);
         opcode(0xa600)(state, 0);
@@ -154,11 +169,11 @@ describe('TTM drawing opcode surface contract', () => {
 
     it('clears only the scene layer when GET/PUT has no saved region', () => {
         const surface = createRecordingSurface();
-        const state = {
+        const state = withPresenter({
             surface,
             save: [{ canDraw: false }],
             layerRevision: 0,
-        };
+        });
 
         opcode(0xa600)(state, 0);
 

@@ -63,4 +63,27 @@ describe('DgdsRuntime', () => {
             }],
         });
     });
+
+    it('returns logical frame operations without exposing a surface', () => {
+        const runtime = createRuntime({
+            foregroundColor: { r: 1, g: 2, b: 3 },
+            presentFrameOperation: () => {},
+            data: {
+                scripts: [{ opcode: 0xa100, params: [5, 6, 7, 8] }],
+            },
+        });
+
+        const result = runtime.tick(1000 / 60);
+
+        expect(result.frameOperations).toMatchObject([{
+            type: 'fill-rect',
+            x: 5,
+            y: 6,
+            width: 7,
+            height: 8,
+            tick: 1,
+        }]);
+        expect(result.frameOperations[0]).not.toHaveProperty('surface');
+        expect(result.frameOperations[0]).not.toHaveProperty('canvas');
+    });
 });

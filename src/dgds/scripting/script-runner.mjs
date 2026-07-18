@@ -13,6 +13,7 @@ import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
+import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import {
     clearContext,
     drawBackground,
@@ -174,7 +175,7 @@ const clearAdsSceneBatch = (state) => {
     state.addScenes = [];
     state.removeScenes = [];
     state.scenesRandom = [];
-    state.surface?.clear();
+    emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;
     }
@@ -205,28 +206,25 @@ const ADS_FADE_OUT = (state) => {
 };
 
 const STORE_AREA = (state, x, y, width, height) => {
-    const save = state.saveBkg[0];
-    save.canDraw = true;
-    save.x = x;
-    save.y = y;
-    save.width = width;
-    save.height = height;
-    state.surface.copyRegionTo(save.surface, { x, y, width, height });
-    traceEvent(state, 'store-area', { slot: 0, rect: { x, y, width, height } });
+    const rect = { x, y, width, height };
+    emitFrameOperation(state, {
+        type: FrameOperationType.STORE_AREA,
+        slot: 0,
+        rect,
+    });
+    traceEvent(state, 'store-area', { slot: 0, rect });
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
-    const save = state.save[state.saveIndex];
-    save.canDraw = true;
-    save.x = x;
-    save.y = y;
-    save.width = width;
-    save.height = height;
-
-    state.surface.copyRegionTo(save.surface, { x, y, width, height });
+    const rect = { x, y, width, height };
+    emitFrameOperation(state, {
+        type: FrameOperationType.SAVE_IMAGE_REGION,
+        slot: state.saveIndex,
+        rect,
+    });
     traceEvent(state, 'getput-save', {
         slot: state.saveIndex,
-        rect: { x, y, width, height },
+        rect,
     });
 };
 
@@ -239,18 +237,38 @@ const SAVE_REGION = (state, x, y, width, height) => { };
 const WIPE_RIGHT_TO_LEFT = () => {};
 
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
-    state.surface.drawLine(x1, y1, x2, y2, 'white');
+    emitFrameOperation(state, {
+        type: FrameOperationType.DRAW_LINE,
+        x1,
+        y1,
+        x2,
+        y2,
+        color: 'white',
+    });
 };
 
 const DRAW_RECT = (state, x, y, width, height) => {
-    state.surface.fillRect(x, y, width, height, state.foregroundColor);
+    emitFrameOperation(state, {
+        type: FrameOperationType.FILL_RECT,
+        x,
+        y,
+        width,
+        height,
+        color: state.foregroundColor,
+    });
 };
 
 const DRAW_BUBBLE = (state, x, y, width, height) => {
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = width / 2;
-    state.surface.fillCircle(x + centerX, y + centerY, radius, 'white');
+    emitFrameOperation(state, {
+        type: FrameOperationType.FILL_CIRCLE,
+        x: x + centerX,
+        y: y + centerY,
+        radius,
+        color: 'white',
+    });
 };
 
 const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
@@ -258,7 +276,15 @@ const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
     const image = state.res[slot].images[index];
     if (image === undefined) return;
     verboseLog(`DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
-    state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: false });
+    emitFrameOperation(state, {
+        type: FrameOperationType.DRAW_SPRITE,
+        frame: index,
+        slot,
+        x: offsetX,
+        y: offsetY,
+        clip: { ...state.clip },
+        flipX: false,
+    });
     state.layerRevision = (state.layerRevision || 0) + 1;
     traceEvent(state, 'draw-sprite', {
         frame: index,
@@ -277,7 +303,15 @@ const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
     const image = state.res[slot].images[index];
     if (image === undefined) return;
     verboseLog(`DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
-    state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: true });
+    emitFrameOperation(state, {
+        type: FrameOperationType.DRAW_SPRITE,
+        frame: index,
+        slot,
+        x: offsetX,
+        y: offsetY,
+        clip: { ...state.clip },
+        flipX: true,
+    });
     state.layerRevision = (state.layerRevision || 0) + 1;
     traceEvent(state, 'draw-sprite', {
         frame: index,

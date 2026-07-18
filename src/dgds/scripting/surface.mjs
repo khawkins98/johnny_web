@@ -1,9 +1,10 @@
 /**
  * DGDS logical drawing-surface contract.
  *
- * TTM opcodes depend on these operations, not on CanvasRenderingContext2D.
- * The browser host supplies createCanvasSurface(); tests and trace tooling use
- * createRecordingSurface() to observe deterministic drawing commands.
+ * The retained-surface presenter depends on these operations, not on
+ * CanvasRenderingContext2D. TTM opcodes emit frame operations and never call a
+ * surface directly. The browser host supplies createCanvasSurface(); tests and
+ * trace tooling use createRecordingSurface() to observe deterministic drawing.
  */
 import { buildSpriteCanvas, getPaletteColor } from '../graphics.mjs';
 

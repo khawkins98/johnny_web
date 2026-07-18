@@ -14,6 +14,7 @@ import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearContext, drawBackground } from './frame-renderer.mjs';
 import { debugLog, runScript } from './script-runner.mjs';
+import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 
 const createStoredSurface = surfaceFactory => ({
     surface: surfaceFactory(),
@@ -60,6 +61,8 @@ export class DgdsRuntime {
             saveIndex: 0,
             saveBkg: [],
             audioOperations: [],
+            frameOperations: [],
+            presentFrameOperation: presentSurfaceFrameOperation,
             slot: 0,
             res: [],
             reentry: 0,
@@ -142,12 +145,14 @@ export class DgdsRuntime {
 
     tick(frameDelta) {
         this.state.audioOperations.length = 0;
+        this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
         const completed = this.#runScripts();
         return Object.freeze({
             completed,
             audioOperations: Object.freeze([...this.state.audioOperations]),
+            frameOperations: Object.freeze([...this.state.frameOperations]),
         });
     }
 
