@@ -2,27 +2,27 @@
  * Unit tests for the process.mjs opcode interpreter.
  *
  * Scope: pure/synchronous aspects only — no DOM, no canvas, no rAF.
- * The CommandType dispatch tables and individual opcode handlers are tested by
+ * The ADS/TTM dispatch tables and individual opcode handlers are tested by
  * exercising their callback functions directly with minimal mock state objects.
  *
  * Known remaining bugs documented inline:
  *  1. GOTO no-op: the GOTO handler ignores tagId and always resets reentry to 0.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CommandType, TTMDispatch, ADSDispatch, runScript } from '../process.mjs';
+import { TTMDispatch, ADSDispatch, runScript } from '../script-runner.mjs';
 import { ExecutionStatus, executionOutcome } from '../execution-outcome.mjs';
 
 // ---------------------------------------------------------------------------
-// CommandType dispatch table
+// Opcode dispatch tables
 // ---------------------------------------------------------------------------
-describe('CommandType dispatch table', () => {
+describe('opcode dispatch tables', () => {
     it('is a non-empty array', () => {
-        expect(Array.isArray(CommandType)).toBe(true);
-        expect(CommandType.length).toBeGreaterThan(0);
+        expect(TTMDispatch.length).toBeGreaterThan(0);
+        expect(ADSDispatch.length).toBeGreaterThan(0);
     });
 
     it('every entry has an opcode (number) and a callback (function)', () => {
-        for (const entry of CommandType) {
+        for (const entry of [...TTMDispatch, ...ADSDispatch]) {
             expect(typeof entry.opcode).toBe('number');
             expect(typeof entry.callback).toBe('function');
         }
@@ -59,7 +59,7 @@ describe('CommandType dispatch table', () => {
     });
 
     it('GOTO callback is named GOTO', () => {
-        const entry = CommandType.find(e => e.opcode === 0x1200);
+        const entry = TTMDispatch.find(e => e.opcode === 0x1200);
         expect(entry.callback.name).toBe('GOTO');
     });
 });
@@ -109,7 +109,7 @@ describe('opcode parameter decoding (TTM 16-bit encoding rule)', () => {
 // ---------------------------------------------------------------------------
 describe('GOTO handler', () => {
     it('sets gotoRestart=true so runScript restarts from 0 on the next call', () => {
-        const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
         const mockState = { reentry: 42, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 7);
         expect(mockState.gotoRestart).toBe(true);
@@ -118,14 +118,14 @@ describe('GOTO handler', () => {
     });
 
     it('sets continue=false so execution pauses until the next frame', () => {
-        const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 5);
         expect(mockState.continue).toBe(false);
     });
 
     it('leaves loop accounting to the interpreter outcome', () => {
-        const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 99);
         expect(mockState.runs).toBe(0);
@@ -162,7 +162,7 @@ describe('GOTO handler', () => {
         // Script: [PURGE, GOTO], GOTO is at index 1 (length-1).
         // GOTO fires gotoRestart=true; end-of-script must NOT fire this frame.
         let goFired = false;
-        const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
         const mockState = {
             reentry: 0,
             reentryNow: 0,

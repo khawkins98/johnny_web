@@ -26,18 +26,11 @@ import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { createTimingCompatibility } from './timing-compatibility.mjs';
+import { clearContext, drawBackground } from './frame-renderer.mjs';
 import {
     debugLog,
-    clearContext,
-    drawBackground,
     runScript,
-    TTMDispatch,
-    ADSDispatch,
-    CommandType,
 } from './script-runner.mjs';
-
-// Re-export public API (tests and callers import from process.mjs)
-export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
 
 let state = null;
 
@@ -366,13 +359,6 @@ export const startProcess = (initialState) => {
     mainloop();
 
     return state;
-};
-
-export const stopProcess = () => {
-    if (state?.frameId) {
-        cancelAnimationFrame(state.frameId);
-    }
-    state = null;
 };
 
 // Expose state manipulators for the debug UI

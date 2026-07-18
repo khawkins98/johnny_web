@@ -3,12 +3,10 @@
  *
  * All opcode callbacks are plain functions of the form (state, ...params).
  * They are kept as plain functions (not class methods) so tests can call them directly.
- *
- * Re-exported by process.mjs for backward-compat.
  */
 import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
-import { getSceneState, initialState } from './scene-factory.mjs';
+import { getSceneState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { ExecutionStatus, executionOutcome, unblocksPlayScene } from './execution-outcome.mjs';
@@ -16,7 +14,6 @@ import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
 import {
     clearContext,
-    drawContext,
     drawBackground,
     loadBackground,
     loadRaft,
@@ -24,17 +21,9 @@ import {
     SCREEN_TYPE,
 } from './frame-renderer.mjs';
 
-export { getSceneState, initialState } from './scene-factory.mjs';
-export { clearContext, drawContext, drawBackground, loadBackground, loadRaft, loadOcean } from './frame-renderer.mjs';
-
 // ---------------------------------------------------------------------------
 // Debug logging
 // ---------------------------------------------------------------------------
-
-export const isDebugMode = () => diagnostics.console;
-
-// Verbose mode: ?debug=verbose logs per-opcode details (DRAW_SPRITE frames, PLAY_SAMPLE, GOTO loops).
-export const isVerboseMode = () => diagnostics.verbose;
 
 const getTimestamp = () => new Date().toISOString().substring(11, 23);
 
@@ -708,10 +697,6 @@ export const ADSDispatch = [
     // CUSTOM: Added for text script
     { opcode: 0xfff0, callback: END_IF },
 ];
-
-// Combined table kept for introspection/backward compatibility. Use TTMDispatch or
-// ADSDispatch for actual dispatch — do not call .find() on this directly.
-export const CommandType = [...TTMDispatch, ...ADSDispatch];
 
 // ---------------------------------------------------------------------------
 // Script runner

@@ -19,14 +19,6 @@ export const clearContext = (context) => {
     context.clearRect(0, 0, 640, 480);
 };
 
-export const drawContext = (state, index) => {
-    const save = state.save[state.saveIndex];
-    if (save.canDraw) {
-        save.canDraw = false;
-        state.surface.drawSurface(save.surface);
-    }
-};
-
 // ---------------------------------------------------------------------------
 // Background renderer
 //
