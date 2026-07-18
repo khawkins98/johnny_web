@@ -76,10 +76,20 @@ files.
 
 ## Animation traces
 
-For rendering diagnostics, open the development server with tracing enabled:
+Diagnostics use one `debug` mode with three outputs: the developer panel, a
+human-readable console stream, and a durable structured trace.
+
+| URL | Output |
+|-----|--------|
+| `?debug` | Developer panel (`D`) and concise lifecycle console log |
+| `?debug=verbose` | Panel plus per-opcode and sprite console detail |
+| `?debug=trace` | Panel, concise console, JSONL events, and pixel hashes |
+| `?debug=all` | Verbose console and JSONL trace together |
+
+For rendering diagnostics that need to be shared or analyzed headlessly, use:
 
 ```text
-http://localhost:5173/?trace=1&debug=verbose
+http://localhost:5173/?debug=trace
 ```
 
 Press `D`, reproduce the problem, and choose **Save JSONL Trace**. The Vite
@@ -90,7 +100,8 @@ count. Sprite and GET/PUT operations are separate structured events.
 
 Headless browser automation can call `window.__DGDS__.saveTrace()` after the
 desired run. JSON Lines is the canonical format because it preserves nested
-layer data; CSV can be derived from it when useful for analysis.
+layer data; CSV can be derived from it when useful for analysis. The older
+`?trace=1` switch remains supported as a compatibility alias.
 
 ## Acknowledgements
 

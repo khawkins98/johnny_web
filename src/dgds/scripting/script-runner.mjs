@@ -10,6 +10,7 @@ import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState, initialState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
+import { diagnostics } from './diagnostics.mjs';
 import {
     clearContext,
     drawContext,
@@ -27,20 +28,10 @@ export { clearContext, drawContext, drawBackground, loadBackground, loadRaft, lo
 // Debug logging
 // ---------------------------------------------------------------------------
 
-export const isDebugMode = (() => {
-    try {
-        return window.location.hostname === 'localhost' ||
-               window.location.hostname === '127.0.0.1' ||
-               new URLSearchParams(window.location.search).has('debug');
-    } catch { return false; }
-})();
+export const isDebugMode = diagnostics.console;
 
 // Verbose mode: ?debug=verbose logs per-opcode details (DRAW_SPRITE frames, PLAY_SAMPLE, GOTO loops).
-export const isVerboseMode = (() => {
-    try {
-        return new URLSearchParams(window.location.search).get('debug') === 'verbose';
-    } catch { return false; }
-})();
+export const isVerboseMode = diagnostics.verbose;
 
 const getTimestamp = () => new Date().toISOString().substring(11, 23);
 

@@ -22,6 +22,7 @@ import { createBrowserCompatibility } from './compatibility.mjs';
 import { canRunTtmScene } from './scene-factory.mjs';
 import { composeTtmFrame } from './composition.mjs';
 import { createTraceRecorder } from './trace.mjs';
+import { diagnostics } from './diagnostics.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -35,11 +36,6 @@ import {
 
 // Re-export public API (tests and callers import from process.mjs)
 export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
-
-const isTraceMode = (() => {
-    try { return new URLSearchParams(window.location.search).has('trace'); }
-    catch { return false; }
-})();
 
 let state = null;
 
@@ -235,7 +231,7 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         random,
         compatibility,
-        trace: initialState.trace || (isTraceMode ? createTraceRecorder({ pixelHashes: true }) : null),
+        trace: initialState.trace || (diagnostics.trace ? createTraceRecorder({ pixelHashes: true }) : null),
         tick: 0,
         ttmEnvironments: new Map(),
         reentryNow: 0,
