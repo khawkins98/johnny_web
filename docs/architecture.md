@@ -109,15 +109,15 @@ The page contains two `<canvas>` elements, both 640 × 480 px, absolutely positi
 
 `drawBackground()` in `frame-renderer.mjs` renders the background layer. It picks a random ocean variant (`OCEAN00.SCR`–`OCEAN02.SCR`, or `NIGHT.SCR`), composites the island (`BACKGRND.BMP` sprite sheet), palm trees, raft (`MRAFT.BMP`), and an animated cloud drawn from a randomly chosen frame in `BACKGRND.BMP`. The cloud moves left one pixel at a time, driven by wall-clock time via `Date.now()` rather than the logical DGDS clock (see §12 bug 7).
 
-The background layer is redrawn every rAF tick by `runScripts()` (via `drawBackground(bgState, state.mainContext)`). The foreground layer is cleared at the start of every rAF tick via `clearContext(state.context)`.
+The background layer is redrawn on each executed logical tick by `runScripts()` (via `drawBackground(bgState, state.mainContext)`). The visible foreground layer is cleared before presentation, while the process-owned DGDS drawing surface persists between ticks.
 
-The `DRAW_BACKGROUND` TTM opcode is a **no-op** in this architecture. In the original DGDS engine, it restored a saved screen region behind a sprite (software blitting: save → draw sprite → restore). Here each child TTM scene has its own transparent off-screen canvas, so background restoration is unnecessary — and calling `drawBackground()` from a child scene would overwrite the main compositor's freshly-drawn background with stale (snapshot-at-scene-creation) cloud coordinates.
+TTM opcodes draw through a logical surface contract in `surface.mjs`. The interpreter can clear regions, draw sprites and primitives, and capture regions without importing or addressing Canvas. The browser host supplies a Canvas-backed implementation; tests can supply a recording surface.
 
-A third level of compositing exists in theory: the `save[]` and `saveBkg[]` slot arrays were designed to capture and restore rectangular screen regions (for score overlays and partial-screen compositing). In practice `SAVE_IMAGE_REGION` is commented out and `state.save[]` is never populated, making this layer a no-op (see §12 bug 5).
+`save[]` and `saveBkg[]` contain additional surfaces used for region capture and background restoration metadata. `SAVE_IMAGE_REGION` copies a region through the same contract, although several original save/restore opcodes remain incomplete.
 
-Each child TTM scene also renders into its own off-screen `<canvas>` (created dynamically in `getSceneState()`). After the child scenes run, their canvases are composited onto the foreground layer via `context.drawImage(s.state.context.canvas, 0, 0)`. Completed scenes continue to composite their final frame until explicitly removed, approximating the persistent software framebuffer used by the original engine.
+All child TTM scenes share the process-owned DGDS surface, approximating the original persistent composition buffer. The browser compositor presents that surface onto `#canvas` after the logical tick has completed.
 
-An additional off-screen `tmpContext` canvas (640 × 480) is used as a scratch surface: `drawImage()` blits a pixel-object array into it, then `context.drawImage()` copies the relevant region to the visible canvas. This indirection is necessary because `putImageData` does not respect the canvas clipping region.
+The Canvas adapter converts decoded DGDS images into cached sprite canvases at its boundary. That browser-specific caching is not visible to opcode execution.
 
 ---
 
@@ -372,7 +372,7 @@ The parser splits the opcode stream into `scenes[]` at every `SET_SCENE` (0x1110
 
 ## 10. Process engine
 
-The scripting layer is split across five files in `src/dgds/scripting/`:
+The scripting layer is split across six files in `src/dgds/scripting/`:
 
 | File | Responsibility |
 |---|---|
@@ -381,6 +381,7 @@ The scripting layer is split across five files in `src/dgds/scripting/`:
 | `scene-factory.mjs` | `getSceneState()` — builds TTM child scene state; documents the field-sharing policy |
 | `frame-renderer.mjs` | `drawBackground()`, `clearContext()`, `loadBackground()`, `loadRaft()`, `loadOcean()`, `SCREEN_TYPE` |
 | `timing.mjs` | Browser compatibility adapter: converts rAF timestamps into bounded, fixed DGDS timer ticks |
+| `surface.mjs` | DGDS drawing contract plus Canvas and recording adapters |
 
 ### Module-level state
 
@@ -405,13 +406,13 @@ Key globals:
 {
   data,          // parsed ADS or TTM resource
   type,          // 'ADS' or 'TTM'
-  context,       // CanvasRenderingContext2D for #canvas (sprites)
+  context,       // CanvasRenderingContext2D for visible foreground presentation
   mainContext,   // CanvasRenderingContext2D for #mainCanvas (background)
-  tmpContext,    // off-screen scratch canvas context
+  surface,       // DGDS drawing contract; Canvas-backed only in the browser host
   entries,       // full resource entry list (for on-demand asset loading)
   audioManager,  // Web Audio manager
-  save[],        // 3 off-screen canvases for region capture (currently unused)
-  saveBkg[],     // 1 off-screen canvas for background region restore
+  save[],        // 3 auxiliary surfaces for region capture
+  saveBkg[],     // background-region surface and metadata
   res[],         // slot-indexed BMP resources (loaded via SLOT_IMAGE + LOAD_IMAGE)
   slot,          // active BMP slot (set by SLOT_IMAGE)
   reentry,       // program counter: index into current script[]
@@ -453,7 +454,7 @@ The `UPDATE` opcode (`0x0ff0`, "finish frame / draw") is the TTM frame boundary.
 2. If `state.island` is set, calls `drawBackground()` to redraw the background every frame.
 3. Calls `runScript(state, data.scenes[currentScene].script, true)` (the `true` flag marks it as the main script, enabling `currentScene++` on completion).
 4. If `state.continue` is `false`, advances all non-completed child TTM scenes once.
-5. Composites every active or completed child canvas so a completed final frame persists until the ADS removes it.
+5. Presents the persistent shared DGDS surface onto the visible foreground canvas.
 6. Applies the current compatibility fade layer.
 7. Returns `true` when all scenes are exhausted and `scenes` is empty, signalling the rAF loop to stop and call `onComplete()`.
 
@@ -576,17 +577,17 @@ Note: an index beyond the bounds of `sampleOffsets` will not be caught by the `-
 
 ## 12. Known bugs and limitations
 
-### Bug 1: Rendering operations are still coupled to Canvas
+### Bug 1: The logical surface is not yet an indexed framebuffer
 
-TTM drawing callbacks directly mutate the shared sprite Canvas. A faithful logical framebuffer and a Canvas presentation adapter are still needed to isolate DGDS save/store/get-put semantics from browser compositing.
+TTM callbacks are isolated from Canvas behind the surface contract, but the production adapter still renders directly into an RGBA Canvas surface. A faithful indexed-color framebuffer would make palette changes and original buffer-copy semantics exact rather than approximated.
 
 ### Bug 2: Shared sprite surface limits scene isolation
 
-TTM scenes now receive explicit runtime state, but they intentionally draw into one shared sprite Canvas to approximate the original composition buffer. This fixes accumulation between sibling animations but means scene-local rendering cannot yet be replayed or inspected independently.
+TTM scenes now receive explicit runtime state, but they intentionally draw into one shared surface to approximate the original composition buffer. This fixes accumulation between sibling animations but means scene-local rendering cannot yet be replayed or inspected independently.
 
 ### Bug 3: Region save and restore semantics are incomplete
 
-`SAVE_IMAGE_REGION` captures into one of three Canvas slots, but `drawContext()` is not wired into the interpreter or compositor, `SAVE_REGION` is still a stub, and restore operations clear child canvases rather than operating on a faithful shared framebuffer. Scorecard/overlay behavior therefore depends on Canvas-layer approximations rather than DGDS buffer semantics.
+`SAVE_IMAGE_REGION` captures into one of three auxiliary surfaces, but `drawContext()` is not wired into the interpreter or compositor, `SAVE_REGION` is still a stub, and restore operations clear regions rather than reproducing every original buffer transition. Scorecard/overlay behavior therefore remains approximate.
 
 ### Bug 4: Hardcoded 16-colour palette
 
@@ -609,7 +610,7 @@ Failed TTM lookups in `scene-factory.mjs` call `console.log` directly rather tha
 ## 13. Potential improvements
 
 - **Typed pixel buffers** — replace per-pixel `{index, a, r, g, b}` objects with `Uint8ClampedArray` or construct `ImageData` directly during decode. A 640 × 480 image currently allocates 307,200 plain objects.
-- **Separate framebuffer and presentation** — introduce a logical DGDS surface contract and make Canvas a browser presentation adapter.
+- **Implement an indexed surface** — add an indexed-color implementation of the DGDS surface contract and keep Canvas as presentation only.
 - **Load palette from PAL resource** — wire `pal.mjs` output into the BMP/SCR rendering path to support palette-swapped backgrounds.
 - **Implement `SAVE_IMAGE_REGION`** — restore the commented-out region capture to enable scorecard compositing.
 - **Audio range requests** — replace the full `SCRANTIC.SCR` fetch on each cache miss with an HTTP range request for the relevant byte slice.

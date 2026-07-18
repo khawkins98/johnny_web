@@ -7,7 +7,6 @@
  * Re-exported by process.mjs for backward-compat.
  */
 import { loadResourceEntry } from '../resource.mjs';
-import { buildSpriteCanvas, getPaletteColor } from '../graphics.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState, initialState } from './scene-factory.mjs';
 import {
@@ -89,7 +88,7 @@ const SAVE_BACKGROUND = (state) => { };
 const DRAW_BACKGROUND = (state) => {
     const save = state.saveBkg[0];
     if (save && save.canDraw) {
-        state.context.clearRect(save.x, save.y, save.width, save.height);
+        state.surface.clear(save);
     }
 };
 
@@ -218,12 +217,7 @@ const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
     save.width = width;
     save.height = height;
 
-    save.context.clearRect(0, 0, 640, 480);
-    save.context.drawImage(
-        state.context.canvas,
-        x, y, width, height,
-        x, y, width, height,
-    );
+    state.surface.copyRegionTo(save.surface, { x, y, width, height });
 };
 
 const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
@@ -231,70 +225,38 @@ const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
 const SAVE_REGION = (state, x, y, width, height) => { };
 
 const RESTORE_REGION = (state, x, y, width, height) => {
-    // DO NOT clear saveBkg[0]. 
-    // Simply clear the specified region on the child scene's offscreen canvas.
-    state.context.clearRect(x, y, width, height);
+    state.surface.clear({ x, y, width, height });
 };
 
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
-    state.context.beginPath();
-    state.context.moveTo(x1, y1);
-    state.context.lineTo(x2, y2);
-    state.context.closePath();
-    state.context.strokeStyle = 'white';
-    state.context.stroke();
+    state.surface.drawLine(x1, y1, x2, y2, 'white');
 };
 
 const DRAW_RECT = (state, x, y, width, height) => {
-    state.context.fillStyle = getPaletteColor(state.foregroundColor);
-    state.context.fillRect(x, y, width, height);
+    state.surface.fillRect(x, y, width, height, state.foregroundColor);
 };
 
 const DRAW_BUBBLE = (state, x, y, width, height) => {
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = width / 2;
-    state.context.beginPath();
-    state.context.arc(x + centerX, y + centerY, radius, 0, 2 * Math.PI, false);
-    state.context.closePath();
-    state.context.fillStyle = 'white';
-    state.context.fill();
-    state.context.strokeStyle = 'white';
-    state.context.stroke();
+    state.surface.fillCircle(x + centerX, y + centerY, radius, 'white');
 };
 
 const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
     if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
     if (image === undefined) return;
-    const spriteCanvas = buildSpriteCanvas(image);
-    if (!spriteCanvas) return;
     verboseLog(`DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
-    state.context.save();
-    state.context.beginPath();
-    state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
-    state.context.clip();
-    state.context.drawImage(spriteCanvas, 0, 0, image.width, image.height, offsetX, offsetY, image.width, image.height);
-    state.context.restore();
+    state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: false });
 };
 
 const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
     if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
     if (image === undefined) return;
-    const spriteCanvas = buildSpriteCanvas(image);
-    if (!spriteCanvas) return;
     verboseLog(`DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
-    state.context.save();
-    state.context.beginPath();
-    state.context.rect(state.clip.x, state.clip.y, state.clip.width, state.clip.height);
-    state.context.clip();
-    state.context.save();
-    state.context.translate(image.width, 0);
-    state.context.scale(-1, 1);
-    state.context.drawImage(spriteCanvas, 0, 0, image.width, image.height, -offsetX, offsetY, image.width, image.height);
-    state.context.restore();
-    state.context.restore();
+    state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: true });
 };
 
 const DRAW_SPRITE1 = (state) => { };
@@ -302,10 +264,10 @@ const DRAW_SPRITE3 = (state) => { };
 
 const clearScreen = (state, index) => {
     const save = state.save[index];
-    if (save && save.canDraw && state.context) {
-        state.context.clearRect(save.x, save.y, save.width, save.height);
-    } else if (state.context) {
-        state.context.clearRect(0, 0, 640, 480);
+    if (save && save.canDraw) {
+        state.surface.clear(save);
+    } else {
+        state.surface.clear();
     }
 };
 
@@ -646,8 +608,8 @@ const END = (state) => {
         state.addScenes = [];
         state.removeScenes = [];
         state.scenesRandom = [];
-        if (state.spriteContext) {
-            state.spriteContext.clearRect(0, 0, 640, 480);
+        if (state.surface) {
+            state.surface.clear();
         }
         if (state.saveBkg && state.saveBkg[0]) {
             state.saveBkg[0].canDraw = false;

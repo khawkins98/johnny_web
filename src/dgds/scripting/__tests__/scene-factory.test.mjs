@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTtmRuntimeState } from '../scene-factory.mjs';
+import { createRecordingSurface } from '../surface.mjs';
 
 describe('TTM runtime state boundary', () => {
     it('copies only the explicit host and resource contract', () => {
-        const spriteContext = { canvas: { width: 640, height: 480 } };
+        const surface = createRecordingSurface();
         const shared = {
             res: ['sprites'],
             bkgScreen: { name: 'ocean' },
@@ -12,7 +13,6 @@ describe('TTM runtime state boundary', () => {
             bkgOcean: ['day', 'night'],
             saveBkg: [{}],
             save: [{}, {}, {}],
-            tmpContext: { canvas: {} },
             foregroundColor: { r: 1 },
             backgroundColor: { r: 0 },
             island: 1,
@@ -23,7 +23,7 @@ describe('TTM runtime state boundary', () => {
         const parent = {
             ...shared,
             scenes: [],
-            spriteContext,
+            surface,
             entries: ['entries'],
             scenesRes: ['ttm'],
             audioManager: { play: vi.fn() },
@@ -44,7 +44,7 @@ describe('TTM runtime state boundary', () => {
             tagId: 113,
             reentry: 0,
             continue: true,
-            context: spriteContext,
+            surface,
             entries: parent.entries,
             scenesRes: parent.scenesRes,
             audioManager: parent.audioManager,
@@ -63,7 +63,7 @@ describe('TTM runtime state boundary', () => {
     });
 
     it('creates fresh execution and clip state for every child', () => {
-        const parent = { scenes: [], entries: [], scenesRes: [], res: [], spriteContext: {} };
+        const parent = { scenes: [], entries: [], scenesRes: [], res: [], surface: createRecordingSurface() };
 
         const first = createTtmRuntimeState(parent, parent, 1, 1);
         const second = createTtmRuntimeState(parent, parent, 1, 2);

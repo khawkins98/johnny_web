@@ -5,18 +5,19 @@
  *  - ADS: high-level sequencer that steps through `data.scenes[]` one at a time. Each scene can
  *    spawn concurrent TTM sub-scenes via ADD_SCENE/PLAY_SCENE and gate progression with conditionals.
  *  - TTM: per-frame opcode stream for drawing sprites, playing audio, setting delays, etc.
- *  - `runScript()` advances a script one command per rAF tick, pausing when state.continue becomes
- *    false (e.g. UPDATE delay not elapsed) and resuming via state.reentry next tick.
+ *  - `runScript()` advances commands during a logical DGDS tick, pausing at frame boundaries or
+ *    blocking ADS operations and resuming via state.reentry on a later logical tick.
  *
  * Limitations / known issues:
  *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
  *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
- *  - NOTE: Several TTM opcodes remain stubs (FADE_IN, SAVE_REGION, GOTO full-jump,
- *    region save/restore). These are deferred to Phase 2 of the refactor. */
+ *  - NOTE: Several TTM opcodes remain stubs (FADE_IN, SAVE_REGION, and parts of
+ *    the original region save/restore model). */
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
+import { createCanvasSurfaceElement } from './surface.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -62,9 +63,9 @@ const renderPipeline = () => {
     }
 
     // Layer 3: Child Scenes (Sprites)
-    // Draw the unified sprite canvas ON TOP of fade overlay
-    if (state.spriteContext) {
-        state.context.drawImage(state.spriteContext.canvas, 0, 0);
+    // Present the unified DGDS surface ON TOP of the fade overlay.
+    if (state.surface?.canvas) {
+        state.context.drawImage(state.surface.canvas, 0, 0);
     }
 };
 
@@ -172,7 +173,7 @@ export const startProcess = (initialState) => {
         clock: createFixedStepClock(),
         data: null,
         context: null,
-        tmpContext: null,
+        surface: null,
         mainContext: null,
         save: [],
         saveIndex: 0,
@@ -211,18 +212,11 @@ export const startProcess = (initialState) => {
         ...initialState,
     };
 
-    // temp canvas
-    const tmpCanvas = document.createElement("canvas");
-    tmpCanvas.width = 640;
-    tmpCanvas.height = 480;
-    state.tmpContext = tmpCanvas.getContext('2d');
+    const surfaceFactory = initialState.surfaceFactory || createCanvasSurfaceElement;
 
     for (let s = 0; s < 3; s += 1) {
-        const c = document.createElement("canvas");
-        c.width = 640;
-        c.height = 480;
         state.save.push({
-            context: c.getContext('2d'),
+            surface: surfaceFactory(),
             x: 0,
             y: 0,
             width: 0,
@@ -231,11 +225,8 @@ export const startProcess = (initialState) => {
         });
     }
 
-    const c = document.createElement("canvas");
-    c.width = 640;
-    c.height = 480;
     state.saveBkg.push({
-        context: c.getContext('2d'),
+        surface: surfaceFactory(),
         x: 0,
         y: 0,
         width: 0,
@@ -259,12 +250,9 @@ export const startProcess = (initialState) => {
         });
         debugLog('scenesRes:', state.scenesRes.map((r, i) => r ? `[${i}]=${r.name}` : null).filter(Boolean).join(', '));
     }
-    mainloop();
+    state.surface ||= surfaceFactory();
 
-    const spriteCanvas = document.createElement("canvas");
-    spriteCanvas.width = 640;
-    spriteCanvas.height = 480;
-    state.spriteContext = spriteCanvas.getContext('2d');
+    mainloop();
 
     return state;
 };
@@ -294,7 +282,6 @@ export const __DEBUG__ = {
             state.orMode = false;
             state.orChainPassed = false;
             if (state.context) clearContext(state.context);
-            if (state.tmpContext) clearContext(state.tmpContext);
             debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         }
     },

@@ -4,7 +4,7 @@
  * Field sharing policy (documented here as the authoritative source):
  *
  *  SHARED from the first TTM sibling (prologue-loaded assets):
- *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg, save, tmpContext,
+ *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg, save,
  *    foregroundColor, backgroundColor.
  *    These are expensive to reload and are identical across all concurrent sibling scenes.
  *    The first scene's prologue (scenes[0] in the TTM) runs LOAD_SCREEN / LOAD_IMAGE once;
@@ -15,7 +15,7 @@
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  HOST SERVICES from the parent ADS state:
- *    audioManager, entries, scenesRes, random, and the unified sprite context.
+ *    audioManager, entries, scenesRes, random, and the unified drawing surface.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -53,7 +53,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     sceneIdx,
     tagId,
     gagId: parent.data?.scenes?.[parent.currentScene]?.tagId,
-    context: parent.spriteContext,
+    surface: parent.surface,
     allScenes: parent.scenes,
 
     // Host services
@@ -70,7 +70,6 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     bkgOcean: assets.bkgOcean || [],
     saveBkg: assets.saveBkg,
     save: assets.save,
-    tmpContext: assets.tmpContext,
 
     // Drawing and world values required by TTM opcodes/background composition
     slot: 0,

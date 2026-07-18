@@ -19,7 +19,7 @@ export const drawContext = (state, index) => {
     const save = state.save[state.saveIndex];
     if (save.canDraw) {
         save.canDraw = false;
-        state.context.drawImage(save.context.canvas, 0, 0);
+        state.surface.drawSurface(save.surface);
     }
 };
 
