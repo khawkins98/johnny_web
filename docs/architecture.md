@@ -28,9 +28,12 @@ RESOURCE.MAP + RESOURCE.001
        browser background             foreground canvas
 ```
 
-The engine-facing code uses logical ticks, injected host services, and a
-drawing-surface contract. Canvas, animation-frame timestamps, storage, device
-metadata, and trace persistence remain at browser/tooling boundaries.
+The engine-facing code uses logical ticks, instance-owned execution state,
+injected host services, and a drawing-surface contract. Browser animation-frame
+timestamps are converted by a host adapter. Canvas and Web Audio are still
+injected presenter dependencies of the transitional runtime; replacing those
+with logical frame/audio operations is the next machine-extraction step. See
+[ADR 0001](adr/0001-runtime-boundaries.md) for the target dependency direction.
 
 ## Repository map
 
@@ -40,7 +43,9 @@ metadata, and trace persistence remain at browser/tooling boundaries.
 | `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
-| `src/dgds/scripting/process.mjs` | Active process, fixed-step loop, ADS/TTM coordination, presentation |
+| `src/dgds/scripting/process.mjs` | Browser host composition and legacy active-session/debug façade |
+| `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
+| `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
 | `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
@@ -61,7 +66,8 @@ metadata, and trace persistence remain at browser/tooling boundaries.
 2. Parse the resource index and draw `INTRO.SCR`.
 3. Wait for a click; construct `AudioContext` synchronously inside that user
    gesture to satisfy browser autoplay rules.
-4. Load `ACTIVITY.ADS` and call `startProcess()`.
+4. Load `ACTIVITY.ADS` and call `startProcess()`, which constructs a fresh
+   `DgdsRuntime` and connects it to a browser scheduler.
 5. When the ADS program completes, start a fresh cycle.
 
 The game data is not committed. `pnpm run extract -- <zip>` populates
@@ -98,10 +104,11 @@ the current `SET_DELAY` value; it does not count browser ticks. The scheduler
 maps that directive through the compatibility profile and owns the resulting
 wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
-The root process uses a fixed 60 Hz logical tick. Browser animation timestamps
-feed an accumulator; late frames may execute several ticks, capped at five, and
-a suspended tab cannot trigger an unbounded replay. `SET_DELAY` and random
-delays remain integer DGDS ticks. The default `faithful-browser` timing profile
+Each `DgdsRuntime` owns its mutable script, scene, and composition state. The
+browser scheduler supplies a fixed 60 Hz logical tick. Animation timestamps feed
+an accumulator; late frames may execute several ticks, capped at five, and a
+suspended tab cannot trigger an unbounded replay. `SET_DELAY` and random delays
+remain integer DGDS ticks. The default `faithful-browser` timing profile
 preserves them and applies one named compatibility rule:
 `browser-yield-floor` makes a zero-delay frame visible for one logical tick.
 Browser wall time does not enter opcode execution.
@@ -159,7 +166,7 @@ cloud/wave behavior uses the injected compatibility profile.
 
 | Engine need | Injected/browser implementation |
 |---|---|
-| Frame scheduling | `requestAnimationFrame` → fixed-step clock → timing compatibility map |
+| Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
 | Drawing | logical surface → Canvas adapter |
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
@@ -196,10 +203,14 @@ automation may read it directly or use the Vite-only persistence endpoint.
 - Several parsed TTM/ADS opcodes are still no-ops, including TTM fades,
   `SAVE_BACKGROUND`, `SAVE_REGION`, `DRAW_SCREEN`, and some sound/palette
   controls. Unknown ADS control opcodes are retained but not interpreted.
-- The root process is module-level and supports one active ADS process.
+- The browser application intentionally exposes one active runtime through a
+  legacy developer-UI façade, but engine state itself is instance-owned.
 - Audio sample offsets are hardcoded for the supported Johnny Castaway data.
 - The browser background renderer is still separate from the logical TTM
   composition, so some original buffer-copy behavior may require more work.
+- `DgdsRuntime` still invokes injected drawing and audio presenters. It is a
+  transitional extraction, not yet the deterministic, operation-emitting
+  `DgdsMachine` described by ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

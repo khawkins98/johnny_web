@@ -1,71 +1,48 @@
 /**
- * DGDS process engine — interprets ADS (Animation Director Scripts) and TTM (Tiny Templated Movies).
+ * Browser host for an instance-owned DGDS runtime.
  *
- * Architecture:
- *  - ADS: high-level sequencer that steps through `data.scenes[]` one at a time. Each scene can
- *    spawn concurrent TTM sub-scenes and gate progression with dependency conditionals.
- *  - TTM: per-frame opcode stream for drawing sprites, playing audio, setting delays, etc.
- *  - `runScript()` advances commands during a logical DGDS tick, pausing at frame boundaries or
- *    blocking ADS operations and resuming via state.reentry on a later logical tick.
- *
- * Limitations / known issues:
- *  - NOTE: Single active process only. All runtime state (state, scenes, scenesRes, background
- *    assets, currentScene) is module-level. Calling startProcess() replaces any running process.
- *  - NOTE: Several TTM opcodes remain stubs (FADE_IN, SAVE_REGION, and parts of
- *    the original region save/restore model). */
+ * Engine coordination lives in runtime.mjs. This module supplies browser
+ * services, owns the one active page session, and preserves the legacy
+ * startProcess/__DEBUG__ API while callers migrate to explicit instances.
+ */
 import { createAudioManager } from '../audio.mjs';
-import { loadResourceEntry } from '../resource.mjs';
-import { PALETTE } from '../../scrantic/palette.mjs';
-import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
-import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
-import { composeTtmFrame } from './composition.mjs';
-import { createTraceRecorder, traceEvent } from './trace.mjs';
+import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
-import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { createTimingCompatibility } from './timing-compatibility.mjs';
-import { clearContext, drawBackground } from './frame-renderer.mjs';
-import {
-    debugLog,
-    runScript,
-} from './script-runner.mjs';
+import { DGDS_TICK_MS } from './timing.mjs';
+import { DgdsRuntime } from './runtime.mjs';
+import { createBrowserScheduler } from '../hosts/browser-scheduler.mjs';
 
-let state = null;
+let activeRuntime = null;
+let activeScheduler = null;
 
 const runtimeSessionInfo = () => ({
-    ...createSessionInfo({ mode: diagnostics.mode, tick: state?.tick ?? null }),
-    engine: state ? {
-        type: state.type,
-        currentAdsScene: state.currentScene,
-        activeScenes: state.scenes.map(scene => ({
-            sceneIdx: scene.sceneIdx,
-            tagId: scene.tagId,
-            lifecycle: scene.lifecycle,
-            execution: scene.execution?.status || null,
-        })),
-        timingCompatibility: state.timingCompatibility
-            ? {
-                profile: state.timingCompatibility.profile,
-                patches: state.timingCompatibility.patchNames,
-            }
-            : null,
-    } : null,
+    ...createSessionInfo({
+        mode: diagnostics.mode,
+        tick: activeRuntime?.state.tick ?? null,
+    }),
+    engine: activeRuntime?.describe() ?? null,
 });
 
 const beginRuntimeTrace = () => {
-    if (!state) return;
+    if (!activeRuntime) return;
     const recorder = createTraceRecorder({ pixelHashes: true });
     recorder.startSession(runtimeSessionInfo());
-    state.trace = recorder;
+    activeRuntime.state.trace = recorder;
 };
 
 diagnostics.subscribe((current, previous) => {
+    const state = activeRuntime?.state;
     if (current.trace && !previous.trace) {
         beginRuntimeTrace();
     } else if (!current.trace && previous.trace) {
-        state?.trace?.stopSession({ disabledAt: new Date().toISOString(), tick: state?.tick ?? null });
+        state?.trace?.stopSession({
+            disabledAt: new Date().toISOString(),
+            tick: state?.tick ?? null,
+        });
     } else if (current.trace && previous.trace && current.mode !== previous.mode) {
         state?.trace?.record('diagnostics-mode', {
             tick: state?.tick ?? null,
@@ -83,164 +60,9 @@ diagnostics.subscribe((current, previous) => {
     }
 });
 
-const renderPipeline = () => {
-    composeTtmFrame(state);
-
-    // Layer 0: Background
-    state.mainContext.clearRect(0, 0, 640, 480);
-    const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
-    drawBackground(bgState, state.mainContext);
-
-
-
-    // Layer 2: Fade Mask
-    // Draw fade-to-black overlay ON TOP of background but BEHIND sprites
-    // so hidden cleanup animations (like "Walk out of water") remain visible.
-    if (state.fadingOut || state.fadingIn) {
-        state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
-        state.context.fillRect(0, 0, 640, 480);
-        
-        if (state.fadingOut) {
-            if (state.fadeOpacity >= 1) {
-                state.fadingOut = false;
-            }
-        } else if (state.fadingIn) {
-            state.fadeOpacity -= state.frameDelta / 400;
-            if (state.fadeOpacity <= 0) {
-                state.fadingIn = false;
-                state.fadeOpacity = 0;
-            }
-        }
-    }
-
-    // Layer 3: Child Scenes (Sprites)
-    // Present the unified DGDS surface ON TOP of the fade overlay.
-    if (state.surface?.canvas) {
-        state.context.drawImage(state.surface.canvas, 0, 0);
-    }
-};
-
-const runAdsController = () => {
-    let exitFrame = false;
-    const scene = state.data.scenes[state.currentScene];
-    
-    if (scene !== undefined) {
-        const prevScene = state.currentScene;
-        const execution = runScript(state, scene.script, true);
-        exitFrame = execution.status === ExecutionStatus.COMPLETED;
-        if (state.currentScene !== prevScene) {
-            const tagInfo = state.data.scenes[state.currentScene]?.tagId;
-            const tagDesc = !tagInfo ? 'done'
-                : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
-                : tagInfo;
-            debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
-            
-            // Instead of instantly popping the curtain, smoothly fade it in over the next few frames
-            if (state.fadeOpacity >= 1) {
-                state.fadingOut = false;
-                state.fadingIn = true;
-                state.fadeOpacity = 1;
-            } else {
-                state.fadingOut = false;
-                state.fadeOpacity = 0;
-            }
-        }
-    } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
-        // All main ADS scenes played and no child scenes remain — done.
-        debugLog('ADS cycle complete — calling onComplete');
-        exitFrame = true;
-    }
-    
-    return exitFrame;
-};
-
-const runTtmController = () => {
-    state.scenes.forEach(s => {
-        // The resource prologue loads image slots and captures GET/PUT regions.
-        // Siblings must not touch the shared composition surface until that setup
-        // is complete, or their pixels can be captured as permanent background.
-        const isEnvironmentOwner = s.environment?.owner === s;
-        if (!canRunTtmScene(s)) {
-            return;
-        }
-        prepareTtmScene(s);
-
-        if (s.state.waitTicks > 0) {
-            s.state.waitTicks--;
-            if (s.state.waitTicks > 0) {
-                s.execution = pendingExecution(s.state, 'compatibility-delay');
-                return;
-            }
-            s.state.frameReady = true;
-        }
-
-        // Don't re-run scripts that have already completed — they should freeze on their
-        // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
-        // scenes (no GOTO) reach 'completed'.
-        if (s.lifecycle !== 'completed') {
-            s.lifecycle = 'running';
-            s.execution = runScript(s.state, s.state.script || s.script);
-            if (s.execution.frameBoundary) {
-                const mapped = state.timingCompatibility.mapFrameBoundary(s.execution.frameBoundary, {
-                    sceneIdx: s.sceneIdx,
-                    tagId: s.tagId,
-                });
-                s.state.waitTicks = mapped.runtimeDelayTicks;
-                traceEvent(s.state, 'frame-timing-map', mapped);
-            }
-            if (isEnvironmentOwner && !s.environment.ready &&
-                s.state.reentry >= (s.prologueLength || 0)) {
-                s.environment.ready = true;
-            }
-            if (s.execution.status === ExecutionStatus.COMPLETED) {
-                if (s.retries > 0) {
-                    s.retries--;
-                    s.state.played = false;
-                    // Resource prologues are one-shot. Retry only the selected scene.
-                    s.state.reentry = s.targetStart || 0;
-                    s.state.delay = 0;
-                    s.state.waitTicks = 0;
-                    s.state.frameReady = false;
-                    s.state.frameBoundary = null;
-                    s.state.timer = 0;
-                    s.execution = pendingExecution(s.state, 'retry');
-                } else {
-                    s.lifecycle = 'completed';
-                }
-            }
-        }
-        // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
-        if (s.state.timer > 0) {
-            s.state.timer--;
-        }
-    });
-};
-
-const runScripts = () => {
-    if (state.type === 'ADS') {
-        clearContext(state.context);
-        
-        const exitFrame = runAdsController();
-        
-        const scene = state.data.scenes[state.currentScene];
-        if (!state.continue || scene === undefined) {
-            runTtmController();
-            renderPipeline();
-        }
-        
-        return exitFrame;
-    } else {
-        if (state.island) {
-            drawBackground(state, state.mainContext);
-        }
-        return runScript(state, state.data.scripts).status === ExecutionStatus.COMPLETED;
-    }
-};
-
 export const startProcess = (initialState) => {
-    // NOTE: The ...initialState spread at the end silently overrides all defaults above it.
-    // Callers should only pass the expected keys (context, mainContext, entries, data, type,
-    // audioManager, onComplete) to avoid accidentally clobbering runtime state.
+    activeScheduler?.stop();
+
     const compatibility = initialState.compatibility || createBrowserCompatibility({
         ...(initialState.random ? { random: initialState.random } : {}),
     });
@@ -248,231 +70,69 @@ export const startProcess = (initialState) => {
     const timingCompatibility = initialState.timingCompatibility
         || compatibility.timing
         || createTimingCompatibility();
-
-    state = {
-        currentScene: 0,
-        scenesRes: [],
-        scenes: [],
-        scenesRandom: [],
-        addScenes: [],
-        removeScenes: [],
-        bkgScreen: null,
-        bkgRes: null,
-        bkgOcean: [],
-        bkgRaft: null,
-        cloudIdx: 15 + Math.floor(random() * 3),
-        cloudX: Math.floor(random() * 640),
-        cloudY: Math.floor(random() * 80),
-        cloudElapsed: 0,
-        clock: createFixedStepClock(),
-        data: null,
-        context: null,
-        surface: null,
-        mainContext: null,
-        save: [],
-        saveIndex: 0,
-        saveBkg: [],
-        audioManager: null,
-        slot: 0,
-        res: [],
-        // this should be for multiple running scripts
-        reentry: 0,
-        elapsedTimer: 0,
-        delay: 0,
-        waitTicks: 0,
-        frameReady: false,
-        frameBoundary: null,
-        timer: 0,
-        continue: true,
-        frameId: null,
-        island: 1,
-        foregroundColor: PALETTE[0],
-        backgroundColor: PALETTE[0],
-        clip: { x: 0, y: 0, width: 640, height: 480 },
-        type: null,
-        skip: false,
-        randomize: false,
-        purge: false,
-        played: false,
-        runs: 0,
-        lastCommand: false,
-        playedHistory: new Set(),
-        orMode: false,
-        orChainPassed: false,
-        frameDelta: 0,
-        random,
-        compatibility,
-        timingCompatibility,
-        trace: initialState.trace || null,
-        tick: 0,
-        playbackRate: 1,
-        speedRemainder: 0,
-        ttmEnvironments: new Map(),
-        reentryNow: 0,
-        jumpTo: undefined,
-        fadingOut: false,
-        fadeOpacity: 0,
-        ...initialState,
-    };
-
     const surfaceFactory = initialState.surfaceFactory || createCanvasSurfaceElement;
-    state.surfaceFactory = surfaceFactory;
+    const audioManager = initialState.audioManager
+        || createAudioManager({ soundFxVolume: 0.50 });
 
-    for (let s = 0; s < 3; s += 1) {
-        state.save.push({
-            surface: surfaceFactory(),
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-            canDraw: false,
-        });
+    const runtime = new DgdsRuntime({
+        ...initialState,
+        compatibility,
+        random,
+        timingCompatibility,
+        surfaceFactory,
+        audioManager,
+    });
+    activeRuntime = runtime;
+
+    if (!initialState.trace && diagnostics.trace) beginRuntimeTrace();
+    if (diagnostics.console) {
+        console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
     }
 
-    state.saveBkg.push({
-        surface: surfaceFactory(),
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-        canDraw: false,
+    const scheduler = createBrowserScheduler();
+    activeScheduler = scheduler;
+    scheduler.start(baseTicks => {
+        const state = runtime.state;
+        state.speedRemainder += baseTicks * state.playbackRate;
+        const ticks = Math.floor(state.speedRemainder);
+        state.speedRemainder -= ticks;
+
+        for (let tick = 0; tick < ticks; tick++) {
+            if (runtime.tick(DGDS_TICK_MS)) {
+                scheduler.stop();
+                if (activeScheduler === scheduler) activeScheduler = null;
+                initialState.onComplete?.();
+                break;
+            }
+        }
     });
 
-    // Use the audioManager passed in (created during user interaction for autoplay
-    // policy compliance). Fall back to creating one if not provided.
-    state.audioManager = initialState.audioManager || createAudioManager({ soundFxVolume: 0.50 });
-
-    if (state.type === 'ADS') {
-        debugLog(`ADS cycle starting: ${state.data.scenes.length} scenes in "${state.data?.name ?? '?'}"`);
-        state.data.resources.forEach(r => {
-            const entry = state.entries.find(e => e.name === r.name);
-            if (entry !== undefined) {
-                // Index by the resource's own ID (which can be non-sequential, e.g. 1,2,4,5).
-                // ADD_SCENE uses these IDs directly, so we must preserve the mapping.
-                state.scenesRes[r.id] = loadResourceEntry(entry);
-            }
-        });
-        debugLog('scenesRes:', state.scenesRes.map((r, i) => r ? `[${i}]=${r.name}` : null).filter(Boolean).join(', '));
-    }
-    state.surface ||= surfaceFactory();
-    if (!initialState.trace && diagnostics.trace) beginRuntimeTrace();
-    if (diagnostics.console) console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
-
-    mainloop();
-
-    return state;
+    return runtime.state;
 };
 
-// Expose state manipulators for the debug UI
+// Legacy singleton façade for the page's developer and enhanced controls.
+// Engine state belongs to DgdsRuntime; this façade only targets the active host
+// session and can be removed once UI consumers receive a runtime instance.
 export const __DEBUG__ = {
-    jumpToScene: (tagId) => {
-        if (!state || state.type !== 'ADS') return;
-        const sceneIndex = state.data.scenes.findIndex(s => s.tagId && s.tagId.id === tagId);
-        if (sceneIndex !== -1) {
-            traceEvent(state, 'runtime-control', { action: 'jump-to-scene', tagId });
-            state.currentScene = sceneIndex;
-            state.scenes = []; // Clear active child scenes
-            state.addScenes = [];
-            state.removeScenes = [];
-            state.scenesRandom = [];
-            state.playedHistory.clear();
-            state.ttmEnvironments = new Map();
-            state.continue = true;
-            state.reentry = 0;
-            state.jumpTo = undefined;
-            state.lastCommand = false;
-            state.orMode = false;
-            state.orChainPassed = false;
-            state.fadingOut = false;
-            state.fadingIn = false;
-            state.fadeOpacity = 0;
-            state.surface?.clear();
-            if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
-            if (state.context) clearContext(state.context);
-            debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
-        }
+    jumpToScene: tagId => activeRuntime?.jumpToScene(tagId),
+    setNightMode: isNight => activeRuntime?.setNightMode(isNight),
+    stepScene: direction => activeRuntime?.stepScene(direction),
+    setPlaybackRate: rate => activeRuntime?.setPlaybackRate(rate),
+    getPresentation: () => activeRuntime?.getPresentation() ?? {
+        scene: null,
+        name: '',
+        playbackRate: 1,
     },
-    setNightMode: (isNight) => {
-        if (!state || state.type !== 'ADS') return;
-        state.isNightMode = isNight;
-        const oceanIdx = isNight ? 3 : state.compatibility.randomInt(0, 2);
-        
-        // Update root state
-        if (state.bkgOcean && state.bkgOcean.length > 0) {
-            state.bkgScreen = state.bkgOcean[oceanIdx];
-        }
-        // Update all child scenes that have ocean loaded
-        state.scenes.forEach(s => {
-            if (s.state && s.state.bkgOcean && s.state.bkgOcean.length > 0) {
-                s.state.bkgScreen = s.state.bkgOcean[oceanIdx];
-            }
-        });
-        
-        if (state.mainContext) {
-            const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
-            drawBackground(bgState, state.mainContext);
-        }
-    },
-    stepScene: (direction) => {
-        if (!state || state.type !== 'ADS') return;
-        const scenes = state.data.scenes.filter(scene => scene.tagId?.id);
-        const currentTag = state.data.scenes[state.currentScene]?.tagId?.id;
-        const currentIndex = Math.max(0, scenes.findIndex(scene => scene.tagId.id === currentTag));
-        const nextIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex + Math.sign(direction)));
-        __DEBUG__.jumpToScene(scenes[nextIndex]?.tagId.id);
-    },
-    setPlaybackRate: (rate) => {
-        if (!state || !Number.isFinite(rate)) return;
-        state.playbackRate = Math.max(0.25, Math.min(4, rate));
-        state.speedRemainder = 0;
-        traceEvent(state, 'runtime-control', { action: 'playback-rate', rate: state.playbackRate });
-    },
-    getPresentation: () => {
-        const tag = state?.data?.scenes?.[state.currentScene]?.tagId;
-        return {
-            scene: tag?.id ?? null,
-            name: tag?.description ?? '',
-            playbackRate: state?.playbackRate ?? 1,
-        };
-    },
-    getState: () => state,
-    getTrace: () => state?.trace?.snapshot() || [],
+    getState: () => activeRuntime?.state ?? null,
+    getTrace: () => activeRuntime?.state.trace?.snapshot() || [],
     saveTrace: () => {
-        if (!state?.trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
-        return state.trace.download();
+        const trace = activeRuntime?.state.trace;
+        if (!trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
+        return trace.download();
     },
     persistTrace: () => {
-        if (!state?.trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
-        return state.trace.persist();
+        const trace = activeRuntime?.state.trace;
+        if (!trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
+        return trace.persist();
     },
 };
-
-window.requestAnimationFrame = window.requestAnimationFrame
-    || window.mozRequestAnimationFrame
-    || window.webkitRequestAnimationFrame
-    || window.msRequestAnimationFrame
-    || ((f) => setTimeout(() => f(performance.now()), DGDS_TICK_MS));
-
-const mainloop = (timestamp) => {
-    state.frameId = requestAnimationFrame(mainloop);
-
-    const baseTicks = state.clock.consume(timestamp);
-    state.speedRemainder += baseTicks * state.playbackRate;
-    const ticks = Math.floor(state.speedRemainder);
-    state.speedRemainder -= ticks;
-    for (let tick = 0; tick < ticks; tick++) {
-        state.tick++;
-        // Compatibility effects still consume milliseconds, but the value is
-        // derived from a logical tick rather than arbitrary browser frame time.
-        state.frameDelta = DGDS_TICK_MS;
-
-        if (runScripts()) {
-            cancelAnimationFrame(state.frameId);
-            if (typeof state.onComplete === 'function') {
-                state.onComplete();
-            }
-            break;
-        }
-    }
-}
-/* eslint-enable */
