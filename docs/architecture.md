@@ -107,7 +107,7 @@ The page contains two `<canvas>` elements, both 640 × 480 px, absolutely positi
 | Background | `#mainCanvas` | 0 | Ocean, island, palm trees, clouds, raft — the static scene environment |
 | Foreground | `#canvas` | 1 | Animated sprite layer — cleared each frame, sprites composited on top |
 
-`drawBackground()` in `frame-renderer.mjs` renders the background layer. It picks a random ocean variant (`OCEAN00.SCR`–`OCEAN02.SCR`, or `NIGHT.SCR`), composites the island (`BACKGRND.BMP` sprite sheet), palm trees, raft (`MRAFT.BMP`), and an animated cloud drawn from a randomly chosen frame in `BACKGRND.BMP`. The cloud moves left one pixel at a time, driven by wall-clock time via `Date.now()` rather than the logical DGDS clock (see §12 bug 7).
+`drawBackground()` in `frame-renderer.mjs` renders the background layer. It picks an ocean variant (`OCEAN00.SCR`–`OCEAN02.SCR`, or `NIGHT.SCR`), composites the island (`BACKGRND.BMP` sprite sheet), palm trees, raft (`MRAFT.BMP`), and an animated cloud. Settings, time, and randomness come from the injected compatibility profile rather than browser globals.
 
 The background layer is redrawn on each executed logical tick by `runScripts()` (via `drawBackground(bgState, state.mainContext)`). The visible foreground layer is cleared before presentation, while the process-owned DGDS drawing surface persists between ticks.
 
@@ -372,7 +372,7 @@ The parser splits the opcode stream into `scenes[]` at every `SET_SCENE` (0x1110
 
 ## 10. Process engine
 
-The scripting layer is split across six files in `src/dgds/scripting/`:
+The scripting layer is split across seven files in `src/dgds/scripting/`:
 
 | File | Responsibility |
 |---|---|
@@ -382,6 +382,7 @@ The scripting layer is split across six files in `src/dgds/scripting/`:
 | `frame-renderer.mjs` | `drawBackground()`, `clearContext()`, `loadBackground()`, `loadRaft()`, `loadOcean()`, `SCREEN_TYPE` |
 | `timing.mjs` | Browser compatibility adapter: converts rAF timestamps into bounded, fixed DGDS timer ticks |
 | `surface.mjs` | DGDS drawing contract plus Canvas and recording adapters |
+| `compatibility.mjs` | Injectable host settings, time, and randomness profile |
 
 ### Module-level state
 
@@ -422,6 +423,7 @@ Key globals:
   timer,         // random-sleep countdown in DGDS ticks
   clock,         // browser timestamp → fixed DGDS tick adapter (root state only)
   random,        // injected random-number source
+  compatibility, // host settings/time/random compatibility profile
   island,        // 0=no island, 1=island at x=288, 2=island at x=16
   foregroundColor, backgroundColor,  // PALETTE[] entries for drawing
   clip,          // clipping rectangle { x, y, width, height }
@@ -524,7 +526,7 @@ const mainloop = (timestamp) => {
 };
 ```
 
-The compatibility adapter uses a 60 Hz DGDS timer unit (`1000 / 60` ms), matching the maintained DGDS reference implementation. It accumulates fractional browser time, can execute several logical ticks after a late frame, and caps catch-up work at five ticks so returning to a suspended tab does not replay an unbounded backlog. Script delays and timers remain integer tick counts; milliseconds do not enter the opcode interpreter. Background cloud and wave animation still use wall-clock time and remain compatibility-layer work (see §12).
+The timing adapter uses a 60 Hz DGDS timer unit (`1000 / 60` ms), matching the maintained DGDS reference implementation. It accumulates fractional browser time, can execute several logical ticks after a late frame, and caps catch-up work at five ticks so returning to a suspended tab does not replay an unbounded backlog. Script delays and timers remain integer tick counts; milliseconds do not enter the opcode interpreter. Background effects consume the separate compatibility profile, whose browser implementation supplies wall time and user settings.
 
 ---
 
@@ -597,11 +599,7 @@ TTM scenes now receive explicit runtime state, but they intentionally draw into 
 
 All engine state (`state`, `scenes[]`, `scenesRes[]`, `bkgScreen`, etc.) is module-level. There is no support for running multiple concurrent ADS processes. Calling `startProcess()` unconditionally replaces any running process without cleanly stopping it (though it does cancel the previous rAF frame via reset of `state`).
 
-### Bug 6: Background animation timing is tied to wall clock
-
-`drawBackground()` uses `Date.now()` comparisons for cloud movement, independent of the rAF frame delta. Cloud speed is therefore tied to wall-clock time, not to the 60 fps frame budget. On a machine that drops frames, the cloud will still advance at the same real-time rate, creating a disconnect between cloud speed and animation playback speed.
-
-### Bug 7: Scene creation logs outside the debug channel
+### Bug 6: Scene creation logs outside the debug channel
 
 Failed TTM lookups in `scene-factory.mjs` call `console.log` directly rather than using the debug/error reporting channel.
 
@@ -612,7 +610,7 @@ Failed TTM lookups in `scene-factory.mjs` call `console.log` directly rather tha
 - **Typed pixel buffers** — replace per-pixel `{index, a, r, g, b}` objects with `Uint8ClampedArray` or construct `ImageData` directly during decode. A 640 × 480 image currently allocates 307,200 plain objects.
 - **Implement an indexed surface** — add an indexed-color implementation of the DGDS surface contract and keep Canvas as presentation only.
 - **Load palette from PAL resource** — wire `pal.mjs` output into the BMP/SCR rendering path to support palette-swapped backgrounds.
-- **Implement `SAVE_IMAGE_REGION`** — restore the commented-out region capture to enable scorecard compositing.
+- **Complete region semantics** — wire captured slots into faithful store/get-put and restore transitions.
 - **Audio range requests** — replace the full `SCRANTIC.SCR` fetch on each cache miss with an HTTP range request for the relevant byte slice.
-- **Unify background timing** — advance clouds and waves from the compatibility clock rather than reading wall-clock time inside the renderer.
+- **Compatibility profiles** — add optional faithful/modern profiles without changing opcode semantics.
 - **Multi-process support** — refactor module-level state into a class to support concurrent or layered processes.

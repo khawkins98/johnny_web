@@ -6,6 +6,10 @@
  */
 import { loadResourceEntry } from '../resource.mjs';
 import { buildSpriteCanvas } from '../graphics.mjs';
+import { createBrowserCompatibility } from './compatibility.mjs';
+
+const fallbackCompatibility = createBrowserCompatibility();
+const getCompatibility = state => state.compatibility || fallbackCompatibility;
 
 // ---------------------------------------------------------------------------
 // Canvas helpers
@@ -27,11 +31,14 @@ export const drawContext = (state, index) => {
 // Background renderer
 //
 //
-// NOTE: Cloud movement timing uses absolute Date.now() offsets rather than the fps-based tick
-// delta used by the main loop. Cloud speed is tied to wall-clock time, not frame rate.
+// Cloud and wave effects use the injected compatibility profile. The browser
+// profile supplies wall time; deterministic hosts can supply a logical clock.
 // ---------------------------------------------------------------------------
 
 export const drawBackground = (state, context) => {
+    const compatibility = getCompatibility(state);
+    const now = compatibility.now();
+
     // Draw background / ocean / night
     if (state.bkgScreen) {
         context.clearRect(0, 0, 640, 480);
@@ -41,14 +48,14 @@ export const drawBackground = (state, context) => {
 
     if (state.island) {
         const posX = (state.island === 1) ? 288 : 16;
-        const cloudsOn = localStorage.getItem('jc-clouds') === 'on';
-        const wavesOn = localStorage.getItem('jc-waves') === 'on';
+        const cloudsOn = compatibility.setting('jc-clouds', 'off') === 'on';
+        const wavesOn = compatibility.setting('jc-waves', 'off') === 'on';
 
         if (cloudsOn) {
             if (!state.cloudElapsed) {
-                state.cloudElapsed = Math.floor((Math.random() * 640)) + Date.now();
+                state.cloudElapsed = Math.floor(compatibility.random() * 640) + now;
             }
-            if (Date.now() > state.cloudElapsed) {
+            if (now > state.cloudElapsed) {
                 state.cloudElapsed = 0;
                 state.cloudX--;
                 if (state.cloudX < -200) {
@@ -59,11 +66,11 @@ export const drawBackground = (state, context) => {
 
         if (wavesOn) {
             if (!state.waveElapsed) {
-                state.waveElapsed = Date.now() + 250;
+                state.waveElapsed = now + 250;
                 state.waveFrame = 0;
             }
-            if (Date.now() > state.waveElapsed) {
-                state.waveElapsed = Date.now() + 250;
+            if (now > state.waveElapsed) {
+                state.waveElapsed = now + 250;
                 state.waveFrame++;
             }
         } else {
@@ -130,6 +137,7 @@ export const loadRaft = (state) => {
 };
 
 export const loadOcean = (state) => {
+    const compatibility = getCompatibility(state);
     if (state.bkgOcean.length === 0) {
         ['OCEAN00.SCR', 'OCEAN01.SCR', 'OCEAN02.SCR', 'NIGHT.SCR'].forEach(name => {
             const entry = state.entries.find(e => e.name === name);
@@ -139,15 +147,15 @@ export const loadOcean = (state) => {
         });
     }
     
-    const timeMode = localStorage.getItem('jc-time') || 'original';
+    const timeMode = compatibility.setting('jc-time', 'original');
     let isNight = false;
     if (timeMode === 'local') {
-        const hour = new Date().getHours();
+        const hour = compatibility.currentHour();
         isNight = hour < 6 || hour >= 18;
     } else {
         isNight = state.isNightMode === true;
     }
     
-    const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3); // 0 to 2 for day, 3 for night
+    const oceanIdx = isNight ? 3 : compatibility.randomInt(0, 2);
     state.bkgScreen = state.bkgOcean[oceanIdx];
 };

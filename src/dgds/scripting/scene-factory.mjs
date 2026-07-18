@@ -61,6 +61,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     audioManager: parent.audioManager,
     scenesRes: parent.scenesRes,
     random: parent.random,
+    compatibility: parent.compatibility,
 
     // Shared/cached DGDS resources
     res: assets.res || [],

@@ -163,9 +163,11 @@ const SET_TIMER = (state, minimum, maximum) => {
     // injected through state.random so interpreter traces can be deterministic.
     const low = Math.min(minimum, maximum);
     const high = Math.max(minimum, maximum);
-    const random = state.random || Math.random;
+    if (typeof state.random !== 'function') {
+        throw new TypeError('TTM runtime requires an injected random source');
+    }
     state.hasTimer = true;
-    state.timer = low + Math.floor(random() * (high - low + 1));
+    state.timer = low + Math.floor(state.random() * (high - low + 1));
 };
 
 const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
@@ -580,7 +582,10 @@ const RANDOM_UNKNOWN_0 = (state) => { };
 
 const RANDOM_END = (state) => {
     state.randomize = false;
-    const index = Math.floor((Math.random() * state.scenesRandom.length));
+    if (typeof state.random !== 'function') {
+        throw new TypeError('ADS runtime requires an injected random source');
+    }
+    const index = Math.floor(state.random() * state.scenesRandom.length);
     const scene = state.scenesRandom[index];
     if (scene !== undefined) {
         ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.retriesDelay, scene.unk);

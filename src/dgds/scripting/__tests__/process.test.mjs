@@ -359,6 +359,30 @@ describe('SET_TIMER handler', () => {
     });
 });
 
+describe('RANDOM_END handler', () => {
+    const entry = ADSDispatch.find(e => e.opcode === 0x30ff);
+
+    it('uses injected randomness when selecting an ADS scene', () => {
+        const state = {
+            randomize: true,
+            random: () => 0.99,
+            scenes: [],
+            addScenes: [],
+            scenesRandom: [
+                { sceneIdx: 1, tagId: 10, retriesDelay: 0, unk: 1 },
+                { sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 },
+            ],
+        };
+
+        entry.callback(state);
+
+        expect(state.randomize).toBe(false);
+        expect(state.addScenes).toEqual([
+            { sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 },
+        ]);
+    });
+});
+
 // ---------------------------------------------------------------------------
 // IF_NOT_PLAYED handler
 // ---------------------------------------------------------------------------

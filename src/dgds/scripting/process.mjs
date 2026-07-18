@@ -18,6 +18,7 @@ import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
+import { createBrowserCompatibility } from './compatibility.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -155,6 +156,11 @@ export const startProcess = (initialState) => {
     // NOTE: The ...initialState spread at the end silently overrides all defaults above it.
     // Callers should only pass the expected keys (context, mainContext, entries, data, type,
     // audioManager, onComplete) to avoid accidentally clobbering runtime state.
+    const compatibility = initialState.compatibility || createBrowserCompatibility({
+        ...(initialState.random ? { random: initialState.random } : {}),
+    });
+    const random = initialState.random || compatibility.random;
+
     state = {
         currentScene: 0,
         scenesRes: [],
@@ -166,9 +172,9 @@ export const startProcess = (initialState) => {
         bkgRes: null,
         bkgOcean: [],
         bkgRaft: null,
-        cloudIdx: Math.floor((Math.random() * 3) + 15),
-        cloudX: Math.floor((Math.random() * 640)),
-        cloudY: Math.floor((Math.random() * 80)),
+        cloudIdx: 15 + Math.floor(random() * 3),
+        cloudX: Math.floor(random() * 640),
+        cloudY: Math.floor(random() * 80),
         cloudElapsed: 0,
         clock: createFixedStepClock(),
         data: null,
@@ -204,7 +210,8 @@ export const startProcess = (initialState) => {
         orMode: false,
         orChainPassed: false,
         frameDelta: 0,
-        random: Math.random,
+        random,
+        compatibility,
         reentryNow: 0,
         jumpTo: undefined,
         fadingOut: false,
@@ -288,7 +295,7 @@ export const __DEBUG__ = {
     setNightMode: (isNight) => {
         if (!state || state.type !== 'ADS') return;
         state.isNightMode = isNight;
-        const oceanIdx = isNight ? 3 : Math.floor(Math.random() * 3);
+        const oceanIdx = isNight ? 3 : state.compatibility.randomInt(0, 2);
         
         // Update root state
         if (state.bkgOcean && state.bkgOcean.length > 0) {
