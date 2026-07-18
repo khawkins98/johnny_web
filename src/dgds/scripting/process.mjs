@@ -15,9 +15,11 @@ import { DGDS_TICK_MS } from './timing.mjs';
 import { DgdsRuntime } from './runtime.mjs';
 import { createBrowserScheduler } from '../hosts/browser-scheduler.mjs';
 import { consumeBrowserAudio } from '../hosts/browser-audio.mjs';
+import { createBrowserFramePresenter } from '../hosts/browser-frame-presenter.mjs';
 
 let activeRuntime = null;
 let activeScheduler = null;
+let activeFramePresenter = null;
 
 const runtimeSessionInfo = () => ({
     ...createSessionInfo({
@@ -66,6 +68,8 @@ export const startProcess = (initialState) => {
     const {
         audioManager = null,
         onComplete,
+        context,
+        mainContext,
         ...runtimeInitialState
     } = initialState;
 
@@ -86,6 +90,8 @@ export const startProcess = (initialState) => {
         surfaceFactory,
     });
     activeRuntime = runtime;
+    const framePresenter = createBrowserFramePresenter({ context, mainContext });
+    activeFramePresenter = framePresenter;
 
     if (!runtimeInitialState.trace && diagnostics.trace) beginRuntimeTrace();
     if (diagnostics.console) {
@@ -102,6 +108,7 @@ export const startProcess = (initialState) => {
 
         for (let tick = 0; tick < ticks; tick++) {
             const result = runtime.tick(DGDS_TICK_MS);
+            framePresenter.present(state, result.presentation);
             consumeBrowserAudio(result.audioOperations, {
                 audioManager,
                 trace: state.trace,
@@ -122,8 +129,15 @@ export const startProcess = (initialState) => {
 // Engine state belongs to DgdsRuntime; this façade only targets the active host
 // session and can be removed once UI consumers receive a runtime instance.
 export const __DEBUG__ = {
-    jumpToScene: tagId => activeRuntime?.jumpToScene(tagId),
-    setNightMode: isNight => activeRuntime?.setNightMode(isNight),
+    jumpToScene: tagId => {
+        const jumped = activeRuntime?.jumpToScene(tagId);
+        if (jumped) activeFramePresenter?.clear();
+        return jumped;
+    },
+    setNightMode: isNight => {
+        activeRuntime?.setNightMode(isNight);
+        if (activeRuntime) activeFramePresenter?.presentBackground(activeRuntime.state);
+    },
     stepScene: direction => activeRuntime?.stepScene(direction),
     setPlaybackRate: rate => activeRuntime?.setPlaybackRate(rate),
     getPresentation: () => activeRuntime?.getPresentation() ?? {

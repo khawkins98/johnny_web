@@ -3,16 +3,14 @@
  *
  * This is the migration boundary between the script/scene engine and its host.
  * It deliberately does not schedule animation frames or create browser
- * services. Drawing and audio are still injected presenter dependencies; those
- * become logical machine operations in a later extraction.
+ * services. Opcode drawing and audio are emitted as logical operations. The
+ * retained logical-surface model remains transitional engine state.
  */
 import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
-import { composeTtmFrame } from './composition.mjs';
 import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
-import { clearContext, drawBackground } from './frame-renderer.mjs';
 import { debugLog, runScript } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 
@@ -37,7 +35,11 @@ export class DgdsRuntime {
             throw new TypeError('DgdsRuntime requires an injected random function');
         }
 
-        const { random, surfaceFactory } = initialState;
+        const runtimeInitialState = { ...initialState };
+        for (const hostKey of ['context', 'mainContext', 'audioManager', 'onComplete']) {
+            delete runtimeInitialState[hostKey];
+        }
+        const { random, surfaceFactory } = runtimeInitialState;
         this.state = {
             currentScene: 0,
             scenesRes: [],
@@ -54,9 +56,7 @@ export class DgdsRuntime {
             cloudY: Math.floor(random() * 80),
             cloudElapsed: 0,
             data: null,
-            context: null,
             surface: null,
-            mainContext: null,
             save: [],
             saveIndex: 0,
             saveBkg: [],
@@ -98,7 +98,7 @@ export class DgdsRuntime {
             fadingOut: false,
             fadingIn: false,
             fadeOpacity: 0,
-            ...initialState,
+            ...runtimeInitialState,
         };
 
         this.state.save = Array.from({ length: 3 }, () => createStoredSurface(surfaceFactory));
@@ -148,40 +148,13 @@ export class DgdsRuntime {
         this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
-        const completed = this.#runScripts();
+        const execution = this.#runScripts();
         return Object.freeze({
-            completed,
+            completed: execution.completed,
+            presentation: execution.presentation,
             audioOperations: Object.freeze([...this.state.audioOperations]),
             frameOperations: Object.freeze([...this.state.frameOperations]),
         });
-    }
-
-    #renderPipeline() {
-        const state = this.state;
-        composeTtmFrame(state);
-
-        state.mainContext.clearRect(0, 0, 640, 480);
-        const bgState = state.scenes.find(scene => scene?.state?.bkgScreen)?.state ?? state;
-        drawBackground(bgState, state.mainContext);
-
-        if (state.fadingOut || state.fadingIn) {
-            state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
-            state.context.fillRect(0, 0, 640, 480);
-
-            if (state.fadingOut && state.fadeOpacity >= 1) {
-                state.fadingOut = false;
-            } else if (state.fadingIn) {
-                state.fadeOpacity -= state.frameDelta / 400;
-                if (state.fadeOpacity <= 0) {
-                    state.fadingIn = false;
-                    state.fadeOpacity = 0;
-                }
-            }
-        }
-
-        if (state.surface?.canvas) {
-            state.context.drawImage(state.surface.canvas, 0, 0);
-        }
     }
 
     #runAdsController() {
@@ -271,18 +244,30 @@ export class DgdsRuntime {
     #runScripts() {
         const state = this.state;
         if (state.type === 'ADS') {
-            clearContext(state.context);
             const completed = this.#runAdsController();
             const scene = state.data.scenes[state.currentScene];
-            if (!state.continue || scene === undefined) {
+            const compose = !state.continue || scene === undefined;
+            if (compose) {
                 this.#runTtmController();
-                this.#renderPipeline();
             }
-            return completed;
+            return {
+                completed,
+                presentation: Object.freeze({
+                    clearForeground: true,
+                    backgroundOnly: false,
+                    compose,
+                }),
+            };
         }
 
-        if (state.island) drawBackground(state, state.mainContext);
-        return runScript(state, state.data.scripts).status === ExecutionStatus.COMPLETED;
+        return {
+            completed: runScript(state, state.data.scripts).status === ExecutionStatus.COMPLETED,
+            presentation: Object.freeze({
+                clearForeground: false,
+                backgroundOnly: Boolean(state.island),
+                compose: false,
+            }),
+        };
     }
 
     jumpToScene(tagId) {
@@ -310,7 +295,6 @@ export class DgdsRuntime {
         state.fadeOpacity = 0;
         state.surface?.clear();
         if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
-        if (state.context) clearContext(state.context);
         debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         return true;
     }
@@ -336,10 +320,6 @@ export class DgdsRuntime {
                 scene.state.bkgScreen = scene.state.bkgOcean[oceanIdx];
             }
         });
-        if (state.mainContext) {
-            const bgState = state.scenes.find(scene => scene?.state?.bkgScreen)?.state ?? state;
-            drawBackground(bgState, state.mainContext);
-        }
     }
 
     setPlaybackRate(rate) {

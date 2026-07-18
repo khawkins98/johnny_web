@@ -1,8 +1,9 @@
 /**
  * frame-renderer.mjs — Background drawing, canvas helpers, and resource loaders.
  *
- * Contains the low-level rendering utilities used by both the TTM opcode callbacks
- * (in script-runner.mjs) and the compositing loop (runScripts in process.mjs).
+ * Contains Johnny background resource loading plus the browser background
+ * renderer. Resource loading is still a transitional game-package concern;
+ * Canvas drawing is consumed only by the browser frame presenter.
  */
 import { loadResourceEntry } from '../resource.mjs';
 import { buildSpriteCanvas } from '../graphics.mjs';

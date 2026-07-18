@@ -31,10 +31,10 @@ RESOURCE.MAP + RESOURCE.001
 The engine-facing code uses logical ticks, instance-owned execution state,
 injected host services, and a drawing-surface contract. Browser animation-frame
 timestamps are converted by a host adapter, and audio opcodes emit logical
-operations consumed by a Web Audio host. Canvas remains an injected presenter
-dependency of the transitional runtime; replacing drawing calls with logical
-frame operations is the next machine-extraction step. See [ADR 0001](adr/0001-runtime-boundaries.md)
-for the target dependency direction.
+operations consumed by a Web Audio host. Drawing opcodes emit logical frame
+operations, while final composition and Canvas rendering belong to a browser
+presenter. See [ADR 0001](adr/0001-runtime-boundaries.md) for the target
+dependency direction.
 
 ## Repository map
 
@@ -49,6 +49,7 @@ for the target dependency direction.
 | `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
 | `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
+| `src/dgds/hosts/browser-frame-presenter.mjs` | Composition, backgrounds, fades, and Canvas presentation |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
 | `src/dgds/scripting/frame-operation.mjs` | Host-neutral drawing operation contract |
@@ -133,6 +134,12 @@ synchronously so a later opcode in the same script observes the faithful
 GET/PUT result. `DgdsRuntime.tick()` returns the emitted operations for
 conformance tests and future non-Canvas presenters.
 
+The tick result also contains a presentation directive: clear the foreground,
+update a standalone background, and/or compose active retained layers. The
+browser frame presenter consumes that directive and exclusively owns the two
+Canvas contexts, final composition, enhanced backgrounds, and fade drawing.
+Canvas contexts and completion callbacks are not retained in runtime state.
+
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
@@ -188,7 +195,7 @@ cloud/wave behavior uses the injected compatibility profile.
 | Engine need | Injected/browser implementation |
 |---|---|
 | Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
-| Drawing | frame operations → retained-surface presenter → Canvas adapter |
+| Drawing | frame operations → retained surfaces → presentation directive → browser frame presenter |
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
 | Optional wall time | compatibility profile |
@@ -231,10 +238,11 @@ automation may read it directly or use the Vite-only persistence endpoint.
 - The browser background renderer is still separate from the logical TTM
   composition and still contains Johnny-specific asset names/layout, so some
   original buffer-copy behavior and the game-package boundary require more work.
-- Opcode drawing and audio are now logical operations. Final scene composition,
-  background selection, fades, and Canvas presentation still live in
-  `DgdsRuntime`; those must be extracted before it becomes the deterministic
-  `DgdsMachine` described by ADR 0001.
+- Opcode drawing and audio are logical operations, and final Canvas presentation
+  is host-owned. Retained composition remains stateful and Johnny background
+  resource selection still crosses the interpreter/game-package boundary;
+  those remain before this becomes the deterministic `DgdsMachine` described by
+  ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

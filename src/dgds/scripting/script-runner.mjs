@@ -15,8 +15,6 @@ import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import {
-    clearContext,
-    drawBackground,
     loadBackground,
     loadRaft,
     loadOcean,

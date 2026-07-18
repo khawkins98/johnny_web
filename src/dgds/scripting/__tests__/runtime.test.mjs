@@ -47,6 +47,20 @@ describe('DgdsRuntime', () => {
         })).toThrow('surfaceFactory');
     });
 
+    it('does not retain browser contexts or completion callbacks', () => {
+        const runtime = createRuntime({
+            context: { name: 'foreground' },
+            mainContext: { name: 'background' },
+            audioManager: { name: 'audio' },
+            onComplete: () => {},
+        });
+
+        expect(runtime.state).not.toHaveProperty('context');
+        expect(runtime.state).not.toHaveProperty('mainContext');
+        expect(runtime.state).not.toHaveProperty('audioManager');
+        expect(runtime.state).not.toHaveProperty('onComplete');
+    });
+
     it('returns logical audio operations from the current tick', () => {
         const runtime = createRuntime({
             data: {
@@ -85,5 +99,29 @@ describe('DgdsRuntime', () => {
         }]);
         expect(result.frameOperations[0]).not.toHaveProperty('surface');
         expect(result.frameOperations[0]).not.toHaveProperty('canvas');
+    });
+
+    it('returns host presentation intent instead of drawing to Canvas', () => {
+        const runtime = createRuntime({
+            type: 'ADS',
+            entries: [],
+            data: {
+                name: 'test',
+                resources: [],
+                scenes: [{
+                    tagId: { id: 1, description: 'test scene' },
+                    script: [{ opcode: 0xffff, params: [] }],
+                }],
+            },
+        });
+
+        expect(runtime.tick(1000 / 60)).toMatchObject({
+            completed: true,
+            presentation: {
+                clearForeground: true,
+                backgroundOnly: false,
+                compose: true,
+            },
+        });
     });
 });
