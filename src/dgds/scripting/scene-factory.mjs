@@ -15,8 +15,8 @@
  *    then remain private working buffers for concurrent scenes.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
- *  HOST SERVICES from the parent ADS state:
- *    audioManager, entries, scenesRes, random, and a fresh scene-layer surface.
+ *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
+ *    audioOperations, entries, scenesRes, random, and a fresh scene-layer surface.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -64,7 +64,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
 
     // Host services
     entries: parent.entries,
-    audioManager: parent.audioManager,
+    audioOperations: parent.audioOperations,
     scenesRes: parent.scenesRes,
     random: parent.random,
     compatibility: parent.compatibility,

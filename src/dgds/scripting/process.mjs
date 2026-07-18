@@ -14,6 +14,7 @@ import { createTimingCompatibility } from './timing-compatibility.mjs';
 import { DGDS_TICK_MS } from './timing.mjs';
 import { DgdsRuntime } from './runtime.mjs';
 import { createBrowserScheduler } from '../hosts/browser-scheduler.mjs';
+import { consumeBrowserAudio } from '../hosts/browser-audio.mjs';
 
 let activeRuntime = null;
 let activeScheduler = null;
@@ -62,27 +63,31 @@ diagnostics.subscribe((current, previous) => {
 export const startProcess = (initialState) => {
     activeScheduler?.stop();
 
-    const compatibility = initialState.compatibility || createBrowserCompatibility({
-        ...(initialState.random ? { random: initialState.random } : {}),
+    const {
+        audioManager = null,
+        onComplete,
+        ...runtimeInitialState
+    } = initialState;
+
+    const compatibility = runtimeInitialState.compatibility || createBrowserCompatibility({
+        ...(runtimeInitialState.random ? { random: runtimeInitialState.random } : {}),
     });
-    const random = initialState.random || compatibility.random;
-    const timingCompatibility = initialState.timingCompatibility
+    const random = runtimeInitialState.random || compatibility.random;
+    const timingCompatibility = runtimeInitialState.timingCompatibility
         || compatibility.timing
         || createTimingCompatibility();
-    const surfaceFactory = initialState.surfaceFactory || createCanvasSurfaceElement;
-    const audioManager = initialState.audioManager ?? null;
+    const surfaceFactory = runtimeInitialState.surfaceFactory || createCanvasSurfaceElement;
 
     const runtime = new DgdsRuntime({
-        ...initialState,
+        ...runtimeInitialState,
         compatibility,
         random,
         timingCompatibility,
         surfaceFactory,
-        audioManager,
     });
     activeRuntime = runtime;
 
-    if (!initialState.trace && diagnostics.trace) beginRuntimeTrace();
+    if (!runtimeInitialState.trace && diagnostics.trace) beginRuntimeTrace();
     if (diagnostics.console) {
         console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
     }
@@ -96,10 +101,15 @@ export const startProcess = (initialState) => {
         state.speedRemainder -= ticks;
 
         for (let tick = 0; tick < ticks; tick++) {
-            if (runtime.tick(DGDS_TICK_MS)) {
+            const result = runtime.tick(DGDS_TICK_MS);
+            consumeBrowserAudio(result.audioOperations, {
+                audioManager,
+                trace: state.trace,
+            });
+            if (result.completed) {
                 scheduler.stop();
                 if (activeScheduler === scheduler) activeScheduler = null;
-                initialState.onComplete?.();
+                onComplete?.();
                 break;
             }
         }

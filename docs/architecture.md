@@ -30,10 +30,11 @@ RESOURCE.MAP + RESOURCE.001
 
 The engine-facing code uses logical ticks, instance-owned execution state,
 injected host services, and a drawing-surface contract. Browser animation-frame
-timestamps are converted by a host adapter. Canvas and Web Audio are still
-injected presenter dependencies of the transitional runtime; replacing those
-with logical frame/audio operations is the next machine-extraction step. See
-[ADR 0001](adr/0001-runtime-boundaries.md) for the target dependency direction.
+timestamps are converted by a host adapter, and audio opcodes emit logical
+operations consumed by a Web Audio host. Canvas remains an injected presenter
+dependency of the transitional runtime; replacing drawing calls with logical
+frame operations is the next machine-extraction step. See [ADR 0001](adr/0001-runtime-boundaries.md)
+for the target dependency direction.
 
 ## Repository map
 
@@ -47,7 +48,9 @@ with logical frame/audio operations is the next machine-extraction step. See
 | `src/dgds/scripting/process.mjs` | Browser host composition and legacy active-session/debug façade |
 | `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
+| `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
+| `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
 | `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
 | `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
@@ -115,6 +118,12 @@ preserves them and applies one named compatibility rule:
 `browser-yield-floor` makes a zero-delay frame visible for one logical tick.
 Browser wall time does not enter opcode execution.
 
+`PLAY_SAMPLE` emits a logical `play-sample` operation into the current tick
+result. The opcode does not inspect, resume, load, or await browser audio. The
+browser audio adapter consumes those operations after the tick and separately
+records whether playback started or was unavailable. Audio host state therefore
+cannot block ADS/TTM scheduling.
+
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
@@ -173,7 +182,7 @@ cloud/wave behavior uses the injected compatibility profile.
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
 | Optional wall time | compatibility profile |
-| Audio | game sample catalogue → Web Audio manager created after a user gesture |
+| Audio | `play-sample` operation → game sample catalogue → Web Audio adapter |
 | Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
 | Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
 
@@ -212,9 +221,10 @@ automation may read it directly or use the Vite-only persistence endpoint.
 - The browser background renderer is still separate from the logical TTM
   composition and still contains Johnny-specific asset names/layout, so some
   original buffer-copy behavior and the game-package boundary require more work.
-- `DgdsRuntime` still invokes injected drawing and audio presenters. It is a
-  transitional extraction, not yet the deterministic, operation-emitting
-  `DgdsMachine` described by ADR 0001.
+- `DgdsRuntime` still invokes injected drawing presenters. Audio is now emitted
+  as logical operations, but frame/presentation operations remain to be
+  extracted before this becomes the deterministic `DgdsMachine` described by
+  ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

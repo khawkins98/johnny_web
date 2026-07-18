@@ -32,7 +32,10 @@ describe('DgdsRuntime', () => {
         const runtime = createRuntime();
 
         expect(runtime.state.tick).toBe(0);
-        expect(runtime.tick(1000 / 60)).toBe(true);
+        expect(runtime.tick(1000 / 60)).toMatchObject({
+            completed: true,
+            audioOperations: [],
+        });
         expect(runtime.state.tick).toBe(1);
         expect(runtime.state.frameDelta).toBeCloseTo(1000 / 60);
     });
@@ -43,5 +46,21 @@ describe('DgdsRuntime', () => {
             timingCompatibility: createTimingCompatibility(),
         })).toThrow('surfaceFactory');
     });
-});
 
+    it('returns logical audio operations from the current tick', () => {
+        const runtime = createRuntime({
+            data: {
+                scripts: [{ opcode: 0xc050, params: [6] }],
+            },
+        });
+
+        expect(runtime.tick(1000 / 60)).toMatchObject({
+            completed: true,
+            audioOperations: [{
+                type: 'play-sample',
+                sample: 6,
+                tick: 1,
+            }],
+        });
+    });
+});

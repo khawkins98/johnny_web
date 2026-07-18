@@ -12,6 +12,7 @@ import { diagnostics } from './diagnostics.mjs';
 import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
+import { emitPlaySample } from './audio-operation.mjs';
 import {
     clearContext,
     drawBackground,
@@ -304,32 +305,10 @@ const SELECT_SAMPLE = (state) => { };
 const DESELECT_SAMPLE = (state) => { };
 
 const PLAY_SAMPLE = (state, index) => {
+    emitPlaySample(state, index);
     traceEvent(state, 'audio-sample', {
         action: 'requested',
         sample: index,
-        enabled: state.audioManager?.enabled !== false,
-        contextState: state.audioManager?.context?.state ?? null,
-    });
-    // Resume AudioContext if suspended (browser autoplay policy belt-and-suspenders).
-    if (state.audioManager?.context?.state === 'suspended') {
-        state.audioManager.context.resume();
-    }
-    const sampleSource = state.audioManager?.getSoundFxSource?.();
-    if (!sampleSource) {
-        traceEvent(state, 'audio-sample', {
-            action: 'unavailable',
-            sample: index,
-        });
-        return;
-    }
-    sampleSource.load(index, () => {
-        traceEvent(state, 'audio-sample', {
-            action: 'started',
-            sample: index,
-            enabled: state.audioManager?.enabled !== false,
-            contextState: state.audioManager?.context?.state ?? null,
-        });
-        sampleSource.play();
     });
 };
 

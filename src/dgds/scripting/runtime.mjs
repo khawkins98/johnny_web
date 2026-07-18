@@ -59,7 +59,7 @@ export class DgdsRuntime {
             save: [],
             saveIndex: 0,
             saveBkg: [],
-            audioManager: null,
+            audioOperations: [],
             slot: 0,
             res: [],
             reentry: 0,
@@ -141,9 +141,14 @@ export class DgdsRuntime {
     }
 
     tick(frameDelta) {
+        this.state.audioOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
-        return this.#runScripts();
+        const completed = this.#runScripts();
+        return Object.freeze({
+            completed,
+            audioOperations: Object.freeze([...this.state.audioOperations]),
+        });
     }
 
     #renderPipeline() {
@@ -353,4 +358,3 @@ export class DgdsRuntime {
         };
     }
 }
-

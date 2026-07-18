@@ -32,7 +32,7 @@ describe('TTM runtime state boundary', () => {
             surfaceFactory: createRecordingSurface,
             entries: ['entries'],
             scenesRes: ['ttm'],
-            audioManager: { play: vi.fn() },
+            audioOperations: [],
             random: () => 0.25,
             compatibility: { setting: vi.fn() },
             currentScene: 12,
@@ -53,7 +53,7 @@ describe('TTM runtime state boundary', () => {
             continue: true,
             entries: parent.entries,
             scenesRes: parent.scenesRes,
-            audioManager: parent.audioManager,
+            audioOperations: parent.audioOperations,
             random: parent.random,
             compatibility: parent.compatibility,
             res: shared.res,
@@ -62,6 +62,7 @@ describe('TTM runtime state boundary', () => {
             saveBkg: shared.saveBkg,
         });
         expect(child.surface).not.toBe(surface);
+        expect(child.audioOperations).toBe(parent.audioOperations);
         expect(child).not.toHaveProperty('currentScene');
         expect(child).not.toHaveProperty('addScenes');
         expect(child).not.toHaveProperty('removeScenes');
@@ -111,7 +112,7 @@ describe('TTM runtime state boundary', () => {
             entries: [],
             surface: createRecordingSurface(),
             surfaceFactory: createRecordingSurface,
-            audioManager: {},
+            audioOperations: [],
             random: () => 0.5,
             compatibility: {},
             delay: 0,

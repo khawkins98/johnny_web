@@ -384,10 +384,9 @@ describe('TTM frame timing', () => {
 describe('PLAY_SAMPLE tracing', () => {
     const playSample = TTMDispatch.find(e => e.opcode === 0xc050);
 
-    it('records request and playback without changing script scheduling state', () => {
+    it('emits a logical operation without changing script scheduling state', () => {
         const record = vi.fn();
-        const play = vi.fn();
-        const load = vi.fn((_index, callback) => callback());
+        const audioOperations = [];
         const state = {
             tick: 824,
             sceneIdx: 5,
@@ -395,48 +394,34 @@ describe('PLAY_SAMPLE tracing', () => {
             continue: true,
             delay: 120,
             trace: { record },
-            audioManager: {
-                enabled: true,
-                context: { state: 'running' },
-                getSoundFxSource: () => ({ load, play }),
-            },
+            audioOperations,
         };
 
         playSample.callback(state, 6);
 
-        expect(load).toHaveBeenCalledWith(6, expect.any(Function));
-        expect(play).toHaveBeenCalledOnce();
-        expect(record).toHaveBeenNthCalledWith(1, 'audio-sample', expect.objectContaining({
+        expect(audioOperations).toEqual([{
+            type: 'play-sample',
             tick: 824,
             sceneIdx: 5,
             tagId: 19,
-            action: 'requested',
             sample: 6,
-        }));
-        expect(record).toHaveBeenNthCalledWith(2, 'audio-sample', expect.objectContaining({
-            action: 'started',
-            sample: 6,
+        }]);
+        expect(record).toHaveBeenCalledWith('audio-sample', expect.objectContaining({
+            action: 'requested', sample: 6,
         }));
         expect(state).toMatchObject({ continue: true, delay: 120 });
     });
 
-    it('treats a missing host audio adapter as non-blocking', () => {
-        const record = vi.fn();
+    it('treats an omitted operation collector as non-blocking', () => {
         const state = {
             tick: 10,
             sceneIdx: 5,
             tagId: 19,
             continue: true,
             delay: 7,
-            trace: { record },
-            audioManager: null,
         };
 
         expect(() => playSample.callback(state, 6)).not.toThrow();
-        expect(record).toHaveBeenLastCalledWith('audio-sample', expect.objectContaining({
-            action: 'unavailable',
-            sample: 6,
-        }));
         expect(state).toMatchObject({ continue: true, delay: 7 });
     });
 });
