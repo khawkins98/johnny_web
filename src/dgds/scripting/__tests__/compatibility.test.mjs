@@ -1,36 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import { createBrowserCompatibility } from '../compatibility.mjs';
+import { describe, expect, it, vi } from 'vitest';
+import { createBrowserPresentationPolicy } from '../../hosts/browser-presentation-policy.mjs';
 import { createFrameBoundary } from '../frame-timing.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
 import { drawBackground } from '../frame-renderer.mjs';
 import { loadOcean, loadScreen } from '../background-resources.mjs';
 import { johnnyCastaway } from '../../../games/johnny/manifest.mjs';
 
-describe('browser compatibility profile', () => {
+describe('browser presentation policy', () => {
     it('reads settings with a fallback', () => {
         const storage = { getItem: key => key === 'enabled' ? 'on' : null };
-        const compatibility = createBrowserCompatibility({ storage });
+        const policy = createBrowserPresentationPolicy({ storage });
 
-        expect(compatibility.setting('enabled', 'off')).toBe('on');
-        expect(compatibility.setting('missing', 'off')).toBe('off');
+        expect(policy.setting('enabled', 'off')).toBe('on');
+        expect(policy.setting('missing', 'off')).toBe('off');
     });
 
     it('survives unavailable browser storage', () => {
         const storage = { getItem: () => { throw new Error('blocked'); } };
-        const compatibility = createBrowserCompatibility({ storage });
-        expect(compatibility.setting('anything', 'fallback')).toBe('fallback');
-    });
-
-    it('provides deterministic inclusive random integers', () => {
-        expect(createBrowserCompatibility({ random: () => 0 }).randomInt(3, 5)).toBe(3);
-        expect(createBrowserCompatibility({ random: () => 0.999 }).randomInt(3, 5)).toBe(5);
-        expect(createBrowserCompatibility({ random: () => 0 }).randomInt(5, 3)).toBe(3);
-    });
-
-    it('exposes its named timing compatibility profile', () => {
-        const compatibility = createBrowserCompatibility();
-        expect(compatibility.timing.profile).toBe('faithful-browser');
-        expect(compatibility.timing.patchNames).toEqual(['browser-yield-floor']);
+        const policy = createBrowserPresentationPolicy({ storage });
+        expect(policy.setting('anything', 'fallback')).toBe('fallback');
     });
 });
 
@@ -79,7 +67,7 @@ describe('deterministic background compatibility', () => {
             resourceProvider: { resolve: () => undefined },
             bkgScreen: null,
             bkgOcean: [],
-            compatibility: createBrowserCompatibility({ random: () => 0 }),
+            random: () => 0,
         };
 
         loadScreen(state, 'CUSTOM.SCR');
@@ -88,16 +76,16 @@ describe('deterministic background compatibility', () => {
     });
 
     it('advances clouds and waves from injected time and settings', () => {
-        const compatibility = createBrowserCompatibility({
+        const policy = createBrowserPresentationPolicy({
             storage: { getItem: key => key === 'jc-clouds' || key === 'jc-waves' ? 'on' : null },
             now: () => 1000,
             random: () => 0.5,
         });
         const state = {
             game: johnnyCastaway,
-            compatibility,
             island: 1,
             bkgScreen: null,
+            bkgOcean: [],
             bkgRes: null,
             cloudElapsed: 900,
             cloudX: 10,
@@ -105,36 +93,59 @@ describe('deterministic background compatibility', () => {
             waveFrame: 2,
         };
 
-        drawBackground(state, {});
+        drawBackground(state, {}, policy);
 
-        expect(state.cloudX).toBe(9);
-        expect(state.cloudElapsed).toBe(0);
-        expect(state.waveFrame).toBe(3);
-        expect(state.waveElapsed).toBe(1250);
+        expect(policy.backgroundState(state)).toMatchObject({
+            cloudX: 9,
+            cloudElapsed: 0,
+            waveFrame: 3,
+            waveElapsed: 1250,
+        });
+        expect(state).toMatchObject({
+            cloudX: 10,
+            cloudElapsed: 900,
+            waveFrame: 2,
+            waveElapsed: 900,
+        });
     });
 
-    it('selects local night and deterministic day oceans', () => {
+    it('selects deterministic authored day and night oceans', () => {
         const oceans = ['day-0', 'day-1', 'day-2', 'night'];
         const state = {
             game: johnnyCastaway,
             resourceProvider: { resolve: () => undefined },
             bkgOcean: oceans,
-            compatibility: createBrowserCompatibility({
-                storage: { getItem: key => key === 'jc-time' ? 'local' : null },
-                currentHour: () => 22,
-                random: () => 0,
-            }),
+            random: () => 0.5,
+            isNightMode: false,
         };
 
         loadOcean(state);
-        expect(state.bkgScreen).toBe('night');
-
-        state.compatibility = createBrowserCompatibility({
-            storage: { getItem: () => 'original' },
-            random: () => 0.5,
-        });
-        state.isNightMode = false;
-        loadOcean(state);
         expect(state.bkgScreen).toBe('day-1');
+
+        state.isNightMode = true;
+        loadOcean(state);
+        expect(state.bkgScreen).toBe('night');
+    });
+
+    it('applies local time as a non-mutating presentation override', () => {
+        const day = { images: [{ _canvas: { name: 'day' }, width: 1, height: 1 }] };
+        const night = { images: [{ _canvas: { name: 'night' }, width: 1, height: 1 }] };
+        const context = { clearRect: vi.fn(), drawImage: vi.fn() };
+        const state = {
+            game: johnnyCastaway,
+            bkgScreen: day,
+            bkgOcean: [day, day, day, night],
+            dayOceanIndex: 0,
+            island: 0,
+        };
+        const policy = createBrowserPresentationPolicy({
+            storage: { getItem: key => key === 'jc-time' ? 'local' : null },
+            currentHour: () => 22,
+        });
+
+        drawBackground(state, context, policy);
+
+        expect(context.drawImage).toHaveBeenCalledWith(night.images[0]._canvas, 0, 0);
+        expect(state.bkgScreen).toBe(day);
     });
 });

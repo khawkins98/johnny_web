@@ -39,7 +39,15 @@ export class DgdsRuntime {
         }
 
         const runtimeInitialState = { ...initialState };
-        for (const hostKey of ['context', 'mainContext', 'audioManager', 'onComplete', 'entries']) {
+        for (const hostKey of [
+            'context',
+            'mainContext',
+            'audioManager',
+            'onComplete',
+            'entries',
+            'compatibility',
+            'presentationPolicy',
+        ]) {
             delete runtimeInitialState[hostKey];
         }
         const { random, surfaceFactory } = runtimeInitialState;

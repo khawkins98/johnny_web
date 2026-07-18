@@ -51,6 +51,7 @@ dependency direction.
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
 | `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
 | `src/dgds/hosts/browser-frame-presenter.mjs` | Composition, backgrounds, fades, and Canvas presentation |
+| `src/dgds/hosts/browser-presentation-policy.mjs` | Enhancement settings, wall time, and presentation randomness |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
 | `src/dgds/scripting/frame-operation.mjs` | Host-neutral drawing operation contract |
@@ -64,7 +65,6 @@ dependency direction.
 | `src/dgds/scripting/surface.mjs` | Logical surface plus Canvas and recording adapters |
 | `src/dgds/scripting/timing.mjs` | Browser timestamp to bounded DGDS tick conversion |
 | `src/dgds/scripting/timing-compatibility.mjs` | Named authored-to-host timing mappings |
-| `src/dgds/scripting/compatibility.mjs` | Browser profile: timing, settings, wall time, and randomness |
 | `src/dgds/scripting/diagnostics.mjs` | Runtime diagnostics mode controller |
 | `src/dgds/scripting/trace.mjs` | Structured JSONL event recording |
 | `src/debug-ui.mjs`, `src/settings-ui.mjs` | Runtime controls and human-readable diagnostics |
@@ -112,7 +112,7 @@ resource prologue and named sequences.
 until an opcode blocks, normally `UPDATE`, then returns a structured `yielded`,
 `looped`, or `completed` outcome. `UPDATE` emits an authored frame boundary with
 the current `SET_DELAY` value; it does not count browser ticks. The scheduler
-maps that directive through the compatibility profile and owns the resulting
+maps that directive through the named timing-compatibility profile and owns the resulting
 wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
 Each `DgdsRuntime` owns its mutable script, scene, and composition state. The
@@ -123,6 +123,13 @@ remain integer DGDS ticks. The default `faithful-browser` timing profile
 preserves them and applies one named compatibility rule:
 `browser-yield-floor` makes a zero-delay frame visible for one logical tick.
 Browser wall time does not enter opcode execution.
+
+The runtime receives its random function and timing-compatibility map directly;
+it does not retain browser storage, wall-time, or presentation-policy services.
+Enhanced cloud/wave animation state is owned by the browser policy in a
+per-scene `WeakMap`, initialized from scene state but never written back. Thus
+enabling enhancements cannot alter interpreter timers, random choices, or
+authored scene state.
 
 `PLAY_SAMPLE` emits a logical `play-sample` operation into the current tick
 result. The opcode does not inspect, resume, load, or await browser audio. The
@@ -203,7 +210,9 @@ cover sprites moving elsewhere on screen. `STORE_AREA` and saved GET/PUT slots
 are owned by the faithful scripting/composition layer, not the browser presenter.
 
 `frame-renderer.mjs` draws the configured background separately. Optional
-cloud/wave behavior uses the injected game metadata and compatibility profile.
+cloud, wave, and local-time behavior uses the injected game metadata and browser
+presentation policy. Local-time selection overrides the presented ocean without
+mutating the faithful runtime's selected background.
 
 ## Host boundaries
 
@@ -212,15 +221,15 @@ cloud/wave behavior uses the injected game metadata and compatibility profile.
 | Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
 | Resource decoding | archive entries → named-resource provider → runtime |
 | Drawing | frame operations → retained surfaces → presentation directive → browser frame presenter |
-| Settings | compatibility profile → `localStorage` |
+| Enhancement settings | browser presentation policy → `localStorage` |
 | Randomness | injected random function |
-| Optional wall time | compatibility profile |
+| Optional wall time and enhancement animation | browser presentation policy |
 | Audio | `play-sample` operation → game sample catalogue → Web Audio adapter |
 | Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
 | Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
 
-Tests use recording surfaces and deterministic host functions without Canvas or
-wall time.
+Tests use recording surfaces plus deterministic runtime inputs and presentation
+policies without Canvas or wall time.
 
 ## Diagnostics
 

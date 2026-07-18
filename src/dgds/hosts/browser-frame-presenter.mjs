@@ -2,9 +2,9 @@ import { composeTtmFrame } from '../scripting/composition.mjs';
 import { drawBackground } from '../scripting/frame-renderer.mjs';
 
 /** Browser adapter for final composition, backgrounds, fades, and Canvas. */
-export const createBrowserFramePresenter = ({ context, mainContext }) => {
-    if (!context || !mainContext) {
-        throw new TypeError('Browser frame presenter requires foreground and background contexts');
+export const createBrowserFramePresenter = ({ context, mainContext, presentationPolicy }) => {
+    if (!context || !mainContext || !presentationPolicy) {
+        throw new TypeError('Browser frame presenter requires contexts and a presentation policy');
     }
 
     const clear = () => context.clearRect(0, 0, 640, 480);
@@ -13,12 +13,12 @@ export const createBrowserFramePresenter = ({ context, mainContext }) => {
     );
     const presentBackground = state => {
         mainContext.clearRect(0, 0, 640, 480);
-        drawBackground(backgroundState(state), mainContext);
+        drawBackground(backgroundState(state), mainContext, presentationPolicy);
     };
 
     const present = (state, directive) => {
         if (directive.clearForeground) clear();
-        if (directive.backgroundOnly) drawBackground(state, mainContext);
+        if (directive.backgroundOnly) drawBackground(state, mainContext, presentationPolicy);
         if (!directive.compose) return;
 
         composeTtmFrame(state);

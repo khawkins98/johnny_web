@@ -4,7 +4,8 @@ export const selectOceanIndex = (state, isNight) => {
     const oceans = state.game?.background?.oceans || [];
     if (oceans.length === 0) return -1;
     const nightIndex = oceans.length - 1;
-    return isNight ? nightIndex : state.compatibility.randomInt(0, Math.max(0, nightIndex - 1));
+    const dayCount = Math.max(1, nightIndex);
+    return isNight ? nightIndex : Math.floor(state.random() * dayCount);
 };
 
 export const loadBackgroundAssets = state => {
@@ -27,17 +28,13 @@ export const loadOcean = state => {
         }
     }
 
-    const timeSetting = profile.settings?.time;
-    const timeMode = timeSetting
-        ? state.compatibility.setting(timeSetting, 'original')
-        : 'original';
-    const isNight = timeMode === 'local'
-        ? (() => {
-            const hour = state.compatibility.currentHour();
-            return hour < 6 || hour >= 18;
-        })()
-        : state.isNightMode === true;
-    const index = selectOceanIndex(state, isNight);
+    let index;
+    if (state.isNightMode === true) {
+        index = selectOceanIndex(state, true);
+    } else {
+        index = selectOceanIndex(state, false);
+        state.dayOceanIndex = index;
+    }
     if (index >= 0) state.bkgScreen = state.bkgOcean[index];
 };
 

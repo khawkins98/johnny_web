@@ -6,7 +6,6 @@
  * startProcess/__DEBUG__ API while callers migrate to explicit instances.
  */
 import { createCanvasSurfaceElement } from './surface.mjs';
-import { createBrowserCompatibility } from './compatibility.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
@@ -17,6 +16,7 @@ import { createBrowserScheduler } from '../hosts/browser-scheduler.mjs';
 import { consumeBrowserAudio } from '../hosts/browser-audio.mjs';
 import { createBrowserFramePresenter } from '../hosts/browser-frame-presenter.mjs';
 import { createEntryResourceProvider } from '../resource-provider.mjs';
+import { createBrowserPresentationPolicy } from '../hosts/browser-presentation-policy.mjs';
 
 let activeRuntime = null;
 let activeScheduler = null;
@@ -73,29 +73,31 @@ export const startProcess = (initialState) => {
         mainContext,
         entries,
         resourceProvider: suppliedResourceProvider,
+        presentationPolicy: suppliedPresentationPolicy,
         ...runtimeInitialState
     } = initialState;
 
-    const compatibility = runtimeInitialState.compatibility || createBrowserCompatibility({
-        ...(runtimeInitialState.random ? { random: runtimeInitialState.random } : {}),
-    });
-    const random = runtimeInitialState.random || compatibility.random;
+    const random = runtimeInitialState.random || Math.random;
     const timingCompatibility = runtimeInitialState.timingCompatibility
-        || compatibility.timing
         || createTimingCompatibility();
     const surfaceFactory = runtimeInitialState.surfaceFactory || createCanvasSurfaceElement;
     const resourceProvider = suppliedResourceProvider || createEntryResourceProvider(entries);
+    const presentationPolicy = suppliedPresentationPolicy
+        || createBrowserPresentationPolicy({ random });
 
     const runtime = new DgdsRuntime({
         ...runtimeInitialState,
-        compatibility,
         random,
         timingCompatibility,
         surfaceFactory,
         resourceProvider,
     });
     activeRuntime = runtime;
-    const framePresenter = createBrowserFramePresenter({ context, mainContext });
+    const framePresenter = createBrowserFramePresenter({
+        context,
+        mainContext,
+        presentationPolicy,
+    });
     activeFramePresenter = framePresenter;
 
     if (!runtimeInitialState.trace && diagnostics.trace) beginRuntimeTrace();

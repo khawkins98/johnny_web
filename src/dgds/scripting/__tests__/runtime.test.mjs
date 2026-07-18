@@ -9,7 +9,6 @@ const createRuntime = overrides => new DgdsRuntime({
     data: { scripts: undefined },
     island: 0,
     random: () => 0,
-    compatibility: {},
     timingCompatibility: createTimingCompatibility(),
     surfaceFactory: createSurface,
     resourceProvider: { resolve: () => undefined },
@@ -95,6 +94,7 @@ describe('DgdsRuntime', () => {
         expect(runtime.state).not.toHaveProperty('mainContext');
         expect(runtime.state).not.toHaveProperty('audioManager');
         expect(runtime.state).not.toHaveProperty('onComplete');
+        expect(runtime.state).not.toHaveProperty('compatibility');
     });
 
     it('returns logical audio operations from the current tick', () => {

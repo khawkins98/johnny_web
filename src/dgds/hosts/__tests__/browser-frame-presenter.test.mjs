@@ -7,16 +7,17 @@ const createContext = () => ({
     fillRect: vi.fn(),
     fillStyle: '',
 });
+const presentationPolicy = {
+    now: () => 0,
+    currentHour: () => 12,
+    random: () => 0,
+    setting: () => 'off',
+};
 
 const createState = () => ({
     scenes: [],
     ttmEnvironments: new Map(),
     surface: { clear: vi.fn(), canvas: { name: 'composition' } },
-    compatibility: {
-        now: () => 0,
-        random: () => 0,
-        setting: () => 'off',
-    },
     island: 0,
     fadingOut: false,
     fadingIn: false,
@@ -28,7 +29,7 @@ describe('browser frame presenter', () => {
     it('owns final composition and Canvas presentation', () => {
         const context = createContext();
         const mainContext = createContext();
-        const presenter = createBrowserFramePresenter({ context, mainContext });
+        const presenter = createBrowserFramePresenter({ context, mainContext, presentationPolicy });
         const state = createState();
 
         presenter.present(state, {
@@ -46,7 +47,7 @@ describe('browser frame presenter', () => {
     it('does not compose when the runtime directive only clears', () => {
         const context = createContext();
         const mainContext = createContext();
-        const presenter = createBrowserFramePresenter({ context, mainContext });
+        const presenter = createBrowserFramePresenter({ context, mainContext, presentationPolicy });
         const state = createState();
 
         presenter.present(state, {
@@ -65,6 +66,7 @@ describe('browser frame presenter', () => {
         const presenter = createBrowserFramePresenter({
             context,
             mainContext: createContext(),
+            presentationPolicy,
         });
         const state = {
             ...createState(),
