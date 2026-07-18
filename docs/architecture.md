@@ -107,7 +107,7 @@ The page contains two `<canvas>` elements, both 640 × 480 px, absolutely positi
 | Background | `#mainCanvas` | 0 | Ocean, island, palm trees, clouds, raft — the static scene environment |
 | Foreground | `#canvas` | 1 | Animated sprite layer — cleared each frame, sprites composited on top |
 
-`drawBackground()` in `frame-renderer.mjs` renders the background layer. It picks a random ocean variant (`OCEAN00.SCR`–`OCEAN02.SCR`, or `NIGHT.SCR`), composites the island (`BACKGRND.BMP` sprite sheet), palm trees, raft (`MRAFT.BMP`), and an animated cloud drawn from a randomly chosen frame in `BACKGRND.BMP`. The cloud moves left one pixel at a time, driven by wall-clock time via `Date.now()` (not the frame-delta tick — see §12 bug 11).
+`drawBackground()` in `frame-renderer.mjs` renders the background layer. It picks a random ocean variant (`OCEAN00.SCR`–`OCEAN02.SCR`, or `NIGHT.SCR`), composites the island (`BACKGRND.BMP` sprite sheet), palm trees, raft (`MRAFT.BMP`), and an animated cloud drawn from a randomly chosen frame in `BACKGRND.BMP`. The cloud moves left one pixel at a time, driven by wall-clock time via `Date.now()` rather than the logical DGDS clock (see §12 bug 7).
 
 The background layer is redrawn every rAF tick by `runScripts()` (via `drawBackground(bgState, state.mainContext)`). The foreground layer is cleared at the start of every rAF tick via `clearContext(state.context)`.
 
@@ -115,7 +115,7 @@ The `DRAW_BACKGROUND` TTM opcode is a **no-op** in this architecture. In the ori
 
 A third level of compositing exists in theory: the `save[]` and `saveBkg[]` slot arrays were designed to capture and restore rectangular screen regions (for score overlays and partial-screen compositing). In practice `SAVE_IMAGE_REGION` is commented out and `state.save[]` is never populated, making this layer a no-op (see §12 bug 5).
 
-Each child TTM scene also renders into its own off-screen `<canvas>` (created dynamically in `getSceneState()`). After the child scenes run, their canvases are composited onto the foreground layer via `context.drawImage(s.state.context.canvas, 0, 0)`. **Scenes with `lifecycle === 'completed'` are excluded from compositing** — they stay in `state.scenes` so `IF_PLAYED` can still query them, but their last rendered frame is not frozen on screen.
+Each child TTM scene also renders into its own off-screen `<canvas>` (created dynamically in `getSceneState()`). After the child scenes run, their canvases are composited onto the foreground layer via `context.drawImage(s.state.context.canvas, 0, 0)`. Completed scenes continue to composite their final frame until explicitly removed, approximating the persistent software framebuffer used by the original engine.
 
 An additional off-screen `tmpContext` canvas (640 × 480) is used as a scratch surface: `drawImage()` blits a pixel-object array into it, then `context.drawImage()` copies the relevant region to the visible canvas. This indirection is necessary because `putImageData` does not respect the canvas clipping region.
 
@@ -372,7 +372,7 @@ The parser splits the opcode stream into `scenes[]` at every `SET_SCENE` (0x1110
 
 ## 10. Process engine
 
-The scripting layer is split across four files in `src/dgds/scripting/`:
+The scripting layer is split across five files in `src/dgds/scripting/`:
 
 | File | Responsibility |
 |---|---|
@@ -380,22 +380,22 @@ The scripting layer is split across four files in `src/dgds/scripting/`:
 | `script-runner.mjs` | All TTM and ADS opcode callback functions; `TTMDispatch[]`, `ADSDispatch[]`, `runScript()` |
 | `scene-factory.mjs` | `getSceneState()` — builds TTM child scene state; documents the field-sharing policy |
 | `frame-renderer.mjs` | `drawBackground()`, `clearContext()`, `loadBackground()`, `loadRaft()`, `loadOcean()`, `SCREEN_TYPE` |
+| `timing.mjs` | Browser compatibility adapter: converts rAF timestamps into bounded, fixed DGDS timer ticks |
 
 ### Module-level state
 
-All runtime state is module-level (not instance-based). There is exactly one active process at a time. Calling `startProcess()` replaces any running process by resetting all module globals and cancelling the previous rAF registration.
+The root runtime state is held in one module-level `state` reference. There is exactly one active process at a time. Child TTM execution state lives on each child scene object.
 
 Key globals:
 
 | Variable | Purpose |
 |---|---|
 | `state` | Current process state object (see below) |
-| `currentScene` | Index into `state.data.scenes[]` for the active ADS scene |
-| `scenesRes[]` | Parsed TTM resources loaded from `data.resources` at startup |
-| `scenes[]` | Active child TTM scenes (run concurrently each frame) |
-| `addScenes[]` | Buffer: TTM scenes staged to start next PLAY_SCENE tick |
-| `removeScenes[]` | Buffer: TTM scenes staged to stop next PLAY_SCENE tick |
-| `bkgScreen`, `bkgRes`, `bkgOcean[]`, `bkgRaft` | Cached background assets (survive across scenes; reset on `startProcess`) |
+| `state.currentScene` | Index into `state.data.scenes[]` for the active ADS scene |
+| `state.scenesRes[]` | Parsed TTM resources loaded from `data.resources` at startup |
+| `state.scenes[]` | Active child TTM scenes (run concurrently each tick) |
+| `state.addScenes[]` | Buffer: TTM scenes staged to start at PLAY_SCENE |
+| `state.removeScenes[]` | Buffer: TTM scenes staged to stop at PLAY_SCENE |
 
 ### State object
 
@@ -415,10 +415,12 @@ Key globals:
   res[],         // slot-indexed BMP resources (loaded via SLOT_IMAGE + LOAD_IMAGE)
   slot,          // active BMP slot (set by SLOT_IMAGE)
   reentry,       // program counter: index into current script[]
-  continue,      // execution gate: false = pause this frame
-  delay,         // current delay in ms (set by SET_DELAY)
-  elapsed,       // absolute timestamp when current UPDATE delay expires
-  timer,         // countdown timer in ms (set by SET_TIMER; decremented per frame in runScripts)
+  continue,      // execution gate: false = pause at the current opcode
+  delay,         // persistent UPDATE cadence in logical DGDS ticks
+  waitTicks,     // ticks remaining at the current UPDATE boundary
+  timer,         // random-sleep countdown in DGDS ticks
+  clock,         // browser timestamp → fixed DGDS tick adapter (root state only)
+  random,        // injected random-number source
   island,        // 0=no island, 1=island at x=288, 2=island at x=16
   foregroundColor, backgroundColor,  // PALETTE[] entries for drawing
   clip,          // clipping rectangle { x, y, width, height }
@@ -438,12 +440,10 @@ Key globals:
 
 1. Calls the opcode's callback function with `(state, ...params)`.
 2. After each call, sets `state.reentry = i` (so execution can resume at this opcode next frame).
-3. If `state.continue` becomes `false`, breaks out of the loop immediately. The next rAF tick will resume from `state.reentry`.
+3. If `state.continue` becomes `false`, breaks out of the loop immediately. The next logical DGDS tick resumes from `state.reentry`.
 4. When `state.reentry` reaches `script.length - 1`, the script is marked complete: `state.played = true`, `state.runs++`, `state.reentry = 0` (reset to start). If this was the main ADS script, `currentScene++` advances to the next scene.
 
-The `UPDATE` opcode is the primary way scripts pause. When hit:
-- First call: sets `state.continue = false` and records `state.elapsed = Date.now() + state.delay`.
-- Subsequent calls (same frame or future frames): no-op until `Date.now() > state.elapsed`, at which point `state.continue = true` and the loop continues.
+The `UPDATE` opcode (`0x0ff0`, "finish frame / draw") is the TTM frame boundary. `SET_DELAY` stores a persistent cadence in engine ticks. On every `UPDATE`, execution yields for that many logical ticks; a zero delay still yields once so distinct visual frames cannot collapse into one interpreter call. Opcode execution never reads the browser wall clock.
 
 ### ADS scene loop
 
@@ -452,9 +452,9 @@ The `UPDATE` opcode is the primary way scripts pause. When hit:
 1. Clears the foreground canvas.
 2. If `state.island` is set, calls `drawBackground()` to redraw the background every frame.
 3. Calls `runScript(state, data.scenes[currentScene].script, true)` (the `true` flag marks it as the main script, enabling `currentScene++` on completion).
-4. If `state.continue` is `false` (UPDATE delay active), also ticks all child TTM scenes: `scenes.forEach(s => runScript(s.state, s.script))`.
-5. Composites child scene canvases onto the foreground canvas — **skipping scenes with `lifecycle === 'completed'`** to avoid ghost-frame duplication.
-6. If `state.fadingOut` is true, draws the black overlay on top.
+4. If `state.continue` is `false`, advances all non-completed child TTM scenes once.
+5. Composites every active or completed child canvas so a completed final frame persists until the ADS removes it.
+6. Applies the current compatibility fade layer.
 7. Returns `true` when all scenes are exhausted and `scenes` is empty, signalling the rAF loop to stop and call `onComplete()`.
 
 ### Scene lifecycle model
@@ -464,8 +464,8 @@ Each child TTM scene object carries a `lifecycle` field tracking its execution s
 | Value | Meaning |
 |---|---|
 | `'active'` | Newly added (via ADD_SCENE/PLAY_SCENE). In `scenes[]`, script hasn't completed its first pass yet (`runs === 0`). `PLAY_SCENE` blocks until no `'active'` scenes remain. |
-| `'running'` | Has completed at least one loop (`runs > 0`). GOTO-looping scenes stay in this state indefinitely. `PLAY_SCENE` no longer blocks on these. |
-| `'completed'` | `played === true` — sequential (non-looping) scenes that have run to completion. Excluded from compositing to prevent ghost-frame duplication, but kept in `scenes[]` for `IF_PLAYED` tracking. |
+| `'running'` | Interpreter execution has started. GOTO-looping scenes stay in this state indefinitely. |
+| `'completed'` | `played === true` — sequential scenes that reached the end. Their final canvas persists until explicit removal. |
 
 `IF_RUNNING` / `IF_NOT_RUNNING` check whether a scene's lifecycle is `'active'` or `'running'`.
 
@@ -508,24 +508,20 @@ Several opcodes share the same hex value between TTM and ADS, which is why separ
 | `0xF010` | `LOAD_SCREEN` | `ADS_FADE_OUT` |
 | `0x4000` | `SET_CLIP_REGION` | `ADS_UNKNOWN_6` |
 
-### Main animation loop
+### Main animation loop and compatibility boundary
 
 ```js
-const mainloop = () => {
+const mainloop = (timestamp) => {
     state.frameId = requestAnimationFrame(mainloop);
-    tick = Date.now();
-    elapsed = tick - prevTick;
-    if (elapsed > fps) {
-        prevTick = tick - (elapsed % fps);
-    }
-    if (runScripts()) {
-        cancelAnimationFrame(state.frameId);
-        state.onComplete();
+    const ticks = state.clock.consume(timestamp);
+    for (let tick = 0; tick < ticks; tick++) {
+        state.frameDelta = DGDS_TICK_MS;
+        if (runScripts()) stopAndComplete();
     }
 };
 ```
 
-Target is 60 fps (`fps = 1000 / 60`). The frame delta is computed (`state.frameDelta`) and used both to adjust `prevTick` for catch-up and to decrement `scene.state.timer` in the TTM child loop. Scripts use `Date.now()` for their `UPDATE` timing; cloud movement also uses wall-clock time (see §12 bug 11).
+The compatibility adapter uses a 60 Hz DGDS timer unit (`1000 / 60` ms), matching the maintained DGDS reference implementation. It accumulates fractional browser time, can execute several logical ticks after a late frame, and caps catch-up work at five ticks so returning to a suspended tab does not replay an unbounded backlog. Script delays and timers remain integer tick counts; milliseconds do not enter the opcode interpreter. Background cloud and wave animation still use wall-clock time and remain compatibility-layer work (see §12).
 
 ---
 
@@ -578,45 +574,42 @@ Note: an index beyond the bounds of `sampleOffsets` will not be caught by the `-
 
 ## 12. Known bugs and limitations
 
-### Bug 1: `GOTO` ignores its `tagId` parameter (self-loops work; cross-tag deferred)
+### Bug 1: Rendering operations are still coupled to Canvas
 
-The `GOTO` (0x1200) handler resets `state.reentry` to 0 via a deferred `gotoRestart` flag, which loops the current script. Self-referential GOTOs (the only kind observed in the game data) work correctly. Cross-tag jumps (GOTO to a different scene in the same TTM) are not yet implemented — the tag offset is not recorded during parsing.
+TTM drawing callbacks directly mutate per-scene Canvas contexts. A faithful logical framebuffer and a Canvas presentation adapter are still needed to isolate DGDS save/store/get-put semantics from browser compositing.
 
-### Bug 2: Conditional ADS opcodes are unimplemented
+### Bug 2: Scene state ownership is overly broad
 
-`IF_NOT_PLAYED` (0x1330), `IF_NOT_RUNNING` (0x1360), and `IF_RUNNING` (0x1370) are empty stubs.
+`getSceneState()` begins by copying most of the ADS root state into a child object and then shares selected mutable resources from the first sibling. Execution fields are reset explicitly, but the broad copy makes ownership difficult to audit and remains the next major engine boundary to tighten.
 
-The `SAVE_IMAGE_REGION` handler body is commented out. The `state.save[]` slots are initialised (three off-screen canvases) but `canDraw` is never set to `true`. `drawContext()`, which would composite these saved regions, is effectively a no-op. Scorecard/overlay compositing via `SET_BACKGROUND → drawContext` does not work.
+### Bug 3: Region save and restore semantics are incomplete
 
-### Bug 4: `StoryScenes` tag metadata is never used
+`SAVE_IMAGE_REGION` captures into one of three Canvas slots, but `drawContext()` is not wired into the interpreter or compositor, `SAVE_REGION` is still a stub, and restore operations clear child canvases rather than operating on a faithful shared framebuffer. Scorecard/overlay behavior therefore depends on Canvas-layer approximations rather than DGDS buffer semantics.
 
-`StoryScenes` in `metadata/scenes.mjs` has 10 entries, all pointing at `ACTIVITY.ADS` with different `tag` values, distinct `description` strings, and scene flags (`FlagType`, `PointType`, `HeadingType`). However, `story.play()` only passes `scene.name` to `resource.loadEntry()` and then calls `startProcess()` without forwarding the `tag` or any flag. Every "random" scene selection loads and plays the same complete `ACTIVITY.ADS` from the beginning, ignoring the intended tag-based scene selection entirely.
-
-### Bug 5: Hardcoded 16-colour palette
+### Bug 4: Hardcoded 16-colour palette
 
 `src/scrantic/palette.mjs` exports a hardcoded 16-entry EGA palette. All BMP and SCR pixel data is decoded using this palette. The PAL resource loader (`pal.mjs`) correctly parses 256-entry VGA palettes from game data (with 6-bit RGB values scaled by 4 to 8-bit), but the parsed palette is never wired into the rendering path. Dynamic palette switching (e.g. for a night mode) requires extending the pipeline.
 
-### Bug 6: Single-process-only state
+### Bug 5: Single-process-only state
 
 All engine state (`state`, `scenes[]`, `scenesRes[]`, `bkgScreen`, etc.) is module-level. There is no support for running multiple concurrent ADS processes. Calling `startProcess()` unconditionally replaces any running process without cleanly stopping it (though it does cancel the previous rAF frame via reset of `state`).
 
-### Bug 7: Cloud timing tied to wall clock
+### Bug 6: Background animation timing is tied to wall clock
 
 `drawBackground()` uses `Date.now()` comparisons for cloud movement, independent of the rAF frame delta. Cloud speed is therefore tied to wall-clock time, not to the 60 fps frame budget. On a machine that drops frames, the cloud will still advance at the same real-time rate, creating a disconnect between cloud speed and animation playback speed.
 
-### Bug 8: Debug `console.log` calls throughout `process.mjs`
+### Bug 7: Scene creation logs outside the debug channel
 
-Multiple active `console.log` calls produce continuous output during normal operation.
+Failed TTM lookups in `scene-factory.mjs` call `console.log` directly rather than using the debug/error reporting channel.
 
 ---
 
 ## 13. Potential improvements
 
 - **Typed pixel buffers** — replace per-pixel `{index, a, r, g, b}` objects with `Uint8ClampedArray` or construct `ImageData` directly during decode. A 640 × 480 image currently allocates 307,200 plain objects.
-- **Implement `GOTO` correctly** — record each tag's opcode index during parsing; use it in `GOTO` to set `state.reentry` to the correct position for cross-tag jumps.
-- **Tag-based scene selection** — implement scene selection logic to enable the 10 distinct scene variants.
+- **Separate machine and host state** — replace broad ADS-to-TTM object copying with explicit execution, resource, rendering, and host state records.
 - **Load palette from PAL resource** — wire `pal.mjs` output into the BMP/SCR rendering path to support palette-swapped backgrounds.
 - **Implement `SAVE_IMAGE_REGION`** — restore the commented-out region capture to enable scorecard compositing.
 - **Audio range requests** — replace the full `SCRANTIC.SCR` fetch on each cache miss with an HTTP range request for the relevant byte slice.
-- **Day/night cycle** — `isNight` in `loadOcean()` is hardcoded `false`; wire it to `story.currentDay` or a time-of-day check to enable `NIGHT.SCR`.
+- **Unify background timing** — advance clouds and waves from the compatibility clock rather than reading wall-clock time inside the renderer.
 - **Multi-process support** — refactor module-level state into a class to support concurrent or layered processes.

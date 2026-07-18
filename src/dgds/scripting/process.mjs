@@ -16,6 +16,7 @@
 import { createAudioManager } from '../audio.mjs';
 import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
+import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -29,8 +30,6 @@ import {
 
 // Re-export public API (tests and callers import from process.mjs)
 export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
-
-const fps = 1000 / 60;
 
 let state = null;
 
@@ -116,8 +115,8 @@ const runTtmController = () => {
                     s.state.played = false;
                     s.state.reentry = 0; // Rewind script to start
                     s.state.delay = 0;
+                    s.state.waitTicks = 0;
                     s.state.timer = 0;
-                    s.state.elapsed = 0;
                 } else {
                     s.lifecycle = 'completed';
                 }
@@ -125,7 +124,7 @@ const runTtmController = () => {
         }
         // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
         if (s.state.timer > 0) {
-            s.state.timer = Math.max(0, s.state.timer - state.frameDelta);
+            s.state.timer--;
         }
     });
 };
@@ -170,8 +169,7 @@ export const startProcess = (initialState) => {
         cloudX: Math.floor((Math.random() * 640)),
         cloudY: Math.floor((Math.random() * 80)),
         cloudElapsed: 0,
-        tick: null,
-        prevTick: Date.now(),
+        clock: createFixedStepClock(),
         data: null,
         context: null,
         tmpContext: null,
@@ -184,9 +182,9 @@ export const startProcess = (initialState) => {
         res: [],
         // this should be for multiple running scripts
         reentry: 0,
-        elapsed: 0,
         elapsedTimer: 0,
         delay: 0,
+        waitTicks: 0,
         timer: 0,
         continue: true,
         frameId: null,
@@ -205,6 +203,7 @@ export const startProcess = (initialState) => {
         orMode: false,
         orChainPassed: false,
         frameDelta: 0,
+        random: Math.random,
         reentryNow: 0,
         jumpTo: undefined,
         fadingOut: false,
@@ -327,23 +326,23 @@ window.requestAnimationFrame = window.requestAnimationFrame
     || window.mozRequestAnimationFrame
     || window.webkitRequestAnimationFrame
     || window.msRequestAnimationFrame
-    || ((f) => setTimeout(f, fps));
+    || ((f) => setTimeout(() => f(performance.now()), DGDS_TICK_MS));
 
-const mainloop = () => {
+const mainloop = (timestamp) => {
     state.frameId = requestAnimationFrame(mainloop);
 
-    state.tick = Date.now();
-    const elapsed = state.tick - state.prevTick;
-
-    if (elapsed >= fps) {
-        state.frameDelta = elapsed;
-        state.prevTick = state.tick - (elapsed % fps);
+    const ticks = state.clock.consume(timestamp);
+    for (let tick = 0; tick < ticks; tick++) {
+        // Compatibility effects still consume milliseconds, but the value is
+        // derived from a logical tick rather than arbitrary browser frame time.
+        state.frameDelta = DGDS_TICK_MS;
 
         if (runScripts()) {
             cancelAnimationFrame(state.frameId);
             if (typeof state.onComplete === 'function') {
                 state.onComplete();
             }
+            break;
         }
     }
 }

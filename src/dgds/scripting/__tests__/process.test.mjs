@@ -10,7 +10,6 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CommandType, TTMDispatch, ADSDispatch, runScript } from '../process.mjs';
-import { DOS_TICK_MS } from '../script-runner.mjs';
 
 // ---------------------------------------------------------------------------
 // CommandType dispatch table
@@ -292,21 +291,71 @@ describe('runScript scene transition', () => {
 });
 
 // ---------------------------------------------------------------------------
-// SET_TIMER handler
+// UPDATE / SET_DELAY timing
 // ---------------------------------------------------------------------------
-describe('SET_TIMER handler', () => {
-    const entry = CommandType.find(e => e.opcode === 0x2020);
+describe('TTM frame timing', () => {
+    const update = TTMDispatch.find(e => e.opcode === 0x0ff0);
+    const setDelay = TTMDispatch.find(e => e.opcode === 0x1020);
 
-    it(`sets timer to timer*${DOS_TICK_MS} + delay*${DOS_TICK_MS}`, () => {
-        const mockState = { timer: 0 };
-        entry.callback(mockState, 3, 5); // delay=3, timer=5
-        expect(mockState.timer).toBe(5 * DOS_TICK_MS + 3 * DOS_TICK_MS); // 440
+    it('keeps SET_DELAY in logical DGDS ticks', () => {
+        const state = { delay: 0 };
+        setDelay.callback(state, 7);
+        expect(state.delay).toBe(7);
     });
 
-    it('uses delay=1 when delay argument is 0', () => {
-        const mockState = { timer: 0 };
-        entry.callback(mockState, 0, 5); // delay=0 → treated as 1
-        expect(mockState.timer).toBe(5 * DOS_TICK_MS + 1 * DOS_TICK_MS); // 330
+    it('treats SET_DELAY as persistent across UPDATE boundaries', () => {
+        const state = { continue: true, delay: 3, waitTicks: 0 };
+
+        update.callback(state);
+        expect(state).toMatchObject({ continue: false, delay: 3, waitTicks: 3 });
+
+        update.callback(state);
+        update.callback(state);
+        expect(state.continue).toBe(false);
+
+        update.callback(state);
+        expect(state).toMatchObject({ continue: true, delay: 3, waitTicks: 0 });
+
+        update.callback(state);
+        expect(state).toMatchObject({ continue: false, delay: 3, waitTicks: 3 });
+    });
+
+    it('makes UPDATE with zero delay yield for one engine tick', () => {
+        const state = { continue: true, delay: 0, waitTicks: 0 };
+        update.callback(state);
+        expect(state).toMatchObject({ continue: false, waitTicks: 1 });
+
+        update.callback(state);
+        expect(state).toMatchObject({ continue: true, waitTicks: 0 });
+    });
+
+    it('does not consult the browser wall clock', () => {
+        const dateSpy = vi.spyOn(Date, 'now');
+        const state = { continue: true, delay: 1, waitTicks: 0 };
+        update.callback(state);
+        update.callback(state);
+        expect(dateSpy).not.toHaveBeenCalled();
+        dateSpy.mockRestore();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// SET_TIMER handler (opcode 0x2020: random sleep)
+// ---------------------------------------------------------------------------
+describe('SET_TIMER handler', () => {
+    const entry = TTMDispatch.find(e => e.opcode === 0x2020);
+
+    it('selects an inclusive deterministic tick count from the supplied range', () => {
+        const state = { timer: 0, random: () => 0.5 };
+        entry.callback(state, 3, 5);
+        expect(state.timer).toBe(4);
+        expect(state.hasTimer).toBe(true);
+    });
+
+    it('accepts reversed bounds', () => {
+        const state = { timer: 0, random: () => 0 };
+        entry.callback(state, 5, 3);
+        expect(state.timer).toBe(3);
     });
 });
 
@@ -1001,4 +1050,3 @@ describe('PLAY_SCENE_2', () => {
         expect(state.continue).toBe(true);
     });
 });
-

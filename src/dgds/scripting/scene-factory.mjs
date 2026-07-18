@@ -34,8 +34,8 @@ export const initialState = {
     elapsedTimer: 0,
     timer: 0,
     delay: 0,
+    waitTicks: 0,
     gotoRestart: false,
-    elapsed: 0,
     clip: { x: 0, y: 0, width: 640, height: 480 },
 };
 

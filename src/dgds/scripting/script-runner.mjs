@@ -101,33 +101,22 @@ const PURGE = (state) => {
 
 const UPDATE = (state) => {
     if (state.continue) {
-        if (!state.delay) {
-            return;
-        }
+        // UPDATE is a DGDS frame boundary. SET_DELAY configures the persistent
+        // cadence for every subsequent UPDATE; a zero delay still yields until
+        // the next engine tick instead of collapsing multiple visual frames.
         state.continue = false;
-        state.elapsed = state.delay + Date.now();
-        state.delay = 0;
+        state.waitTicks = Math.max(1, state.delay || 0);
+        return;
     }
-    if (Date.now() > state.elapsed) {
-        state.elapsed = 0;
+
+    state.waitTicks = Math.max(0, (state.waitTicks || 1) - 1);
+    if (state.waitTicks === 0) {
         state.continue = true;
     }
 };
 
-/**
- * DGDS/DOS Hardware Timer Constant
- *
- * In 1992 (when Johnny Castaway was released for Windows 3.1), the standard 
- * system hardware timer (PIT) ticked exactly 18.2 times per second. 
- * 1000ms / 18.2 = ~54.9ms per tick.
- * 
- * DGDS engine scripts define all of their timing delays in terms of these ticks.
- * A script delay of "1" means "wait for 1 tick" (approx 55 milliseconds).
- */
-export const DOS_TICK_MS = 55;
-
 const SET_DELAY = (state, delay) => {
-    state.delay = ((delay === 0 ? 1 : delay) * DOS_TICK_MS);
+    state.delay = Math.max(0, delay);
 };
 
 const SLOT_IMAGE = (state, slot) => {
@@ -170,11 +159,14 @@ const SET_COLORS = (state, fc, bc) => {
 
 const SET_FRAME1 = (state) => { };
 
-const SET_TIMER = (state, delay, timer) => {
-    // Timer in milliseconds. Decremented each frame (in runScripts) by state.frameDelta.
-    // IF_PLAYED checks scene.state.timer === 0 to allow scene removal once the timer expires.
+const SET_TIMER = (state, minimum, maximum) => {
+    // Opcode 0x2020 is a random sleep measured in DGDS ticks. Randomness is
+    // injected through state.random so interpreter traces can be deterministic.
+    const low = Math.min(minimum, maximum);
+    const high = Math.max(minimum, maximum);
+    const random = state.random || Math.random;
     state.hasTimer = true;
-    state.timer = timer * DOS_TICK_MS + ((delay === 0 ? 1 : delay) * DOS_TICK_MS);
+    state.timer = low + Math.floor(random() * (high - low + 1));
 };
 
 const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
