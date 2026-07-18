@@ -65,6 +65,24 @@ describe('Canvas DGDS surface adapter', () => {
         expect(context.save).toHaveBeenCalledOnce();
         expect(context.restore).toHaveBeenCalledOnce();
     });
+
+    it('overwrites a GET/PUT region, including transparent saved pixels', () => {
+        const context = createMockContext();
+        const surface = createCanvasSurface(context);
+        const sourceCanvas = {};
+        const source = { canvas: sourceCanvas };
+
+        surface.replaceRegionFrom(source, { x: 10, y: 20, width: 30, height: 40 });
+
+        expect(context.clearRect).toHaveBeenCalledWith(10, 20, 30, 40);
+        expect(context.drawImage).toHaveBeenCalledWith(
+            sourceCanvas,
+            10, 20, 30, 40,
+            10, 20, 30, 40,
+        );
+        expect(context.clearRect.mock.invocationCallOrder[0])
+            .toBeLessThan(context.drawImage.mock.invocationCallOrder[0]);
+    });
 });
 
 describe('TTM drawing opcode surface contract', () => {
@@ -106,7 +124,7 @@ describe('TTM drawing opcode surface contract', () => {
         ]);
     });
 
-    it('routes clears and saved-region capture through surfaces', () => {
+    it('captures and overwrites GET/PUT regions through surfaces', () => {
         const surface = createRecordingSurface();
         const savedSurface = createRecordingSurface();
         const save = { surface: savedSurface, canDraw: false, x: 0, y: 0, width: 0, height: 0 };
@@ -122,8 +140,11 @@ describe('TTM drawing opcode surface contract', () => {
             rect: { x: 10, y: 20, width: 30, height: 40 },
         });
         expect(surface.commands.slice(1)).toEqual([
-            { operation: 'clear', rect: { x: 10, y: 20, width: 30, height: 40 } },
-            { operation: 'clear', rect: { x: 1, y: 2, width: 3, height: 4 } },
+            {
+                operation: 'replaceRegionFrom',
+                source: savedSurface,
+                rect: { x: 10, y: 20, width: 30, height: 40 },
+            },
         ]);
     });
 });

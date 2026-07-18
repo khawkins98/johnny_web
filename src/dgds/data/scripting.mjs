@@ -1,6 +1,6 @@
 export const TTMCommandType = [
     { opcode: 0x0020, command: 'SAVE_BACKGROUND' }, // not used
-    { opcode: 0x0080, command: 'DRAW_BACKGROUND' },
+    { opcode: 0x0080, command: 'FREE_SHAPE' },
     { opcode: 0x0110, command: 'PURGE' },
     { opcode: 0x0FF0, command: 'UPDATE' },
     { opcode: 0x1020, command: 'SET_DELAY' },
@@ -16,11 +16,11 @@ export const TTMCommandType = [
     { opcode: 0x4000, command: 'SET_CLIP_REGION' },
     { opcode: 0x4110, command: 'FADE_OUT' },
     { opcode: 0x4120, command: 'FADE_IN' },
-    { opcode: 0x4200, command: 'SAVE_IMAGE0' },
-    { opcode: 0x4210, command: 'SAVE_IMAGE1' },
+    { opcode: 0x4200, command: 'STORE_AREA' },
+    { opcode: 0x4210, command: 'SAVE_GETPUT_REGION' },
     { opcode: 0xA000, command: 'UNKNOWN_4' }, // Draw Line related?
     { opcode: 0xA050, command: 'UNKNOWN_5' }, // Draw Line related?
-    { opcode: 0xA060, command: 'UNKNOWN_6' }, // Draw Line related?
+    { opcode: 0xA060, command: 'WIPE_RIGHT_TO_LEFT' },
     { opcode: 0xA0A0, command: 'DRAW_LINE' },
     { opcode: 0xA100, command: 'DRAW_RECT' },
     { opcode: 0xA400, command: 'DRAW_BUBBLE' },
@@ -28,7 +28,7 @@ export const TTMCommandType = [
     { opcode: 0xA510, command: 'DRAW_SPRITE1' }, // not used
     { opcode: 0xA520, command: 'DRAW_SPRITE_FLIP' },
     { opcode: 0xA530, command: 'DRAW_SPRITE3' }, // not used
-    { opcode: 0xA600, command: 'CLEAR_SCREEN' },
+    { opcode: 0xA600, command: 'DRAW_GETPUT' },
     { opcode: 0xB600, command: 'DRAW_SCREEN' },
     { opcode: 0xC020, command: 'LOAD_SAMPLE' },
     { opcode: 0xC030, command: 'SELECT_SAMPLE' },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTtmRuntimeState } from '../scene-factory.mjs';
+import { canRunTtmScene, createTtmRuntimeState, getSceneState } from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('TTM runtime state boundary', () => {
@@ -74,5 +74,53 @@ describe('TTM runtime state boundary', () => {
 
         expect(second.clip.x).toBe(0);
         expect(second.reentry).toBe(0);
+    });
+
+    it('shares assets within one TTM resource but isolates different resources', () => {
+        const command = opcode => ({ opcode, params: [] });
+        const ttm = tag => ({
+            scenes: [
+                { tagId: 0, script: [command(0x0ff0)] },
+                { tagId: tag, script: [command(0xa500)] },
+                { tagId: tag + 1, script: [command(0xa500)] },
+            ],
+        });
+        const parent = {
+            scenesRes: [undefined, ttm(10), ttm(20)],
+            scenes: [],
+            data: { scenes: [{ tagId: 1 }] },
+            currentScene: 0,
+            entries: [],
+            surface: createRecordingSurface(),
+            surfaceFactory: createRecordingSurface,
+            audioManager: {},
+            random: () => 0.5,
+            compatibility: {},
+            delay: 0,
+            island: 1,
+            foregroundColor: {},
+            backgroundColor: {},
+            cloudIdx: 15,
+            cloudX: 0,
+            cloudY: 0,
+        };
+
+        const first = getSceneState(parent, 1, 10, 0, 0);
+        const sibling = getSceneState(parent, 1, 11, 0, 0);
+        const otherResource = getSceneState(parent, 2, 20, 0, 0);
+
+        expect(first.script).toHaveLength(2);
+        expect(sibling.script).toHaveLength(1);
+        expect(first.environment.owner).toBe(first);
+        expect(sibling.environment).toBe(first.environment);
+        expect(canRunTtmScene(first)).toBe(true);
+        expect(canRunTtmScene(sibling)).toBe(false);
+        first.environment.ready = true;
+        expect(canRunTtmScene(sibling)).toBe(true);
+        expect(sibling.state.res).toBe(first.state.res);
+        expect(sibling.state.save).toBe(first.state.save);
+        expect(otherResource.environment).not.toBe(first.environment);
+        expect(otherResource.state.res).not.toBe(first.state.res);
+        expect(otherResource.state.save).not.toBe(first.state.save);
     });
 });

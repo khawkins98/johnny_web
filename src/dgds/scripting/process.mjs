@@ -19,6 +19,7 @@ import { PALETTE } from '../../scrantic/palette.mjs';
 import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
+import { canRunTtmScene } from './scene-factory.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -105,17 +106,30 @@ const runAdsController = () => {
 
 const runTtmController = () => {
     state.scenes.forEach(s => {
+        // The resource prologue loads image slots and captures GET/PUT regions.
+        // Siblings must not touch the shared composition surface until that setup
+        // is complete, or their pixels can be captured as permanent background.
+        const isEnvironmentOwner = s.environment?.owner === s;
+        if (!canRunTtmScene(s)) {
+            return;
+        }
+
         // Don't re-run scripts that have already completed — they should freeze on their
         // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
         // scenes (no GOTO) reach 'completed'.
         if (s.lifecycle !== 'completed') {
             s.lifecycle = 'running';
             runScript(s.state, s.state.script || s.script);
+            if (isEnvironmentOwner && !s.environment.ready &&
+                s.state.reentry >= (s.prologueLength || 0)) {
+                s.environment.ready = true;
+            }
             if (s.state.played) {
                 if (s.retries > 0) {
                     s.retries--;
                     s.state.played = false;
-                    s.state.reentry = 0; // Rewind script to start
+                    // Resource prologues are one-shot. Retry only the selected scene.
+                    s.state.reentry = s.targetStart || 0;
                     s.state.delay = 0;
                     s.state.waitTicks = 0;
                     s.state.timer = 0;
@@ -212,6 +226,7 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         random,
         compatibility,
+        ttmEnvironments: new Map(),
         reentryNow: 0,
         jumpTo: undefined,
         fadingOut: false,
@@ -220,6 +235,7 @@ export const startProcess = (initialState) => {
     };
 
     const surfaceFactory = initialState.surfaceFactory || createCanvasSurfaceElement;
+    state.surfaceFactory = surfaceFactory;
 
     for (let s = 0; s < 3; s += 1) {
         state.save.push({

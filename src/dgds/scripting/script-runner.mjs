@@ -85,18 +85,11 @@ const sceneLabel = (scenesRes, sceneIdx, tagId) => {
 
 const SAVE_BACKGROUND = (state) => { };
 
-const DRAW_BACKGROUND = (state) => {
-    const save = state.saveBkg[0];
-    if (save && save.canDraw) {
-        state.surface.clear(save);
-    }
+const FREE_SHAPE = (state) => {
+    state.res[state.slot] = undefined;
 };
 
-const PURGE = (state) => {
-    if (state.saveBkg && state.saveBkg[0]) {
-        state.saveBkg[0].canDraw = false;
-    }
-};
+const PURGE = () => {};
 
 const UPDATE = (state) => {
     if (state.continue) {
@@ -174,8 +167,8 @@ const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
     state.clip = {
         x: x1,
         y: y1,
-        width: x2 - x1,
-        height: y2 - y1,
+        width: x2 - x1 + 1,
+        height: y2 - y1 + 1,
     };
 };
 
@@ -202,13 +195,14 @@ const ADS_FADE_OUT = (state) => {
     }
 };
 
-const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
+const STORE_AREA = (state, x, y, width, height) => {
     const save = state.saveBkg[0];
     save.canDraw = true;
     save.x = x;
     save.y = y;
     save.width = width;
     save.height = height;
+    state.surface.copyRegionTo(save.surface, { x, y, width, height });
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
@@ -226,9 +220,9 @@ const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
 
 const SAVE_REGION = (state, x, y, width, height) => { };
 
-const RESTORE_REGION = (state, x, y, width, height) => {
-    state.surface.clear({ x, y, width, height });
-};
+// Wipes alter presentation timing in DOS but leave the composition unchanged.
+// The browser presenter currently applies the final composition atomically.
+const WIPE_RIGHT_TO_LEFT = () => {};
 
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
     state.surface.drawLine(x1, y1, x2, y2, 'white');
@@ -264,17 +258,11 @@ const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
 const DRAW_SPRITE1 = (state) => { };
 const DRAW_SPRITE3 = (state) => { };
 
-const clearScreen = (state, index) => {
+const DRAW_GETPUT = (state, index) => {
     const save = state.save[index];
     if (save && save.canDraw) {
-        state.surface.clear(save);
-    } else {
-        state.surface.clear();
+        state.surface.replaceRegionFrom(save.surface, save);
     }
-};
-
-const CLEAR_SCREEN = (state, index) => {
-    clearScreen(state, index);
 };
 
 const DRAW_SCREEN = (state) => { };
@@ -632,7 +620,7 @@ const END_IF = (state) => { };
 
 export const TTMDispatch = [
     { opcode: 0x0020, callback: SAVE_BACKGROUND },
-    { opcode: 0x0080, callback: DRAW_BACKGROUND },
+    { opcode: 0x0080, callback: FREE_SHAPE },
     { opcode: 0x0110, callback: PURGE },
     { opcode: 0x0FF0, callback: UPDATE },
     { opcode: 0x1020, callback: SET_DELAY },
@@ -648,11 +636,11 @@ export const TTMDispatch = [
     { opcode: 0x4000, callback: SET_CLIP_REGION },
     { opcode: 0x4110, callback: FADE_OUT },
     { opcode: 0x4120, callback: FADE_IN },
-    { opcode: 0x4200, callback: DRAW_BACKGROUND_REGION },
+    { opcode: 0x4200, callback: STORE_AREA },
     { opcode: 0x4210, callback: SAVE_IMAGE_REGION },
     { opcode: 0xA000, callback: TTM_UNKNOWN_4 },
     { opcode: 0xA050, callback: SAVE_REGION },
-    { opcode: 0xA060, callback: RESTORE_REGION },
+    { opcode: 0xA060, callback: WIPE_RIGHT_TO_LEFT },
     { opcode: 0xA0A0, callback: DRAW_LINE },
     { opcode: 0xA100, callback: DRAW_RECT },
     { opcode: 0xA400, callback: DRAW_BUBBLE },
@@ -660,7 +648,7 @@ export const TTMDispatch = [
     { opcode: 0xA510, callback: DRAW_SPRITE1 },
     { opcode: 0xA520, callback: DRAW_SPRITE_FLIP },
     { opcode: 0xA530, callback: DRAW_SPRITE3 },
-    { opcode: 0xA600, callback: CLEAR_SCREEN },
+    { opcode: 0xA600, callback: DRAW_GETPUT },
     { opcode: 0xB600, callback: DRAW_SCREEN },
     { opcode: 0xC020, callback: LOAD_SAMPLE },
     { opcode: 0xC030, callback: SELECT_SAMPLE },

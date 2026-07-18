@@ -3,12 +3,11 @@
  *
  * Field sharing policy (documented here as the authoritative source):
  *
- *  SHARED from the first TTM sibling (prologue-loaded assets):
+ *  SHARED within one TTM resource environment (prologue-loaded assets):
  *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg, save,
  *    foregroundColor, backgroundColor.
- *    These are expensive to reload and are identical across all concurrent sibling scenes.
- *    The first scene's prologue (scenes[0] in the TTM) runs LOAD_SCREEN / LOAD_IMAGE once;
- *    all subsequent siblings inherit the results rather than re-running the prologue.
+ *    The first scene for a resource owns its prologue. Siblings inherit its assets only
+ *    after that prologue has finished; a different TTM resource gets a different environment.
  *
  *  FRESH per scene (from initialState):
  *    reentry, played, runs, continue, delay, timer, lastCommand, skip, elapsedTimer.
@@ -87,6 +86,45 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     waveFrame: assets.waveFrame || 0,
 });
 
+const createSaveSlot = surfaceFactory => ({
+    surface: surfaceFactory(),
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    canDraw: false,
+});
+
+/** Allocate the mutable resources owned by a single loaded TTM environment. */
+export const createTtmEnvironmentAssets = (parent) => {
+    if (typeof parent.surfaceFactory !== 'function') {
+        throw new TypeError('TTM runtime requires an injected surfaceFactory');
+    }
+
+    return {
+        res: [],
+        bkgScreen: null,
+        bkgRes: null,
+        bkgRaft: null,
+        bkgOcean: [],
+        save: Array.from({ length: 3 }, () => createSaveSlot(parent.surfaceFactory)),
+        saveBkg: [createSaveSlot(parent.surfaceFactory)],
+        island: parent.island,
+        foregroundColor: parent.foregroundColor,
+        backgroundColor: parent.backgroundColor,
+        cloudIdx: parent.cloudIdx,
+        cloudX: parent.cloudX,
+        cloudY: parent.cloudY,
+        cloudElapsed: parent.cloudElapsed,
+        waveElapsed: parent.waveElapsed,
+        waveFrame: parent.waveFrame,
+    };
+};
+
+export const canRunTtmScene = scene => (
+    !scene.environment || scene.environment.ready || scene.environment.owner === scene
+);
+
 /**
  * Build the full state object for a newly spawned TTM scene.
  * See module docblock for the complete field-sharing policy.
@@ -108,16 +146,22 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;
     }
-    if (!state.scenes.length) {
-        // First TTM scene: prepend the TTM prologue (scenes[0]) so it loads resources,
-        // then start with the root's explicit resource/cache handles.
+    state.ttmEnvironments ||= new Map();
+    let environment = state.ttmEnvironments.get(sceneIdx);
+    if (!environment) {
+        // A TTM environment owns its image slots and GET/PUT buffers. Keeping this
+        // per resource prevents one TTM's prologue from overwriting another's assets.
+        const assets = createTtmEnvironmentAssets(state);
+        const prologueLength = ttm.scenes[0].script.length;
         s.script = [...ttm.scenes[0].script, ...s.script];
-        s.state = createTtmRuntimeState(state, state, sceneIdx, tagId);
+        s.prologueLength = prologueLength;
+        s.targetStart = prologueLength;
+        s.state = createTtmRuntimeState(state, assets, sceneIdx, tagId);
+        environment = { assets: s.state, owner: s, ready: prologueLength === 0 };
+        state.ttmEnvironments.set(sceneIdx, environment);
     } else {
-        // Subsequent scenes share only prologue-loaded assets and host services;
-        // execution state is always fresh.
-        const firstSibling = state.scenes[0].state;
-        s.state = createTtmRuntimeState(state, firstSibling, sceneIdx, tagId);
+        s.state = createTtmRuntimeState(state, environment.assets, sceneIdx, tagId);
     }
+    s.environment = environment;
     return s;
 };

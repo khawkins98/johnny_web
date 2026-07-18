@@ -87,6 +87,19 @@ export const createCanvasSurface = (context) => {
             }
         },
 
+        replaceRegionFrom(source, rect) {
+            if (!source?.canvas) return;
+            const r = normalizeRect(rect);
+            // DGDS GET/PUT is an overwrite, including transparent/zero pixels.
+            // A normal source-over draw would leave old destination pixels behind.
+            context.clearRect(r.x, r.y, r.width, r.height);
+            context.drawImage(
+                source.canvas,
+                r.x, r.y, r.width, r.height,
+                r.x, r.y, r.width, r.height,
+            );
+        },
+
         copyRegionTo(target, rect) {
             target.clear();
             target.drawSurface(surface, rect);
@@ -116,6 +129,10 @@ export const createRecordingSurface = () => {
         fillRect: (x, y, width, height, color) => record('fillRect', { x, y, width, height, color }),
         fillCircle: (x, y, radius, color = 'white') => record('fillCircle', { x, y, radius, color }),
         drawSurface: (source, rect) => record('drawSurface', { source, rect }),
+        replaceRegionFrom: (source, rect) => record('replaceRegionFrom', {
+            source,
+            rect: normalizeRect(rect),
+        }),
         copyRegionTo(target, rect) {
             record('copyRegionTo', { target, rect });
             target.clear();
