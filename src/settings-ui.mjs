@@ -274,22 +274,19 @@ export function setupSettingsUI(audioManager) {
     const debugSelect = document.createElement('select');
     [
         { val: 'off', text: 'Off' },
-        { val: 'basic', text: 'Basic' },
-        { val: 'verbose', text: 'Verbose' },
-        { val: 'trace', text: 'Trace' },
-        { val: 'all', text: 'All' },
+        { val: 'on', text: 'On' },
     ].forEach(({ val, text }) => {
         const option = document.createElement('option');
         option.value = val;
         option.innerText = text;
         debugSelect.appendChild(option);
     });
-    debugSelect.value = diagnostics.mode;
+    debugSelect.value = diagnostics.enabled ? 'on' : 'off';
     debugSelect.onchange = event => diagnostics.setMode(event.target.value);
     const debugBtn = document.createElement('button');
     debugBtn.innerText = 'Panel (D)';
     debugBtn.onclick = () => {
-        if (!diagnostics.enabled) diagnostics.setMode('basic');
+        if (!diagnostics.enabled) diagnostics.setMode('on');
         window.dispatchEvent(new KeyboardEvent('keydown', {key: 'd'}));
     };
     debugControls.appendChild(debugSelect);
@@ -308,11 +305,11 @@ export function setupSettingsUI(audioManager) {
     let enabledAt = diagnostics.enabled ? new Date() : null;
     const renderDebugStatus = () => {
         debugStatus.innerText = enabledAt
-            ? `Enabled ${enabledAt.toLocaleTimeString()} · ${diagnostics.mode}`
+            ? `Enabled ${enabledAt.toLocaleTimeString()}${diagnostics.verbose ? ' · verbose console' : ''}`
             : 'Diagnostics disabled';
     };
     diagnostics.subscribe((current, previous) => {
-        debugSelect.value = current.mode;
+        debugSelect.value = current.enabled ? 'on' : 'off';
         if (current.enabled && !previous.enabled) enabledAt = new Date();
         if (!current.enabled) enabledAt = null;
         renderDebugStatus();

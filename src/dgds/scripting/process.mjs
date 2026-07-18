@@ -383,8 +383,12 @@ export const __DEBUG__ = {
     getState: () => state,
     getTrace: () => state?.trace?.snapshot() || [],
     saveTrace: () => {
-        if (!state?.trace) throw new Error('Tracing is disabled; reload with ?trace=1');
-        return state.trace.save();
+        if (!state?.trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
+        return state.trace.download();
+    },
+    persistTrace: () => {
+        if (!state?.trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
+        return state.trace.persist();
     },
 };
 

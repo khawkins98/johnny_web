@@ -299,6 +299,19 @@ const DRAW_GETPUT = (state, index) => {
             rect: { x: save.x, y: save.y, width: save.width, height: save.height },
             revision: state.layerRevision,
         });
+    } else {
+        // TTM names this opcode CLEAR_SCREEN even when the selected GET/PUT
+        // slot has never been populated. On the original shared framebuffer
+        // that exposed the background beneath the animation. A TTM now draws
+        // into a transparent scene layer, so the equivalent operation is to
+        // discard that layer's previous frame; the compositor supplies the
+        // background and the other active scenes.
+        state.surface.clear();
+        state.layerRevision = (state.layerRevision || 0) + 1;
+        traceEvent(state, 'getput-clear-layer', {
+            slot: index,
+            revision: state.layerRevision,
+        });
     }
 };
 

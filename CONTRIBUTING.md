@@ -44,17 +44,18 @@ docs: update setup instructions for Vite
 - Prefer native Web APIs over third-party libraries where reasonable.
 - Run the project locally and verify your change works before opening a PR.
 
-## Debugging
+## Verification and diagnostics
 
-- Enable debug mode via `?debug` URL parameter for scene-level logging
-- Enable verbose mode via `?debug=verbose` for per-opcode detail
-- Use the debug UI overlay (press `D` key) to inspect scene state
+- Run `pnpm test` and `pnpm run build` before opening a PR.
+- Press `S` to enable diagnostics; press `D` for the developer panel.
+- For rendering bugs, reproduce after enabling diagnostics and attach the
+  downloaded JSONL trace. Use `?debug=verbose` only when live sprite logs help.
 
 ## Getting Started
 
 ```bash
-npm install
-npm run dev   # http://localhost:5173
+pnpm install
+pnpm run dev   # http://localhost:5173
 ```
 
 See the [README](README.md) for full setup and game data extraction instructions.

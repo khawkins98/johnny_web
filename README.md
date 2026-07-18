@@ -1,6 +1,10 @@
 # johnny_web
 
-A web-native reimplementation of the [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver originally created by Dynamix (Sierra On-Line) in 1992. This project was hard forked from [xesf/castaway](https://github.com/xesf/castaway) and considerably revamed with a focus on idiomatic, standards-based web development.
+A web-native reimplementation of the 1992
+[Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver by
+Dynamix/Sierra On-Line. It is a hard fork of
+[xesf/castaway](https://github.com/xesf/castaway), modernized around ES modules,
+Web APIs, Vite, and a testable DGDS engine.
 
 ![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
@@ -13,13 +17,12 @@ pnpm run dev       # http://localhost:5173
 
 Game data files are required — see [Obtaining the Game Data Files](#obtaining-the-game-data-files) below.
 
-## Purpose
+## Project goals
 
 - Reimplementation of the Johnny Castaway screensaver in the browser
-- Modernize the codebase toward web-native patterns (ES modules, Web APIs, Vite)
 - Learn and document the Dynamix Game Development System (DGDS) file formats
-- Provide extraction and dump tools via Node.js (for a full desktop asset viewer, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer))
-- Learn something, play with AI as a helper
+- Keep faithful script/composition behavior separate from browser compatibility
+- Provide extraction, dump, test, and deterministic rendering-trace tooling
 
 ## Obtaining the Screensaver Data Files
 
@@ -30,7 +33,6 @@ floppy distribution by Sierra On-Line.
 | Source | What you get | Notes |
 |--------|-------------|-------|
 | [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `pnpm run extract` below |
-| [My Abandonware](https://www.myabandonware.com/search/q/johnny+castaway) | Likely a pre-extracted installer ZIP |  |
 
 ### Extracting from the Internet Archive floppy image
 
@@ -71,45 +73,30 @@ files.
 | `pnpm run preview` | Serve the `dist/` build locally |
 | `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
 | `pnpm test` | Run the Vitest test suite |
-| `pnpm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
+| `pnpm run test:coverage` | Run the Vitest suite with V8 coverage |
 | `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
-## Animation traces
+## Diagnostics
 
-Diagnostics use one `debug` mode with three outputs: the developer panel, a
-human-readable console stream, and a durable structured trace.
+Press `S` while running and set Diagnostics to **On**. This starts a fresh
+structured trace from the current engine tick and enables the concise console
+log. Press `D` to open the developer panel; opening it also enables diagnostics.
 
 | URL | Output |
 |-----|--------|
-| `?debug` | Developer panel (`D`) and concise lifecycle console log |
-| `?debug=verbose` | Panel plus per-opcode and sprite console detail |
-| `?debug=trace` | Panel, concise console, JSONL events, and pixel hashes |
-| `?debug=all` | Verbose console and JSONL trace together |
+| `?debug` | Diagnostics on at page load |
+| `?debug=verbose` | Same trace plus noisy per-sprite console output |
 
-The same modes can be changed while Johnny is running: press `S`, choose a
-mode under **Diagnostics**, then optionally open the `D` panel. Enabling trace
-starts a fresh recording at that moment; disabling it writes a final stop event
-and stops pixel hashing. Events that occurred before activation are not present.
+The `D` panel's **Download JSONL Trace** button downloads the capture. Its first
+record identifies the build, browser, display, and engine state; later records
+include lifecycle, drawing, layer, and pixel-fingerprint events. Headless tools
+can read `window.__DGDS__.getTrace()`, trigger the same browser download with
+`saveTrace()`, or ask the Vite development server to write under `traces/` with
+`persistTrace()`. Old `?debug=trace`, `?debug=all`, and `?trace=1` links remain
+compatible aliases.
 
-For rendering diagnostics that need to be shared or analyzed headlessly, use:
-
-```text
-http://localhost:5173/?debug=trace
-```
-
-Press `D`, reproduce the problem, and choose **Save JSONL Trace**. The Vite
-development server writes the result under `traces/` (ignored by Git). Each
-composition record includes the logical engine tick, ordered active scene
-layers, layer revisions, an exact pixel hash, non-transparent bounds, and pixel
-count. Sprite and GET/PUT operations are separate structured events. Every trace
-starts with a session header containing activation time, application version and
-build, engine state, page URL, timezone, browser-reported platform capabilities,
-viewport, screen dimensions, color depth, and device-pixel ratio.
-
-Headless browser automation can call `window.__DGDS__.saveTrace()` after the
-desired run. JSON Lines is the canonical format because it preserves nested
-layer data; CSV can be derived from it when useful for analysis. The older
-`?trace=1` switch remains supported as a compatibility alias.
+See [Architecture](docs/architecture.md) for engine boundaries and
+[DGDS learnings](LEARNINGS.md) for reverse-engineering conclusions.
 
 ## Acknowledgements
 

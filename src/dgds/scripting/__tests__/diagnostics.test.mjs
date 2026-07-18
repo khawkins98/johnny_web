@@ -4,11 +4,11 @@ import { createDiagnosticsController, parseDiagnostics } from '../diagnostics.mj
 describe('diagnostics modes', () => {
     it.each([
         ['', { mode: 'off', enabled: false, console: false, verbose: false, trace: false }],
-        ['?debug', { mode: 'basic', enabled: true, console: true, verbose: false, trace: false }],
-        ['?debug=verbose', { mode: 'verbose', enabled: true, console: true, verbose: true, trace: false }],
-        ['?debug=trace', { mode: 'trace', enabled: true, console: true, verbose: false, trace: true }],
-        ['?debug=all', { mode: 'all', enabled: true, console: true, verbose: true, trace: true }],
-        ['?trace=1', { mode: 'trace', enabled: true, console: true, verbose: false, trace: true }],
+        ['?debug', { mode: 'on', enabled: true, console: true, verbose: false, trace: true }],
+        ['?debug=trace', { mode: 'on', enabled: true, console: true, verbose: false, trace: true }],
+        ['?debug=verbose', { mode: 'verbose', enabled: true, console: true, verbose: true, trace: true }],
+        ['?debug=all', { mode: 'verbose', enabled: true, console: true, verbose: true, trace: true }],
+        ['?trace=1', { mode: 'on', enabled: true, console: true, verbose: false, trace: true }],
     ])('parses %s', (search, expected) => {
         expect(parseDiagnostics(search)).toMatchObject(expected);
     });
@@ -18,9 +18,9 @@ describe('diagnostics modes', () => {
         const changes = [];
         controller.subscribe((current, previous) => changes.push([previous.mode, current.mode]));
 
-        controller.setMode('trace');
+        controller.setMode('on');
         controller.setMode('off');
 
-        expect(changes).toEqual([['off', 'trace'], ['trace', 'off']]);
+        expect(changes).toEqual([['off', 'on'], ['on', 'off']]);
     });
 });

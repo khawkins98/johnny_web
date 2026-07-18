@@ -147,4 +147,21 @@ describe('TTM drawing opcode surface contract', () => {
             },
         ]);
     });
+
+    it('clears only the scene layer when GET/PUT has no saved region', () => {
+        const surface = createRecordingSurface();
+        const state = {
+            surface,
+            save: [{ canDraw: false }],
+            layerRevision: 0,
+        };
+
+        opcode(0xa600)(state, 0);
+
+        expect(surface.commands).toEqual([{
+            operation: 'clear',
+            rect: { x: 0, y: 0, width: 640, height: 480 },
+        }]);
+        expect(state.layerRevision).toBe(1);
+    });
 });

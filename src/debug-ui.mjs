@@ -77,7 +77,7 @@ export function setupDebugUI() {
     // Toggle on "D" keypress
     window.addEventListener('keydown', (e) => {
         if (e.key === 'd' || e.key === 'D') {
-            if (!diagnostics.enabled) diagnostics.setMode('basic');
+            if (!diagnostics.enabled) diagnostics.setMode('on');
             if (container.style.display === 'none') {
                 container.style.display = 'flex';
                 populateSelect(); // Load actual scenes from engine
@@ -158,12 +158,12 @@ export function setupDebugUI() {
     container.appendChild(sceneRow);
 
     const traceBtn = document.createElement('button');
-    traceBtn.innerText = 'Save JSONL Trace';
+    traceBtn.innerText = 'Download JSONL Trace';
     traceBtn.style.cssText = controlStyle;
     traceBtn.addEventListener('click', async () => {
         try {
             const result = await __DEBUG__.saveTrace();
-            console.log(`DGDS trace saved to ${result.path}`);
+            console.log(`DGDS trace downloaded as ${result.filename}`);
         } catch (error) {
             console.error(error.message);
         }

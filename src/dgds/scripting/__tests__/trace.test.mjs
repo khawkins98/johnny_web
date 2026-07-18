@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { createTraceRecorder, traceEvent } from '../trace.mjs';
+import { describe, expect, it, vi } from 'vitest';
+import { createTraceRecorder, downloadJSONLines, traceEvent, traceFilename } from '../trace.mjs';
 
 describe('structured DGDS tracing', () => {
     it('records deterministic JSON Lines with engine and scene identity', () => {
@@ -51,5 +51,31 @@ describe('structured DGDS tracing', () => {
             'session-stop',
         ]);
         expect(trace.active).toBe(false);
+    });
+
+    it('downloads JSONL with a timestamped filename', () => {
+        const click = vi.fn();
+        const remove = vi.fn();
+        const anchor = { style: {}, click, remove };
+        const documentRef = {
+            createElement: vi.fn(() => anchor),
+            body: { appendChild: vi.fn() },
+        };
+        const urlRef = {
+            createObjectURL: vi.fn(() => 'blob:trace'),
+            revokeObjectURL: vi.fn(),
+        };
+        const filename = traceFilename(new Date('2026-07-18T16:18:06.014Z'));
+
+        expect(downloadJSONLines('{"type":"session-start"}\n', {
+            filename,
+            documentRef,
+            urlRef,
+        })).toEqual({ filename: 'dgds-2026-07-18T16:18:06.014Z.jsonl' });
+        expect(anchor).toMatchObject({ href: 'blob:trace', download: filename });
+        expect(documentRef.body.appendChild).toHaveBeenCalledWith(anchor);
+        expect(click).toHaveBeenCalledOnce();
+        expect(remove).toHaveBeenCalledOnce();
+        expect(urlRef.revokeObjectURL).toHaveBeenCalledWith('blob:trace');
     });
 });

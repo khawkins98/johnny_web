@@ -1,20 +1,22 @@
-const MODES = new Set(['off', 'basic', 'verbose', 'trace', 'all']);
+const MODES = new Set(['off', 'on', 'verbose']);
 
 export const modeState = (mode) => Object.freeze({
     mode,
     enabled: mode !== 'off',
     ui: mode !== 'off',
-    console: mode === 'basic' || mode === 'verbose' || mode === 'trace' || mode === 'all',
-    verbose: mode === 'verbose' || mode === 'all',
-    trace: mode === 'trace' || mode === 'all',
+    console: mode !== 'off',
+    verbose: mode === 'verbose',
+    trace: mode !== 'off',
 });
 
 export const parseDiagnostics = (search = '') => {
     const params = new URLSearchParams(search);
-    if (params.has('trace') && !params.has('debug')) return modeState('trace');
+    if (params.has('trace') && !params.has('debug')) return modeState('on');
     if (!params.has('debug')) return modeState('off');
-    const requested = params.get('debug') || 'basic';
-    return modeState(MODES.has(requested) ? requested : 'basic');
+    const requested = params.get('debug') || 'on';
+    // Preserve old bookmarks while exposing one normal diagnostics setting.
+    if (requested === 'verbose' || requested === 'all') return modeState('verbose');
+    return modeState('on');
 };
 
 export const createDiagnosticsController = (initial = modeState('off')) => {
