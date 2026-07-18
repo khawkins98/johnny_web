@@ -291,12 +291,18 @@ const DRAW_SPRITE3 = (state) => { };
 
 const DRAW_GETPUT = (state, index) => {
     const save = state.save[index];
+    // CLEAR_SCREEN starts a new logical scene frame. Saved DGDS regions may
+    // cover only the background-sensitive portion of that frame (for example,
+    // a gull can fly above its saved island rectangle), so replacing just the
+    // region would retain sprites elsewhere in this scene's transparent layer.
+    state.surface.clear();
     if (save && save.canDraw) {
         state.surface.replaceRegionFrom(save.surface, save);
         state.layerRevision = (state.layerRevision || 0) + 1;
         traceEvent(state, 'getput-draw', {
             slot: index,
             rect: { x: save.x, y: save.y, width: save.width, height: save.height },
+            clearedLayer: true,
             revision: state.layerRevision,
         });
     } else {
@@ -306,7 +312,6 @@ const DRAW_GETPUT = (state, index) => {
         // into a transparent scene layer, so the equivalent operation is to
         // discard that layer's previous frame; the compositor supplies the
         // background and the other active scenes.
-        state.surface.clear();
         state.layerRevision = (state.layerRevision || 0) + 1;
         traceEvent(state, 'getput-clear-layer', {
             slot: index,

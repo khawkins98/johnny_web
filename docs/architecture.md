@@ -138,8 +138,10 @@ while a logical delay elapses.
 
 GET/PUT operations are overwrite operations. The Canvas adapter clears the
 destination region before drawing saved pixels so transparent saved pixels also
-erase prior content. `STORE_AREA` and saved GET/PUT slots are owned by the
-faithful scripting/composition layer, not the browser presenter.
+erase prior content. On a scene layer, `CLEAR_SCREEN` first discards the entire
+previous frame, then restores the saved region; saved rectangles do not always
+cover sprites moving elsewhere on screen. `STORE_AREA` and saved GET/PUT slots
+are owned by the faithful scripting/composition layer, not the browser presenter.
 
 `frame-renderer.mjs` draws the ocean/island background separately. Optional
 cloud/wave behavior uses the injected compatibility profile.

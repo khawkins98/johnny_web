@@ -141,6 +141,10 @@ describe('TTM drawing opcode surface contract', () => {
         });
         expect(surface.commands.slice(1)).toEqual([
             {
+                operation: 'clear',
+                rect: { x: 0, y: 0, width: 640, height: 480 },
+            },
+            {
                 operation: 'replaceRegionFrom',
                 source: savedSurface,
                 rect: { x: 10, y: 20, width: 30, height: 40 },

@@ -50,7 +50,9 @@ The working model is:
 `0x4210` saves a GET/PUT region and `0xa600` draws it back by overwrite. A
 source-over Canvas draw is insufficient because transparent saved pixels must
 replace destination pixels. Clear the destination rectangle before the saved
-blit.
+blit. In the isolated-layer adapter, `0xa600` also begins a fresh scene frame:
+clear the whole prior layer before restoring the saved rectangle. Some sprites
+move outside that rectangle and would otherwise leave trails.
 
 `0x4200` stores an area for later frames. `0x4000` clip arguments are inclusive
 maximum coordinates, so Canvas width/height require `+1`.
