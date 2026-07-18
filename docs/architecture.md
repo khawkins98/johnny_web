@@ -43,6 +43,7 @@ with logical frame/audio operations is the next machine-extraction step. See
 | `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
+| `src/games/johnny/manifest.mjs` | Johnny version identity, entry points, and audio sample catalogue |
 | `src/dgds/scripting/process.mjs` | Browser host composition and legacy active-session/debug façade |
 | `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
@@ -63,11 +64,12 @@ with logical frame/audio operations is the next machine-extraction step. See
 ## Startup
 
 1. Fetch `RESOURCE.MAP` and `RESOURCE.001`.
-2. Parse the resource index and draw `INTRO.SCR`.
+2. Use the Johnny game manifest to select the resource archive and draw its
+   configured intro screen.
 3. Wait for a click; construct `AudioContext` synchronously inside that user
    gesture to satisfy browser autoplay rules.
-4. Load `ACTIVITY.ADS` and call `startProcess()`, which constructs a fresh
-   `DgdsRuntime` and connects it to a browser scheduler.
+4. Load the manifest's activity ADS and call `startProcess()`, which constructs
+   a fresh `DgdsRuntime` and connects it to a browser scheduler.
 5. When the ADS program completes, start a fresh cycle.
 
 The game data is not committed. `pnpm run extract -- <zip>` populates
@@ -171,7 +173,7 @@ cloud/wave behavior uses the injected compatibility profile.
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
 | Optional wall time | compatibility profile |
-| Audio | Web Audio manager created after a user gesture |
+| Audio | game sample catalogue → Web Audio manager created after a user gesture |
 | Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
 | Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
 
@@ -205,9 +207,11 @@ automation may read it directly or use the Vite-only persistence endpoint.
   controls. Unknown ADS control opcodes are retained but not interpreted.
 - The browser application intentionally exposes one active runtime through a
   legacy developer-UI façade, but engine state itself is instance-owned.
-- Audio sample offsets are hardcoded for the supported Johnny Castaway data.
+- The Johnny game package currently identifies its supported version by label;
+  automatic resource fingerprint verification has not been added yet.
 - The browser background renderer is still separate from the logical TTM
-  composition, so some original buffer-copy behavior may require more work.
+  composition and still contains Johnny-specific asset names/layout, so some
+  original buffer-copy behavior and the game-package boundary require more work.
 - `DgdsRuntime` still invokes injected drawing and audio presenters. It is a
   transitional extraction, not yet the deterministic, operation-emitting
   `DgdsMachine` described by ADR 0001.

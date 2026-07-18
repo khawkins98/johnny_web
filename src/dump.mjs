@@ -14,24 +14,25 @@ import {
 } from './dgds/utils/dump.mjs';
 
 import { loadResources } from './dgds/resource.mjs'
+import { johnnyCastaway } from './games/johnny/manifest.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const dataPath = path.join(root, 'public', 'data');
 const dumpPath = path.join(root, 'dumps');
 
-const fc = fs.readFileSync(path.join(dataPath, 'RESOURCE.MAP'));
+const fc = fs.readFileSync(path.join(dataPath, johnnyCastaway.resources.map));
 const buffer = fc.buffer.slice(fc.byteOffset, fc.byteOffset + fc.byteLength);
 
-const resfc = fs.readFileSync(path.join(dataPath, 'RESOURCE.001'));
+const resfc = fs.readFileSync(path.join(dataPath, johnnyCastaway.resources.archive));
 const resbuffer = resfc.buffer.slice(resfc.byteOffset, resfc.byteOffset + resfc.byteLength);
 
-const scrfc = fs.readFileSync(path.join(dataPath, 'SCRANTIC.SCR'));
+const scrfc = fs.readFileSync(path.join(dataPath, johnnyCastaway.audio.archive));
 const scrbuffer = scrfc.buffer.slice(scrfc.byteOffset, scrfc.byteOffset + scrfc.byteLength);
 
 const resindex = loadResources(buffer, resbuffer);
 
 // Export Wave files
-dumpSamples(dumpPath, scrbuffer);
+dumpSamples(dumpPath, scrbuffer, johnnyCastaway.audio.sampleOffsets);
 
 // Export Resource Index in JSON file
 dumpResourceIndex(dumpPath, resindex);

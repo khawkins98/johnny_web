@@ -1,31 +1,11 @@
 /**
  * Web Audio API manager for DGDS game audio.
  *
- * Audio samples are embedded in SCRANTIC.SCR as raw PCM/audio blocks. sampleOffsets[] maps
- * sample index (as used by PLAY_SAMPLE opcodes) to byte offsets in that file. Each entry is
- * a 4-byte header + size field followed by raw audio data.
- *
- * NOTE: sampleOffsets are hardcoded for Johnny Castaway v1.01 (Int. 1.4.93). A different
- * version of the game data would require recalibrating these offsets.
- *
- * NOTE: sampleOffsets[0] and sampleOffsets[11] are -1, meaning those indices have no sample.
- * NOTE: The full SCRANTIC.SCR file (~295 KB) is fetched from the network for every cache miss.
- * Only the relevant slice is decoded. A range-request approach would reduce bandwidth.
+ * A game package supplies the sample archive name and the mapping from DGDS
+ * sample index to byte offset. Each embedded entry is a four-byte header plus a
+ * size field followed by raw audio data.
  */
-const samplesSourceCache = [];
-
-export const sampleOffsets = [
-    -1,
-    0x1DC00, 0x20800, 0x20E00,
-    0x22C00, 0x24000, 0x24C00,
-    0x28A00, 0x2C600, 0x2D000,
-    0x2DE00,
-    -1, 0x34400, 0x32E00,
-    0x39C00, 0x43400, 0x37200,
-    0x37E00, 0x45A00, 0x3AE00,
-    0x3E600, 0x3F400, 0x41200,
-    0x42600, 0x42C00, 0x43400
-];
+const samplesSourceCache = new Map();
 
 const createAudioContext = () => {
     window.AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -33,6 +13,7 @@ const createAudioContext = () => {
 };
 
 const getSoundFxSource = (config, context, output) => {
+    const { archive, sampleOffsets } = config.sampleCatalog;
     const source = {
         volume: config.soundFxVolume,
         isPlaying: false,
@@ -75,12 +56,13 @@ const getSoundFxSource = (config, context, output) => {
             source.isPlaying = false;
         };
 
-        if (samplesSourceCache[index]) {
-            source.bufferSource.buffer = samplesSourceCache[index];
+        const cacheKey = `${archive}:${index}`;
+        if (samplesSourceCache.has(cacheKey)) {
+            source.bufferSource.buffer = samplesSourceCache.get(cacheKey);
             source.connect();
             callback.call();
         } else {
-            fetch(`${import.meta.env.BASE_URL}data/SCRANTIC.SCR`).then((response) => response.arrayBuffer()).then((fileBuffer) => {
+            fetch(`${import.meta.env.BASE_URL}data/${archive}`).then((response) => response.arrayBuffer()).then((fileBuffer) => {
                 const data = new DataView(fileBuffer);
                 const size = data.getInt32(sampleOffsets[index] + 4, true) + 8;
                 const buffer = data.buffer.slice(sampleOffsets[index], sampleOffsets[index] + size);
@@ -88,10 +70,10 @@ const getSoundFxSource = (config, context, output) => {
                 context.decodeAudioData(
                     buffer,
                     (decodeBuffer) => {
-                        if (!samplesSourceCache[index]) {
+                        if (!samplesSourceCache.has(cacheKey)) {
                             if (!source.bufferSource.buffer) {
                                 source.bufferSource.buffer = decodeBuffer;
-                                samplesSourceCache[index] = decodeBuffer;
+                                samplesSourceCache.set(cacheKey, decodeBuffer);
                                 source.connect();
                                 callback.call();
                             }
@@ -116,6 +98,9 @@ const getSoundFxSource = (config, context, output) => {
 };
 
 export const createAudioManager = (config) => {
+    if (!config?.sampleCatalog?.archive || !Array.isArray(config.sampleCatalog.sampleOffsets)) {
+        throw new TypeError('Audio manager requires a game sampleCatalog');
+    }
     const context = config.context || createAudioContext();
     const masterGain = context.createGain();
     masterGain.connect(context.destination);

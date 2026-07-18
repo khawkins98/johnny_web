@@ -419,6 +419,26 @@ describe('PLAY_SAMPLE tracing', () => {
         }));
         expect(state).toMatchObject({ continue: true, delay: 120 });
     });
+
+    it('treats a missing host audio adapter as non-blocking', () => {
+        const record = vi.fn();
+        const state = {
+            tick: 10,
+            sceneIdx: 5,
+            tagId: 19,
+            continue: true,
+            delay: 7,
+            trace: { record },
+            audioManager: null,
+        };
+
+        expect(() => playSample.callback(state, 6)).not.toThrow();
+        expect(record).toHaveBeenLastCalledWith('audio-sample', expect.objectContaining({
+            action: 'unavailable',
+            sample: 6,
+        }));
+        expect(state).toMatchObject({ continue: true, delay: 7 });
+    });
 });
 
 // ---------------------------------------------------------------------------

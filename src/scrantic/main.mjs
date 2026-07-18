@@ -5,6 +5,7 @@ import { startProcess } from '../dgds/scripting/process.mjs';
 import { setupDebugUI } from '../debug-ui.mjs';
 import { setupEnhancedUI } from '../enhanced-ui.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings-ui.mjs';
+import { johnnyCastaway } from '../games/johnny/manifest.mjs';
 
 export const run = async () => {
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
@@ -16,11 +17,11 @@ export const run = async () => {
     let resMapResp, resFileResp;
     try {
         [resMapResp, resFileResp] = await Promise.all([
-            fetch(`${base}data/RESOURCE.MAP`),
-            fetch(`${base}data/RESOURCE.001`),
+            fetch(`${base}data/${johnnyCastaway.resources.map}`),
+            fetch(`${base}data/${johnnyCastaway.resources.archive}`),
         ]);
     } catch {
-        showDataError(['RESOURCE.MAP', 'RESOURCE.001']);
+        showDataError([johnnyCastaway.resources.map, johnnyCastaway.resources.archive]);
         return;
     }
 
@@ -28,8 +29,8 @@ export const run = async () => {
     // files that don't exist, so content-type is a more reliable signal than ok.
     const isMissing = r => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
     const missing = [
-        isMissing(resMapResp) && 'RESOURCE.MAP',
-        isMissing(resFileResp) && 'RESOURCE.001',
+        isMissing(resMapResp) && johnnyCastaway.resources.map,
+        isMissing(resFileResp) && johnnyCastaway.resources.archive,
     ].filter(Boolean);
 
     if (missing.length) {
@@ -44,12 +45,15 @@ export const run = async () => {
             await resFileResp.arrayBuffer(),
         );
     } catch (err) {
-        showDataError(['RESOURCE.MAP', 'RESOURCE.001'], `Could not parse game data: ${err.message}`);
+        showDataError(
+            [johnnyCastaway.resources.map, johnnyCastaway.resources.archive],
+            `Could not parse game data: ${err.message}`,
+        );
         return;
     }
 
-    const resource = res.getResource('RESOURCE.001');
-    const introRes = resource.loadEntry('INTRO.SCR');
+    const resource = res.getResource(johnnyCastaway.resources.archive);
+    const introRes = resource.loadEntry(johnnyCastaway.resources.intro);
     drawScreen(introRes, mainContext);
 
     let audioManager = null;
@@ -64,7 +68,7 @@ export const run = async () => {
     if (start.experience === 'enhanced') setupEnhancedUI();
 
     const context = document.getElementById('canvas').getContext('2d');
-    const data = resource.loadEntry('ACTIVITY.ADS');
+    const data = resource.loadEntry(johnnyCastaway.resources.activity);
 
     while (true) {
         context.clearRect(0, 0, 640, 480);
@@ -111,6 +115,7 @@ function waitForStart(settings) {
                 audioManager: createAudioManager({
                     soundFxVolume: 0.50,
                     enabled: localStorage.getItem(SOUND_SETTING_KEY) !== 'off',
+                    sampleCatalog: johnnyCastaway.audio,
                 }),
             });
         };
@@ -124,7 +129,11 @@ function showDataError(missing, detail) {
     const list = document.getElementById('data-error-files');
     if (!overlay || !list) return;
 
-    const allFiles = ['RESOURCE.MAP', 'RESOURCE.001', 'SCRANTIC.SCR'];
+    const allFiles = [
+        johnnyCastaway.resources.map,
+        johnnyCastaway.resources.archive,
+        johnnyCastaway.audio.archive,
+    ];
     list.innerHTML = allFiles
         .map(f => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`)
         .join('');

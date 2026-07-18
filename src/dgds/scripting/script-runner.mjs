@@ -314,7 +314,14 @@ const PLAY_SAMPLE = (state, index) => {
     if (state.audioManager?.context?.state === 'suspended') {
         state.audioManager.context.resume();
     }
-    const sampleSource = state.audioManager.getSoundFxSource();
+    const sampleSource = state.audioManager?.getSoundFxSource?.();
+    if (!sampleSource) {
+        traceEvent(state, 'audio-sample', {
+            action: 'unavailable',
+            sample: index,
+        });
+        return;
+    }
     sampleSource.load(index, () => {
         traceEvent(state, 'audio-sample', {
             action: 'started',

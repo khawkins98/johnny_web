@@ -4,9 +4,8 @@ import os from 'os';
 
 import { loadResources, loadResourceEntry } from '../resource.mjs';
 import { TTMCommandType, ADSCommandType } from '../data/scripting.mjs';
-import { sampleOffsets } from '../audio.mjs';
 
-export const dumpSamples = (filepath, scrbuffer) => {
+export const dumpSamples = (filepath, scrbuffer, sampleOffsets) => {
     let dumppath = path.join(filepath, 'dump');
     if (!fs.existsSync(dumppath)) {
         fs.mkdirSync(dumppath);

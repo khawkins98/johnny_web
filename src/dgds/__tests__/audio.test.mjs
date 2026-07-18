@@ -24,6 +24,10 @@ describe('audio manager', () => {
             context,
             soundFxVolume: 0.5,
             enabled: false,
+            sampleCatalog: {
+                archive: 'TEST.SCR',
+                sampleOffsets: [-1],
+            },
         });
 
         expect(masterGain.connect).toHaveBeenCalledWith(context.destination);
@@ -35,5 +39,9 @@ describe('audio manager', () => {
         expect(manager.enabled).toBe(true);
 
         expect(() => manager.getSoundFxSource().load(999, vi.fn())).not.toThrow();
+    });
+
+    it('requires title-specific sample metadata to be injected', () => {
+        expect(() => createAudioManager({ context: {} })).toThrow('sampleCatalog');
     });
 });

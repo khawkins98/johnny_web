@@ -5,7 +5,6 @@
  * services, owns the one active page session, and preserves the legacy
  * startProcess/__DEBUG__ API while callers migrate to explicit instances.
  */
-import { createAudioManager } from '../audio.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
 import { createTraceRecorder } from './trace.mjs';
@@ -71,8 +70,7 @@ export const startProcess = (initialState) => {
         || compatibility.timing
         || createTimingCompatibility();
     const surfaceFactory = initialState.surfaceFactory || createCanvasSurfaceElement;
-    const audioManager = initialState.audioManager
-        || createAudioManager({ soundFxVolume: 0.50 });
+    const audioManager = initialState.audioManager ?? null;
 
     const runtime = new DgdsRuntime({
         ...initialState,
