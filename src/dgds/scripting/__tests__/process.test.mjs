@@ -10,6 +10,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CommandType, TTMDispatch, ADSDispatch, runScript } from '../process.mjs';
+import { ExecutionStatus, executionOutcome } from '../execution-outcome.mjs';
 
 // ---------------------------------------------------------------------------
 // CommandType dispatch table
@@ -123,12 +124,12 @@ describe('GOTO handler', () => {
         expect(mockState.continue).toBe(false);
     });
 
-    it('increments runs so lifecycle transitions to running after first loop', () => {
+    it('leaves loop accounting to the interpreter outcome', () => {
         const gotoEntry = CommandType.find(e => e.opcode === 0x1200);
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 99);
-        expect(mockState.runs).toBe(1);
-        expect(mockState.looping).toBe(true);
+        expect(mockState.runs).toBe(0);
+        expect(mockState.gotoRestart).toBe(true);
     });
 
     it('runScript: clears gotoRestart and resets reentry to 0 at the top of the next call', () => {
@@ -178,10 +179,11 @@ describe('GOTO handler', () => {
             { opcode: 0x0110, params: [], line: 'PURGE' },    // 0
             { opcode: 0x1200, params: [7], line: 'GOTO 7' },  // 1 — last cmd
         ];
-        runScript(mockState, script, false);
+        const outcome = runScript(mockState, script, false);
         expect(mockState.played).toBe(false);   // end-of-script suppressed
         expect(mockState.gotoRestart).toBe(true);  // deferred restart flagged
         expect(mockState.runs).toBe(1);         // GOTO incremented runs
+        expect(outcome.status).toBe(ExecutionStatus.LOOPED);
     });
 });
 
@@ -256,15 +258,21 @@ describe('runScript scene transition', () => {
         expect(mockState.runs).toBe(1);
     });
 
-    it('returns true immediately when script is undefined', () => {
+    it('returns a completed outcome immediately when script is undefined', () => {
         const mockState = { reentry: 0, continue: true };
-        expect(runScript(mockState, undefined, false)).toBe(true);
+        expect(runScript(mockState, undefined, false)).toMatchObject({
+            status: ExecutionStatus.COMPLETED,
+            reason: 'no-script',
+        });
     });
 
-    it('returns true immediately when state.reentry is -1', () => {
+    it('returns a completed outcome immediately when state.reentry is -1', () => {
         const mockState = { reentry: -1, continue: true };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        expect(runScript(mockState, script, false)).toBe(true);
+        expect(runScript(mockState, script, false)).toMatchObject({
+            status: ExecutionStatus.COMPLETED,
+            reason: 'no-script',
+        });
     });
 
     it('completed scene (played=true) does not re-run after end-of-script fires', () => {
@@ -848,12 +856,12 @@ describe('PLAY_SCENE canContinue logic', () => {
         expect(state.continue).toBe(false);
     });
 
-    it('unblocks when all scenes have played=true (completed their first loop)', () => {
+    it('unblocks when all scenes have completed outcomes', () => {
         const state = {
             continue: false,
             scenes: [
-                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { played: true } },
-                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: { played: true } },
+                { sceneIdx: 1, tagId: 1, lifecycle: 'completed', state: { played: true } },
+                { sceneIdx: 1, tagId: 2, lifecycle: 'completed', state: { played: true } },
             ],
             removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
         };
@@ -868,7 +876,8 @@ describe('PLAY_SCENE canContinue logic', () => {
                 sceneIdx: 5,
                 tagId: 30,
                 lifecycle: 'running',
-                state: { played: false, looping: true, runs: 1 },
+                state: { played: false, runs: 1 },
+                execution: executionOutcome(ExecutionStatus.LOOPED, { sceneIdx: 5, tagId: 30 }),
             }],
             removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
         };
@@ -887,7 +896,8 @@ describe('PLAY_SCENE canContinue logic', () => {
                 tagId: 3,
                 lifecycle: 'running',
                 retries: 2,
-                state: { played: false, looping: false, runs: 1 },
+                state: { played: false, runs: 1 },
+                execution: executionOutcome(ExecutionStatus.YIELDED, { sceneIdx: 5, tagId: 3 }),
             }],
             removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
         };

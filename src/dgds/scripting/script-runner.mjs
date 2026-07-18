@@ -11,6 +11,8 @@ import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState, initialState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
+import { ExecutionStatus, executionOutcome, unblocksPlayScene } from './execution-outcome.mjs';
+import { beginSceneFrame } from './scene-frame.mjs';
 import {
     clearContext,
     drawContext,
@@ -140,9 +142,7 @@ const GOTO = (state, tagId) => {
         }
     }
     state.gotoRestart = true;
-    state.looping = true;
     state.continue = false;  // pause execution until next frame (like UPDATE)
-    state.runs++;             // count completed loops so PLAY_SCENE can unblock
 };
 
 const SET_COLORS = (state, fc, bc) => {
@@ -291,34 +291,7 @@ const DRAW_SPRITE1 = (state) => { };
 const DRAW_SPRITE3 = (state) => { };
 
 const DRAW_GETPUT = (state, index) => {
-    const save = state.save[index];
-    // CLEAR_SCREEN starts a new logical scene frame. Saved DGDS regions may
-    // cover only the background-sensitive portion of that frame (for example,
-    // a gull can fly above its saved island rectangle), so replacing just the
-    // region would retain sprites elsewhere in this scene's transparent layer.
-    state.surface.clear();
-    if (save && save.canDraw) {
-        state.surface.replaceRegionFrom(save.surface, save);
-        state.layerRevision = (state.layerRevision || 0) + 1;
-        traceEvent(state, 'getput-draw', {
-            slot: index,
-            rect: { x: save.x, y: save.y, width: save.width, height: save.height },
-            clearedLayer: true,
-            revision: state.layerRevision,
-        });
-    } else {
-        // TTM names this opcode CLEAR_SCREEN even when the selected GET/PUT
-        // slot has never been populated. On the original shared framebuffer
-        // that exposed the background beneath the animation. A TTM now draws
-        // into a transparent scene layer, so the equivalent operation is to
-        // discard that layer's previous frame; the compositor supplies the
-        // background and the other active scenes.
-        state.layerRevision = (state.layerRevision || 0) + 1;
-        traceEvent(state, 'getput-clear-layer', {
-            slot: index,
-            revision: state.layerRevision,
-        });
-    }
+    beginSceneFrame(state, index);
 };
 
 const DRAW_SCREEN = (state) => { };
@@ -575,7 +548,7 @@ const PLAY_SCENE = (state) => {
                 if (scene !== undefined) {
                     if (state.scenes.length === 0) {
                         // Synchronously run the prologue so siblings can clone its loaded assets
-                        runScript(scene.state, scene.script || scene.state.script);
+                        scene.execution = runScript(scene.state, scene.script || scene.state.script);
                     }
                     sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.push(scene);
@@ -585,13 +558,7 @@ const PLAY_SCENE = (state) => {
         }
     }
 
-    // Finite scenes (including requested retries) block until completion.
-    // Intentional GOTO loops never become `played`; they unblock after their
-    // first full loop and remain active until ADS explicitly stops them.
-    const waiting = state.scenes.filter(s => {
-        const loopReady = s.state.looping && s.state.runs > 0;
-        return !s.state.played && s.lifecycle !== 'completed' && !loopReady;
-    });
+    const waiting = state.scenes.filter(scene => !unblocksPlayScene(scene));
     state.continue = waiting.length === 0;
     
     if (diagnostics.console && waiting.length > 0) {
@@ -757,7 +724,7 @@ export const runScript = (state, script, main = false) => {
     // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
     // TTM child scenes use their own state objects (each has its own reentry).
     if (script === undefined || state.reentry === -1) {
-        return true;
+        return executionOutcome(ExecutionStatus.COMPLETED, state, { reason: 'no-script' });
     }
     // GOTO sets gotoRestart=true to request a restart from index 0 on the NEXT call.
     // This cannot be done inside the GOTO callback itself because the for-loop below
@@ -810,8 +777,14 @@ export const runScript = (state, script, main = false) => {
             if (state.sceneIdx !== undefined) {
                 sceneLog(state, 'TTM_DONE', sceneLabel(state.scenesRes, state.sceneIdx, state.tagId));
             }
-            return true;
         }
+        return executionOutcome(ExecutionStatus.COMPLETED, state, { reason: 'end-of-script' });
     }
-    return false;
+    if (state.gotoRestart) {
+        state.runs++;
+        return executionOutcome(ExecutionStatus.LOOPED, state, { reason: 'goto' });
+    }
+    return executionOutcome(ExecutionStatus.YIELDED, state, {
+        reason: state.continue ? 'advanced' : 'blocked',
+    });
 };

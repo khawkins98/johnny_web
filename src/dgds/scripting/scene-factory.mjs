@@ -21,6 +21,7 @@
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
  */
+import { pendingExecution } from './execution-outcome.mjs';
 
 /**
  * Default runtime fields reset for every new scene execution.
@@ -39,7 +40,6 @@ export const initialState = {
     delay: 0,
     waitTicks: 0,
     gotoRestart: false,
-    looping: false,
     clip: { x: 0, y: 0, width: 640, height: 480 },
 };
 
@@ -208,5 +208,6 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         if (environment.ready) prepareTtmScene(s);
     }
     s.environment = environment;
+    s.execution = pendingExecution(s.state);
     return s;
 };

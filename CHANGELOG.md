@@ -18,6 +18,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 - `npm run dump` script for inspecting extracted game assets
 
 ### Changed
+- TTM interpretation now reports structured execution outcomes to the ADS
+  scheduler, and logical frame reset/restore behavior has its own engine boundary
 - TTM scenes now render to retained scene layers; the foreground composition is
   rebuilt every logical frame in ADS painter order
 - Browser settings, wall time, randomness, drawing, and diagnostics are explicit

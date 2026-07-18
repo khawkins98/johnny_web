@@ -31,6 +31,7 @@ export const composeTtmFrame = (state) => {
                 sceneIdx: scene.sceneIdx,
                 tagId: scene.tagId,
                 lifecycle: scene.lifecycle,
+                execution: scene.execution?.status || null,
                 revision: scene.state?.layerRevision || 0,
             })),
             ...(state.trace.pixelHashes ? { pixels: state.surface.fingerprint?.() ?? null } : {}),

@@ -24,6 +24,7 @@ import { composeTtmFrame } from './composition.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
+import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import {
     debugLog,
     clearContext,
@@ -48,6 +49,7 @@ const runtimeSessionInfo = () => ({
             sceneIdx: scene.sceneIdx,
             tagId: scene.tagId,
             lifecycle: scene.lifecycle,
+            execution: scene.execution?.status || null,
         })),
     } : null,
 });
@@ -124,7 +126,8 @@ const runAdsController = () => {
     
     if (scene !== undefined) {
         const prevScene = state.currentScene;
-        exitFrame = runScript(state, scene.script, true);
+        const execution = runScript(state, scene.script, true);
+        exitFrame = execution.status === ExecutionStatus.COMPLETED;
         if (state.currentScene !== prevScene) {
             const tagInfo = state.data.scenes[state.currentScene]?.tagId;
             const tagDesc = !tagInfo ? 'done'
@@ -167,12 +170,12 @@ const runTtmController = () => {
         // scenes (no GOTO) reach 'completed'.
         if (s.lifecycle !== 'completed') {
             s.lifecycle = 'running';
-            runScript(s.state, s.state.script || s.script);
+            s.execution = runScript(s.state, s.state.script || s.script);
             if (isEnvironmentOwner && !s.environment.ready &&
                 s.state.reentry >= (s.prologueLength || 0)) {
                 s.environment.ready = true;
             }
-            if (s.state.played) {
+            if (s.execution.status === ExecutionStatus.COMPLETED) {
                 if (s.retries > 0) {
                     s.retries--;
                     s.state.played = false;
@@ -181,6 +184,7 @@ const runTtmController = () => {
                     s.state.delay = 0;
                     s.state.waitTicks = 0;
                     s.state.timer = 0;
+                    s.execution = pendingExecution(s.state, 'retry');
                 } else {
                     s.lifecycle = 'completed';
                 }
@@ -210,7 +214,7 @@ const runScripts = () => {
         if (state.island) {
             drawBackground(state, state.mainContext);
         }
-        return runScript(state, state.data.scripts);
+        return runScript(state, state.data.scripts).status === ExecutionStatus.COMPLETED;
     }
 };
 

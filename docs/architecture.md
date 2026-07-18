@@ -42,7 +42,9 @@ metadata, and trace persistence remain at browser/tooling boundaries.
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
 | `src/dgds/scripting/process.mjs` | Active process, fixed-step loop, ADS/TTM coordination, presentation |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
+| `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
+| `src/dgds/scripting/scene-frame.mjs` | Logical frame reset and GET/PUT restoration |
 | `src/dgds/scripting/composition.mjs` | Rebuilds the foreground composition from stored areas and scene layers |
 | `src/dgds/scripting/surface.mjs` | Logical surface plus Canvas and recording adapters |
 | `src/dgds/scripting/timing.mjs` | Browser timestamp to bounded DGDS tick conversion |
@@ -88,9 +90,10 @@ resource prologue and named sequences.
 ## Logical execution
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs
-until an opcode blocks, normally `UPDATE`, then resumes from that opcode on a
-later logical tick. Completion sets `played`, increments `runs`, and resets the
-counter. `GOTO` requests a restart or switches to another tagged TTM script.
+until an opcode blocks, normally `UPDATE`, then returns a structured `yielded`,
+`looped`, or `completed` outcome. The scheduler consumes that contract instead
+of inferring execution state from interpreter flags. `GOTO` requests a restart
+or switches to another tagged TTM script and produces `looped`.
 
 The root process uses a fixed 60 Hz logical tick. Browser animation timestamps
 feed an accumulator; late frames may execute several ticks, capped at five, and
