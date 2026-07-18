@@ -34,6 +34,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 - GET/PUT restoration now overwrites transparent pixels correctly
 - Unsaved `CLEAR_SCREEN` slots clear their isolated scene layer instead of
   retaining every animation frame
+- Concurrent TTM scenes use private GET/PUT working buffers, preventing one
+  scene's saved region from corrupting another scene's animation
 - TTM resource prologues finish before sibling scenes can draw or contaminate
   saved regions
 - Stopped scenes disappear from the next composition instead of leaving their

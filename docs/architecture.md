@@ -101,13 +101,14 @@ execution.
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
-background assets, palette-related values, and GET/PUT buffers. Environments
-are keyed by ADS resource ID; resources never share these mutable caches.
+background assets, palette-related values, stored areas, and initial GET/PUT
+templates. Environments are keyed by ADS resource ID.
 
 The first requested scene for a resource owns its prologue. Siblings wait until
-that prologue completes, then share the environment's assets. Each scene still
-has fresh execution state and its own transparent logical surface. This prevents
-one scene from being captured into another scene's saved background.
+that setup completes, then share decoded assets. Each scene gets fresh execution
+state, a transparent logical surface, and private working GET/PUT buffers copied
+from the environment template. Concurrent scenes therefore cannot overwrite one
+another's saved regions.
 
 ADS queues scene additions and removals until `PLAY_SCENE`:
 

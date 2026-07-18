@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { canRunTtmScene, createTtmRuntimeState, getSceneState } from '../scene-factory.mjs';
+import {
+    canRunTtmScene,
+    createTtmRuntimeState,
+    getSceneState,
+    prepareTtmScene,
+} from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('TTM runtime state boundary', () => {
@@ -92,6 +97,7 @@ describe('TTM runtime state boundary', () => {
                 { tagId: 0, script: [command(0x0ff0)] },
                 { tagId: tag, script: [command(0xa500)] },
                 { tagId: tag + 1, script: [command(0xa500)] },
+                { tagId: tag + 2, script: [command(0xa500)] },
             ],
         });
         const parent = {
@@ -124,10 +130,30 @@ describe('TTM runtime state boundary', () => {
         expect(sibling.environment).toBe(first.environment);
         expect(canRunTtmScene(first)).toBe(true);
         expect(canRunTtmScene(sibling)).toBe(false);
+        Object.assign(first.state.save[0], {
+            canDraw: true,
+            x: 10,
+            y: 20,
+            width: 30,
+            height: 40,
+        });
         first.environment.ready = true;
         expect(canRunTtmScene(sibling)).toBe(true);
+        prepareTtmScene(sibling);
+        const concurrentSibling = getSceneState(parent, 1, 12, 0, 0);
         expect(sibling.state.res).toBe(first.state.res);
-        expect(sibling.state.save).toBe(first.state.save);
+        expect(sibling.state.save).not.toBe(first.state.save);
+        expect(concurrentSibling.state.save).not.toBe(first.state.save);
+        expect(concurrentSibling.state.save).not.toBe(sibling.state.save);
+        expect(sibling.state.save[0]).toMatchObject({
+            canDraw: true,
+            x: 10,
+            y: 20,
+            width: 30,
+            height: 40,
+        });
+        sibling.state.save[0].x = 99;
+        expect(concurrentSibling.state.save[0].x).not.toBe(99);
         expect(otherResource.environment).not.toBe(first.environment);
         expect(otherResource.state.res).not.toBe(first.state.res);
         expect(otherResource.state.save).not.toBe(first.state.save);

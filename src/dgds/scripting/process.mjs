@@ -19,7 +19,7 @@ import { PALETTE } from '../../scrantic/palette.mjs';
 import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
-import { canRunTtmScene } from './scene-factory.mjs';
+import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { composeTtmFrame } from './composition.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
@@ -160,6 +160,7 @@ const runTtmController = () => {
         if (!canRunTtmScene(s)) {
             return;
         }
+        prepareTtmScene(s);
 
         // Don't re-run scripts that have already completed — they should freeze on their
         // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping

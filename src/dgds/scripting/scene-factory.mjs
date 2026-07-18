@@ -4,13 +4,15 @@
  * Field sharing policy (documented here as the authoritative source):
  *
  *  SHARED within one TTM resource environment (prologue-loaded assets):
- *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg, save,
+ *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg,
  *    foregroundColor, backgroundColor.
  *    The first scene for a resource owns its prologue. Siblings inherit its assets only
  *    after that prologue has finished; a different TTM resource gets a different environment.
  *
  *  FRESH per scene (from initialState):
  *    reentry, played, runs, continue, delay, timer, lastCommand, skip, elapsedTimer.
+ *    GET/PUT save[] slots are copied from the environment once setup completes,
+ *    then remain private working buffers for concurrent scenes.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  HOST SERVICES from the parent ADS state:
@@ -100,6 +102,25 @@ const createSaveSlot = surfaceFactory => ({
     canDraw: false,
 });
 
+const cloneSaveSlots = (slots, surfaceFactory) => (slots || []).map(source => {
+    const copy = createSaveSlot(surfaceFactory);
+    if (!source) return copy;
+    copy.x = source.x;
+    copy.y = source.y;
+    copy.width = source.width;
+    copy.height = source.height;
+    copy.canDraw = source.canDraw;
+    if (source.canDraw) {
+        copy.surface.drawSurface(source.surface, {
+            x: source.x,
+            y: source.y,
+            width: source.width,
+            height: source.height,
+        });
+    }
+    return copy;
+});
+
 /** Allocate the mutable resources owned by a single loaded TTM environment. */
 export const createTtmEnvironmentAssets = (parent) => {
     if (typeof parent.surfaceFactory !== 'function') {
@@ -130,6 +151,16 @@ export const canRunTtmScene = scene => (
     !scene.environment || scene.environment.ready || scene.environment.owner === scene
 );
 
+/** Detach a runnable sibling's mutable GET/PUT buffers from its resource template. */
+export const prepareTtmScene = scene => {
+    if (!scene?.needsPrivateSave || !scene.environment?.ready) return;
+    scene.state.save = cloneSaveSlots(
+        scene.environment.assets.save,
+        scene.environment.surfaceFactory,
+    );
+    scene.needsPrivateSave = false;
+};
+
 /**
  * Build the full state object for a newly spawned TTM scene.
  * See module docblock for the complete field-sharing policy.
@@ -154,18 +185,26 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     state.ttmEnvironments ||= new Map();
     let environment = state.ttmEnvironments.get(sceneIdx);
     if (!environment) {
-        // A TTM environment owns its image slots and GET/PUT buffers. Keeping this
-        // per resource prevents one TTM's prologue from overwriting another's assets.
+        // A TTM environment owns decoded assets and initial GET/PUT templates.
+        // Running siblings receive private working copies after setup completes.
         const assets = createTtmEnvironmentAssets(state);
         const prologueLength = ttm.scenes[0].script.length;
         s.script = [...ttm.scenes[0].script, ...s.script];
         s.prologueLength = prologueLength;
         s.targetStart = prologueLength;
         s.state = createTtmRuntimeState(state, assets, sceneIdx, tagId);
-        environment = { assets: s.state, owner: s, ready: prologueLength === 0 };
+        environment = {
+            assets: s.state,
+            owner: s,
+            ready: prologueLength === 0,
+            surfaceFactory: state.surfaceFactory,
+        };
         state.ttmEnvironments.set(sceneIdx, environment);
     } else {
         s.state = createTtmRuntimeState(state, environment.assets, sceneIdx, tagId);
+        s.needsPrivateSave = true;
+        s.environment = environment;
+        if (environment.ready) prepareTtmScene(s);
     }
     s.environment = environment;
     return s;

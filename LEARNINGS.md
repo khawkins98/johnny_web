@@ -42,7 +42,8 @@ both retained scene state and final composition causes stopped-scene ghosts.
 The working model is:
 
 - one retained surface per TTM scene;
-- one asset/save environment per TTM resource;
+- one decoded-asset and saved-area environment per TTM resource;
+- private working GET/PUT slots per running TTM scene;
 - one freshly rebuilt process composition per logical frame;
 - Canvas only as a surface adapter and presenter.
 
@@ -56,11 +57,12 @@ maximum coordinates, so Canvas width/height require `+1`.
 
 ## Resource environment ownership
 
-Running a sibling sequence before its resource prologue finishes can capture
-that sibling's pixels into the shared GET/PUT background. The first sequence for
-each resource therefore owns the prologue; siblings wait and then share only
-the loaded assets and save buffers. Different resources never share those
-mutable caches.
+Running a sibling sequence before its resource setup finishes can capture that
+sibling's pixels into the initial GET/PUT background. The first sequence for
+each resource therefore owns setup; siblings wait and then share decoded assets.
+Their working GET/PUT slots are copied from the initialized template and remain
+private, because concurrent scripts frequently reuse the same slot number for
+different screen regions.
 
 Execution state and scene surfaces are always fresh per scene. ADS queues,
 played history, fades, and condition state are not copied into TTM state.
