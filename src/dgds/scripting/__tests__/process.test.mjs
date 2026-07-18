@@ -761,12 +761,25 @@ describe('PLAY_SCENE canContinue logic', () => {
         expect(state.continue).toBe(true);
     });
 
-    it('unblocks when all scenes are "running" (no "active" scenes waiting)', () => {
+    it('stays blocked when scenes are "running" but not yet played', () => {
         const state = {
             continue: false,
             scenes: [
-                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: {} },
-                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: {} },
+                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { played: false } },
+                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: { played: false } },
+            ],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+        entry.callback(state);
+        expect(state.continue).toBe(false);
+    });
+
+    it('unblocks when all scenes have played=true (completed their first loop)', () => {
+        const state = {
+            continue: false,
+            scenes: [
+                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { played: true } },
+                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: { played: true } },
             ],
             removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
         };
