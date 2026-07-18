@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeTtmFrame } from '../composition.mjs';
+import { composeTtmFrame, getCompositionRevision } from '../composition.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
@@ -75,5 +75,22 @@ describe('DGDS frame composition', () => {
             { operation: 'drawSurface', source: secondDeclaredLayer, rect: undefined },
         ]);
         expect(state.scenes[0].state.surface).toBe(secondDeclaredLayer);
+    });
+
+    it('changes retained-composition identity only when a layer changes', () => {
+        const state = {
+            ttmEnvironments: new Map(),
+            scenes: [{
+                sceneIdx: 5,
+                tagId: 21,
+                lifecycle: 'running',
+                state: { layerRevision: 3 },
+            }],
+        };
+        const initial = getCompositionRevision(state);
+
+        expect(getCompositionRevision(state)).toBe(initial);
+        state.scenes[0].state.layerRevision++;
+        expect(getCompositionRevision(state)).not.toBe(initial);
     });
 });

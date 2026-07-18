@@ -18,10 +18,10 @@ RESOURCE.MAP + RESOURCE.001
        ADS controller
             │ starts/stops
             ▼
-       TTM sequences ──► per-scene logical surfaces
+       TTM sequences ──► per-scene software surfaces
                               │
                               ▼
-                     DGDS frame compositor
+                    software frame compositor
                               │
                ┌──────────────┴──────────────┐
                ▼                             ▼
@@ -62,7 +62,7 @@ dependency direction.
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
 | `src/dgds/scripting/scene-frame.mjs` | Logical frame reset and GET/PUT restoration |
 | `src/dgds/scripting/composition.mjs` | Rebuilds the foreground composition from stored areas and scene layers |
-| `src/dgds/scripting/surface.mjs` | Logical surface plus Canvas and recording adapters |
+| `src/dgds/scripting/surface.mjs` | Deterministic RGBA software surface plus recording adapter |
 | `src/dgds/scripting/timing.mjs` | Browser timestamp to bounded DGDS tick conversion |
 | `src/dgds/scripting/timing-compatibility.mjs` | Named authored-to-host timing mappings |
 | `src/dgds/scripting/diagnostics.mjs` | Runtime diagnostics mode controller |
@@ -139,10 +139,10 @@ cannot block ADS/TTM scheduling.
 
 Drawing opcodes similarly emit logical frame operations. Primitive drawing,
 sprites, saved regions, GET/PUT frame starts, and script-requested clears do not
-call a retained surface. The current surface presenter consumes each operation
-synchronously so a later opcode in the same script observes the faithful
-GET/PUT result. `DgdsRuntime.tick()` returns the emitted operations for
-conformance tests and future non-Canvas presenters.
+call Canvas. The retained-surface presenter consumes each operation
+synchronously into deterministic RGBA pixels so a later opcode in the same
+script observes the faithful GET/PUT result. `DgdsRuntime.tick()` also returns
+the emitted operations for conformance tests and alternate hosts.
 
 The tick result also contains a presentation directive: clear the foreground,
 update a standalone background, and/or compose active retained layers. The
@@ -188,7 +188,7 @@ ADS condition branches stage scene additions and removals:
 
 The browser page has a background canvas and a foreground presentation canvas.
 TTM opcodes never address either directly. They emit frame operations; the
-retained-surface presenter applies them to per-scene logical surfaces.
+retained-surface presenter applies them to per-scene software surfaces.
 
 For every rendered logical frame, `composeTtmFrame()`:
 
@@ -202,9 +202,9 @@ Removing a scene therefore removes its pixels on the next composition; there is
 no scene-removal clear heuristic. A scene surface retains its current TTM frame
 while a logical delay elapses.
 
-GET/PUT operations are overwrite operations. The Canvas adapter clears the
-destination region before drawing saved pixels so transparent saved pixels also
-erase prior content. On a scene layer, `CLEAR_SCREEN` first discards the entire
+GET/PUT operations are overwrite operations. The software surface copies RGBA
+values directly so transparent saved pixels erase prior content. On a scene
+layer, `CLEAR_SCREEN` first discards the entire
 previous frame, then restores the saved region; saved rectangles do not always
 cover sprites moving elsewhere on screen. `STORE_AREA` and saved GET/PUT slots
 are owned by the faithful scripting/composition layer, not the browser presenter.
@@ -220,7 +220,7 @@ mutating the faithful runtime's selected background.
 |---|---|
 | Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
 | Resource decoding | archive entries → named-resource provider → runtime |
-| Drawing | frame operations → retained surfaces → presentation directive → browser frame presenter |
+| Drawing | frame operations → software retained surfaces → RGBA upload by browser frame presenter |
 | Enhancement settings | browser presentation policy → `localStorage` |
 | Randomness | injected random function |
 | Optional wall time and enhancement animation | browser presentation policy |
@@ -228,8 +228,10 @@ mutating the faithful runtime's selected background.
 | Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
 | Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
 
-Tests use recording surfaces plus deterministic runtime inputs and presentation
-policies without Canvas or wall time.
+Tests use software or recording surfaces plus deterministic runtime inputs and
+presentation policies without Canvas or wall time. `pnpm run test:golden`
+replays four historically fragile Johnny sequences from extracted local data
+and compares logical-operation digests and retained-frame fingerprints.
 
 ## Diagnostics
 
@@ -251,8 +253,8 @@ automation may read it directly or use the Vite-only persistence endpoint.
 
 ## Current limitations
 
-- The production drawing adapter is RGBA Canvas, not a faithful indexed-color
-  framebuffer; palette transitions remain approximate.
+- The production framebuffer is deterministic RGBA rather than indexed color;
+  palette transitions remain approximate.
 - Several parsed TTM/ADS opcodes are still no-ops, including TTM fades,
   `SAVE_BACKGROUND`, `SAVE_REGION`, `DRAW_SCREEN`, and some sound/palette
   controls. Unknown ADS control opcodes are retained but not interpreted.
@@ -262,10 +264,10 @@ automation may read it directly or use the Vite-only persistence endpoint.
   automatic resource fingerprint verification has not been added yet.
 - The browser background renderer is still separate from logical TTM
   composition, so some original buffer-copy behavior may require more work.
-- Opcode drawing and audio are logical operations, and final Canvas presentation
-  is host-owned. Retained composition and game background state remain mutable
-  runtime structures; making that state deterministic and snapshot-friendly is
-  the primary remaining step toward the `DgdsMachine` described by ADR 0001.
+- Opcode drawing and audio are logical operations, software composition is
+  deterministic, and final Canvas upload is host-owned. Game background state
+  remains a mutable runtime structure and should become snapshot-friendly before
+  the `DgdsMachine` API described by ADR 0001 is stabilized.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

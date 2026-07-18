@@ -49,3 +49,24 @@ export const composeTtmFrame = (state) => {
         });
     }
 };
+
+/** Stable retained-layer identity used by hosts to avoid redundant raster work. */
+export const getCompositionRevision = state => JSON.stringify({
+    stored: [...(state.ttmEnvironments?.values?.() || [])].map(environment => {
+        const saved = environment.assets?.saveBkg?.[0];
+        return [saved?.canDraw === true, saved?.revision || 0];
+    }),
+    scenes: [...(state.scenes || [])]
+        .sort((left, right) => {
+            const leftOrder = left.paintOrder || {};
+            const rightOrder = right.paintOrder || {};
+            return (leftOrder.resource ?? 0) - (rightOrder.resource ?? 0)
+                || (leftOrder.sequence ?? 0) - (rightOrder.sequence ?? 0);
+        })
+        .map(scene => [
+            scene.sceneIdx,
+            scene.tagId,
+            scene.lifecycle,
+            scene.state?.layerRevision || 0,
+        ]),
+});

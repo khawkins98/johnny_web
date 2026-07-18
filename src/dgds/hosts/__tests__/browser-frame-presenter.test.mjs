@@ -4,6 +4,12 @@ import { createBrowserFramePresenter } from '../browser-frame-presenter.mjs';
 const createContext = () => ({
     clearRect: vi.fn(),
     drawImage: vi.fn(),
+    createImageData: vi.fn((width, height) => ({
+        width,
+        height,
+        data: new Uint8ClampedArray(width * height * 4),
+    })),
+    putImageData: vi.fn(),
     fillRect: vi.fn(),
     fillStyle: '',
 });
@@ -17,7 +23,12 @@ const presentationPolicy = {
 const createState = () => ({
     scenes: [],
     ttmEnvironments: new Map(),
-    surface: { clear: vi.fn(), canvas: { name: 'composition' } },
+    surface: {
+        clear: vi.fn(),
+        width: 2,
+        height: 1,
+        pixels: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 0, 0]),
+    },
     island: 0,
     fadingOut: false,
     fadingIn: false,
@@ -41,7 +52,12 @@ describe('browser frame presenter', () => {
         expect(context.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(mainContext.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(state.surface.clear).toHaveBeenCalledOnce();
-        expect(context.drawImage).toHaveBeenCalledWith(state.surface.canvas, 0, 0);
+        expect(context.createImageData).toHaveBeenCalledWith(2, 1);
+        expect(context.putImageData).toHaveBeenCalledWith(
+            expect.objectContaining({ data: state.surface.pixels }),
+            0,
+            0,
+        );
     });
 
     it('does not compose when the runtime directive only clears', () => {
@@ -59,6 +75,25 @@ describe('browser frame presenter', () => {
         expect(context.clearRect).toHaveBeenCalledOnce();
         expect(state.surface.clear).not.toHaveBeenCalled();
         expect(mainContext.clearRect).not.toHaveBeenCalled();
+    });
+
+    it('reuses an unchanged retained composition', () => {
+        const context = createContext();
+        const mainContext = createContext();
+        const presenter = createBrowserFramePresenter({ context, mainContext, presentationPolicy });
+        const state = createState();
+        const directive = {
+            clearForeground: true,
+            backgroundOnly: false,
+            compose: true,
+        };
+
+        presenter.present(state, directive);
+        presenter.present(state, directive);
+
+        expect(state.surface.clear).toHaveBeenCalledOnce();
+        expect(context.putImageData).toHaveBeenCalledOnce();
+        expect(mainContext.clearRect).toHaveBeenCalledTimes(2);
     });
 
     it('owns fade rendering and fade-in progression', () => {

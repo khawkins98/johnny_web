@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { TTMDispatch } from '../script-runner.mjs';
-import { createCanvasSurface, createCanvasSurfaceElement, createRecordingSurface } from '../surface.mjs';
+import { createRecordingSurface, createSoftwareSurface } from '../surface.mjs';
 import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
 const opcode = value => TTMDispatch.find(entry => entry.opcode === value).callback;
@@ -10,84 +10,63 @@ const withPresenter = state => ({
     ...state,
 });
 
-const createMockContext = () => ({
-    canvas: {},
-    clearRect: vi.fn(),
-    save: vi.fn(),
-    restore: vi.fn(),
-    beginPath: vi.fn(),
-    rect: vi.fn(),
-    clip: vi.fn(),
-    translate: vi.fn(),
-    scale: vi.fn(),
-    drawImage: vi.fn(),
-    moveTo: vi.fn(),
-    lineTo: vi.fn(),
-    stroke: vi.fn(),
-    fillRect: vi.fn(),
-    arc: vi.fn(),
-    fill: vi.fn(),
-});
+const pixel = (surface, x, y) => Array.from(surface.pixels.slice(
+    ((y * surface.width) + x) * 4,
+    (((y * surface.width) + x) * 4) + 4,
+));
 
-describe('Canvas DGDS surface adapter', () => {
-    it('owns browser canvas construction at the adapter boundary', () => {
-        const context = createMockContext();
-        const canvas = { width: 0, height: 0, getContext: vi.fn(() => context) };
-        context.canvas = canvas;
-        const documentRef = { createElement: vi.fn(() => canvas) };
+describe('software DGDS surface', () => {
+    it('rasterizes clipped sprites and horizontal flips deterministically', () => {
+        const image = {
+            width: 3,
+            height: 1,
+            pixels: [
+                { r: 255, g: 0, b: 0, a: 255 },
+                { r: 0, g: 255, b: 0, a: 255 },
+                { r: 0, g: 0, b: 255, a: 255 },
+            ],
+        };
+        const normal = createSoftwareSurface({ width: 5, height: 2 });
+        const flipped = createSoftwareSurface({ width: 5, height: 2 });
 
-        const surface = createCanvasSurfaceElement({ documentRef });
+        normal.drawSprite(image, 1, 0, { clip: { x: 2, y: 0, width: 2, height: 1 } });
+        flipped.drawSprite(image, 1, 0, { flipX: true });
 
-        expect(documentRef.createElement).toHaveBeenCalledWith('canvas');
-        expect(canvas).toMatchObject({ width: 640, height: 480 });
-        expect(surface.canvas).toBe(context.canvas);
-    });
-
-    it('applies clipping and destination coordinates for a sprite', () => {
-        const context = createMockContext();
-        const surface = createCanvasSurface(context);
-        const spriteCanvas = {};
-        const image = { width: 10, height: 20, _canvas: spriteCanvas };
-        const clip = { x: 1, y: 2, width: 30, height: 40 };
-
-        surface.drawSprite(image, 50, 60, { clip });
-
-        expect(context.rect).toHaveBeenCalledWith(1, 2, 30, 40);
-        expect(context.drawImage).toHaveBeenCalledWith(spriteCanvas, 0, 0, 10, 20, 50, 60, 10, 20);
-        expect(context.restore).toHaveBeenCalledOnce();
-    });
-
-    it('contains horizontal-flip transforms inside save/restore', () => {
-        const context = createMockContext();
-        const surface = createCanvasSurface(context);
-        const spriteCanvas = {};
-        const image = { width: 10, height: 20, _canvas: spriteCanvas };
-
-        surface.drawSprite(image, 50, 60, { flipX: true });
-
-        expect(context.translate).toHaveBeenCalledWith(60, 60);
-        expect(context.scale).toHaveBeenCalledWith(-1, 1);
-        expect(context.drawImage).toHaveBeenCalledWith(spriteCanvas, 0, 0, 10, 20);
-        expect(context.save).toHaveBeenCalledOnce();
-        expect(context.restore).toHaveBeenCalledOnce();
+        expect(pixel(normal, 1, 0)).toEqual([0, 0, 0, 0]);
+        expect(pixel(normal, 2, 0)).toEqual([0, 255, 0, 255]);
+        expect(pixel(normal, 3, 0)).toEqual([0, 0, 255, 255]);
+        expect(pixel(flipped, 1, 0)).toEqual([0, 0, 255, 255]);
+        expect(pixel(flipped, 3, 0)).toEqual([255, 0, 0, 255]);
     });
 
     it('overwrites a GET/PUT region, including transparent saved pixels', () => {
-        const context = createMockContext();
-        const surface = createCanvasSurface(context);
-        const sourceCanvas = {};
-        const source = { canvas: sourceCanvas };
+        const destination = createSoftwareSurface({ width: 4, height: 2 });
+        const source = createSoftwareSurface({ width: 4, height: 2 });
+        destination.fillRect(0, 0, 4, 2, { r: 255, g: 0, b: 0, a: 255 });
+        source.fillRect(2, 0, 1, 1, { r: 0, g: 0, b: 255, a: 255 });
 
-        surface.replaceRegionFrom(source, { x: 10, y: 20, width: 30, height: 40 });
+        destination.replaceRegionFrom(source, { x: 1, y: 0, width: 2, height: 1 });
 
-        expect(context.clearRect).toHaveBeenCalledWith(10, 20, 30, 40);
-        expect(context.drawImage).toHaveBeenCalledWith(
-            sourceCanvas,
-            10, 20, 30, 40,
-            10, 20, 30, 40,
-        );
-        expect(context.clearRect.mock.invocationCallOrder[0])
-            .toBeLessThan(context.drawImage.mock.invocationCallOrder[0]);
+        expect(pixel(destination, 0, 0)).toEqual([255, 0, 0, 255]);
+        expect(pixel(destination, 1, 0)).toEqual([0, 0, 0, 0]);
+        expect(pixel(destination, 2, 0)).toEqual([0, 0, 255, 255]);
+    });
+
+    it('composes transparent layers without erasing lower pixels', () => {
+        const destination = createSoftwareSurface({ width: 3, height: 1 });
+        const source = createSoftwareSurface({ width: 3, height: 1 });
+        destination.fillRect(0, 0, 3, 1, { r: 255, g: 0, b: 0, a: 255 });
+        source.fillRect(1, 0, 1, 1, { r: 0, g: 255, b: 0, a: 255 });
+
+        destination.drawSurface(source);
+
+        expect(pixel(destination, 0, 0)).toEqual([255, 0, 0, 255]);
+        expect(pixel(destination, 1, 0)).toEqual([0, 255, 0, 255]);
+        expect(destination.fingerprint()).toEqual({
+            hash: '91e5b0a3',
+            pixels: 3,
+            bounds: { x: 0, y: 0, width: 3, height: 1 },
+        });
     });
 });
 

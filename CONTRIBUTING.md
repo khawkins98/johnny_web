@@ -47,6 +47,9 @@ docs: update setup instructions for Vite
 ## Verification and diagnostics
 
 - Run `pnpm test` and `pnpm run build` before opening a PR.
+- Rendering changes also require extracted local data and `pnpm run test:golden`.
+  Use `pnpm run test:golden:update` only after visually reviewing an intentional
+  logical-frame change.
 - Press `S` to enable diagnostics; press `D` for the developer panel.
 - For rendering bugs, reproduce after enabling diagnostics and attach the
   downloaded JSONL trace. Use `?debug=verbose` only when live sprite logs help.

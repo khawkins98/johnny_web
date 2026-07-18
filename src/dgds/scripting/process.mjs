@@ -5,7 +5,7 @@
  * services, owns the one active page session, and preserves the legacy
  * startProcess/__DEBUG__ API while callers migrate to explicit instances.
  */
-import { createCanvasSurfaceElement } from './surface.mjs';
+import { createSoftwareSurface } from './surface.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
@@ -80,7 +80,7 @@ export const startProcess = (initialState) => {
     const random = runtimeInitialState.random || Math.random;
     const timingCompatibility = runtimeInitialState.timingCompatibility
         || createTimingCompatibility();
-    const surfaceFactory = runtimeInitialState.surfaceFactory || createCanvasSurfaceElement;
+    const surfaceFactory = runtimeInitialState.surfaceFactory || createSoftwareSurface;
     const resourceProvider = suppliedResourceProvider || createEntryResourceProvider(entries);
     const presentationPolicy = suppliedPresentationPolicy
         || createBrowserPresentationPolicy({ random });

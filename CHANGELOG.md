@@ -11,6 +11,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   fingerprints, and session/build/device metadata
 - Fixed-step DGDS timing, logical drawing surfaces, per-resource TTM
   environments, and deterministic recording surfaces for tests
+- Deterministic RGBA software framebuffer and golden logical-frame checks for
+  bathing, dive/walk-out, gull-landing, and concurrent-layer sequences
 - `npm run extract` script (`src/extract.mjs`) — unpacks the Archive.org floppy ZIP, mounts the `.ima` image via `mtools`, and decompresses the TSComp/PKWARE archives to `public/data/`
 - `node-pkware` dependency for PKWARE DCL implode decompression
 - Full-viewport error overlay (`#data-error`) shown when screensaver data files are missing or unreadable, with per-file status list and download guidance
@@ -20,8 +22,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
 ### Changed
 - TTM interpretation now reports structured execution outcomes to the ADS
   scheduler, and logical frame reset/restore behavior has its own engine boundary
-- TTM scenes now render to retained scene layers; the foreground composition is
-  rebuilt every logical frame in ADS painter order
+- TTM scenes now render to retained software layers; foreground composition is
+  rebuilt in ADS painter order only when retained layer revisions change
 - Browser settings, wall time, randomness, drawing, and diagnostics are explicit
   host boundaries rather than opcode-interpreter globals
 - Diagnostics now present a clear Off/On setting; the legacy verbose URL remains

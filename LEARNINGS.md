@@ -45,12 +45,13 @@ The working model is:
 - one decoded-asset and saved-area environment per TTM resource;
 - private working GET/PUT slots per running TTM scene;
 - one freshly rebuilt process composition per logical frame;
-- Canvas only as a surface adapter and presenter.
+- deterministic software RGBA for retained state; Canvas only for final host
+  presentation and background enhancements.
 
 `0x4210` saves a GET/PUT region and `0xa600` draws it back by overwrite. A
-source-over Canvas draw is insufficient because transparent saved pixels must
-replace destination pixels. Clear the destination rectangle before the saved
-blit. In the isolated-layer adapter, `0xa600` also begins a fresh scene frame:
+source-over compositing is insufficient because transparent saved pixels must
+replace destination pixels. The saved blit must copy transparent values too.
+On an isolated scene layer, `0xa600` also begins a fresh scene frame:
 clear the whole prior layer before restoring the saved rectangle. Some sprites
 move outside that rectangle and would otherwise leave trails.
 
@@ -96,8 +97,9 @@ played history, fades, and condition state are not copied into TTM state.
 - Create `AudioContext` synchronously inside the start-button click.
 - Keep `Date`, `Math.random`, storage, user-agent metadata, and rAF timestamps
   outside opcode callbacks.
-- Cache decoded sprites as offscreen canvases at the Canvas adapter boundary;
-  rebuilding `ImageData` in the drawing hot path causes visible lag.
+- Keep raster state out of Canvas. Upload one reusable `ImageData` buffer only
+  when retained layer revisions change; rebuilding and uploading unchanged
+  compositions causes visible lag.
 - Compatibility effects such as optional clouds/waves should not change opcode
   semantics.
 

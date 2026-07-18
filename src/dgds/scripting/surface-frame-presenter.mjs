@@ -6,6 +6,7 @@ const setSavedRect = (saved, rect) => {
     saved.y = rect.y;
     saved.width = rect.width;
     saved.height = rect.height;
+    saved.revision = (saved.revision || 0) + 1;
 };
 
 /** Apply a logical frame operation to the current retained surface model. */
@@ -81,4 +82,3 @@ export const presentSurfaceFrameOperation = (state, operation) => {
         break;
     }
 };
-

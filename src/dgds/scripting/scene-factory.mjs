@@ -106,6 +106,7 @@ const createSaveSlot = surfaceFactory => ({
     width: 0,
     height: 0,
     canDraw: false,
+    revision: 0,
 });
 
 const cloneSaveSlots = (slots, surfaceFactory) => (slots || []).map(source => {
@@ -116,6 +117,7 @@ const cloneSaveSlots = (slots, surfaceFactory) => (slots || []).map(source => {
     copy.width = source.width;
     copy.height = source.height;
     copy.canDraw = source.canDraw;
+    copy.revision = source.revision || 0;
     if (source.canDraw) {
         copy.surface.drawSurface(source.surface, {
             x: source.x,

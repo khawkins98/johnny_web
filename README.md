@@ -74,6 +74,8 @@ files.
 | `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
 | `pnpm test` | Run the Vitest test suite |
 | `pnpm run test:coverage` | Run the Vitest suite with V8 coverage |
+| `pnpm run test:golden` | Replay known rendering sequences against committed logical/pixel fingerprints (requires extracted data) |
+| `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change |
 | `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
 ## Playback modes

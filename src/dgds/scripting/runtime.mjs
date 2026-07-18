@@ -3,8 +3,8 @@
  *
  * This is the migration boundary between the script/scene engine and its host.
  * It deliberately does not schedule animation frames or create browser
- * services. Opcode drawing and audio are emitted as logical operations. The
- * retained logical-surface model remains transitional engine state.
+ * services. Opcode drawing and audio are emitted as logical operations, while
+ * deterministic retained pixels preserve synchronous DGDS GET/PUT semantics.
  */
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
@@ -21,6 +21,7 @@ const createStoredSurface = surfaceFactory => ({
     width: 0,
     height: 0,
     canDraw: false,
+    revision: 0,
 });
 
 export class DgdsRuntime {
