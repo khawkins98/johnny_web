@@ -3,7 +3,7 @@
  *
  * Architecture:
  *  - ADS: high-level sequencer that steps through `data.scenes[]` one at a time. Each scene can
- *    spawn concurrent TTM sub-scenes via ADD_SCENE/PLAY_SCENE and gate progression with conditionals.
+ *    spawn concurrent TTM sub-scenes and gate progression with dependency conditionals.
  *  - TTM: per-frame opcode stream for drawing sprites, playing audio, setting delays, etc.
  *  - `runScript()` advances commands during a logical DGDS tick, pausing at frame boundaries or
  *    blocking ADS operations and resuming via state.reentry on a later logical tick.

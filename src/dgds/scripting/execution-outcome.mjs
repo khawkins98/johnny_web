@@ -15,7 +15,3 @@ export const executionOutcome = (status, state, details = {}) => Object.freeze({
 export const pendingExecution = (state, reason = 'not-started') => (
     executionOutcome(ExecutionStatus.YIELDED, state, { reason })
 );
-
-export const unblocksPlayScene = scene => (
-    scene?.lifecycle === 'completed' || scene?.execution?.status === ExecutionStatus.LOOPED
-);

@@ -92,11 +92,10 @@ panel; opening it also enables diagnostics.
 
 The `D` panel's **Download JSONL Trace** button downloads the capture. Its first
 record identifies the build, browser, display, and engine state; later records
-include lifecycle, drawing, timing-map, layer, and pixel-fingerprint events. Headless tools
-can read `window.__DGDS__.getTrace()`, trigger the same browser download with
-`saveTrace()`, or ask the Vite development server to write under `traces/` with
-`persistTrace()`. Old `?debug=trace`, `?debug=all`, and `?trace=1` links remain
-compatible aliases.
+include lifecycle, drawing, timing-map, layer, pixel-fingerprint, and audio-sample
+request/playback events. Headless tools can read `window.__DGDS__.getTrace()`,
+download with `saveTrace()`, or write under `traces/` through the Vite-only
+`persistTrace()` endpoint. Old diagnostics URLs remain compatible aliases.
 
 See [Architecture](docs/architecture.md) for engine boundaries and
 [DGDS learnings](LEARNINGS.md) for reverse-engineering conclusions.

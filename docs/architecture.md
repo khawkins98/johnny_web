@@ -118,14 +118,15 @@ state, a transparent logical surface, and private working GET/PUT buffers copied
 from the environment template. Concurrent scenes therefore cannot overwrite one
 another's saved regions.
 
-ADS queues scene additions and removals until `PLAY_SCENE`:
+ADS condition branches stage scene additions and removals:
 
 - `ADD_SCENE` stages a TTM scene.
-- `PLAY_SCENE` applies stops and additions, then waits for finite scenes to
-  finish their requested repetitions and looping scenes to finish one pass.
+- `END_SCENE_BRANCH` (`0x1510`) commits staged changes and continues; it does
+  not wait for unrelated scenes.
+- `IF_PLAYED` supplies the authored dependency barrier for its referenced scene.
 - `STOP_SCENE` stages removal.
 - completed scenes retain their final layer until ADS explicitly stops them;
-  looping scenes remain active after they unblock the controller.
+  looping scenes remain active until stopped.
 
 ## Frame composition
 
@@ -181,10 +182,11 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 Enabling diagnostics starts a new session at the current engine tick. Its first JSONL
 record contains application/build, engine, timing profile, page,
 browser-reported capability, and display metadata. `frame-timing-map` events
-record authored and mapped delays with applied patch names. Disabling diagnostics writes a stop record. The developer
-panel downloads the capture in the browser. Automation may read events directly
-or persist them through the Vite-only endpoint. `?debug=verbose` adds noisy live
-sprite logging without changing the exported trace.
+record authored and mapped delays with applied patch names; `audio-sample` events
+distinguish sample requests from actual playback starts. Disabling diagnostics
+writes a stop record. The developer panel downloads the capture in the browser;
+automation may read it directly or use the Vite-only persistence endpoint.
+`?debug=verbose` adds noisy sprite logging without changing the exported trace.
 
 ## Current limitations
 

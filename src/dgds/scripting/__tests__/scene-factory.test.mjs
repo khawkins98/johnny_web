@@ -146,11 +146,12 @@ describe('TTM runtime state boundary', () => {
         first.environment.ready = true;
         expect(canRunTtmScene(sibling)).toBe(true);
         prepareTtmScene(sibling);
-        const concurrentSibling = getSceneState(parent, 1, 12, 0, 0);
+        const concurrentSibling = getSceneState(parent, 1, 12, 3, 0);
         expect(sibling.state.res).toBe(first.state.res);
         expect(sibling.state.save).not.toBe(first.state.save);
         expect(concurrentSibling.state.save).not.toBe(first.state.save);
         expect(concurrentSibling.state.save).not.toBe(sibling.state.save);
+        expect(concurrentSibling.retries).toBe(2);
         expect(sibling.state.save[0]).toMatchObject({
             canDraw: true,
             x: 10,

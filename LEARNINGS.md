@@ -12,7 +12,7 @@ ownership and runtime behavior are documented in
   frame operations separated by `UPDATE`.
 - ADS and TTM need distinct opcode dispatch tables. Values such as `0x2010`,
   `0x4000`, and `0xf010` have format-specific meanings.
-- `PLAY_SCENE_2` is an embedded `ADD_SCENE` followed by `PLAY_SCENE`.
+- `0x1520` is `END_WHILE`; the following `0x2005` remains a separate `ADD_SCENE`.
 
 ## Parsing rules
 
@@ -71,10 +71,12 @@ played history, fades, and condition state are not copied into TTM state.
 
 ## Scene lifecycle
 
-- `PLAY_SCENE` waits for finite scenes and their requested retries. GOTO loops
-  unblock it after one pass but remain active.
-- Keep that policy outside the opcode VM: `runScript()` reports `yielded`,
-  `looped`, or `completed`, and the ADS scheduler decides what blocks.
+- ADS `0x1510` ends a conditional branch and commits its staged scene changes;
+  it is not a global wait-for-all-scenes operation.
+- `IF_PLAYED` provides dependency-specific synchronization. Unrelated finite
+  and GOTO sequences continue concurrently.
+- Keep lifecycle policy outside the opcode VM: `runScript()` reports `yielded`,
+  `looped`, or `completed`, and ADS conditions express dependencies.
 - Completed non-looping scenes retain their last layer until explicitly stopped.
 - GOTO scenes remain running until stopped.
 - `STOP_SCENE` removal becomes visually effective through the next fresh

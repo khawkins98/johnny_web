@@ -9,7 +9,7 @@ import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
-import { ExecutionStatus, executionOutcome, unblocksPlayScene } from './execution-outcome.mjs';
+import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
 import {
@@ -167,10 +167,22 @@ const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
 const FADE_OUT = (state) => { };
 const FADE_IN = (state) => { };
 
+const clearAdsSceneBatch = (state) => {
+    state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
+    state.scenes = [];
+    state.addScenes = [];
+    state.removeScenes = [];
+    state.scenesRandom = [];
+    state.surface?.clear();
+    if (state.saveBkg?.[0]) {
+        state.saveBkg[0].canDraw = false;
+    }
+};
+
 // ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent
-// frame the opacity increases. Once fully black, unblocks and lets END advance the scene.
+// frame the opacity increases. Once fully black, the current segment is complete.
 // The overlay is drawn in runScripts so it remains visible for the final frame even after
-// END clears the child scenes.
+// the child scenes are cleared.
 const ADS_FADE_OUT = (state) => {
     if (state.continue) {
         debugLog('FADE_OUT: starting');
@@ -181,8 +193,12 @@ const ADS_FADE_OUT = (state) => {
     }
     state.fadeOpacity = Math.min(1, state.fadeOpacity + state.frameDelta / 400);
     if (state.fadeOpacity >= 1) {
-        // Unblock so END can fire — fadingOut stays true so runScripts still draws the
-        // full-black overlay on this frame, then clears fadingOut after drawing.
+        // F010's signed segment argument is part of the opcode. For the common
+        // current-segment form (-1), FADE_OUT is itself the final command.
+        if (state.lastCommand) {
+            clearAdsSceneBatch(state);
+        }
+        // Keep fadingOut true so runScripts draws the full-black frame.
         state.continue = true;
     }
 };
@@ -288,12 +304,24 @@ const SELECT_SAMPLE = (state) => { };
 const DESELECT_SAMPLE = (state) => { };
 
 const PLAY_SAMPLE = (state, index) => {
+    traceEvent(state, 'audio-sample', {
+        action: 'requested',
+        sample: index,
+        enabled: state.audioManager?.enabled !== false,
+        contextState: state.audioManager?.context?.state ?? null,
+    });
     // Resume AudioContext if suspended (browser autoplay policy belt-and-suspenders).
     if (state.audioManager?.context?.state === 'suspended') {
         state.audioManager.context.resume();
     }
     const sampleSource = state.audioManager.getSoundFxSource();
     sampleSource.load(index, () => {
+        traceEvent(state, 'audio-sample', {
+            action: 'started',
+            sample: index,
+            enabled: state.audioManager?.enabled !== false,
+            contextState: state.audioManager?.context?.state ?? null,
+        });
         sampleSource.play();
     });
 };
@@ -333,7 +361,11 @@ const LOAD_PALETTE = (state) => { };
 // ADS opcode callbacks
 // ---------------------------------------------------------------------------
 
-const ADS_UNKNOWN_0 = (state) => { };
+const WHILE_RUNNING = (state, sceneIdx, tagId) => {
+    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const running = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
+    state.continue = !running;
+};
 
 /**
  * Find the matching END_IF (0xfff0) for an IF opcode at `ifIndex`.
@@ -507,62 +539,48 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
     });
 };
 
-const PLAY_SCENE = (state) => {
-    if (state.continue) {
-        state.continue = false;
-        state._lastPlaySceneLabel = undefined;  // reset so the first-block is always logged
+const applySceneChanges = (state) => {
+    state.removeScenes.forEach(s => {
+        let index;
+        let removed = false;
+        while ((index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
+            state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
+            sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
+            state.scenes.splice(index, 1);
+            removed = true;
+        }
+        if (!removed) {
+            console.error(`FAILED TO REMOVE SCENE ${s.sceneIdx}:${s.tagId}! Not found in state.scenes!`);
+        }
+    });
+    state.removeScenes = [];
 
-        if (state.removeScenes.length > 0) {
-            state.removeScenes.forEach(s => {
-                let index;
-                let removed = false;
-                while ((index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
-                    // Record in history before removing so IF_NOT_PLAYED works correctly.
-                    state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
-                    sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
-                    state.scenes.splice(index, 1);
-                    removed = true;
-                }
-                if (!removed) {
-                    console.error(`FAILED TO REMOVE SCENE ${s.sceneIdx}:${s.tagId}! Not found in state.scenes!`);
-                }
-            });
-            state.removeScenes = [];
+    state.addScenes.forEach(s => {
+        const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
+        if (scene !== undefined) {
+            if (state.scenes.length === 0) {
+                // Synchronously run the prologue so siblings can clone its loaded assets.
+                scene.execution = runScript(scene.state, scene.script || scene.state.script);
+            }
+            sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
+            state.scenes.push(scene);
         }
-        if (state.addScenes.length > 0) {
-            state.addScenes.forEach(s => {
-                const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
-                if (scene !== undefined) {
-                    if (state.scenes.length === 0) {
-                        // Synchronously run the prologue so siblings can clone its loaded assets
-                        scene.execution = runScript(scene.state, scene.script || scene.state.script);
-                    }
-                    sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
-                    state.scenes.push(scene);
-                }
-            });
-            state.addScenes = [];
-        }
-    }
-
-    const waiting = state.scenes.filter(scene => !unblocksPlayScene(scene));
-    state.continue = waiting.length === 0;
-    
-    if (diagnostics.console && waiting.length > 0) {
-        // Sort labels so the comparison is stable regardless of iteration order.
-        const label = waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).sort().join(', ');
-        if (label !== state._lastPlaySceneLabel) {
-            state._lastPlaySceneLabel = label;
-            sceneLog(state, 'PLAY_BLOCK', label);
-        }
-    }
+    });
+    state.addScenes = [];
 };
 
-// PLAY_SCENE_2 is an ADD_SCENE + PLAY_SCENE combined. The first param is the
-// embedded ADD_SCENE opcode (0x2005), followed by the normal ADD_SCENE args.
-const PLAY_SCENE_2 = (state, _opcode, sceneIdx, tagId, retriesDelay, unk) => {
-    ADD_SCENE(state, sceneIdx, tagId, retriesDelay, unk);
-    PLAY_SCENE(state);
+/**
+ * ADS 0x1510 is the end of a conditional branch. Scene mutations become
+ * visible here, but unrelated active sequences do not block ADS execution.
+ * Dependency opcodes such as IF_PLAYED provide the authored synchronization.
+ */
+const END_SCENE_BRANCH = (state) => {
+    applySceneChanges(state);
+    state.continue = true;
+};
+
+const END_WHILE = (state) => {
+    END_SCENE_BRANCH(state);
 };
 
 const STOP_SCENE = (state, sceneIdx, tagId, retries) => {
@@ -608,17 +626,7 @@ const END = (state) => {
         // Batch-clear all child scenes unconditionally — including GOTO-looping scenes that
         // never reach played=true. Without this, a looping scene (e.g. "frenzied dance")
         // would persist into the next ADS gag and ghost over it.
-        state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
-        state.scenes = [];
-        state.addScenes = [];
-        state.removeScenes = [];
-        state.scenesRandom = [];
-        if (state.surface) {
-            state.surface.clear();
-        }
-        if (state.saveBkg && state.saveBkg[0]) {
-            state.saveBkg[0].canDraw = false;
-        }
+        clearAdsSceneBatch(state);
         state.continue = true;
     }
 };
@@ -676,15 +684,15 @@ export const TTMDispatch = [
 // with TTM entries (0x2010 STOP_SCENE, 0x4000 ADS_UNKNOWN_6, 0xf010 ADS_FADE_OUT) are
 // reachable. runScript() selects the correct table based on state.type.
 export const ADSDispatch = [
-    { opcode: 0x1070, callback: ADS_UNKNOWN_0 },
+    { opcode: 0x1070, callback: WHILE_RUNNING },
     { opcode: 0x1330, callback: IF_NOT_PLAYED },
     { opcode: 0x1350, callback: IF_PLAYED },
     { opcode: 0x1360, callback: IF_NOT_RUNNING },
     { opcode: 0x1370, callback: IF_RUNNING },
     { opcode: 0x1420, callback: AND },
     { opcode: 0x1430, callback: OR },
-    { opcode: 0x1510, callback: PLAY_SCENE },
-    { opcode: 0x1520, callback: PLAY_SCENE_2 },
+    { opcode: 0x1510, callback: END_SCENE_BRANCH },
+    { opcode: 0x1520, callback: END_WHILE },
     { opcode: 0x2005, callback: ADD_SCENE },
     { opcode: 0x2010, callback: STOP_SCENE },
     { opcode: 0x3010, callback: RANDOM_START },

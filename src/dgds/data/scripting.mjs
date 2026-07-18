@@ -41,22 +41,22 @@ export const TTMCommandType = [
 ];
 
 export const ADSCommandType = [
-    { opcode: 0x1070, paramSize: 2, command: 'UNKNOWN_0', indent: null },
+    { opcode: 0x1070, paramSize: 2, command: 'WHILE_RUNNING', indent: 1 },
     { opcode: 0x1330, paramSize: 2, command: 'IF_NOT_PLAYED', indent: 1 },
     { opcode: 0x1350, paramSize: 2, command: 'IF_PLAYED', indent: 1 }, // SKIP_NEXT_IF
     { opcode: 0x1360, paramSize: 2, command: 'IF_NOT_RUNNING', indent: 1 },
     { opcode: 0x1370, paramSize: 2, command: 'IF_RUNNING', indent: 1 },
     { opcode: 0x1420, paramSize: 0, command: 'AND', indent: null },
     { opcode: 0x1430, paramSize: 0, command: 'OR', indent: null },
-    { opcode: 0x1510, paramSize: 0, command: 'PLAY_SCENE', indent: 0 },
-    { opcode: 0x1520, paramSize: 5, command: 'PLAY_SCENE_2', indent: 0 },
+    { opcode: 0x1510, paramSize: 0, command: 'END_SCENE_BRANCH', indent: 0 },
+    { opcode: 0x1520, paramSize: 0, command: 'END_WHILE', indent: -1 },
     { opcode: 0x2005, paramSize: 4, command: 'ADD_SCENE', indent: null },
     { opcode: 0x2010, paramSize: 3, command: 'STOP_SCENE', indent: null },
     { opcode: 0x3010, paramSize: 0, command: 'RANDOM_START', indent: 1 },
     { opcode: 0x3020, paramSize: 1, command: 'RANDOM_UNKNOWN_0', indent: null },
     { opcode: 0x30ff, paramSize: 0, command: 'RANDOM_END', indent: -1 },
     { opcode: 0x4000, paramSize: 3, command: 'UNKNOWN_6', indent: null },
-    { opcode: 0xf010, paramSize: 0, command: 'FADE_OUT', indent: 0 },
+    { opcode: 0xf010, paramSize: 1, command: 'FADE_OUT', indent: 0 },
     { opcode: 0xf200, paramSize: 1, command: 'RUN_SCRIPT', indent: 0 },
     { opcode: 0xffff, paramSize: 0, command: 'END' },
     // Add for text script

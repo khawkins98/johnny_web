@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TTMDispatch, ADSDispatch, runScript } from '../script-runner.mjs';
 import { ExecutionStatus, executionOutcome } from '../execution-outcome.mjs';
+import { ADSCommandType } from '../../data/scripting.mjs';
 
 // ---------------------------------------------------------------------------
 // Opcode dispatch tables
@@ -380,6 +381,46 @@ describe('TTM frame timing', () => {
     });
 });
 
+describe('PLAY_SAMPLE tracing', () => {
+    const playSample = TTMDispatch.find(e => e.opcode === 0xc050);
+
+    it('records request and playback without changing script scheduling state', () => {
+        const record = vi.fn();
+        const play = vi.fn();
+        const load = vi.fn((_index, callback) => callback());
+        const state = {
+            tick: 824,
+            sceneIdx: 5,
+            tagId: 19,
+            continue: true,
+            delay: 120,
+            trace: { record },
+            audioManager: {
+                enabled: true,
+                context: { state: 'running' },
+                getSoundFxSource: () => ({ load, play }),
+            },
+        };
+
+        playSample.callback(state, 6);
+
+        expect(load).toHaveBeenCalledWith(6, expect.any(Function));
+        expect(play).toHaveBeenCalledOnce();
+        expect(record).toHaveBeenNthCalledWith(1, 'audio-sample', expect.objectContaining({
+            tick: 824,
+            sceneIdx: 5,
+            tagId: 19,
+            action: 'requested',
+            sample: 6,
+        }));
+        expect(record).toHaveBeenNthCalledWith(2, 'audio-sample', expect.objectContaining({
+            action: 'started',
+            sample: 6,
+        }));
+        expect(state).toMatchObject({ continue: true, delay: 120 });
+    });
+});
+
 // ---------------------------------------------------------------------------
 // SET_TIMER handler (opcode 0x2020: random sleep)
 // ---------------------------------------------------------------------------
@@ -584,7 +625,7 @@ describe('IF_PLAYED handler', () => {
         { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED
         { opcode: 0x2005, params: [] },       // 1: ADD_SCENE (body)
         { opcode: 0xfff0, params: [] },       // 2: END_IF
-        { opcode: 0x1510, params: [] },       // 3: PLAY_SCENE (after)
+        { opcode: 0x1510, params: [] },       // 3: branch-end commit
     ];
 
     const makeState = (scenes = [], history = [], script = flatScript) => ({
@@ -817,9 +858,9 @@ describe('runScript jumpTo mechanism', () => {
 });
 
 // ---------------------------------------------------------------------------
-// PLAY_SCENE — playedHistory tracking
+// ADS branch end (0x1510) — queued scene changes
 // ---------------------------------------------------------------------------
-describe('PLAY_SCENE playedHistory tracking', () => {
+describe('ADS branch-end scene changes', () => {
     const entry = ADSDispatch.find(e => e.opcode === 0x1510);
 
     it('adds removed scenes to playedHistory before splicing them out', () => {
@@ -849,7 +890,7 @@ describe('PLAY_SCENE playedHistory tracking', () => {
         expect(mockState.playedHistory.has('1:7')).toBe(false);
     });
 
-    it('is a no-op when continue is false', () => {
+    it('commits a completed dependency even when that condition had blocked previously', () => {
         const mockState = {
             continue: false,
             playedHistory: new Set(),
@@ -858,24 +899,19 @@ describe('PLAY_SCENE playedHistory tracking', () => {
             addScenes: [],
         };
         entry.callback(mockState);
-        expect(mockState.playedHistory.size).toBe(0);
-        expect(mockState.scenes).toHaveLength(1);
+        expect(mockState.playedHistory.has('1:7')).toBe(true);
+        expect(mockState.scenes).toHaveLength(0);
+        expect(mockState.continue).toBe(true);
     });
 });
 
 // ---------------------------------------------------------------------------
-// PLAY_SCENE — canContinue (lifecycle-based blocking)
+// ADS branch end (0x1510) — synchronization policy
 // ---------------------------------------------------------------------------
-describe('PLAY_SCENE canContinue logic', () => {
+describe('ADS branch-end synchronization', () => {
     const entry = ADSDispatch.find(e => e.opcode === 0x1510);
 
-    it('unblocks immediately when scenes list is empty', () => {
-        const state = { continue: false, scenes: [], removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {} };
-        entry.callback(state);
-        expect(state.continue).toBe(true);
-    });
-
-    it('stays blocked when scenes are "running" but not yet played', () => {
+    it('does not serialize unrelated running scenes', () => {
         const state = {
             continue: false,
             scenes: [
@@ -885,23 +921,10 @@ describe('PLAY_SCENE canContinue logic', () => {
             removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
         };
         entry.callback(state);
-        expect(state.continue).toBe(false);
-    });
-
-    it('unblocks when all scenes have completed outcomes', () => {
-        const state = {
-            continue: false,
-            scenes: [
-                { sceneIdx: 1, tagId: 1, lifecycle: 'completed', state: { played: true } },
-                { sceneIdx: 1, tagId: 2, lifecycle: 'completed', state: { played: true } },
-            ],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
-        };
-        entry.callback(state);
         expect(state.continue).toBe(true);
     });
 
-    it('unblocks a GOTO ambient after its first loop without completing it', () => {
+    it('leaves looping ambient scenes active', () => {
         const state = {
             continue: false,
             scenes: [{
@@ -918,64 +941,6 @@ describe('PLAY_SCENE canContinue logic', () => {
 
         expect(state.continue).toBe(true);
         expect(state.scenes[0].lifecycle).toBe('running');
-    });
-
-    it('still blocks an unfinished finite scene with requested retries', () => {
-        const state = {
-            continue: false,
-            scenes: [{
-                sceneIdx: 5,
-                tagId: 3,
-                lifecycle: 'running',
-                retries: 2,
-                state: { played: false, runs: 1 },
-                execution: executionOutcome(ExecutionStatus.YIELDED, { sceneIdx: 5, tagId: 3 }),
-            }],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
-        };
-
-        entry.callback(state);
-
-        expect(state.continue).toBe(false);
-    });
-
-    it('stays blocked when any scene is "active" (newly added, not yet looped)', () => {
-        const state = {
-            continue: false,
-            scenes: [
-                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { runs: 3 } },
-                { sceneIdx: 1, tagId: 2, lifecycle: 'active',  state: { runs: 0 } },
-            ],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
-        };
-        entry.callback(state);
-        expect(state.continue).toBe(false);
-    });
-
-    it('does NOT unblock prematurely when old "running" scenes coexist with new "active" scene', () => {
-        // Regression: previous canContinue logic used bitwise-OR sticky ratchet that
-        // returned true as soon as any scene had runs > 0, even if a newly-added scene
-        // (lifecycle:'active', runs:0) had not yet run.
-        const state = {
-            continue: false,
-            scenes: [
-                { sceneIdx: 5, tagId: 42, lifecycle: 'running', state: { runs: 5 } },
-                { sceneIdx: 5, tagId: 12, lifecycle: 'active',  state: { runs: 0 } },
-            ],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
-        };
-        entry.callback(state);
-        expect(state.continue).toBe(false);
-    });
-
-    it('unblocks when all scenes are "completed"', () => {
-        const state = {
-            continue: false,
-            scenes: [{ sceneIdx: 1, tagId: 1, lifecycle: 'completed', state: {} }],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
-        };
-        entry.callback(state);
-        expect(state.continue).toBe(true);
     });
 });
 
@@ -1005,7 +970,32 @@ describe('ADS_FADE_OUT handler', () => {
         entry.callback(state);
         expect(state.fadeOpacity).toBe(1);
         expect(state.fadingOut).toBe(true);  // still true so runScripts draws the black frame
-        expect(state.continue).toBe(true);   // unblocks so END can fire
+        expect(state.continue).toBe(true);
+    });
+
+    it('clears the scene batch when F010 is the final segment command', () => {
+        const surface = { clear: vi.fn() };
+        const state = {
+            continue: false,
+            fadingOut: true,
+            fadeOpacity: 0.95,
+            frameDelta: 100,
+            lastCommand: true,
+            scenes: [{ sceneIdx: 5, tagId: 30 }],
+            addScenes: [{}],
+            removeScenes: [{}],
+            scenesRandom: [{}],
+            playedHistory: new Set(),
+            surface,
+            saveBkg: [{ canDraw: true }],
+        };
+
+        entry.callback(state, -1);
+
+        expect(state.scenes).toEqual([]);
+        expect(state.playedHistory.has('5:30')).toBe(true);
+        expect(surface.clear).toHaveBeenCalledOnce();
+        expect(state.saveBkg[0].canDraw).toBe(false);
     });
 
     it('is named ADS_FADE_OUT in the dispatch table', () => {
@@ -1018,8 +1008,8 @@ describe('ADS_FADE_OUT handler', () => {
 // Characterization tests — lock down critical cross-cutting behaviors
 // ---------------------------------------------------------------------------
 
-// Scenario A: PLAY_SCENE remove-before-add ordering
-describe('PLAY_SCENE — remove-before-add ordering', () => {
+// Scenario A: branch-end remove-before-add ordering
+describe('ADS branch end — remove-before-add ordering', () => {
     let consoleSpy;
     beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
     afterEach(() => { consoleSpy.mockRestore(); });
@@ -1119,37 +1109,39 @@ describe('runScript — TTM script completion', () => {
 });
 
 // ---------------------------------------------------------------------------
-// PLAY_SCENE_2: combined ADD_SCENE + PLAY_SCENE
+// ADS WHILE boundary decoding
 // ---------------------------------------------------------------------------
-describe('PLAY_SCENE_2', () => {
-    let consoleSpy;
-    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
-    afterEach(() => { consoleSpy.mockRestore(); });
+describe('ADS WHILE boundaries', () => {
+    it('decodes 0x1520 independently from the following ADD_SCENE opcode', () => {
+        expect(ADSCommandType.find(entry => entry.opcode === 0x1520)).toMatchObject({
+            command: 'END_WHILE',
+            paramSize: 0,
+        });
+        expect(ADSCommandType.find(entry => entry.opcode === 0x2005)).toMatchObject({
+            command: 'ADD_SCENE',
+            paramSize: 4,
+        });
+        expect(ADSCommandType.find(entry => entry.opcode === 0xf010)).toMatchObject({
+            command: 'FADE_OUT',
+            paramSize: 1,
+        });
+    });
 
-    it('enqueues the scene and blocks on active scenes (combines ADD_SCENE + PLAY_SCENE)', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0x1520);
-        expect(entry).toBeDefined();
-
+    it('waits on the named WHILE_RUNNING dependency and not unrelated scenes', () => {
+        const entry = ADSDispatch.find(e => e.opcode === 0x1070);
         const state = {
             continue: true,
-            randomize: false,
-            addScenes: [],
-            removeScenes: [],
-            scenes: [],
-            scenesRes: {},          // no TTM data → getSceneState returns undefined
-            playedHistory: new Set(),
+            scenes: [
+                { sceneIdx: 4, tagId: 5, lifecycle: 'running' },
+                { sceneIdx: 4, tagId: 99, lifecycle: 'running' },
+            ],
         };
 
-        // Params mirror binary: embedded ADD_SCENE opcode (0x2005 = 8197), sceneIdx, tagId, retriesDelay, unk
-        entry.callback(state, 0x2005, 4, 22, 0, 1);
+        entry.callback(state, 4, 5);
+        expect(state.continue).toBe(false);
 
-        // addScenes was flushed (PLAY_SCENE ran), no active scenes → unblocked
-        expect(state.addScenes).toHaveLength(0);
-        // removeScenes also flushed
-        expect(state.removeScenes).toHaveLength(0);
-        // Since scenesRes has no TTM data, getSceneState returned undefined → scenes still empty
-        expect(state.scenes).toHaveLength(0);
-        // continue is true: no active (lifecycle='active') scenes to block on
+        state.scenes[0].lifecycle = 'completed';
+        entry.callback(state, 4, 5);
         expect(state.continue).toBe(true);
     });
 });

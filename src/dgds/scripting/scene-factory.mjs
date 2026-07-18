@@ -1,5 +1,5 @@
 /**
- * scene-factory.mjs — Builds TTM scene state objects for spawning via ADD_SCENE / PLAY_SCENE.
+ * scene-factory.mjs — Builds TTM scene state objects spawned by ADS branches.
  *
  * Field sharing policy (documented here as the authoritative source):
  *
@@ -178,7 +178,9 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     }
     const sequenceOrder = ttm.scenes.findIndex(s => s.tagId === tagId);
     const scene = ttm.scenes[sequenceOrder];
-    const retries = retriesDelay >= 0 ? retriesDelay : 0;
+    // ADS positive run counts include the initial pass. The runtime stores only
+    // the number of additional passes remaining after that first execution.
+    const retries = retriesDelay > 0 ? retriesDelay - 1 : 0;
     const delay = retriesDelay < 0 ? retriesDelay : state.delay;
 
     const resourceOrder = state.data?.resources?.findIndex(resource => resource.id === sceneIdx) ?? -1;
