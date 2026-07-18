@@ -3,6 +3,7 @@
 
 # build output
 dist
+traces/
 dumps
 
 # Vite dev-server dependency pre-bundle cache

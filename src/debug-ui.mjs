@@ -1,6 +1,8 @@
 import { __DEBUG__ } from './dgds/scripting/process.mjs';
 
 export function setupDebugUI() {
+    // Stable automation hook for Playwright/headless browser diagnostics.
+    window.__DGDS__ = __DEBUG__;
     const container = document.createElement('div');
     container.id = 'debug-menu';
     container.style.position = 'fixed';
@@ -152,6 +154,19 @@ export function setupDebugUI() {
     sceneRow.appendChild(select);
     sceneRow.appendChild(jumpBtn);
     container.appendChild(sceneRow);
+
+    const traceBtn = document.createElement('button');
+    traceBtn.innerText = 'Save JSONL Trace';
+    traceBtn.style.cssText = controlStyle;
+    traceBtn.addEventListener('click', async () => {
+        try {
+            const result = await __DEBUG__.saveTrace();
+            console.log(`DGDS trace saved to ${result.path}`);
+        } catch (error) {
+            console.error(error.message);
+        }
+    });
+    container.appendChild(traceBtn);
 
     // Day/Night Toggle
     const timeRow = document.createElement('div');

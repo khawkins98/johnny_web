@@ -9,6 +9,7 @@
 import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState, initialState } from './scene-factory.mjs';
+import { traceEvent } from './trace.mjs';
 import {
     clearContext,
     drawContext,
@@ -46,13 +47,21 @@ const getTimestamp = () => new Date().toISOString().substring(11, 23);
 export const debugLog = isDebugMode ? (...args) => console.log(`[DGDS] [${getTimestamp()}]`, ...args) : () => {};
 
 export const sceneLog = (state, action, target = '') => {
-    if (!isDebugMode) return;
-    
     let gagId = state.gagId ?? '?';
     if (state.data && state.data.scenes && state.data.scenes[state.currentScene]) {
         const tId = state.data.scenes[state.currentScene].tagId;
         gagId = typeof tId === 'object' ? tId.id : (tId ?? '?');
     }
+    if (typeof gagId === 'object') gagId = gagId.id ?? '?';
+
+    traceEvent(state, 'scene-lifecycle', {
+        action,
+        target,
+        gagId,
+        runs: state.runs || 0,
+        timer: state.timer || 0,
+    });
+    if (!isDebugMode) return;
 
     let timerStr = '';
     let runStr = '';
@@ -203,6 +212,7 @@ const STORE_AREA = (state, x, y, width, height) => {
     save.width = width;
     save.height = height;
     state.surface.copyRegionTo(save.surface, { x, y, width, height });
+    traceEvent(state, 'store-area', { slot: 0, rect: { x, y, width, height } });
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
@@ -214,6 +224,10 @@ const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
     save.height = height;
 
     state.surface.copyRegionTo(save.surface, { x, y, width, height });
+    traceEvent(state, 'getput-save', {
+        slot: state.saveIndex,
+        rect: { x, y, width, height },
+    });
 };
 
 const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
@@ -245,6 +259,17 @@ const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
     if (image === undefined) return;
     verboseLog(`DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
     state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: false });
+    state.layerRevision = (state.layerRevision || 0) + 1;
+    traceEvent(state, 'draw-sprite', {
+        frame: index,
+        slot,
+        x: offsetX,
+        y: offsetY,
+        width: image.width,
+        height: image.height,
+        flipX: false,
+        revision: state.layerRevision,
+    });
 };
 
 const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
@@ -253,6 +278,17 @@ const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
     if (image === undefined) return;
     verboseLog(`DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
     state.surface.drawSprite(image, offsetX, offsetY, { clip: state.clip, flipX: true });
+    state.layerRevision = (state.layerRevision || 0) + 1;
+    traceEvent(state, 'draw-sprite', {
+        frame: index,
+        slot,
+        x: offsetX,
+        y: offsetY,
+        width: image.width,
+        height: image.height,
+        flipX: true,
+        revision: state.layerRevision,
+    });
 };
 
 const DRAW_SPRITE1 = (state) => { };
@@ -262,6 +298,12 @@ const DRAW_GETPUT = (state, index) => {
     const save = state.save[index];
     if (save && save.canDraw) {
         state.surface.replaceRegionFrom(save.surface, save);
+        state.layerRevision = (state.layerRevision || 0) + 1;
+        traceEvent(state, 'getput-draw', {
+            slot: index,
+            rect: { x: save.x, y: save.y, width: save.width, height: save.height },
+            revision: state.layerRevision,
+        });
     }
 };
 

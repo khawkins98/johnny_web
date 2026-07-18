@@ -63,6 +63,9 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     scenesRes: parent.scenesRes,
     random: parent.random,
     compatibility: parent.compatibility,
+    trace: parent.trace,
+    getTraceTick: () => parent.tick,
+    layerRevision: 0,
 
     // Shared/cached DGDS resources
     res: assets.res || [],

@@ -23,4 +23,17 @@ export const composeTtmFrame = (state) => {
             state.surface.drawSurface(scene.state.surface);
         }
     }
+
+    if (state.trace) {
+        state.trace.record('composition', {
+            tick: state.tick,
+            layers: (state.scenes || []).map(scene => ({
+                sceneIdx: scene.sceneIdx,
+                tagId: scene.tagId,
+                lifecycle: scene.lifecycle,
+                revision: scene.state?.layerRevision || 0,
+            })),
+            ...(state.trace.pixelHashes ? { pixels: state.surface.fingerprint?.() ?? null } : {}),
+        });
+    }
 };

@@ -21,6 +21,7 @@ import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
 import { canRunTtmScene } from './scene-factory.mjs';
 import { composeTtmFrame } from './composition.mjs';
+import { createTraceRecorder } from './trace.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -34,6 +35,11 @@ import {
 
 // Re-export public API (tests and callers import from process.mjs)
 export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
+
+const isTraceMode = (() => {
+    try { return new URLSearchParams(window.location.search).has('trace'); }
+    catch { return false; }
+})();
 
 let state = null;
 
@@ -229,6 +235,8 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         random,
         compatibility,
+        trace: initialState.trace || (isTraceMode ? createTraceRecorder({ pixelHashes: true }) : null),
+        tick: 0,
         ttmEnvironments: new Map(),
         reentryNow: 0,
         jumpTo: undefined,
@@ -332,7 +340,12 @@ export const __DEBUG__ = {
             drawBackground(bgState, state.mainContext);
         }
     },
-    getState: () => state
+    getState: () => state,
+    getTrace: () => state?.trace?.snapshot() || [],
+    saveTrace: () => {
+        if (!state?.trace) throw new Error('Tracing is disabled; reload with ?trace=1');
+        return state.trace.save();
+    },
 };
 
 window.requestAnimationFrame = window.requestAnimationFrame
@@ -346,6 +359,7 @@ const mainloop = (timestamp) => {
 
     const ticks = state.clock.consume(timestamp);
     for (let tick = 0; tick < ticks; tick++) {
+        state.tick++;
         // Compatibility effects still consume milliseconds, but the value is
         // derived from a logical tick rather than arbitrary browser frame time.
         state.frameDelta = DGDS_TICK_MS;

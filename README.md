@@ -74,6 +74,24 @@ files.
 | `pnpm run test:coverage` | Run the Vitest test suite with Istanbul coverage |
 | `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
+## Animation traces
+
+For rendering diagnostics, open the development server with tracing enabled:
+
+```text
+http://localhost:5173/?trace=1&debug=verbose
+```
+
+Press `D`, reproduce the problem, and choose **Save JSONL Trace**. The Vite
+development server writes the result under `traces/` (ignored by Git). Each
+composition record includes the logical engine tick, ordered active scene
+layers, layer revisions, an exact pixel hash, non-transparent bounds, and pixel
+count. Sprite and GET/PUT operations are separate structured events.
+
+Headless browser automation can call `window.__DGDS__.saveTrace()` after the
+desired run. JSON Lines is the canonical format because it preserves nested
+layer data; CSV can be derived from it when useful for analysis.
+
 ## Acknowledgements
 
 See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.

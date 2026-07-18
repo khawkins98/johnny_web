@@ -100,6 +100,38 @@ export const createCanvasSurface = (context) => {
             );
         },
 
+        fingerprint() {
+            if (typeof context.getImageData !== 'function') return null;
+            const { data } = context.getImageData(0, 0, SURFACE_WIDTH, SURFACE_HEIGHT);
+            let hash = 0x811c9dc5;
+            let left = SURFACE_WIDTH;
+            let top = SURFACE_HEIGHT;
+            let right = -1;
+            let bottom = -1;
+            let pixels = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                hash ^= data[i]; hash = Math.imul(hash, 0x01000193);
+                hash ^= data[i + 1]; hash = Math.imul(hash, 0x01000193);
+                hash ^= data[i + 2]; hash = Math.imul(hash, 0x01000193);
+                hash ^= data[i + 3]; hash = Math.imul(hash, 0x01000193);
+                if (data[i + 3] !== 0) {
+                    const pixel = i / 4;
+                    const x = pixel % SURFACE_WIDTH;
+                    const y = Math.floor(pixel / SURFACE_WIDTH);
+                    left = Math.min(left, x);
+                    top = Math.min(top, y);
+                    right = Math.max(right, x);
+                    bottom = Math.max(bottom, y);
+                    pixels++;
+                }
+            }
+            return {
+                hash: (hash >>> 0).toString(16).padStart(8, '0'),
+                pixels,
+                bounds: pixels ? { x: left, y: top, width: right - left + 1, height: bottom - top + 1 } : null,
+            };
+        },
+
         copyRegionTo(target, rect) {
             target.clear();
             target.drawSurface(surface, rect);
@@ -133,6 +165,7 @@ export const createRecordingSurface = () => {
             source,
             rect: normalizeRect(rect),
         }),
+        fingerprint: () => ({ commandCount: commands.length }),
         copyRegionTo(target, rect) {
             record('copyRegionTo', { target, rect });
             target.clear();
