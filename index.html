@@ -11,6 +11,8 @@
             body {
                 font-family: sans-serif;
                 background-color: #000;
+                margin: 0;
+                -webkit-font-smoothing: antialiased;
             }
             .background {
                 background-color: #000;
@@ -27,46 +29,110 @@
                 position: fixed;
                 inset: 0;
                 z-index: 10;
-                background: rgba(0,0,0,0.65);
-                justify-content: center;
-                align-items: center;
+                pointer-events: none;
             }
             #start-overlay.visible {
-                display: flex;
+                display: block;
             }
             #start-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                width: min(240px, calc(100vw - 48px));
+                position: absolute;
+                top: calc(50% + 254px);
+                left: 50%;
+                transform: translateX(-50%);
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 8px;
+                width: max-content;
+                max-width: calc(100vw - 32px);
+                padding: 8px;
+                box-sizing: border-box;
+                border-radius: 8px;
+                background: #d4c4a8;
+                background-image: linear-gradient(rgba(255,255,255,0.08), rgba(90,55,25,0.04));
+                box-shadow:
+                    0 10px 24px rgba(0, 0, 0, 0.48),
+                    0 2px 5px rgba(0, 0, 0, 0.28),
+                    inset 0 0 0 2px rgba(139, 90, 43, 0.76),
+                    inset 0 0 14px rgba(139, 90, 43, 0.18);
+                pointer-events: auto;
             }
             .start-action {
-                background: #111;
-                color: #ccc;
-                border: 1px solid #444;
+                background: #f4e4c8;
+                color: #4a3520;
+                border: 2px solid #8b5a2b;
                 border-radius: 4px;
-                min-height: 44px;
-                padding: 12px 24px;
-                font-family: monospace;
-                font-size: 14px;
+                min-width: 170px;
+                min-height: 42px;
+                padding: 7px 20px;
+                font-family: 'VT323', monospace;
+                font-size: 20px;
                 cursor: pointer;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                transition-property: transform, background-color, color, border-color;
+                letter-spacing: 0.03em;
+                box-shadow:
+                    0 2px 4px rgba(74, 53, 32, 0.18),
+                    inset 0 1px rgba(255, 255, 255, 0.52);
+                transition-property: transform, background-color, box-shadow;
                 transition-duration: 140ms;
                 transition-timing-function: ease-out;
             }
             .start-action:hover {
-                background: #222;
-                color: #fff;
-                border-color: #666;
+                background: #fff4dc;
+                box-shadow:
+                    0 3px 7px rgba(74, 53, 32, 0.26),
+                    inset 0 1px rgba(255, 255, 255, 0.64);
             }
             .start-action:active {
                 transform: scale(0.96);
             }
             .start-action.secondary {
-                background: rgba(17, 17, 17, 0.78);
-                color: #aaa;
+                background: rgba(244, 228, 200, 0.46);
+            }
+            #start-settings-btn {
+                grid-column: 1 / -1;
+            }
+            #start-help-btn {
+                min-width: 42px;
+                width: 42px;
+                padding: 7px 0;
+                border-radius: 50%;
+                font-family: 'Caveat', cursive;
+                font-size: 24px;
+            }
+            #start-help {
+                display: none;
+                grid-column: 1 / -1;
+                max-width: 390px;
+                padding: 8px 10px 4px;
+                color: #4a3520;
+                font-family: 'VT323', monospace;
+                font-size: 17px;
+                line-height: 1.25;
+                text-align: left;
+            }
+            #start-help.visible {
+                display: block;
+            }
+            #start-help strong {
+                font-weight: normal;
+                color: #2d2116;
+            }
+            .start-action:focus-visible {
+                outline: 3px solid rgba(244, 228, 200, 0.8);
+                outline-offset: 3px;
+            }
+            @media (max-height: 600px) {
+                #start-actions {
+                    top: auto;
+                    bottom: 16px;
+                }
+            }
+            @media (max-width: 420px) {
+                #start-actions {
+                    width: calc(100vw - 24px);
+                }
+                .start-action {
+                    min-width: 0;
+                }
             }
             #data-error {
                 display: none;
@@ -153,13 +219,6 @@
             <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
             <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
 
-            <div id="start-overlay">
-                <div id="start-actions">
-                    <button id="start-btn" class="start-action">▶ Play</button>
-                    <button id="start-settings-btn" class="start-action secondary">⚙ Settings</button>
-                </div>
-            </div>
-
             <div id="data-error" role="alert" aria-live="assertive">
                 <div id="data-error-card">
                     <h2>Game data required</h2>
@@ -179,6 +238,21 @@
                         <a href="https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m" style="color:#8ab4d4" target="_blank" rel="noopener">
                             Internet Archive source</a>.
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="start-overlay">
+            <div id="start-actions">
+                <button id="start-classic-btn" class="start-action"><span aria-hidden="true">▶</span> Play Classic</button>
+                <button id="start-enhanced-btn" class="start-action"><span aria-hidden="true">✦</span> Play Enhanced</button>
+                <button id="start-help-btn" class="start-action secondary" aria-expanded="false" aria-controls="start-help" aria-label="What is Enhanced mode?">?</button>
+                <button id="start-settings-btn" class="start-action secondary"><span aria-hidden="true">⚙</span> Settings</button>
+                <div id="start-help" role="note">
+                    <strong>Enhanced mode</strong> adds responsive scaling, drifting clouds,
+                    animated waves, and keyboard controls. Use <strong>←/→</strong> to change
+                    scenes, <strong>↑/↓</strong> to adjust speed, and <strong>F</strong> for full screen;
+                    a small HUD shows the current stage and rate.
                 </div>
             </div>
         </div>

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings-ui.mjs';
+import {
+    EXPERIENCE_SETTING_KEY,
+    setupSettingsUI,
+    SOUND_SETTING_KEY,
+} from '../settings-ui.mjs';
 
 describe('settings UI', () => {
     beforeEach(() => {
@@ -27,5 +31,32 @@ describe('settings UI', () => {
         expect(overlay.style.display).toBe('none');
         expect(overlay.getAttribute('aria-hidden')).toBe('true');
     });
-});
 
+    it('applies coherent classic and enhanced profiles', () => {
+        const settings = setupSettingsUI();
+        const setting = name => document.querySelector(`[data-setting="${name}"]`);
+
+        settings.applyExperience('enhanced');
+        expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
+        expect(setting('experience').value).toBe('enhanced');
+        expect(setting('scale').value).toBe('freeform');
+        expect(setting('clouds').value).toBe('on');
+        expect(setting('waves').value).toBe('on');
+
+        settings.applyExperience('classic');
+        expect(setting('experience').value).toBe('classic');
+        expect(setting('scale').value).toBe('native');
+        expect(setting('clouds').value).toBe('off');
+        expect(setting('waves').value).toBe('off');
+    });
+
+    it('offers full screen and a footer close action', () => {
+        const settings = setupSettingsUI();
+        settings.open();
+
+        expect(document.querySelector('[data-setting="fullscreen"]')).not.toBeNull();
+        const done = document.querySelector('.settings-done');
+        done.click();
+        expect(document.getElementById('settings-overlay').getAttribute('aria-hidden')).toBe('true');
+    });
+});

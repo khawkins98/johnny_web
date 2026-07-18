@@ -3,6 +3,7 @@ import { loadResources } from '../dgds/resource.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess } from '../dgds/scripting/process.mjs';
 import { setupDebugUI } from '../debug-ui.mjs';
+import { setupEnhancedUI } from '../enhanced-ui.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings-ui.mjs';
 
 export const run = async () => {
@@ -58,7 +59,9 @@ export const run = async () => {
     // Gate audio and animation behind a user gesture (browser autoplay policy).
     // AudioContext is created synchronously inside the click callback so the
     // browser's user-activation requirement is satisfied.
-    audioManager = await waitForStart(settings);
+    const start = await waitForStart(settings);
+    audioManager = start.audioManager;
+    if (start.experience === 'enhanced') setupEnhancedUI();
 
     const context = document.getElementById('canvas').getContext('2d');
     const data = resource.loadEntry('ACTIVITY.ADS');
@@ -89,17 +92,30 @@ export const run = async () => {
 function waitForStart(settings) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
-        const btn = document.getElementById('start-btn');
+        const classicBtn = document.getElementById('start-classic-btn');
+        const enhancedBtn = document.getElementById('start-enhanced-btn');
+        const helpBtn = document.getElementById('start-help-btn');
+        const help = document.getElementById('start-help');
         const settingsBtn = document.getElementById('start-settings-btn');
         overlay.classList.add('visible');
         settingsBtn.addEventListener('click', () => settings.open());
-        btn.addEventListener('click', () => {
+        helpBtn.addEventListener('click', () => {
+            const visible = help.classList.toggle('visible');
+            helpBtn.setAttribute('aria-expanded', String(visible));
+        });
+        const start = experience => {
+            settings.applyExperience(experience);
             overlay.classList.remove('visible');
-            resolve(createAudioManager({
-                soundFxVolume: 0.50,
-                enabled: localStorage.getItem(SOUND_SETTING_KEY) !== 'off',
-            }));
-        }, { once: true });
+            resolve({
+                experience,
+                audioManager: createAudioManager({
+                    soundFxVolume: 0.50,
+                    enabled: localStorage.getItem(SOUND_SETTING_KEY) !== 'off',
+                }),
+            });
+        };
+        classicBtn.addEventListener('click', () => start('classic'), { once: true });
+        enhancedBtn.addEventListener('click', () => start('enhanced'), { once: true });
     });
 }
 

@@ -76,6 +76,17 @@ files.
 | `pnpm run test:coverage` | Run the Vitest suite with V8 coverage |
 | `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
 
+## Playback modes
+
+The opening screen leaves the original Sierra artwork unobstructed and offers:
+
+- **Classic** — native scale, static clouds and waves, and original presentation.
+- **Enhanced** — responsive scaling, moving clouds and waves, plus a small HUD.
+
+In Enhanced mode, use `←`/`→` to change scenes, `↑`/`↓` to change speed, and
+`F` to enter or leave full screen. Every option remains individually adjustable
+in Settings.
+
 ## Diagnostics
 
 Choose **Settings** on the opening screen, or press `S` at any time. Sound can

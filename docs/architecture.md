@@ -165,6 +165,7 @@ cloud/wave behavior uses the injected compatibility profile.
 | Randomness | injected random function |
 | Optional wall time | compatibility profile |
 | Audio | Web Audio manager created after a user gesture |
+| Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
 | Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
 
 Tests use recording surfaces and deterministic host functions without Canvas or

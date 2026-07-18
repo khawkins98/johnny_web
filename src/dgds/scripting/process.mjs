@@ -305,6 +305,8 @@ export const startProcess = (initialState) => {
         timingCompatibility,
         trace: initialState.trace || null,
         tick: 0,
+        playbackRate: 1,
+        speedRemainder: 0,
         ttmEnvironments: new Map(),
         reentryNow: 0,
         jumpTo: undefined,
@@ -367,17 +369,25 @@ export const __DEBUG__ = {
         if (!state || state.type !== 'ADS') return;
         const sceneIndex = state.data.scenes.findIndex(s => s.tagId && s.tagId.id === tagId);
         if (sceneIndex !== -1) {
+            traceEvent(state, 'runtime-control', { action: 'jump-to-scene', tagId });
             state.currentScene = sceneIndex;
             state.scenes = []; // Clear active child scenes
             state.addScenes = [];
             state.removeScenes = [];
+            state.scenesRandom = [];
             state.playedHistory.clear();
+            state.ttmEnvironments = new Map();
             state.continue = true;
             state.reentry = 0;
             state.jumpTo = undefined;
             state.lastCommand = false;
             state.orMode = false;
             state.orChainPassed = false;
+            state.fadingOut = false;
+            state.fadingIn = false;
+            state.fadeOpacity = 0;
+            state.surface?.clear();
+            if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
             if (state.context) clearContext(state.context);
             debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         }
@@ -403,6 +413,28 @@ export const __DEBUG__ = {
             drawBackground(bgState, state.mainContext);
         }
     },
+    stepScene: (direction) => {
+        if (!state || state.type !== 'ADS') return;
+        const scenes = state.data.scenes.filter(scene => scene.tagId?.id);
+        const currentTag = state.data.scenes[state.currentScene]?.tagId?.id;
+        const currentIndex = Math.max(0, scenes.findIndex(scene => scene.tagId.id === currentTag));
+        const nextIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex + Math.sign(direction)));
+        __DEBUG__.jumpToScene(scenes[nextIndex]?.tagId.id);
+    },
+    setPlaybackRate: (rate) => {
+        if (!state || !Number.isFinite(rate)) return;
+        state.playbackRate = Math.max(0.25, Math.min(4, rate));
+        state.speedRemainder = 0;
+        traceEvent(state, 'runtime-control', { action: 'playback-rate', rate: state.playbackRate });
+    },
+    getPresentation: () => {
+        const tag = state?.data?.scenes?.[state.currentScene]?.tagId;
+        return {
+            scene: tag?.id ?? null,
+            name: tag?.description ?? '',
+            playbackRate: state?.playbackRate ?? 1,
+        };
+    },
     getState: () => state,
     getTrace: () => state?.trace?.snapshot() || [],
     saveTrace: () => {
@@ -424,7 +456,10 @@ window.requestAnimationFrame = window.requestAnimationFrame
 const mainloop = (timestamp) => {
     state.frameId = requestAnimationFrame(mainloop);
 
-    const ticks = state.clock.consume(timestamp);
+    const baseTicks = state.clock.consume(timestamp);
+    state.speedRemainder += baseTicks * state.playbackRate;
+    const ticks = Math.floor(state.speedRemainder);
+    state.speedRemainder -= ticks;
     for (let tick = 0; tick < ticks; tick++) {
         state.tick++;
         // Compatibility effects still consume milliseconds, but the value is
