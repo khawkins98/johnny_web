@@ -312,35 +312,67 @@ describe('TTM frame timing', () => {
         expect(state.delay).toBe(7);
     });
 
-    it('treats SET_DELAY as persistent across UPDATE boundaries', () => {
-        const state = { continue: true, delay: 3, waitTicks: 0 };
+    it('emits the persistent authored delay at each UPDATE boundary', () => {
+        const state = { continue: true, delay: 3, frameReady: false };
 
-        update.callback(state);
-        expect(state).toMatchObject({ continue: false, delay: 3, waitTicks: 3 });
-
-        update.callback(state);
         update.callback(state);
         expect(state.continue).toBe(false);
+        expect(state.frameBoundary).toMatchObject({
+            type: 'dgds-frame-boundary',
+            delayTicks: 3,
+        });
+
+        state.frameReady = true;
+        update.callback(state);
+        expect(state).toMatchObject({ continue: true, delay: 3, frameReady: false });
 
         update.callback(state);
-        expect(state).toMatchObject({ continue: true, delay: 3, waitTicks: 0 });
-
-        update.callback(state);
-        expect(state).toMatchObject({ continue: false, delay: 3, waitTicks: 3 });
+        expect(state.frameBoundary.delayTicks).toBe(3);
     });
 
-    it('makes UPDATE with zero delay yield for one engine tick', () => {
-        const state = { continue: true, delay: 0, waitTicks: 0 };
+    it('keeps zero-delay UPDATE faithful and leaves the browser floor to compatibility', () => {
+        const state = { continue: true, delay: 0, frameReady: false };
         update.callback(state);
-        expect(state).toMatchObject({ continue: false, waitTicks: 1 });
+        expect(state.continue).toBe(false);
+        expect(state.frameBoundary.delayTicks).toBe(0);
 
+        state.frameReady = true;
         update.callback(state);
-        expect(state).toMatchObject({ continue: true, waitTicks: 0 });
+        expect(state).toMatchObject({ continue: true, frameReady: false });
+    });
+
+    it('returns the authored frame boundary as a structured execution outcome', () => {
+        const state = {
+            type: 'TTM',
+            sceneIdx: 5,
+            tagId: 3,
+            reentry: 0,
+            continue: true,
+            delay: 9,
+            frameReady: false,
+            gotoRestart: false,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+        };
+        const script = [{ opcode: 0x0ff0, params: [] }];
+
+        expect(runScript(state, script)).toMatchObject({
+            status: 'yielded',
+            reason: 'frame-boundary',
+            frameBoundary: {
+                type: 'dgds-frame-boundary',
+                delayTicks: 9,
+            },
+        });
+
+        state.frameReady = true;
+        expect(runScript(state, script)).toMatchObject({ status: 'completed' });
     });
 
     it('does not consult the browser wall clock', () => {
         const dateSpy = vi.spyOn(Date, 'now');
-        const state = { continue: true, delay: 1, waitTicks: 0 };
+        const state = { continue: true, delay: 1, frameReady: false };
         update.callback(state);
         update.callback(state);
         expect(dateSpy).not.toHaveBeenCalled();

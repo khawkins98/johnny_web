@@ -5,15 +5,19 @@
  * browser globals directly. Tests and alternate hosts can inject deterministic
  * storage, time, and randomness.
  */
+import { createTimingCompatibility } from './timing-compatibility.mjs';
+
 export const createBrowserCompatibility = ({
     storage = globalThis.localStorage,
     now = () => Date.now(),
     currentHour = () => new Date().getHours(),
     random = Math.random,
+    timing = createTimingCompatibility(),
 } = {}) => ({
     now,
     currentHour,
     random,
+    timing,
 
     setting(key, fallback = null) {
         try {

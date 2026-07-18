@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBrowserCompatibility } from '../compatibility.mjs';
+import { createFrameBoundary } from '../frame-timing.mjs';
+import { createTimingCompatibility } from '../timing-compatibility.mjs';
 import { drawBackground, loadOcean } from '../frame-renderer.mjs';
 
 describe('browser compatibility profile', () => {
@@ -21,6 +23,43 @@ describe('browser compatibility profile', () => {
         expect(createBrowserCompatibility({ random: () => 0 }).randomInt(3, 5)).toBe(3);
         expect(createBrowserCompatibility({ random: () => 0.999 }).randomInt(3, 5)).toBe(5);
         expect(createBrowserCompatibility({ random: () => 0 }).randomInt(5, 3)).toBe(3);
+    });
+
+    it('exposes its named timing compatibility profile', () => {
+        const compatibility = createBrowserCompatibility();
+        expect(compatibility.timing.profile).toBe('faithful-browser');
+        expect(compatibility.timing.patchNames).toEqual(['browser-yield-floor']);
+    });
+});
+
+describe('frame timing compatibility', () => {
+    it('preserves authored delays and floors zero-delay presentation', () => {
+        const timing = createTimingCompatibility();
+
+        expect(timing.mapFrameBoundary(createFrameBoundary(9))).toMatchObject({
+            authoredDelayTicks: 9,
+            runtimeDelayTicks: 9,
+        });
+        expect(timing.mapFrameBoundary(createFrameBoundary(0))).toMatchObject({
+            authoredDelayTicks: 0,
+            runtimeDelayTicks: 1,
+        });
+    });
+
+    it('applies named compatibility patches outside the faithful directive', () => {
+        const timing = createTimingCompatibility({
+            profile: 'test-double-speed',
+            patches: [{ name: 'halve-holds', map: ticks => Math.ceil(ticks / 2) }],
+        });
+        const boundary = createFrameBoundary(9);
+
+        expect(timing.mapFrameBoundary(boundary)).toEqual({
+            authoredDelayTicks: 9,
+            runtimeDelayTicks: 5,
+            profile: 'test-double-speed',
+            patches: ['halve-holds'],
+        });
+        expect(boundary.delayTicks).toBe(9);
     });
 });
 

@@ -89,7 +89,7 @@ log. Press `D` to open the developer panel; opening it also enables diagnostics.
 
 The `D` panel's **Download JSONL Trace** button downloads the capture. Its first
 record identifies the build, browser, display, and engine state; later records
-include lifecycle, drawing, layer, and pixel-fingerprint events. Headless tools
+include lifecycle, drawing, timing-map, layer, and pixel-fingerprint events. Headless tools
 can read `window.__DGDS__.getTrace()`, trigger the same browser download with
 `saveTrace()`, or ask the Vite development server to write under `traces/` with
 `persistTrace()`. Old `?debug=trace`, `?debug=all`, and `?trace=1` links remain

@@ -21,10 +21,11 @@ import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { composeTtmFrame } from './composition.mjs';
-import { createTraceRecorder } from './trace.mjs';
+import { createTraceRecorder, traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { createSessionInfo } from './session-info.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
+import { createTimingCompatibility } from './timing-compatibility.mjs';
 import {
     debugLog,
     clearContext,
@@ -51,6 +52,12 @@ const runtimeSessionInfo = () => ({
             lifecycle: scene.lifecycle,
             execution: scene.execution?.status || null,
         })),
+        timingCompatibility: state.timingCompatibility
+            ? {
+                profile: state.timingCompatibility.profile,
+                patches: state.timingCompatibility.patchNames,
+            }
+            : null,
     } : null,
 });
 
@@ -165,12 +172,29 @@ const runTtmController = () => {
         }
         prepareTtmScene(s);
 
+        if (s.state.waitTicks > 0) {
+            s.state.waitTicks--;
+            if (s.state.waitTicks > 0) {
+                s.execution = pendingExecution(s.state, 'compatibility-delay');
+                return;
+            }
+            s.state.frameReady = true;
+        }
+
         // Don't re-run scripts that have already completed — they should freeze on their
         // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
         // scenes (no GOTO) reach 'completed'.
         if (s.lifecycle !== 'completed') {
             s.lifecycle = 'running';
             s.execution = runScript(s.state, s.state.script || s.script);
+            if (s.execution.frameBoundary) {
+                const mapped = state.timingCompatibility.mapFrameBoundary(s.execution.frameBoundary, {
+                    sceneIdx: s.sceneIdx,
+                    tagId: s.tagId,
+                });
+                s.state.waitTicks = mapped.runtimeDelayTicks;
+                traceEvent(s.state, 'frame-timing-map', mapped);
+            }
             if (isEnvironmentOwner && !s.environment.ready &&
                 s.state.reentry >= (s.prologueLength || 0)) {
                 s.environment.ready = true;
@@ -183,6 +207,8 @@ const runTtmController = () => {
                     s.state.reentry = s.targetStart || 0;
                     s.state.delay = 0;
                     s.state.waitTicks = 0;
+                    s.state.frameReady = false;
+                    s.state.frameBoundary = null;
                     s.state.timer = 0;
                     s.execution = pendingExecution(s.state, 'retry');
                 } else {
@@ -226,6 +252,9 @@ export const startProcess = (initialState) => {
         ...(initialState.random ? { random: initialState.random } : {}),
     });
     const random = initialState.random || compatibility.random;
+    const timingCompatibility = initialState.timingCompatibility
+        || compatibility.timing
+        || createTimingCompatibility();
 
     state = {
         currentScene: 0,
@@ -258,6 +287,8 @@ export const startProcess = (initialState) => {
         elapsedTimer: 0,
         delay: 0,
         waitTicks: 0,
+        frameReady: false,
+        frameBoundary: null,
         timer: 0,
         continue: true,
         frameId: null,
@@ -278,6 +309,7 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         random,
         compatibility,
+        timingCompatibility,
         trace: initialState.trace || null,
         tick: 0,
         ttmEnvironments: new Map(),

@@ -13,6 +13,7 @@ import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { ExecutionStatus, executionOutcome, unblocksPlayScene } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
+import { createFrameBoundary } from './frame-timing.mjs';
 import {
     clearContext,
     drawContext,
@@ -98,19 +99,16 @@ const FREE_SHAPE = (state) => {
 const PURGE = () => {};
 
 const UPDATE = (state) => {
-    if (state.continue) {
-        // UPDATE is a DGDS frame boundary. SET_DELAY configures the persistent
-        // cadence for every subsequent UPDATE; a zero delay still yields until
-        // the next engine tick instead of collapsing multiple visual frames.
-        state.continue = false;
-        state.waitTicks = Math.max(1, state.delay || 0);
+    if (state.frameReady) {
+        state.frameReady = false;
+        state.continue = true;
         return;
     }
 
-    state.waitTicks = Math.max(0, (state.waitTicks || 1) - 1);
-    if (state.waitTicks === 0) {
-        state.continue = true;
-    }
+    // UPDATE is a faithful DGDS frame boundary. The host scheduler decides how
+    // the authored delay maps to browser time and later resumes this opcode.
+    state.frameBoundary = createFrameBoundary(state.delay);
+    state.continue = false;
 };
 
 const SET_DELAY = (state, delay) => {
@@ -784,7 +782,9 @@ export const runScript = (state, script, main = false) => {
         state.runs++;
         return executionOutcome(ExecutionStatus.LOOPED, state, { reason: 'goto' });
     }
-    return executionOutcome(ExecutionStatus.YIELDED, state, {
-        reason: state.continue ? 'advanced' : 'blocked',
-    });
+    const frameBoundary = state.frameBoundary;
+    state.frameBoundary = null;
+    return executionOutcome(ExecutionStatus.YIELDED, state, frameBoundary
+        ? { reason: 'frame-boundary', frameBoundary }
+        : { reason: state.continue ? 'advanced' : 'blocked' });
 };

@@ -43,12 +43,14 @@ metadata, and trace persistence remain at browser/tooling boundaries.
 | `src/dgds/scripting/process.mjs` | Active process, fixed-step loop, ADS/TTM coordination, presentation |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
+| `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
 | `src/dgds/scripting/scene-frame.mjs` | Logical frame reset and GET/PUT restoration |
 | `src/dgds/scripting/composition.mjs` | Rebuilds the foreground composition from stored areas and scene layers |
 | `src/dgds/scripting/surface.mjs` | Logical surface plus Canvas and recording adapters |
 | `src/dgds/scripting/timing.mjs` | Browser timestamp to bounded DGDS tick conversion |
-| `src/dgds/scripting/compatibility.mjs` | Injected settings, wall time, and randomness |
+| `src/dgds/scripting/timing-compatibility.mjs` | Named authored-to-host timing mappings |
+| `src/dgds/scripting/compatibility.mjs` | Browser profile: timing, settings, wall time, and randomness |
 | `src/dgds/scripting/diagnostics.mjs` | Runtime diagnostics mode controller |
 | `src/dgds/scripting/trace.mjs` | Structured JSONL event recording |
 | `src/debug-ui.mjs`, `src/settings-ui.mjs` | Runtime controls and human-readable diagnostics |
@@ -91,15 +93,18 @@ resource prologue and named sequences.
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs
 until an opcode blocks, normally `UPDATE`, then returns a structured `yielded`,
-`looped`, or `completed` outcome. The scheduler consumes that contract instead
-of inferring execution state from interpreter flags. `GOTO` requests a restart
-or switches to another tagged TTM script and produces `looped`.
+`looped`, or `completed` outcome. `UPDATE` emits an authored frame boundary with
+the current `SET_DELAY` value; it does not count browser ticks. The scheduler
+maps that directive through the compatibility profile and owns the resulting
+wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
 The root process uses a fixed 60 Hz logical tick. Browser animation timestamps
 feed an accumulator; late frames may execute several ticks, capped at five, and
 a suspended tab cannot trigger an unbounded replay. `SET_DELAY` and random
-delays remain integer DGDS ticks. Browser wall time does not enter opcode
-execution.
+delays remain integer DGDS ticks. The default `faithful-browser` timing profile
+preserves them and applies one named compatibility rule:
+`browser-yield-floor` makes a zero-delay frame visible for one logical tick.
+Browser wall time does not enter opcode execution.
 
 ## TTM environments and scenes
 
@@ -131,7 +136,7 @@ For every rendered logical frame, `composeTtmFrame()`:
 
 1. clears the process composition surface;
 2. paints stored areas;
-3. paints active/retained scene surfaces in ADS order;
+3. paints active/retained scene surfaces in TTM resource/declaration order;
 4. optionally records a structured composition event and pixel fingerprint;
 5. presents the result on the foreground canvas.
 
@@ -153,7 +158,7 @@ cloud/wave behavior uses the injected compatibility profile.
 
 | Engine need | Injected/browser implementation |
 |---|---|
-| Frame scheduling | `requestAnimationFrame` → fixed-step clock |
+| Frame scheduling | `requestAnimationFrame` → fixed-step clock → timing compatibility map |
 | Drawing | logical surface → Canvas adapter |
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
@@ -174,8 +179,9 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 | On | Concise console events plus structured events and pixel fingerprints |
 
 Enabling diagnostics starts a new session at the current engine tick. Its first JSONL
-record contains application/build, engine, page, browser-reported capability,
-and display metadata. Disabling diagnostics writes a stop record. The developer
+record contains application/build, engine, timing profile, page,
+browser-reported capability, and display metadata. `frame-timing-map` events
+record authored and mapped delays with applied patch names. Disabling diagnostics writes a stop record. The developer
 panel downloads the capture in the browser. Automation may read events directly
 or persist them through the Vite-only endpoint. `?debug=verbose` adds noisy live
 sprite logging without changing the exported trace.
