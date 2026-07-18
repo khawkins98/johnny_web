@@ -37,4 +37,19 @@ describe('structured DGDS tracing', () => {
         expect(trace.pixelHashes).toBe(true);
         expect(trace.snapshot()[0]).toMatchObject({ sequence: 0, tick: 1 });
     });
+
+    it('starts with a session header and stops recording when disabled', () => {
+        const trace = createTraceRecorder();
+        trace.startSession({ enabledAt: '2026-07-18T12:00:00.000Z', mode: 'trace' });
+        trace.record('composition', { tick: 4 });
+        trace.stopSession({ tick: 5 });
+        trace.record('composition', { tick: 6 });
+
+        expect(trace.snapshot().map(event => event.type)).toEqual([
+            'session-start',
+            'composition',
+            'session-stop',
+        ]);
+        expect(trace.active).toBe(false);
+    });
 });

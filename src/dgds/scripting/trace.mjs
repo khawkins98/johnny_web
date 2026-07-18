@@ -6,11 +6,27 @@ const sceneIdentity = state => ({
 export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
     const events = [];
     let sequence = 0;
+    let active = true;
+
+    const append = (type, data = {}) => {
+        events.push({ sequence: sequence++, type, ...data });
+    };
 
     return {
         pixelHashes,
+        get active() { return active; },
         record(type, data = {}) {
-            events.push({ sequence: sequence++, type, ...data });
+            if (active) append(type, data);
+        },
+        startSession(info) {
+            events.length = 0;
+            sequence = 0;
+            active = true;
+            append('session-start', info);
+        },
+        stopSession(info = {}) {
+            if (active) append('session-stop', info);
+            active = false;
         },
         clear() {
             events.length = 0;

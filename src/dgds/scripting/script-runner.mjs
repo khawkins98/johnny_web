@@ -28,14 +28,16 @@ export { clearContext, drawContext, drawBackground, loadBackground, loadRaft, lo
 // Debug logging
 // ---------------------------------------------------------------------------
 
-export const isDebugMode = diagnostics.console;
+export const isDebugMode = () => diagnostics.console;
 
 // Verbose mode: ?debug=verbose logs per-opcode details (DRAW_SPRITE frames, PLAY_SAMPLE, GOTO loops).
-export const isVerboseMode = diagnostics.verbose;
+export const isVerboseMode = () => diagnostics.verbose;
 
 const getTimestamp = () => new Date().toISOString().substring(11, 23);
 
-export const debugLog = isDebugMode ? (...args) => console.log(`[DGDS] [${getTimestamp()}]`, ...args) : () => {};
+export const debugLog = (...args) => {
+    if (diagnostics.console) console.log(`[DGDS] [${getTimestamp()}]`, ...args);
+};
 
 export const sceneLog = (state, action, target = '') => {
     let gagId = state.gagId ?? '?';
@@ -52,7 +54,7 @@ export const sceneLog = (state, action, target = '') => {
         runs: state.runs || 0,
         timer: state.timer || 0,
     });
-    if (!isDebugMode) return;
+    if (!diagnostics.console) return;
 
     let timerStr = '';
     let runStr = '';
@@ -68,7 +70,9 @@ export const sceneLog = (state, action, target = '') => {
     console.log(`[${getTimestamp()}] ${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
 };
 
-export const verboseLog = isVerboseMode ? (...args) => console.log(`[DGDS:V] [${getTimestamp()}]`, ...args) : () => {};
+export const verboseLog = (...args) => {
+    if (diagnostics.verbose) console.log(`[DGDS:V] [${getTimestamp()}]`, ...args);
+};
 
 /**
  * Build a human-readable label for a TTM child scene, including the tag
@@ -569,7 +573,7 @@ const PLAY_SCENE = (state) => {
     const waiting = state.scenes.filter(s => !s.state.played && s.lifecycle !== 'completed');
     state.continue = waiting.length === 0;
     
-    if (isDebugMode && waiting.length > 0) {
+    if (diagnostics.console && waiting.length > 0) {
         // Sort labels so the comparison is stable regardless of iteration order.
         const label = waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).sort().join(', ');
         if (label !== state._lastPlaySceneLabel) {

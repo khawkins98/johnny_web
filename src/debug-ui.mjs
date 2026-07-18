@@ -1,4 +1,5 @@
 import { __DEBUG__ } from './dgds/scripting/process.mjs';
+import { diagnostics } from './dgds/scripting/diagnostics.mjs';
 
 export function setupDebugUI() {
     // Stable automation hook for Playwright/headless browser diagnostics.
@@ -76,6 +77,7 @@ export function setupDebugUI() {
     // Toggle on "D" keypress
     window.addEventListener('keydown', (e) => {
         if (e.key === 'd' || e.key === 'D') {
+            if (!diagnostics.enabled) diagnostics.setMode('basic');
             if (container.style.display === 'none') {
                 container.style.display = 'flex';
                 populateSelect(); // Load actual scenes from engine
@@ -214,6 +216,7 @@ export function setupDebugUI() {
     const origError = console.error;
 
     function appendLog(color, args) {
+        if (!diagnostics.console) return;
         const line = document.createElement('div');
         line.style.color = color;
         line.style.borderBottom = '1px solid #4a3520';

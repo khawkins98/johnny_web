@@ -86,6 +86,11 @@ human-readable console stream, and a durable structured trace.
 | `?debug=trace` | Panel, concise console, JSONL events, and pixel hashes |
 | `?debug=all` | Verbose console and JSONL trace together |
 
+The same modes can be changed while Johnny is running: press `S`, choose a
+mode under **Diagnostics**, then optionally open the `D` panel. Enabling trace
+starts a fresh recording at that moment; disabling it writes a final stop event
+and stops pixel hashing. Events that occurred before activation are not present.
+
 For rendering diagnostics that need to be shared or analyzed headlessly, use:
 
 ```text
@@ -96,7 +101,10 @@ Press `D`, reproduce the problem, and choose **Save JSONL Trace**. The Vite
 development server writes the result under `traces/` (ignored by Git). Each
 composition record includes the logical engine tick, ordered active scene
 layers, layer revisions, an exact pixel hash, non-transparent bounds, and pixel
-count. Sprite and GET/PUT operations are separate structured events.
+count. Sprite and GET/PUT operations are separate structured events. Every trace
+starts with a session header containing activation time, application version and
+build, engine state, page URL, timezone, browser-reported platform capabilities,
+viewport, screen dimensions, color depth, and device-pixel ratio.
 
 Headless browser automation can call `window.__DGDS__.saveTrace()` after the
 desired run. JSON Lines is the canonical format because it preserves nested

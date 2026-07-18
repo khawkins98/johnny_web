@@ -24,7 +24,7 @@ export const composeTtmFrame = (state) => {
         }
     }
 
-    if (state.trace) {
+    if (state.trace?.active) {
         state.trace.record('composition', {
             tick: state.tick,
             layers: (state.scenes || []).map(scene => ({

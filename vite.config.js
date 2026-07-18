@@ -1,6 +1,12 @@
 import { defineConfig } from 'vite';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+
+const buildId = process.env.VITE_BUILD_ID || (() => {
+  try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); }
+  catch { return 'unknown'; }
+})();
 
 const dgdsTracePlugin = () => ({
   name: 'dgds-trace-writer',
@@ -30,6 +36,10 @@ export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? '/',
   publicDir: 'public',
   plugins: [dgdsTracePlugin()],
+  define: {
+    __JOHNNY_VERSION__: JSON.stringify(process.env.npm_package_version || '0.1.0'),
+    __JOHNNY_BUILD__: JSON.stringify(buildId),
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

@@ -1,8 +1,15 @@
+import { diagnostics } from './dgds/scripting/diagnostics.mjs';
+
 export function setupSettingsUI(audioManager) {
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
         @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=VT323&display=swap');
+
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
         #settings-overlay {
             display: none;
@@ -49,6 +56,7 @@ export function setupSettingsUI(audioManager) {
             text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
             border-bottom: 2px dashed #8b5a2b;
             padding-bottom: 10px;
+            text-wrap: balance;
         }
 
         .settings-row {
@@ -68,10 +76,23 @@ export function setupSettingsUI(audioManager) {
             color: #4a3520;
             cursor: pointer;
             border-radius: 4px;
+            min-height: 40px;
+            transition-property: transform, background-color;
+            transition-duration: 140ms;
+            transition-timing-function: ease-out;
         }
 
         .settings-row select:hover, .settings-row button:hover {
             background: #fff;
+        }
+
+        .settings-row button:active {
+            transform: scale(0.96);
+        }
+
+        #diagnostics-status {
+            font-variant-numeric: tabular-nums;
+            text-wrap: pretty;
         }
 
         .settings-link {
@@ -96,8 +117,8 @@ export function setupSettingsUI(audioManager) {
             color: white;
             border: 3px solid #c0392b;
             border-radius: 50%;
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             font-size: 20px;
             font-weight: bold;
             cursor: pointer;
@@ -246,15 +267,58 @@ export function setupSettingsUI(audioManager) {
     const debugRow = document.createElement('div');
     debugRow.className = 'settings-row';
     const debugLabel = document.createElement('span');
-    debugLabel.innerText = 'Developer Tools:';
+    debugLabel.innerText = 'Diagnostics:';
+    const debugControls = document.createElement('span');
+    debugControls.style.display = 'flex';
+    debugControls.style.gap = '6px';
+    const debugSelect = document.createElement('select');
+    [
+        { val: 'off', text: 'Off' },
+        { val: 'basic', text: 'Basic' },
+        { val: 'verbose', text: 'Verbose' },
+        { val: 'trace', text: 'Trace' },
+        { val: 'all', text: 'All' },
+    ].forEach(({ val, text }) => {
+        const option = document.createElement('option');
+        option.value = val;
+        option.innerText = text;
+        debugSelect.appendChild(option);
+    });
+    debugSelect.value = diagnostics.mode;
+    debugSelect.onchange = event => diagnostics.setMode(event.target.value);
     const debugBtn = document.createElement('button');
-    debugBtn.innerText = 'Toggle Palette (D)';
+    debugBtn.innerText = 'Panel (D)';
     debugBtn.onclick = () => {
+        if (!diagnostics.enabled) diagnostics.setMode('basic');
         window.dispatchEvent(new KeyboardEvent('keydown', {key: 'd'}));
     };
+    debugControls.appendChild(debugSelect);
+    debugControls.appendChild(debugBtn);
     debugRow.appendChild(debugLabel);
-    debugRow.appendChild(debugBtn);
+    debugRow.appendChild(debugControls);
     modal.appendChild(debugRow);
+
+    const debugStatus = document.createElement('div');
+    debugStatus.id = 'diagnostics-status';
+    debugStatus.style.fontFamily = "'VT323', monospace";
+    debugStatus.style.fontSize = '14px';
+    debugStatus.style.textAlign = 'right';
+    debugStatus.style.marginTop = '-10px';
+    debugStatus.style.marginBottom = '15px';
+    let enabledAt = diagnostics.enabled ? new Date() : null;
+    const renderDebugStatus = () => {
+        debugStatus.innerText = enabledAt
+            ? `Enabled ${enabledAt.toLocaleTimeString()} · ${diagnostics.mode}`
+            : 'Diagnostics disabled';
+    };
+    diagnostics.subscribe((current, previous) => {
+        debugSelect.value = current.mode;
+        if (current.enabled && !previous.enabled) enabledAt = new Date();
+        if (!current.enabled) enabledAt = null;
+        renderDebugStatus();
+    });
+    renderDebugStatus();
+    modal.appendChild(debugStatus);
 
     // GitHub Link
     const githubLink = document.createElement('a');

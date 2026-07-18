@@ -4,7 +4,6 @@ import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess } from '../dgds/scripting/process.mjs';
 import { setupDebugUI } from '../debug-ui.mjs';
 import { setupSettingsUI } from '../settings-ui.mjs';
-import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
 export const run = async () => {
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
@@ -57,7 +56,7 @@ export const run = async () => {
     // browser's user-activation requirement is satisfied.
     const audioManager = await waitForStart();
 
-    if (diagnostics.ui) setupDebugUI();
+    setupDebugUI();
     setupSettingsUI(audioManager);
 
     const context = document.getElementById('canvas').getContext('2d');

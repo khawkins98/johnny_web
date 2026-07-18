@@ -23,8 +23,8 @@ import { canRunTtmScene } from './scene-factory.mjs';
 import { composeTtmFrame } from './composition.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
+import { createSessionInfo } from './session-info.mjs';
 import {
-    isDebugMode,
     debugLog,
     clearContext,
     drawBackground,
@@ -38,6 +38,48 @@ import {
 export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verboseLog } from './script-runner.mjs';
 
 let state = null;
+
+const runtimeSessionInfo = () => ({
+    ...createSessionInfo({ mode: diagnostics.mode, tick: state?.tick ?? null }),
+    engine: state ? {
+        type: state.type,
+        currentAdsScene: state.currentScene,
+        activeScenes: state.scenes.map(scene => ({
+            sceneIdx: scene.sceneIdx,
+            tagId: scene.tagId,
+            lifecycle: scene.lifecycle,
+        })),
+    } : null,
+});
+
+const beginRuntimeTrace = () => {
+    if (!state) return;
+    const recorder = createTraceRecorder({ pixelHashes: true });
+    recorder.startSession(runtimeSessionInfo());
+    state.trace = recorder;
+};
+
+diagnostics.subscribe((current, previous) => {
+    if (current.trace && !previous.trace) {
+        beginRuntimeTrace();
+    } else if (!current.trace && previous.trace) {
+        state?.trace?.stopSession({ disabledAt: new Date().toISOString(), tick: state?.tick ?? null });
+    } else if (current.trace && previous.trace && current.mode !== previous.mode) {
+        state?.trace?.record('diagnostics-mode', {
+            tick: state?.tick ?? null,
+            previousMode: previous.mode,
+            mode: current.mode,
+        });
+    }
+
+    if (current.enabled && !previous.enabled) {
+        console.log('[DGDS] Diagnostics enabled', runtimeSessionInfo());
+    } else if (!current.enabled && previous.enabled) {
+        console.log('[DGDS] Diagnostics disabled');
+    } else if (current.mode !== previous.mode) {
+        console.log(`[DGDS] Diagnostics mode changed: ${previous.mode} → ${current.mode}`);
+    }
+});
 
 const renderPipeline = () => {
     composeTtmFrame(state);
@@ -231,7 +273,7 @@ export const startProcess = (initialState) => {
         frameDelta: 0,
         random,
         compatibility,
-        trace: initialState.trace || (diagnostics.trace ? createTraceRecorder({ pixelHashes: true }) : null),
+        trace: initialState.trace || null,
         tick: 0,
         ttmEnvironments: new Map(),
         reentryNow: 0,
@@ -281,6 +323,8 @@ export const startProcess = (initialState) => {
         debugLog('scenesRes:', state.scenesRes.map((r, i) => r ? `[${i}]=${r.name}` : null).filter(Boolean).join(', '));
     }
     state.surface ||= surfaceFactory();
+    if (!initialState.trace && diagnostics.trace) beginRuntimeTrace();
+    if (diagnostics.console) console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
 
     mainloop();
 
