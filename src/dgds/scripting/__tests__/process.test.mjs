@@ -128,6 +128,7 @@ describe('GOTO handler', () => {
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 99);
         expect(mockState.runs).toBe(1);
+        expect(mockState.looping).toBe(true);
     });
 
     it('runScript: clears gotoRestart and resets reentry to 0 at the top of the next call', () => {
@@ -858,6 +859,42 @@ describe('PLAY_SCENE canContinue logic', () => {
         };
         entry.callback(state);
         expect(state.continue).toBe(true);
+    });
+
+    it('unblocks a GOTO ambient after its first loop without completing it', () => {
+        const state = {
+            continue: false,
+            scenes: [{
+                sceneIdx: 5,
+                tagId: 30,
+                lifecycle: 'running',
+                state: { played: false, looping: true, runs: 1 },
+            }],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+
+        entry.callback(state);
+
+        expect(state.continue).toBe(true);
+        expect(state.scenes[0].lifecycle).toBe('running');
+    });
+
+    it('still blocks an unfinished finite scene with requested retries', () => {
+        const state = {
+            continue: false,
+            scenes: [{
+                sceneIdx: 5,
+                tagId: 3,
+                lifecycle: 'running',
+                retries: 2,
+                state: { played: false, looping: false, runs: 1 },
+            }],
+            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+        };
+
+        entry.callback(state);
+
+        expect(state.continue).toBe(false);
     });
 
     it('stays blocked when any scene is "active" (newly added, not yet looped)', () => {

@@ -113,11 +113,11 @@ another's saved regions.
 ADS queues scene additions and removals until `PLAY_SCENE`:
 
 - `ADD_SCENE` stages a TTM scene.
-- `PLAY_SCENE` applies stops and additions, then blocks until new scenes finish
-  their first pass.
+- `PLAY_SCENE` applies stops and additions, then waits for finite scenes to
+  finish their requested repetitions and looping scenes to finish one pass.
 - `STOP_SCENE` stages removal.
 - completed scenes retain their final layer until ADS explicitly stops them;
-  looping scenes remain active.
+  looping scenes remain active after they unblock the controller.
 
 ## Frame composition
 

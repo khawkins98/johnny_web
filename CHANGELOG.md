@@ -38,6 +38,8 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   scene's saved region from corrupting another scene's animation
 - `CLEAR_SCREEN` resets the complete scene layer before restoring a saved
   rectangle, removing sprite trails outside that rectangle
+- `PLAY_SCENE` unblocks after an intentional `GOTO` ambient completes its first
+  loop while still waiting for finite scenes and their requested retries
 - TTM resource prologues finish before sibling scenes can draw or contaminate
   saved regions
 - Stopped scenes disappear from the next composition instead of leaving their

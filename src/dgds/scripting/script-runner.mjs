@@ -140,6 +140,7 @@ const GOTO = (state, tagId) => {
         }
     }
     state.gotoRestart = true;
+    state.looping = true;
     state.continue = false;  // pause execution until next frame (like UPDATE)
     state.runs++;             // count completed loops so PLAY_SCENE can unblock
 };
@@ -584,11 +585,13 @@ const PLAY_SCENE = (state) => {
         }
     }
 
-    // Block until all newly-added scenes have completed their first loop.
-    // We check `!s.state.played` instead of `s.lifecycle === 'active'` because 
-    // a scene becomes 'running' on the very first frame, but we need to wait
-    // for its first loop to actually finish.
-    const waiting = state.scenes.filter(s => !s.state.played && s.lifecycle !== 'completed');
+    // Finite scenes (including requested retries) block until completion.
+    // Intentional GOTO loops never become `played`; they unblock after their
+    // first full loop and remain active until ADS explicitly stops them.
+    const waiting = state.scenes.filter(s => {
+        const loopReady = s.state.looping && s.state.runs > 0;
+        return !s.state.played && s.lifecycle !== 'completed' && !loopReady;
+    });
     state.continue = waiting.length === 0;
     
     if (diagnostics.console && waiting.length > 0) {

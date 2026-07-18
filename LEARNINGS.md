@@ -71,7 +71,8 @@ played history, fades, and condition state are not copied into TTM state.
 
 ## Scene lifecycle
 
-- `PLAY_SCENE` blocks until newly added scenes complete their first pass.
+- `PLAY_SCENE` waits for finite scenes and their requested retries. GOTO loops
+  unblock it after one pass but remain active.
 - Completed non-looping scenes retain their last layer until explicitly stopped.
 - GOTO scenes remain running until stopped.
 - `STOP_SCENE` removal becomes visually effective through the next fresh
