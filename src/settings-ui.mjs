@@ -1,6 +1,8 @@
 import { diagnostics } from './dgds/scripting/diagnostics.mjs';
 
-export function setupSettingsUI(audioManager) {
+export const SOUND_SETTING_KEY = 'jc-sound';
+
+export function setupSettingsUI({ getAudioManager = () => null } = {}) {
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
@@ -29,6 +31,10 @@ export function setupSettingsUI(audioManager) {
             border-radius: 8px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 20px rgba(139, 90, 43, 0.3);
             width: 400px;
+            max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 32px);
+            box-sizing: border-box;
+            overflow-y: auto;
             padding: 30px;
             font-family: 'Caveat', cursive;
             color: #4a3520;
@@ -140,11 +146,27 @@ export function setupSettingsUI(audioManager) {
     
     const modal = document.createElement('div');
     modal.id = 'settings-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'settings-title');
     
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-btn';
     closeBtn.innerText = 'X';
-    closeBtn.onclick = () => overlay.style.display = 'none';
+    closeBtn.setAttribute('aria-label', 'Close settings');
+    let previousFocus = null;
+    const close = () => {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        previousFocus?.focus?.();
+    };
+    const open = () => {
+        previousFocus = document.activeElement;
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
+        closeBtn.focus();
+    };
+    closeBtn.onclick = close;
     modal.appendChild(closeBtn);
 
     const title = document.createElement('h2');
@@ -184,29 +206,28 @@ export function setupSettingsUI(audioManager) {
     scaleRow.appendChild(scaleSelect);
     modal.appendChild(scaleRow);
 
-    // Audio Toggle
+    // Persistent sound compatibility setting. The AudioManager may not exist
+    // yet when Settings opens on the intro screen.
     const audioRow = document.createElement('div');
     audioRow.className = 'settings-row';
     const audioLabel = document.createElement('span');
-    audioLabel.innerText = 'Seagull Noise:';
-    const audioBtn = document.createElement('button');
-    let isMuted = false;
-    audioBtn.innerText = 'Mute';
-    audioBtn.onclick = () => {
-        if (audioManager && audioManager.context) {
-            if (isMuted) {
-                audioManager.context.resume();
-                audioBtn.innerText = 'Mute';
-                isMuted = false;
-            } else {
-                audioManager.context.suspend();
-                audioBtn.innerText = 'Unmute';
-                isMuted = true;
-            }
-        }
+    audioLabel.innerText = 'Sound:';
+    const audioSelect = document.createElement('select');
+    audioSelect.dataset.setting = 'sound';
+    [{ val: 'on', text: 'On' }, { val: 'off', text: 'Off' }].forEach(({ val, text }) => {
+        const option = document.createElement('option');
+        option.value = val;
+        option.innerText = text;
+        audioSelect.appendChild(option);
+    });
+    audioSelect.value = localStorage.getItem(SOUND_SETTING_KEY) || 'on';
+    audioSelect.onchange = event => {
+        const value = event.target.value;
+        localStorage.setItem(SOUND_SETTING_KEY, value);
+        getAudioManager()?.setEnabled(value === 'on');
     };
     audioRow.appendChild(audioLabel);
-    audioRow.appendChild(audioBtn);
+    audioRow.appendChild(audioSelect);
     modal.appendChild(audioRow);
 
     // Moving Clouds Toggle
@@ -326,15 +347,21 @@ export function setupSettingsUI(audioManager) {
     modal.appendChild(githubLink);
 
     overlay.appendChild(modal);
+    overlay.setAttribute('aria-hidden', 'true');
     document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) close();
+    });
 
     // Keyboard shortcut 'S'
     window.addEventListener('keydown', (e) => {
         if (e.key === 's' || e.key === 'S') {
-            overlay.style.display = overlay.style.display === 'flex' ? 'none' : 'flex';
+            if (overlay.style.display === 'flex') close();
+            else open();
         }
         if (e.key === 'Escape' && overlay.style.display === 'flex') {
-            overlay.style.display = 'none';
+            close();
         }
     });
 
@@ -348,6 +375,8 @@ export function setupSettingsUI(audioManager) {
 
     // Apply initial
     applyScaling(savedScale);
+
+    return { open, close };
 }
 
 function applyScaling(mode) {

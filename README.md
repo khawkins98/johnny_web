@@ -78,9 +78,12 @@ files.
 
 ## Diagnostics
 
-Press `S` while running and set Diagnostics to **On**. This starts a fresh
-structured trace from the current engine tick and enables the concise console
-log. Press `D` to open the developer panel; opening it also enables diagnostics.
+Choose **Settings** on the opening screen, or press `S` at any time. Sound can
+be turned on or off there and the choice persists across reloads.
+
+Set Diagnostics to **On**. This starts a fresh structured trace from the current
+engine tick and enables the concise console log. Press `D` to open the developer
+panel; opening it also enables diagnostics.
 
 | URL | Output |
 |-----|--------|

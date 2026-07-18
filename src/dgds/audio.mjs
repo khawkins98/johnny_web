@@ -9,10 +9,6 @@
  * version of the game data would require recalibrating these offsets.
  *
  * NOTE: sampleOffsets[0] and sampleOffsets[11] are -1, meaning those indices have no sample.
- * NOTE: An index beyond the sampleOffsets array bounds would not be caught by the === -1 check
- * in source.load(), since undefined !== -1, and the fetch would proceed with sampleOffsets[index]
- * being undefined (offset 0 in the file, yielding wrong/corrupt data).
- *
  * NOTE: The full SCRANTIC.SCR file (~295 KB) is fetched from the network for every cache miss.
  * Only the relevant slice is decoded. A range-request approach would reduce bandwidth.
  */
@@ -36,16 +32,14 @@ const createAudioContext = () => {
     return new AudioContext();
 };
 
-const getSoundFxSource = (config, context, data) => {
+const getSoundFxSource = (config, context, output) => {
     const source = {
         volume: config.soundFxVolume,
         isPlaying: false,
-        loop: false,
         currentIndex: -1,
         bufferSource: null,
         gainNode: context.createGain(),
         lowPassFilter: context.createBiquadFilter(),
-        data
     };
     source.lowPassFilter.type = 'allpass';
 
@@ -64,14 +58,10 @@ const getSoundFxSource = (config, context, data) => {
         }
         source.isPlaying = false;
     };
-    source.suspend = () => {
-        context.suspend();
-    };
-    source.resume = () => {
-        context.resume();
-    };
     source.load = (index, callback) => {
-        if (index <= -1 ||
+        if (!Number.isInteger(index) ||
+            index < 0 ||
+            index >= sampleOffsets.length ||
             (source.currentIndex === index && source.isPlaying) ||
             sampleOffsets[index] === -1) {
             return;
@@ -119,17 +109,26 @@ const getSoundFxSource = (config, context, data) => {
         source.bufferSource.connect(source.gainNode);
         source.gainNode.gain.setValueAtTime(source.volume, context.currentTime + 1);
         source.gainNode.connect(source.lowPassFilter);
-        source.lowPassFilter.connect(context.destination);
+        source.lowPassFilter.connect(output);
     };
 
     return source;
 };
 
 export const createAudioManager = (config) => {
-    const context = createAudioContext();
-    const sfxSource = getSoundFxSource(config, context);
-    return {
+    const context = config.context || createAudioContext();
+    const masterGain = context.createGain();
+    masterGain.connect(context.destination);
+    const sfxSource = getSoundFxSource(config, context, masterGain);
+    const manager = {
         context,
         getSoundFxSource: () => sfxSource,
+        enabled: config.enabled !== false,
+        setEnabled(enabled) {
+            manager.enabled = Boolean(enabled);
+            masterGain.gain.setValueAtTime(manager.enabled ? 1 : 0, context.currentTime);
+        },
     };
+    manager.setEnabled(manager.enabled);
+    return manager;
 };

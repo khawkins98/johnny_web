@@ -3,7 +3,7 @@ import { loadResources } from '../dgds/resource.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess } from '../dgds/scripting/process.mjs';
 import { setupDebugUI } from '../debug-ui.mjs';
-import { setupSettingsUI } from '../settings-ui.mjs';
+import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings-ui.mjs';
 
 export const run = async () => {
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
@@ -51,13 +51,14 @@ export const run = async () => {
     const introRes = resource.loadEntry('INTRO.SCR');
     drawScreen(introRes, mainContext);
 
+    let audioManager = null;
+    setupDebugUI();
+    const settings = setupSettingsUI({ getAudioManager: () => audioManager });
+
     // Gate audio and animation behind a user gesture (browser autoplay policy).
     // AudioContext is created synchronously inside the click callback so the
     // browser's user-activation requirement is satisfied.
-    const audioManager = await waitForStart();
-
-    setupDebugUI();
-    setupSettingsUI(audioManager);
+    audioManager = await waitForStart(settings);
 
     const context = document.getElementById('canvas').getContext('2d');
     const data = resource.loadEntry('ACTIVITY.ADS');
@@ -85,14 +86,19 @@ export const run = async () => {
  * clicks. AudioContext must be constructed synchronously inside the click
  * handler — creating it after an await loses the user-activation context.
  */
-function waitForStart() {
+function waitForStart(settings) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
         const btn = document.getElementById('start-btn');
+        const settingsBtn = document.getElementById('start-settings-btn');
         overlay.classList.add('visible');
+        settingsBtn.addEventListener('click', () => settings.open());
         btn.addEventListener('click', () => {
             overlay.classList.remove('visible');
-            resolve(createAudioManager({ soundFxVolume: 0.50 }));
+            resolve(createAudioManager({
+                soundFxVolume: 0.50,
+                enabled: localStorage.getItem(SOUND_SETTING_KEY) !== 'off',
+            }));
         }, { once: true });
     });
 }

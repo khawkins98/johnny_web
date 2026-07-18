@@ -34,22 +34,39 @@
             #start-overlay.visible {
                 display: flex;
             }
-            #start-btn {
+            #start-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                width: min(240px, calc(100vw - 48px));
+            }
+            .start-action {
                 background: #111;
                 color: #ccc;
                 border: 1px solid #444;
                 border-radius: 4px;
-                padding: 14px 40px;
+                min-height: 44px;
+                padding: 12px 24px;
                 font-family: monospace;
                 font-size: 14px;
                 cursor: pointer;
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
+                transition-property: transform, background-color, color, border-color;
+                transition-duration: 140ms;
+                transition-timing-function: ease-out;
             }
-            #start-btn:hover {
+            .start-action:hover {
                 background: #222;
                 color: #fff;
                 border-color: #666;
+            }
+            .start-action:active {
+                transform: scale(0.96);
+            }
+            .start-action.secondary {
+                background: rgba(17, 17, 17, 0.78);
+                color: #aaa;
             }
             #data-error {
                 display: none;
@@ -137,7 +154,10 @@
             <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
 
             <div id="start-overlay">
-                <button id="start-btn">▶ Play</button>
+                <div id="start-actions">
+                    <button id="start-btn" class="start-action">▶ Play</button>
+                    <button id="start-settings-btn" class="start-action secondary">⚙ Settings</button>
+                </div>
             </div>
 
             <div id="data-error" role="alert" aria-live="assertive">
