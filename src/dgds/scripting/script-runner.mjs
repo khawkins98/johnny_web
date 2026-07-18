@@ -87,13 +87,10 @@ const sceneLabel = (scenesRes, sceneIdx, tagId) => {
 const SAVE_BACKGROUND = (state) => { };
 
 const DRAW_BACKGROUND = (state) => {
-    // No-op in the per-scene-canvas architecture.
-    // In the original DGDS engine this restored the saved background region behind
-    // a sprite (software blitting: save→draw sprite→restore). In our architecture
-    // each TTM scene has a transparent off-screen canvas; the island background is
-    // drawn once per frame by the main compositor (runScripts → drawBackground →
-    // mainCanvas) with current cloud state, so calling drawBackground again from a
-    // child scene would overwrite it with stale (snapshot-at-creation) cloud positions.
+    const save = state.saveBkg[0];
+    if (save && save.canDraw) {
+        state.context.clearRect(save.x, save.y, save.width, save.height);
+    }
 };
 
 const PURGE = (state) => {
@@ -219,12 +216,6 @@ const DRAW_BACKGROUND_REGION = (state, x, y, width, height) => {
     save.y = y;
     save.width = width;
     save.height = height;
-
-    save.context.drawImage(
-        state.mainContext.canvas,
-        x, y, width, height,
-        x, y, width, height,
-    );
 };
 
 const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
@@ -318,8 +309,20 @@ const DRAW_SPRITE1 = (state) => { };
 const DRAW_SPRITE3 = (state) => { };
 
 const clearScreen = (state, index) => {
-    clearContext(state.context);
-    drawContext(state);
+    const save = state.save[index];
+    if (save && save.canDraw) {
+        if (state.allScenes) {
+            state.allScenes.forEach(s => {
+                if (s.state && s.state.context) {
+                    s.state.context.clearRect(save.x, save.y, save.width, save.height);
+                }
+            });
+        } else if (state.context) {
+            state.context.clearRect(save.x, save.y, save.width, save.height);
+        }
+    } else if (state.context) {
+        state.context.clearRect(0, 0, 640, 480);
+    }
 };
 
 const CLEAR_SCREEN = (state, index) => {
@@ -559,12 +562,17 @@ const PLAY_SCENE = (state) => {
 
         if (state.removeScenes.length > 0) {
             state.removeScenes.forEach(s => {
-                const index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId);
-                if (index !== -1) {
+                let index;
+                let removed = false;
+                while ((index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
                     // Record in history before removing so IF_NOT_PLAYED works correctly.
                     state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
                     sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
                     state.scenes.splice(index, 1);
+                    removed = true;
+                }
+                if (!removed) {
+                    console.error(`FAILED TO REMOVE SCENE ${s.sceneIdx}:${s.tagId}! Not found in state.scenes!`);
                 }
             });
             state.removeScenes = [];
@@ -585,10 +593,13 @@ const PLAY_SCENE = (state) => {
         }
     }
 
-    // Block until all newly-added ('active') scenes have completed their first loop.
-    // Scenes already 'running' or 'completed' do not block advancement.
-    const waiting = state.scenes.filter(s => s.lifecycle === 'active');
+    // Block until all newly-added scenes have completed their first loop.
+    // We check `!s.state.played` instead of `s.lifecycle === 'active'` because 
+    // a scene becomes 'running' on the very first frame, but we need to wait
+    // for its first loop to actually finish.
+    const waiting = state.scenes.filter(s => !s.state.played && s.lifecycle !== 'completed');
     state.continue = waiting.length === 0;
+    
     if (isDebugMode && waiting.length > 0) {
         // Sort labels so the comparison is stable regardless of iteration order.
         const label = waiting.map(s => sceneLabel(state.scenesRes, s.sceneIdx, s.tagId)).sort().join(', ');

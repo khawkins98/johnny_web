@@ -60,7 +60,7 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     canvas.height = 480;
 
     // Store identity in the child state so runScript can label log messages.
-    const stateInit = { ...initialState, type: 'TTM', context: canvas.getContext('2d'), sceneIdx, tagId };
+    const stateInit = { ...initialState, type: 'TTM', context: canvas.getContext('2d'), sceneIdx, tagId, allScenes: state.scenes };
 
     const s = Object.assign({ sceneIdx, delay, retries, lifecycle: 'active' }, scene);
     if (s.script === undefined) {
