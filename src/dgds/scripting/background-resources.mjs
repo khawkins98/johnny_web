@@ -1,9 +1,4 @@
-import { loadResourceEntry } from '../resource.mjs';
-
-const loadNamedEntry = (state, name) => {
-    const entry = state.entries.find(candidate => candidate.name === name);
-    return entry === undefined ? undefined : loadResourceEntry(entry);
-};
+const loadNamedEntry = (state, name) => state.resourceProvider.resolve(name);
 
 export const selectOceanIndex = (state, isNight) => {
     const oceans = state.game?.background?.oceans || [];
@@ -58,4 +53,3 @@ export const loadScreen = (state, name) => {
         loadOcean(state);
     }
 };
-

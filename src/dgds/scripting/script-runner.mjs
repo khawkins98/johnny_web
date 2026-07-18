@@ -4,7 +4,6 @@
  * All opcode callbacks are plain functions of the form (state, ...params).
  * They are kept as plain functions (not class methods) so tests can call them directly.
  */
-import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { getSceneState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
@@ -347,10 +346,8 @@ const LOAD_SCREEN = (state, name) => {
 
 const LOAD_IMAGE = (state, name) => {
     name = state.game?.resources?.aliases?.[name] ?? name;
-    const entry = state.entries.find(e => e.name === name);
-    if (entry !== undefined) {
-        state.res[state.slot] = loadResourceEntry(entry);
-    }
+    const resource = state.resourceProvider.resolve(name);
+    if (resource !== undefined) state.res[state.slot] = resource;
 };
 
 const LOAD_PALETTE = (state) => { };

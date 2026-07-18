@@ -76,7 +76,7 @@ describe('deterministic background compatibility', () => {
                     settings: {},
                 },
             },
-            entries: [],
+            resourceProvider: { resolve: () => undefined },
             bkgScreen: null,
             bkgOcean: [],
             compatibility: createBrowserCompatibility({ random: () => 0 }),
@@ -117,7 +117,7 @@ describe('deterministic background compatibility', () => {
         const oceans = ['day-0', 'day-1', 'day-2', 'night'];
         const state = {
             game: johnnyCastaway,
-            entries: [],
+            resourceProvider: { resolve: () => undefined },
             bkgOcean: oceans,
             compatibility: createBrowserCompatibility({
                 storage: { getItem: key => key === 'jc-time' ? 'local' : null },

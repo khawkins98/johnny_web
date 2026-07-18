@@ -42,6 +42,7 @@ dependency direction.
 |---|---|
 | `src/scrantic/main.mjs` | Startup, resource fetch, user-gesture/audio gate, repeated ADS cycles |
 | `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
+| `src/dgds/resource-provider.mjs` | Adapts archive entries to synchronous named-resource resolution |
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
 | `src/games/johnny/manifest.mjs` | Johnny identity, entry points, aliases, audio, and background metadata |
@@ -76,7 +77,8 @@ dependency direction.
 3. Wait for a click; construct `AudioContext` synchronously inside that user
    gesture to satisfy browser autoplay rules.
 4. Load the manifest's activity ADS and call `startProcess()`, which constructs
-   a fresh `DgdsRuntime` and connects it to a browser scheduler.
+   a named-resource provider, constructs a fresh `DgdsRuntime`, and connects it
+   to a browser scheduler.
 5. When the ADS program completes, start a fresh cycle.
 
 The game data is not committed. `pnpm run extract -- <zip>` populates
@@ -147,6 +149,12 @@ names, aliases, layouts, sprite layers, and enhancement-setting keys from that
 package. Generic DGDS modules contain no Johnny resource names or layout indices.
 Runtime session diagnostics include the injected game ID and version label.
 
+The interpreter and runtime never inspect raw archive entries or invoke parser
+dispatch directly. They synchronously resolve names through an injected resource
+provider. Synchronous resolution is intentional: an authored TTM stream may
+`LOAD_IMAGE` and draw it later in the same interpreter pass. The browser/app
+composition layer adapts the loaded archive entry collection to this contract.
+
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
@@ -202,6 +210,7 @@ cloud/wave behavior uses the injected game metadata and compatibility profile.
 | Engine need | Injected/browser implementation |
 |---|---|
 | Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
+| Resource decoding | archive entries → named-resource provider → runtime |
 | Drawing | frame operations → retained surfaces → presentation directive → browser frame presenter |
 | Settings | compatibility profile → `localStorage` |
 | Randomness | injected random function |
@@ -245,9 +254,9 @@ automation may read it directly or use the Vite-only persistence endpoint.
 - The browser background renderer is still separate from logical TTM
   composition, so some original buffer-copy behavior may require more work.
 - Opcode drawing and audio are logical operations, and final Canvas presentation
-  is host-owned. Retained composition remains stateful, and resource loading is
-  still invoked synchronously by interpreter opcodes; those remain before this
-  becomes the deterministic `DgdsMachine` described by ADR 0001.
+  is host-owned. Retained composition and game background state remain mutable
+  runtime structures; making that state deterministic and snapshot-friendly is
+  the primary remaining step toward the `DgdsMachine` described by ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

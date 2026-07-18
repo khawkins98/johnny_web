@@ -6,7 +6,6 @@
  * services. Opcode drawing and audio are emitted as logical operations. The
  * retained logical-surface model remains transitional engine state.
  */
-import { loadResourceEntry } from '../resource.mjs';
 import { PALETTE } from '../../scrantic/palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
@@ -35,9 +34,12 @@ export class DgdsRuntime {
         if (typeof initialState?.random !== 'function') {
             throw new TypeError('DgdsRuntime requires an injected random function');
         }
+        if (typeof initialState?.resourceProvider?.resolve !== 'function') {
+            throw new TypeError('DgdsRuntime requires an injected resourceProvider');
+        }
 
         const runtimeInitialState = { ...initialState };
-        for (const hostKey of ['context', 'mainContext', 'audioManager', 'onComplete']) {
+        for (const hostKey of ['context', 'mainContext', 'audioManager', 'onComplete', 'entries']) {
             delete runtimeInitialState[hostKey];
         }
         const { random, surfaceFactory } = runtimeInitialState;
@@ -116,10 +118,8 @@ export class DgdsRuntime {
         const state = this.state;
         debugLog(`ADS cycle starting: ${state.data.scenes.length} scenes in "${state.data?.name ?? '?'}"`);
         state.data.resources.forEach(resource => {
-            const entry = state.entries.find(candidate => candidate.name === resource.name);
-            if (entry !== undefined) {
-                state.scenesRes[resource.id] = loadResourceEntry(entry);
-            }
+            const decoded = state.resourceProvider.resolve(resource.name);
+            if (decoded !== undefined) state.scenesRes[resource.id] = decoded;
         });
         debugLog('scenesRes:', state.scenesRes
             .map((resource, index) => resource ? `[${index}]=${resource.name}` : null)

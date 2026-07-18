@@ -427,6 +427,43 @@ describe('PLAY_SAMPLE tracing', () => {
     });
 });
 
+describe('named resource provider opcodes', () => {
+    it('LOAD_IMAGE resolves a game alias through the injected provider', () => {
+        const loadImage = TTMDispatch.find(entry => entry.opcode === 0xf020);
+        const decoded = { name: 'FIRE1.BMP', images: [] };
+        const resolve = vi.fn(() => decoded);
+        const state = {
+            slot: 2,
+            res: [],
+            game: {
+                resources: {
+                    aliases: { 'FLAME.BMP': 'FIRE1.BMP' },
+                },
+            },
+            resourceProvider: { resolve },
+        };
+
+        loadImage.callback(state, 'FLAME.BMP');
+
+        expect(resolve).toHaveBeenCalledWith('FIRE1.BMP');
+        expect(state.res[2]).toBe(decoded);
+    });
+
+    it('LOAD_IMAGE leaves the current slot intact when a name is unavailable', () => {
+        const loadImage = TTMDispatch.find(entry => entry.opcode === 0xf020);
+        const existing = { name: 'EXISTING.BMP' };
+        const state = {
+            slot: 0,
+            res: [existing],
+            resourceProvider: { resolve: () => undefined },
+        };
+
+        loadImage.callback(state, 'MISSING.BMP');
+
+        expect(state.res[0]).toBe(existing);
+    });
+});
+
 // ---------------------------------------------------------------------------
 // SET_TIMER handler (opcode 0x2020: random sleep)
 // ---------------------------------------------------------------------------

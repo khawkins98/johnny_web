@@ -12,6 +12,7 @@ const createRuntime = overrides => new DgdsRuntime({
     compatibility: {},
     timingCompatibility: createTimingCompatibility(),
     surfaceFactory: createSurface,
+    resourceProvider: { resolve: () => undefined },
     ...overrides,
 });
 
@@ -38,6 +39,23 @@ describe('DgdsRuntime', () => {
         });
     });
 
+    it('loads ADS resource declarations through the provider', () => {
+        const decoded = { name: 'SCENES.TTM', scenes: [] };
+        const resolve = name => name === 'SCENES.TTM' ? decoded : undefined;
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve },
+            data: {
+                name: 'test',
+                resources: [{ id: 4, name: 'SCENES.TTM' }],
+                scenes: [],
+            },
+        });
+
+        expect(runtime.state.scenesRes[4]).toBe(decoded);
+        expect(runtime.state).not.toHaveProperty('entries');
+    });
+
     it('advances only when the host supplies a logical tick', () => {
         const runtime = createRuntime();
 
@@ -55,6 +73,14 @@ describe('DgdsRuntime', () => {
             random: () => 0,
             timingCompatibility: createTimingCompatibility(),
         })).toThrow('surfaceFactory');
+    });
+
+    it('requires a synchronous named-resource provider', () => {
+        expect(() => new DgdsRuntime({
+            random: () => 0,
+            timingCompatibility: createTimingCompatibility(),
+            surfaceFactory: createSurface,
+        })).toThrow('resourceProvider');
     });
 
     it('does not retain browser contexts or completion callbacks', () => {
@@ -114,7 +140,6 @@ describe('DgdsRuntime', () => {
     it('returns host presentation intent instead of drawing to Canvas', () => {
         const runtime = createRuntime({
             type: 'ADS',
-            entries: [],
             data: {
                 name: 'test',
                 resources: [],

@@ -16,6 +16,7 @@ import { DgdsRuntime } from './runtime.mjs';
 import { createBrowserScheduler } from '../hosts/browser-scheduler.mjs';
 import { consumeBrowserAudio } from '../hosts/browser-audio.mjs';
 import { createBrowserFramePresenter } from '../hosts/browser-frame-presenter.mjs';
+import { createEntryResourceProvider } from '../resource-provider.mjs';
 
 let activeRuntime = null;
 let activeScheduler = null;
@@ -70,6 +71,8 @@ export const startProcess = (initialState) => {
         onComplete,
         context,
         mainContext,
+        entries,
+        resourceProvider: suppliedResourceProvider,
         ...runtimeInitialState
     } = initialState;
 
@@ -81,6 +84,7 @@ export const startProcess = (initialState) => {
         || compatibility.timing
         || createTimingCompatibility();
     const surfaceFactory = runtimeInitialState.surfaceFactory || createCanvasSurfaceElement;
+    const resourceProvider = suppliedResourceProvider || createEntryResourceProvider(entries);
 
     const runtime = new DgdsRuntime({
         ...runtimeInitialState,
@@ -88,6 +92,7 @@ export const startProcess = (initialState) => {
         random,
         timingCompatibility,
         surfaceFactory,
+        resourceProvider,
     });
     activeRuntime = runtime;
     const framePresenter = createBrowserFramePresenter({ context, mainContext });

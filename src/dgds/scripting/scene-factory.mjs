@@ -16,7 +16,7 @@
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
- *    audioOperations, frameOperations, the frame presenter, entries, scenesRes,
+ *    audioOperations, frameOperations, the frame presenter, resource provider, scenesRes,
  *    random, and a fresh scene-layer surface.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
@@ -64,7 +64,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     allScenes: parent.scenes,
 
     // Host services
-    entries: parent.entries,
+    resourceProvider: parent.resourceProvider,
     audioOperations: parent.audioOperations,
     frameOperations: parent.frameOperations,
     presentFrameOperation: parent.presentFrameOperation,
