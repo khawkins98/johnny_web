@@ -13,6 +13,7 @@ import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { debugLog, runScript } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
+import { selectOceanIndex } from './background-resources.mjs';
 
 const createStoredSurface = surfaceFactory => ({
     surface: surfaceFactory(),
@@ -40,6 +41,7 @@ export class DgdsRuntime {
             delete runtimeInitialState[hostKey];
         }
         const { random, surfaceFactory } = runtimeInitialState;
+        const cloudFrames = runtimeInitialState.game?.background?.cloud?.frames || [0];
         this.state = {
             currentScene: 0,
             scenesRes: [],
@@ -51,7 +53,7 @@ export class DgdsRuntime {
             bkgRes: null,
             bkgOcean: [],
             bkgRaft: null,
-            cloudIdx: 15 + Math.floor(random() * 3),
+            cloudIdx: cloudFrames[Math.floor(random() * cloudFrames.length)] ?? cloudFrames[0],
             cloudX: Math.floor(random() * 640),
             cloudY: Math.floor(random() * 80),
             cloudElapsed: 0,
@@ -129,6 +131,10 @@ export class DgdsRuntime {
         const state = this.state;
         return {
             type: state.type,
+            game: state.game ? {
+                id: state.game.id,
+                version: state.game.version,
+            } : null,
             currentAdsScene: state.currentScene,
             activeScenes: state.scenes.map(scene => ({
                 sceneIdx: scene.sceneIdx,
@@ -313,7 +319,8 @@ export class DgdsRuntime {
         const state = this.state;
         if (state.type !== 'ADS') return;
         state.isNightMode = isNight;
-        const oceanIdx = isNight ? 3 : state.compatibility.randomInt(0, 2);
+        const oceanIdx = selectOceanIndex(state, isNight);
+        if (oceanIdx < 0) return;
         if (state.bkgOcean.length > 0) state.bkgScreen = state.bkgOcean[oceanIdx];
         state.scenes.forEach(scene => {
             if (scene.state?.bkgOcean?.length > 0) {

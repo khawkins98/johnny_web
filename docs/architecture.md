@@ -44,7 +44,7 @@ dependency direction.
 | `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
-| `src/games/johnny/manifest.mjs` | Johnny version identity, entry points, and audio sample catalogue |
+| `src/games/johnny/manifest.mjs` | Johnny identity, entry points, aliases, audio, and background metadata |
 | `src/dgds/scripting/process.mjs` | Browser host composition and legacy active-session/debug façade |
 | `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
@@ -54,6 +54,7 @@ dependency direction.
 | `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
 | `src/dgds/scripting/frame-operation.mjs` | Host-neutral drawing operation contract |
 | `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to retained logical surfaces |
+| `src/dgds/scripting/background-resources.mjs` | Loads background assets described by an injected game package |
 | `src/dgds/scripting/execution-outcome.mjs` | Interpreter/scheduler outcome contract |
 | `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
 | `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
@@ -140,6 +141,12 @@ browser frame presenter consumes that directive and exclusively owns the two
 Canvas contexts, final composition, enhanced backgrounds, and fade drawing.
 Canvas contexts and completion callbacks are not retained in runtime state.
 
+The application injects the Johnny game package into the runtime. `LOAD_SCREEN`,
+`LOAD_IMAGE`, ocean selection, and the browser background renderer obtain file
+names, aliases, layouts, sprite layers, and enhancement-setting keys from that
+package. Generic DGDS modules contain no Johnny resource names or layout indices.
+Runtime session diagnostics include the injected game ID and version label.
+
 ## TTM environments and scenes
 
 A TTM resource owns one environment containing its decoded image slots,
@@ -187,8 +194,8 @@ previous frame, then restores the saved region; saved rectangles do not always
 cover sprites moving elsewhere on screen. `STORE_AREA` and saved GET/PUT slots
 are owned by the faithful scripting/composition layer, not the browser presenter.
 
-`frame-renderer.mjs` draws the ocean/island background separately. Optional
-cloud/wave behavior uses the injected compatibility profile.
+`frame-renderer.mjs` draws the configured background separately. Optional
+cloud/wave behavior uses the injected game metadata and compatibility profile.
 
 ## Host boundaries
 
@@ -235,14 +242,12 @@ automation may read it directly or use the Vite-only persistence endpoint.
   legacy developer-UI façade, but engine state itself is instance-owned.
 - The Johnny game package currently identifies its supported version by label;
   automatic resource fingerprint verification has not been added yet.
-- The browser background renderer is still separate from the logical TTM
-  composition and still contains Johnny-specific asset names/layout, so some
-  original buffer-copy behavior and the game-package boundary require more work.
+- The browser background renderer is still separate from logical TTM
+  composition, so some original buffer-copy behavior may require more work.
 - Opcode drawing and audio are logical operations, and final Canvas presentation
-  is host-owned. Retained composition remains stateful and Johnny background
-  resource selection still crosses the interpreter/game-package boundary;
-  those remain before this becomes the deterministic `DgdsMachine` described by
-  ADR 0001.
+  is host-owned. Retained composition remains stateful, and resource loading is
+  still invoked synchronously by interpreter opcodes; those remain before this
+  becomes the deterministic `DgdsMachine` described by ADR 0001.
 
 Treat these as explicit compatibility gaps. Opcode behavior should be corrected
 in the faithful layer; browser accommodations belong in adapters or profiles.

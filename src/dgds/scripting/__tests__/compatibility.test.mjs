@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { createBrowserCompatibility } from '../compatibility.mjs';
 import { createFrameBoundary } from '../frame-timing.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
-import { drawBackground, loadOcean } from '../frame-renderer.mjs';
+import { drawBackground } from '../frame-renderer.mjs';
+import { loadOcean, loadScreen } from '../background-resources.mjs';
+import { johnnyCastaway } from '../../../games/johnny/manifest.mjs';
 
 describe('browser compatibility profile', () => {
     it('reads settings with a fallback', () => {
@@ -64,6 +66,27 @@ describe('frame timing compatibility', () => {
 });
 
 describe('deterministic background compatibility', () => {
+    it('resolves screen behavior from injected game metadata', () => {
+        const state = {
+            game: {
+                background: {
+                    screens: { 'CUSTOM.SCR': 7 },
+                    assets: [],
+                    oceans: [],
+                    settings: {},
+                },
+            },
+            entries: [],
+            bkgScreen: null,
+            bkgOcean: [],
+            compatibility: createBrowserCompatibility({ random: () => 0 }),
+        };
+
+        loadScreen(state, 'CUSTOM.SCR');
+
+        expect(state.island).toBe(7);
+    });
+
     it('advances clouds and waves from injected time and settings', () => {
         const compatibility = createBrowserCompatibility({
             storage: { getItem: key => key === 'jc-clouds' || key === 'jc-waves' ? 'on' : null },
@@ -71,6 +94,7 @@ describe('deterministic background compatibility', () => {
             random: () => 0.5,
         });
         const state = {
+            game: johnnyCastaway,
             compatibility,
             island: 1,
             bkgScreen: null,
@@ -92,6 +116,7 @@ describe('deterministic background compatibility', () => {
     it('selects local night and deterministic day oceans', () => {
         const oceans = ['day-0', 'day-1', 'day-2', 'night'];
         const state = {
+            game: johnnyCastaway,
             entries: [],
             bkgOcean: oceans,
             compatibility: createBrowserCompatibility({

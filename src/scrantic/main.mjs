@@ -81,6 +81,7 @@ export const run = async () => {
                 mainContext,
                 data,
                 entries: resource.entries,
+                game: johnnyCastaway,
                 audioManager,
                 onComplete: resolve,
             });

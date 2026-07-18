@@ -28,6 +28,16 @@ describe('DgdsRuntime', () => {
         expect(second.state.playedHistory).not.toBe(first.state.playedHistory);
     });
 
+    it('reports the injected game identity for diagnostics', () => {
+        const runtime = createRuntime({
+            game: { id: 'test-title', version: '2.0' },
+        });
+
+        expect(runtime.describe()).toMatchObject({
+            game: { id: 'test-title', version: '2.0' },
+        });
+    });
+
     it('advances only when the host supplies a logical tick', () => {
         const runtime = createRuntime();
 

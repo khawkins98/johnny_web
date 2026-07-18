@@ -1,24 +1,13 @@
 /**
  * frame-renderer.mjs — Background drawing, canvas helpers, and resource loaders.
  *
- * Contains Johnny background resource loading plus the browser background
- * renderer. Resource loading is still a transitional game-package concern;
- * Canvas drawing is consumed only by the browser frame presenter.
+ * Browser background renderer driven by injected game-package metadata.
  */
-import { loadResourceEntry } from '../resource.mjs';
 import { buildSpriteCanvas } from '../graphics.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
 
 const fallbackCompatibility = createBrowserCompatibility();
 const getCompatibility = state => state.compatibility || fallbackCompatibility;
-
-// ---------------------------------------------------------------------------
-// Canvas helpers
-// ---------------------------------------------------------------------------
-
-export const clearContext = (context) => {
-    context.clearRect(0, 0, 640, 480);
-};
 
 // ---------------------------------------------------------------------------
 // Background renderer
@@ -30,6 +19,7 @@ export const clearContext = (context) => {
 
 export const drawBackground = (state, context) => {
     const compatibility = getCompatibility(state);
+    const profile = state.game?.background;
     const now = compatibility.now();
 
     // Draw background / ocean / night
@@ -39,10 +29,11 @@ export const drawBackground = (state, context) => {
         if (bgCanvas) context.drawImage(bgCanvas, 0, 0);
     }
 
-    if (state.island) {
-        const posX = (state.island === 1) ? 288 : 16;
-        const cloudsOn = compatibility.setting('jc-clouds', 'off') === 'on';
-        const wavesOn = compatibility.setting('jc-waves', 'off') === 'on';
+    const layout = profile?.layouts?.[state.island];
+    if (layout) {
+        const posX = layout.x;
+        const cloudsOn = compatibility.setting(profile.settings.clouds, 'off') === 'on';
+        const wavesOn = compatibility.setting(profile.settings.waves, 'off') === 'on';
 
         if (cloudsOn) {
             if (!state.cloudElapsed) {
@@ -70,85 +61,30 @@ export const drawBackground = (state, context) => {
             state.waveFrame = 0;
         }
 
-        // Draw island
-        if (state.bkgRes) {
-            const blit = (img, dx, dy) => {
-                const c = buildSpriteCanvas(img);
-                if (c) context.drawImage(c, 0, 0, img.width, img.height, dx, dy, img.width, img.height);
-            };
-
-            // Draw clouds (random and animated)
-            blit(state.bkgRes.images[state.cloudIdx], state.cloudX, state.cloudY);
-            // Draw raft based on state
-            blit(state.bkgRaft.images[3], posX + 222, 268);
-            // isle
-            blit(state.bkgRes.images[0], posX, 280);
-            // palm tree
-            blit(state.bkgRes.images[14], posX + 108, 280);
-            blit(state.bkgRes.images[13], posX + 154, 148);
-            blit(state.bkgRes.images[12], posX + 77, 122);
-            
-            // Draw shore with animations
-            const wf = state.waveFrame || 0;
-            blit(state.bkgRes.images[3 + (wf % 3)], posX - 13, 305);
-            blit(state.bkgRes.images[6 + (wf % 4)], posX + 76, 320);
-            blit(state.bkgRes.images[10 + (wf % 2)], posX + 230, 303);
-            // Draw low tide
-        }
-    }
-};
-
-// ---------------------------------------------------------------------------
-// Background asset loaders (called from LOAD_SCREEN opcode callback)
-// ---------------------------------------------------------------------------
-
-export const SCREEN_TYPE = {
-    'ISLETEMP.SCR': 1,
-    'ISLAND2.SCR': 2,
-    'SUZBEACH.SCR': 0,
-    'JOFFICE.SCR': 0,
-    'THEEND.SCR': 0,
-    'INTRO.SCR': 0,
-};
-
-export const loadBackground = (state) => {
-    if (!state.bkgRes) {
-        const entry = state.entries.find(e => e.name === 'BACKGRND.BMP');
-        if (entry !== undefined) {
-            state.bkgRes = loadResourceEntry(entry);
-        }
-    }
-};
-
-export const loadRaft = (state) => {
-    if (!state.bkgRaft) {
-        const entry = state.entries.find(e => e.name === 'MRAFT.BMP');
-        if (entry !== undefined) {
-            state.bkgRaft = loadResourceEntry(entry);
-        }
-    }
-};
-
-export const loadOcean = (state) => {
-    const compatibility = getCompatibility(state);
-    if (state.bkgOcean.length === 0) {
-        ['OCEAN00.SCR', 'OCEAN01.SCR', 'OCEAN02.SCR', 'NIGHT.SCR'].forEach(name => {
-            const entry = state.entries.find(e => e.name === name);
-            if (entry !== undefined) {
-                state.bkgOcean.push(loadResourceEntry(entry));
+        const blit = (source, frame, dx, dy) => {
+            const image = state[source]?.images?.[frame];
+            const canvas = image && buildSpriteCanvas(image);
+            if (canvas) {
+                context.drawImage(
+                    canvas,
+                    0, 0, image.width, image.height,
+                    dx, dy, image.width, image.height,
+                );
             }
-        });
+        };
+
+        blit(profile.cloud.source, state.cloudIdx, state.cloudX, state.cloudY);
+        for (const layer of profile.layers) {
+            blit(layer.source, layer.frame, posX + layer.x, layer.y);
+        }
+        const waveFrame = state.waveFrame || 0;
+        for (const layer of profile.animatedLayers) {
+            blit(
+                layer.source,
+                layer.frames[waveFrame % layer.frames.length],
+                posX + layer.x,
+                layer.y,
+            );
+        }
     }
-    
-    const timeMode = compatibility.setting('jc-time', 'original');
-    let isNight = false;
-    if (timeMode === 'local') {
-        const hour = compatibility.currentHour();
-        isNight = hour < 6 || hour >= 18;
-    } else {
-        isNight = state.isNightMode === true;
-    }
-    
-    const oceanIdx = isNight ? 3 : compatibility.randomInt(0, 2);
-    state.bkgScreen = state.bkgOcean[oceanIdx];
 };

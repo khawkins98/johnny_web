@@ -14,12 +14,7 @@ import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
-import {
-    loadBackground,
-    loadRaft,
-    loadOcean,
-    SCREEN_TYPE,
-} from './frame-renderer.mjs';
+import { loadScreen } from './background-resources.mjs';
 
 // ---------------------------------------------------------------------------
 // Debug logging
@@ -347,26 +342,11 @@ const PLAY_SAMPLE = (state, index) => {
 const STOP_SAMPLE = (state) => { };
 
 const LOAD_SCREEN = (state, name) => {
-    state.island = SCREEN_TYPE[name];
-
-    if (!state.bkgScreen) {
-        const entry = state.entries.find(e => e.name === name);
-        if (entry !== undefined) {
-            state.bkgScreen = loadResourceEntry(entry);
-        }
-    }
-
-    if (state.island) {
-        loadBackground(state);
-        loadRaft(state);
-        loadOcean(state);
-    }
+    loadScreen(state, name);
 };
 
 const LOAD_IMAGE = (state, name) => {
-    if (name === 'FLAME.BMP' || name === 'FLURRY.BMP') {
-        name = 'FIRE1.BMP';
-    }
+    name = state.game?.resources?.aliases?.[name] ?? name;
     const entry = state.entries.find(e => e.name === name);
     if (entry !== undefined) {
         state.res[state.slot] = loadResourceEntry(entry);
