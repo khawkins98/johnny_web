@@ -20,6 +20,7 @@ import { createFixedStepClock, DGDS_TICK_MS } from './timing.mjs';
 import { createCanvasSurfaceElement } from './surface.mjs';
 import { createBrowserCompatibility } from './compatibility.mjs';
 import { canRunTtmScene } from './scene-factory.mjs';
+import { composeTtmFrame } from './composition.mjs';
 import {
     isDebugMode,
     debugLog,
@@ -37,6 +38,8 @@ export { runScript, TTMDispatch, ADSDispatch, CommandType, isVerboseMode, verbos
 let state = null;
 
 const renderPipeline = () => {
+    composeTtmFrame(state);
+
     // Layer 0: Background
     state.mainContext.clearRect(0, 0, 640, 480);
     const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;

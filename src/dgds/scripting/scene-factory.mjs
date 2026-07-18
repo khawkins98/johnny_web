@@ -14,7 +14,7 @@
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  HOST SERVICES from the parent ADS state:
- *    audioManager, entries, scenesRes, random, and the unified drawing surface.
+ *    audioManager, entries, scenesRes, random, and a fresh scene-layer surface.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -52,7 +52,9 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     sceneIdx,
     tagId,
     gagId: parent.data?.scenes?.[parent.currentScene]?.tagId,
-    surface: parent.surface,
+    // A TTM sequence retains only its own current frame. The process compositor
+    // rebuilds the shared presentation surface from active layers every tick.
+    surface: parent.surfaceFactory(),
     allScenes: parent.scenes,
 
     // Host services

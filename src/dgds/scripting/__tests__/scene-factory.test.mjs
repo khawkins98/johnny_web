@@ -24,6 +24,7 @@ describe('TTM runtime state boundary', () => {
             ...shared,
             scenes: [],
             surface,
+            surfaceFactory: createRecordingSurface,
             entries: ['entries'],
             scenesRes: ['ttm'],
             audioManager: { play: vi.fn() },
@@ -45,7 +46,6 @@ describe('TTM runtime state boundary', () => {
             tagId: 113,
             reentry: 0,
             continue: true,
-            surface,
             entries: parent.entries,
             scenesRes: parent.scenesRes,
             audioManager: parent.audioManager,
@@ -56,6 +56,7 @@ describe('TTM runtime state boundary', () => {
             save: shared.save,
             saveBkg: shared.saveBkg,
         });
+        expect(child.surface).not.toBe(surface);
         expect(child).not.toHaveProperty('currentScene');
         expect(child).not.toHaveProperty('addScenes');
         expect(child).not.toHaveProperty('removeScenes');
@@ -65,7 +66,14 @@ describe('TTM runtime state boundary', () => {
     });
 
     it('creates fresh execution and clip state for every child', () => {
-        const parent = { scenes: [], entries: [], scenesRes: [], res: [], surface: createRecordingSurface() };
+        const parent = {
+            scenes: [],
+            entries: [],
+            scenesRes: [],
+            res: [],
+            surface: createRecordingSurface(),
+            surfaceFactory: createRecordingSurface,
+        };
 
         const first = createTtmRuntimeState(parent, parent, 1, 1);
         const second = createTtmRuntimeState(parent, parent, 1, 2);
@@ -74,6 +82,7 @@ describe('TTM runtime state boundary', () => {
 
         expect(second.clip.x).toBe(0);
         expect(second.reentry).toBe(0);
+        expect(second.surface).not.toBe(first.surface);
     });
 
     it('shares assets within one TTM resource but isolates different resources', () => {
