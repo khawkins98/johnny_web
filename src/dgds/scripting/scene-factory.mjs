@@ -55,12 +55,9 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     const retries = retriesDelay >= 0 ? retriesDelay : 0;
     const delay = retriesDelay < 0 ? retriesDelay : state.delay;
 
-    const canvas = document.createElement("canvas");
-    canvas.width = 640;
-    canvas.height = 480;
-
     // Store identity in the child state so runScript can label log messages.
-    const stateInit = { ...initialState, type: 'TTM', context: canvas.getContext('2d'), sceneIdx, tagId, allScenes: state.scenes };
+    // TTM scenes all share the unified spriteContext.
+    const stateInit = { ...initialState, type: 'TTM', context: state.spriteContext, sceneIdx, tagId };
 
     const s = Object.assign({ sceneIdx, delay, retries, lifecycle: 'active' }, scene);
     if (s.script === undefined) {

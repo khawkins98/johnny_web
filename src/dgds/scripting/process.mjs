@@ -34,113 +34,114 @@ const fps = 1000 / 60;
 
 let state = null;
 
+const renderPipeline = () => {
+    // Layer 0: Background
+    state.mainContext.clearRect(0, 0, 640, 480);
+    const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
+    drawBackground(bgState, state.mainContext);
+
+
+
+    // Layer 2: Fade Mask
+    // Draw fade-to-black overlay ON TOP of background but BEHIND sprites
+    // so hidden cleanup animations (like "Walk out of water") remain visible.
+    if (state.fadingOut || state.fadingIn) {
+        state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
+        state.context.fillRect(0, 0, 640, 480);
+        
+        if (state.fadingOut) {
+            if (state.fadeOpacity >= 1) {
+                state.fadingOut = false;
+            }
+        } else if (state.fadingIn) {
+            state.fadeOpacity -= state.frameDelta / 400;
+            if (state.fadeOpacity <= 0) {
+                state.fadingIn = false;
+                state.fadeOpacity = 0;
+            }
+        }
+    }
+
+    // Layer 3: Child Scenes (Sprites)
+    // Draw the unified sprite canvas ON TOP of fade overlay
+    if (state.spriteContext) {
+        state.context.drawImage(state.spriteContext.canvas, 0, 0);
+    }
+};
+
+const runAdsController = () => {
+    let exitFrame = false;
+    const scene = state.data.scenes[state.currentScene];
+    
+    if (scene !== undefined) {
+        const prevScene = state.currentScene;
+        exitFrame = runScript(state, scene.script, true);
+        if (state.currentScene !== prevScene) {
+            const tagInfo = state.data.scenes[state.currentScene]?.tagId;
+            const tagDesc = !tagInfo ? 'done'
+                : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
+                : tagInfo;
+            debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
+            
+            // Instead of instantly popping the curtain, smoothly fade it in over the next few frames
+            if (state.fadeOpacity >= 1) {
+                state.fadingOut = false;
+                state.fadingIn = true;
+                state.fadeOpacity = 1;
+            } else {
+                state.fadingOut = false;
+                state.fadeOpacity = 0;
+            }
+        }
+    } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
+        // All main ADS scenes played and no child scenes remain — done.
+        debugLog('ADS cycle complete — calling onComplete');
+        exitFrame = true;
+    }
+    
+    return exitFrame;
+};
+
+const runTtmController = () => {
+    state.scenes.forEach(s => {
+        // Don't re-run scripts that have already completed — they should freeze on their
+        // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
+        // scenes (no GOTO) reach 'completed'.
+        if (s.lifecycle !== 'completed') {
+            s.lifecycle = 'running';
+            runScript(s.state, s.state.script || s.script);
+            if (s.state.played) {
+                if (s.retries > 0) {
+                    s.retries--;
+                    s.state.played = false;
+                    s.state.reentry = 0; // Rewind script to start
+                    s.state.delay = 0;
+                    s.state.timer = 0;
+                    s.state.elapsed = 0;
+                } else {
+                    s.lifecycle = 'completed';
+                }
+            }
+        }
+        // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
+        if (s.state.timer > 0) {
+            s.state.timer = Math.max(0, s.state.timer - state.frameDelta);
+        }
+    });
+};
+
 const runScripts = () => {
     if (state.type === 'ADS') {
-        let exitFrame = false;
-
         clearContext(state.context);
-
-        if (state.island) {
-            // Background resources are loaded by LOAD_SCREEN in the TTM prologue, which runs
-            // on the first child scene. The main ADS state never runs LOAD_SCREEN directly, so
-            // look for resources from the first child state that has them. Falls back to main
-            // state (no-op draw) until a child state has loaded them.
-            const bgState = state.scenes.find(s => s?.state?.bkgScreen)?.state ?? state;
-            drawBackground(bgState, state.mainContext);
-        }
+        
+        const exitFrame = runAdsController();
+        
         const scene = state.data.scenes[state.currentScene];
-        if (scene !== undefined) {
-            const prevScene = state.currentScene;
-            exitFrame = runScript(state, scene.script, true);
-            if (state.currentScene !== prevScene) {
-                const tagInfo = state.data.scenes[state.currentScene]?.tagId;
-                const tagDesc = !tagInfo ? 'done'
-                    : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
-                    : tagInfo;
-                debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDesc})`);
-                
-                // Instead of instantly popping the curtain, smoothly fade it in over the next few frames
-                if (state.fadeOpacity >= 1) {
-                    state.fadingOut = false;
-                    state.fadingIn = true;
-                    state.fadeOpacity = 1;
-                } else {
-                    state.fadingOut = false;
-                    state.fadeOpacity = 0;
-                }
-            }
-        } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
-            // All main ADS scenes played and no child scenes remain — done.
-            debugLog('ADS cycle complete — calling onComplete');
-            exitFrame = true;
-        }
-
         if (!state.continue || scene === undefined) {
-            state.scenes.forEach(s => {
-                // Don't re-run scripts that have already completed — they should freeze on their
-                // final frame. GOTO scenes will loop indefinitely as 'running'. Only non-looping
-                // scenes (no GOTO) reach 'completed'.
-                s._wasCompleted = s.lifecycle === 'completed';
-                if (!s._wasCompleted) {
-                    s.lifecycle = 'running';
-                    runScript(s.state, s.state.script || s.script);
-                    if (s.state.played) {
-                        if (s.retries > 0) {
-                            s.retries--;
-                            s.state.played = false;
-                            s.state.reentry = 0; // Rewind script to start
-                            s.state.delay = 0;
-                            s.state.timer = 0;
-                            s.state.elapsed = 0;
-                        } else {
-                            s.lifecycle = 'completed';
-                        }
-                    }
-                }
-                // Always tick timers (even for completed scenes) so timer-based IF_PLAYED works.
-                if (s.state.timer > 0) {
-                    s.state.timer = Math.max(0, s.state.timer - state.frameDelta);
-                }
-            });
-            state.scenes.forEach(s => {
-                // Completed scenes stay in state.scenes until the ADS script explicitly removes
-                // them via STOP_SCENE or IF_PLAYED. In the original engine, because the screen
-                // was not cleared every frame, a completed scene would remain frozen on its last
-                // frame. We replicate this by continuously compositing the scene's canvas until
-                // it is explicitly removed from the active list.
-                state.context.drawImage(s.state.context.canvas, 0, 0);
-            });
-
-            // Draw the captured background regions ON TOP of the sprites
-            const saveBkg = state.saveBkg[0];
-            if (saveBkg.canDraw) {
-                state.context.drawImage(saveBkg.context.canvas, 0, 0);
-            }
+            runTtmController();
+            renderPipeline();
         }
-
-        // Draw fade-to-black overlay on top of composited sprites (applied whether or not
-        // child scenes are running, so the overlay shows on the END-fires frame too).
-        if (state.fadingOut || state.fadingIn) {
-            state.context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
-            state.context.fillRect(0, 0, 640, 480);
-            
-            if (state.fadingOut) {
-                // Once fully black, clear after drawing so the overlay covers the END-fires frame
-                // but is gone before the next script continues. This allows post-fade scenes
-                // like "Walk out of water" to be visible.
-                if (state.fadeOpacity >= 1) {
-                    debugLog('FADE_OUT: complete, clearing overlay');
-                    state.fadingOut = false;
-                }
-            } else if (state.fadingIn) {
-                state.fadeOpacity -= state.frameDelta / 400;
-                if (state.fadeOpacity <= 0) {
-                    state.fadingIn = false;
-                    state.fadeOpacity = 0;
-                }
-            }
-        }
-
+        
         return exitFrame;
     } else {
         if (state.island) {
@@ -260,6 +261,11 @@ export const startProcess = (initialState) => {
         debugLog('scenesRes:', state.scenesRes.map((r, i) => r ? `[${i}]=${r.name}` : null).filter(Boolean).join(', '));
     }
     mainloop();
+
+    const spriteCanvas = document.createElement("canvas");
+    spriteCanvas.width = 640;
+    spriteCanvas.height = 480;
+    state.spriteContext = spriteCanvas.getContext('2d');
 
     return state;
 };

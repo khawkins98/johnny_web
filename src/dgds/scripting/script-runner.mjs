@@ -310,16 +310,8 @@ const DRAW_SPRITE3 = (state) => { };
 
 const clearScreen = (state, index) => {
     const save = state.save[index];
-    if (save && save.canDraw) {
-        if (state.allScenes) {
-            state.allScenes.forEach(s => {
-                if (s.state && s.state.context) {
-                    s.state.context.clearRect(save.x, save.y, save.width, save.height);
-                }
-            });
-        } else if (state.context) {
-            state.context.clearRect(save.x, save.y, save.width, save.height);
-        }
+    if (save && save.canDraw && state.context) {
+        state.context.clearRect(save.x, save.y, save.width, save.height);
     } else if (state.context) {
         state.context.clearRect(0, 0, 640, 480);
     }
@@ -662,6 +654,9 @@ const END = (state) => {
         state.addScenes = [];
         state.removeScenes = [];
         state.scenesRandom = [];
+        if (state.spriteContext) {
+            state.spriteContext.clearRect(0, 0, 640, 480);
+        }
         if (state.saveBkg && state.saveBkg[0]) {
             state.saveBkg[0].canDraw = false;
         }
