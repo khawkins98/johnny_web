@@ -88,8 +88,6 @@ Headless tools can read `window.__DGDS__.getTrace()`, download with `saveTrace()
 ## Documentation
 
 - [Architecture](docs/architecture.md) — current execution model, repository map, host boundaries, and known compatibility gaps
-- [Runtime boundaries ADR](docs/adr/0001-runtime-boundaries.md) — the intended separation between the DGDS machine, game package, host, and enhancements
-- [DGDS learnings](LEARNINGS.md) — file formats and reverse-engineering notes
 - [Resource index](docs/resindex.md) — file formats and reverse-engineering notes
 - [Contributing](CONTRIBUTING.md) — verification and change guidelines
 
@@ -104,7 +102,7 @@ The next portability milestone is to replay an independently sourced, non-intera
 - [ScummVM DGDS engine](https://github.com/scummvm/scummvm/tree/master/engines/dgds) — the most complete open implementation and an important behavioral reference.
 - [ScummVM DGDS detection table](https://github.com/scummvm/scummvm/blob/master/engines/dgds/detection_tables.h) — known DGDS releases, demos, platforms, and resource fingerprints.
 - [xesf/castaway](https://github.com/xesf/castaway) — the project from which this repository was originally forked.
-- [DGDS resource index](docs/resindex.md) and [reverse-engineering notes](LEARNINGS.md) — this project's current format findings.
+- [DGDS resource index](docs/resindex.md) — this project's current format findings.
 
 ## Acknowledgements
 

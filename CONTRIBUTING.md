@@ -6,7 +6,6 @@ A public reference for contributing to johnny_web. Follow these guidelines to ke
 
 ```bash
 pnpm install
-pnpm run extract -- "<path-to-downloaded.zip>"
 pnpm run dev       # http://localhost:5173
 ```
 
@@ -64,7 +63,7 @@ Start with [`docs/architecture.md`](docs/architecture.md), which describes the e
 - `src/bottle/` — experimental package and browser-presentation APIs
 - `src/games/johnny/` — Johnny-specific resources, startup composition, and UI
 
-Keep DGDS behavior, title-specific compatibility, browser accommodation, and optional enhancements in their respective layers. New compatibility rules should be named, scoped, and covered by a focused test. See [`docs/adr/0001-runtime-boundaries.md`](docs/adr/0001-runtime-boundaries.md).
+Keep DGDS behavior, title-specific compatibility, browser accommodation, and optional enhancements in their respective layers. New compatibility rules should be named, scoped, and covered by a focused test.
 
 ## Verification and diagnostics
 
