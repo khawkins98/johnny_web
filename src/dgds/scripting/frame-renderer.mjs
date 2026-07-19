@@ -20,9 +20,11 @@ export const drawBackground = (state, context, policy) => {
 
     // Draw background / ocean / night
     let backgroundScreen = state.bkgScreen;
-    if (profile?.settings?.time
-        && policy.setting(profile.settings.time, 'original') === 'local'
-        && state.bkgOcean.length > 0) {
+    if (
+        profile?.settings?.time &&
+        policy.setting(profile.settings.time, 'original') === 'local' &&
+        state.bkgOcean.length > 0
+    ) {
         const hour = policy.currentHour();
         const isNight = hour < 6 || hour >= 18;
         backgroundScreen = isNight
@@ -72,11 +74,7 @@ export const drawBackground = (state, context, policy) => {
             const image = state[source]?.images?.[frame];
             const canvas = image && buildSpriteCanvas(image);
             if (canvas) {
-                context.drawImage(
-                    canvas,
-                    0, 0, image.width, image.height,
-                    dx, dy, image.width, image.height,
-                );
+                context.drawImage(canvas, 0, 0, image.width, image.height, dx, dy, image.width, image.height);
             }
         };
 
@@ -86,12 +84,7 @@ export const drawBackground = (state, context, policy) => {
         }
         const waveFrame = animation.waveFrame || 0;
         for (const layer of profile.animatedLayers) {
-            blit(
-                layer.source,
-                layer.frames[waveFrame % layer.frames.length],
-                posX + layer.x,
-                layer.y,
-            );
+            blit(layer.source, layer.frames[waveFrame % layer.frames.length], posX + layer.x, layer.y);
         }
     }
 };

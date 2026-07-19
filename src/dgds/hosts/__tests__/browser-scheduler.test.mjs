@@ -4,11 +4,11 @@ import { createBrowserScheduler } from '../browser-scheduler.mjs';
 describe('browser scheduler host adapter', () => {
     it('converts host frames to ticks without owning game state', () => {
         const callbacks = [];
-        const consume = vi.fn(timestamp => timestamp === 20 ? 2 : 0);
+        const consume = vi.fn((timestamp) => (timestamp === 20 ? 2 : 0));
         const onTicks = vi.fn();
         const scheduler = createBrowserScheduler({
             clock: { consume },
-            requestFrame: callback => {
+            requestFrame: (callback) => {
                 callbacks.push(callback);
                 return callbacks.length;
             },
@@ -49,4 +49,3 @@ describe('browser scheduler host adapter', () => {
         expect(() => scheduler.start(() => {})).toThrow('already running');
     });
 });
-

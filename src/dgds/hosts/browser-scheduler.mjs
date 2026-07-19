@@ -1,11 +1,9 @@
 import { createFixedStepClock, DGDS_TICK_MS } from '../scripting/timing.mjs';
 
-const fallbackRequestFrame = callback => setTimeout(
-    () => callback(globalThis.performance?.now?.() ?? Date.now()),
-    DGDS_TICK_MS,
-);
+const fallbackRequestFrame = (callback) =>
+    setTimeout(() => callback(globalThis.performance?.now?.() ?? Date.now()), DGDS_TICK_MS);
 
-const fallbackCancelFrame = frameId => clearTimeout(frameId);
+const fallbackCancelFrame = (frameId) => clearTimeout(frameId);
 
 /**
  * Browser animation-frame adapter.
@@ -28,11 +26,11 @@ export const createBrowserScheduler = ({
         frameId = null;
     };
 
-    const start = onTicks => {
+    const start = (onTicks) => {
         if (running) throw new Error('Browser scheduler is already running');
         running = true;
 
-        const frame = timestamp => {
+        const frame = (timestamp) => {
             if (!running) return;
             frameId = requestFrame(frame);
             onTicks(clock.consume(timestamp));
@@ -50,4 +48,3 @@ export const createBrowserScheduler = ({
         },
     };
 };
-

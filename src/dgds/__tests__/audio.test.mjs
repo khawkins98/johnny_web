@@ -14,9 +14,7 @@ describe('audio manager', () => {
         const context = {
             currentTime: 12,
             destination: { name: 'speakers' },
-            createGain: vi.fn()
-                .mockReturnValueOnce(masterGain)
-                .mockReturnValueOnce(sourceGain),
+            createGain: vi.fn().mockReturnValueOnce(masterGain).mockReturnValueOnce(sourceGain),
             createBiquadFilter: () => ({ connect: vi.fn(), type: '' }),
         };
 

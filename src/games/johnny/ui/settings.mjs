@@ -3,14 +3,9 @@ import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 export const SOUND_SETTING_KEY = 'jc-sound';
 export const EXPERIENCE_SETTING_KEY = 'jc-experience';
 
-const isTyping = target => target?.matches?.(
-    'input, select, textarea, button, a, [contenteditable="true"]',
-);
+const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
-export function setupSettingsUI({
-    getAudioManager = () => null,
-    onRestart = () => {},
-} = {}) {
+export function setupSettingsUI({ getAudioManager = () => null, onRestart = () => {} } = {}) {
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
@@ -190,7 +185,7 @@ export function setupSettingsUI({
             outline: 3px solid rgba(244, 228, 200, 0.86);
             outline-offset: 3px;
         }
-        
+
         .close-btn {
             position: absolute;
             top: 12px;
@@ -212,7 +207,7 @@ export function setupSettingsUI({
             transition-property: transform, background-color;
             transition-duration: 140ms;
         }
-        
+
         .close-btn:hover {
             background: #fff4dc;
         }
@@ -339,13 +334,13 @@ export function setupSettingsUI({
 
     const overlay = document.createElement('div');
     overlay.id = 'settings-overlay';
-    
+
     const modal = document.createElement('div');
     modal.id = 'settings-modal';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
     modal.setAttribute('aria-labelledby', 'settings-title');
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-btn';
     closeBtn.innerText = '×';
@@ -434,22 +429,22 @@ export function setupSettingsUI({
     const scaleSelect = document.createElement('select');
     scaleSelect.dataset.setting = 'scale';
     const scaleOpts = [
-        {val: 'native', text: 'Spyglass (Native)'},
-        {val: 'integer', text: 'Porthole (Integer)'},
-        {val: 'freeform', text: 'Ocean View (Freeform)'},
-        {val: 'stretch', text: 'Horizon (Stretch)'}
+        { val: 'native', text: 'Spyglass (Native)' },
+        { val: 'integer', text: 'Porthole (Integer)' },
+        { val: 'freeform', text: 'Ocean View (Freeform)' },
+        { val: 'stretch', text: 'Horizon (Stretch)' },
     ];
-    scaleOpts.forEach(o => {
+    scaleOpts.forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
         opt.innerText = o.text;
         scaleSelect.appendChild(opt);
     });
-    
+
     // Load saved scale
     const savedScale = localStorage.getItem('jc-scale-mode') || 'native';
     scaleSelect.value = savedScale;
-    
+
     scaleSelect.onchange = (e) => {
         const mode = e.target.value;
         localStorage.setItem('jc-scale-mode', mode);
@@ -488,14 +483,17 @@ export function setupSettingsUI({
     audioLabel.innerText = 'Sound:';
     const audioSelect = document.createElement('select');
     audioSelect.dataset.setting = 'sound';
-    [{ val: 'on', text: 'On' }, { val: 'off', text: 'Off' }].forEach(({ val, text }) => {
+    [
+        { val: 'on', text: 'On' },
+        { val: 'off', text: 'Off' },
+    ].forEach(({ val, text }) => {
         const option = document.createElement('option');
         option.value = val;
         option.innerText = text;
         audioSelect.appendChild(option);
     });
     audioSelect.value = localStorage.getItem(SOUND_SETTING_KEY) || 'on';
-    audioSelect.onchange = event => {
+    audioSelect.onchange = (event) => {
         const value = event.target.value;
         localStorage.setItem(SOUND_SETTING_KEY, value);
         getAudioManager()?.setEnabled(value === 'on');
@@ -511,7 +509,10 @@ export function setupSettingsUI({
     cloudsLabel.innerText = 'Moving Clouds:';
     const cloudsSelect = document.createElement('select');
     cloudsSelect.dataset.setting = 'clouds';
-    [{val: 'on', text: 'Drifting'}, {val: 'off', text: 'Static (Original)'}].forEach(o => {
+    [
+        { val: 'on', text: 'Drifting' },
+        { val: 'off', text: 'Static (Original)' },
+    ].forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
         opt.innerText = o.text;
@@ -533,7 +534,10 @@ export function setupSettingsUI({
     wavesLabel.innerText = 'Animated Waves:';
     const wavesSelect = document.createElement('select');
     wavesSelect.dataset.setting = 'waves';
-    [{val: 'on', text: 'Rolling'}, {val: 'off', text: 'Static (Original)'}].forEach(o => {
+    [
+        { val: 'on', text: 'Rolling' },
+        { val: 'off', text: 'Static (Original)' },
+    ].forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
         opt.innerText = o.text;
@@ -555,7 +559,10 @@ export function setupSettingsUI({
     timeLabel.innerText = 'Time of Day:';
     const timeSelect = document.createElement('select');
     timeSelect.dataset.setting = 'time';
-    [{val: 'original', text: 'Always Day (Original)'}, {val: 'local', text: 'Match Local Time'}].forEach(o => {
+    [
+        { val: 'original', text: 'Always Day (Original)' },
+        { val: 'local', text: 'Match Local Time' },
+    ].forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
         opt.innerText = o.text;
@@ -569,7 +576,6 @@ export function setupSettingsUI({
     timeRow.appendChild(timeLabel);
     timeRow.appendChild(timeSelect);
     modal.appendChild(timeRow);
-
 
     const debugRow = document.createElement('div');
     debugRow.className = 'settings-row';
@@ -588,12 +594,12 @@ export function setupSettingsUI({
         debugSelect.appendChild(option);
     });
     debugSelect.value = diagnostics.enabled ? 'on' : 'off';
-    debugSelect.onchange = event => diagnostics.setMode(event.target.value);
+    debugSelect.onchange = (event) => diagnostics.setMode(event.target.value);
     const debugBtn = document.createElement('button');
     debugBtn.innerText = 'Panel (D)';
     debugBtn.onclick = () => {
         if (!diagnostics.enabled) diagnostics.setMode('on');
-        window.dispatchEvent(new KeyboardEvent('keydown', {key: 'd'}));
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
     };
     debugControls.appendChild(debugSelect);
     debugControls.appendChild(debugBtn);
@@ -628,10 +634,11 @@ export function setupSettingsUI({
         localStorage.setItem(EXPERIENCE_SETTING_KEY, 'custom');
     };
 
-    const applyExperience = mode => {
-        const values = mode === 'enhanced'
-            ? { scale: 'freeform', clouds: 'on', waves: 'on', time: 'original' }
-            : { scale: 'native', clouds: 'off', waves: 'off', time: 'original' };
+    const applyExperience = (mode) => {
+        const values =
+            mode === 'enhanced'
+                ? { scale: 'freeform', clouds: 'on', waves: 'on', time: 'original' }
+                : { scale: 'native', clouds: 'off', waves: 'off', time: 'original' };
         experienceSelect.value = mode;
         scaleSelect.value = values.scale;
         cloudsSelect.value = values.clouds;
@@ -644,7 +651,7 @@ export function setupSettingsUI({
         localStorage.setItem('jc-time', values.time);
         applyScaling(values.scale);
     };
-    experienceSelect.onchange = event => {
+    experienceSelect.onchange = (event) => {
         if (event.target.value !== 'custom') applyExperience(event.target.value);
     };
 
@@ -670,7 +677,7 @@ export function setupSettingsUI({
         item.className = 'settings-shortcut';
         const keyGroup = document.createElement('span');
         keyGroup.className = 'settings-shortcut-keys';
-        keys.forEach(key => {
+        keys.forEach((key) => {
             const keycap = document.createElement('kbd');
             keycap.innerText = key;
             keyGroup.appendChild(keycap);
@@ -719,7 +726,7 @@ export function setupSettingsUI({
     overlay.setAttribute('aria-hidden', 'true');
     document.body.appendChild(overlay);
 
-    overlay.addEventListener('click', event => {
+    overlay.addEventListener('click', (event) => {
         if (event.target === overlay) close();
     });
 
@@ -758,7 +765,7 @@ export function setupSettingsUI({
 function applyScaling(mode) {
     const root = document.getElementById('root');
     if (!root) return;
-    
+
     const width = 640;
     const height = 480;
     const vw = window.innerWidth;
@@ -774,7 +781,7 @@ function applyScaling(mode) {
     root.style.marginLeft = '-320px';
     root.style.imageRendering = 'auto';
 
-    Array.from(root.getElementsByTagName('canvas')).forEach(c => {
+    Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
         c.style.width = '640px';
         c.style.height = '480px';
     });
@@ -785,7 +792,7 @@ function applyScaling(mode) {
         const scale = Math.max(1, Math.floor(Math.min(vw / width, vh / height)));
         root.style.transform = `scale(${scale})`;
         root.style.imageRendering = 'pixelated';
-        Array.from(root.getElementsByTagName('canvas')).forEach(c => {
+        Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
             c.style.imageRendering = 'pixelated';
         });
     } else if (mode === 'freeform') {
@@ -798,7 +805,7 @@ function applyScaling(mode) {
         root.style.left = '0';
         root.style.marginTop = '0';
         root.style.marginLeft = '0';
-        Array.from(root.getElementsByTagName('canvas')).forEach(c => {
+        Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
             c.style.width = '100%';
             c.style.height = '100%';
         });

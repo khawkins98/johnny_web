@@ -1,13 +1,14 @@
 import { AudioOperationType } from '../scripting/audio-operation.mjs';
 
-const record = (trace, operation, action, details = {}) => trace?.record('audio-sample', {
-    tick: operation.tick,
-    sceneIdx: operation.sceneIdx,
-    tagId: operation.tagId,
-    action,
-    sample: operation.sample,
-    ...details,
-});
+const record = (trace, operation, action, details = {}) =>
+    trace?.record('audio-sample', {
+        tick: operation.tick,
+        sceneIdx: operation.sceneIdx,
+        tagId: operation.tagId,
+        action,
+        sample: operation.sample,
+        ...details,
+    });
 
 /** Consume logical DGDS audio operations using a Web Audio manager. */
 export const consumeBrowserAudio = (operations, { audioManager, trace } = {}) => {

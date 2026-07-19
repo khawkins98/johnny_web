@@ -1,4 +1,4 @@
-const deepFreeze = value => {
+const deepFreeze = (value) => {
     if (!value || typeof value !== 'object') return value;
     Object.values(value).forEach(deepFreeze);
     return Object.isFrozen(value) ? value : Object.freeze(value);
@@ -17,7 +17,7 @@ const requireString = (value, path) => {
  * hosts validate optional capabilities such as presentation entry points,
  * background metadata, audio catalogues, or interaction models.
  */
-export const defineGamePackage = definition => {
+export const defineGamePackage = (definition) => {
     if (!definition || typeof definition !== 'object') {
         throw new TypeError('Bottle game package must be an object');
     }

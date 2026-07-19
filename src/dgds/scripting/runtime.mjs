@@ -14,7 +14,7 @@ import { debugLog, runScript } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 
-const createStoredSurface = surfaceFactory => ({
+const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
     x: 0,
     y: 0,
@@ -126,35 +126,42 @@ export class DgdsRuntime {
     #loadAdsResources() {
         const state = this.state;
         debugLog(`ADS cycle starting: ${state.data.scenes.length} scenes in "${state.data?.name ?? '?'}"`);
-        state.data.resources.forEach(resource => {
+        state.data.resources.forEach((resource) => {
             const decoded = state.resourceProvider.resolve(resource.name);
             if (decoded !== undefined) state.scenesRes[resource.id] = decoded;
         });
-        debugLog('scenesRes:', state.scenesRes
-            .map((resource, index) => resource ? `[${index}]=${resource.name}` : null)
-            .filter(Boolean)
-            .join(', '));
+        debugLog(
+            'scenesRes:',
+            state.scenesRes
+                .map((resource, index) => (resource ? `[${index}]=${resource.name}` : null))
+                .filter(Boolean)
+                .join(', '),
+        );
     }
 
     describe() {
         const state = this.state;
         return {
             type: state.type,
-            game: state.game ? {
-                id: state.game.id,
-                version: state.game.version,
-            } : null,
+            game: state.game
+                ? {
+                      id: state.game.id,
+                      version: state.game.version,
+                  }
+                : null,
             currentAdsScene: state.currentScene,
-            activeScenes: state.scenes.map(scene => ({
+            activeScenes: state.scenes.map((scene) => ({
                 sceneIdx: scene.sceneIdx,
                 tagId: scene.tagId,
                 lifecycle: scene.lifecycle,
                 execution: scene.execution?.status || null,
             })),
-            timingCompatibility: state.timingCompatibility ? {
-                profile: state.timingCompatibility.profile,
-                patches: state.timingCompatibility.patchNames,
-            } : null,
+            timingCompatibility: state.timingCompatibility
+                ? {
+                      profile: state.timingCompatibility.profile,
+                      patches: state.timingCompatibility.patchNames,
+                  }
+                : null,
         };
     }
 
@@ -183,9 +190,11 @@ export class DgdsRuntime {
             completed = execution.status === ExecutionStatus.COMPLETED;
             if (state.currentScene !== previousScene) {
                 const tagInfo = state.data.scenes[state.currentScene]?.tagId;
-                const tagDescription = !tagInfo ? 'done'
-                    : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}`
-                    : tagInfo;
+                const tagDescription = !tagInfo
+                    ? 'done'
+                    : typeof tagInfo === 'object'
+                      ? `${tagInfo.id}:${tagInfo.description}`
+                      : tagInfo;
                 debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDescription})`);
 
                 if (state.fadeOpacity >= 1) {
@@ -207,7 +216,7 @@ export class DgdsRuntime {
 
     #runTtmController() {
         const rootState = this.state;
-        rootState.scenes.forEach(scene => {
+        rootState.scenes.forEach((scene) => {
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
             prepareTtmScene(scene);
@@ -225,15 +234,18 @@ export class DgdsRuntime {
                 scene.lifecycle = 'running';
                 scene.execution = runScript(scene.state, scene.state.script || scene.script);
                 if (scene.execution.frameBoundary) {
-                    const mapped = rootState.timingCompatibility.mapFrameBoundary(
-                        scene.execution.frameBoundary,
-                        { sceneIdx: scene.sceneIdx, tagId: scene.tagId },
-                    );
+                    const mapped = rootState.timingCompatibility.mapFrameBoundary(scene.execution.frameBoundary, {
+                        sceneIdx: scene.sceneIdx,
+                        tagId: scene.tagId,
+                    });
                     scene.state.waitTicks = mapped.runtimeDelayTicks;
                     traceEvent(scene.state, 'frame-timing-map', mapped);
                 }
-                if (isEnvironmentOwner && !scene.environment.ready
-                    && scene.state.reentry >= (scene.prologueLength || 0)) {
+                if (
+                    isEnvironmentOwner &&
+                    !scene.environment.ready &&
+                    scene.state.reentry >= (scene.prologueLength || 0)
+                ) {
                     scene.environment.ready = true;
                 }
                 if (scene.execution.status === ExecutionStatus.COMPLETED) {
@@ -288,7 +300,7 @@ export class DgdsRuntime {
     jumpToScene(tagId) {
         const state = this.state;
         if (state.type !== 'ADS') return false;
-        const sceneIndex = state.data.scenes.findIndex(scene => scene.tagId?.id === tagId);
+        const sceneIndex = state.data.scenes.findIndex((scene) => scene.tagId?.id === tagId);
         if (sceneIndex === -1) return false;
 
         traceEvent(state, 'runtime-control', { action: 'jump-to-scene', tagId });
@@ -317,9 +329,12 @@ export class DgdsRuntime {
     stepScene(direction) {
         const state = this.state;
         if (state.type !== 'ADS') return;
-        const scenes = state.data.scenes.filter(scene => scene.tagId?.id);
+        const scenes = state.data.scenes.filter((scene) => scene.tagId?.id);
         const currentTag = state.data.scenes[state.currentScene]?.tagId?.id;
-        const currentIndex = Math.max(0, scenes.findIndex(scene => scene.tagId.id === currentTag));
+        const currentIndex = Math.max(
+            0,
+            scenes.findIndex((scene) => scene.tagId.id === currentTag),
+        );
         const nextIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex + Math.sign(direction)));
         this.jumpToScene(scenes[nextIndex]?.tagId.id);
     }
@@ -331,7 +346,7 @@ export class DgdsRuntime {
         const oceanIdx = selectOceanIndex(state, isNight);
         if (oceanIdx < 0) return;
         if (state.bkgOcean.length > 0) state.bkgScreen = state.bkgOcean[oceanIdx];
-        state.scenes.forEach(scene => {
+        state.scenes.forEach((scene) => {
             if (scene.state?.bkgOcean?.length > 0) {
                 scene.state.bkgScreen = scene.state.bkgOcean[oceanIdx];
             }

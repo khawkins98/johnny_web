@@ -4,16 +4,17 @@ import { createTimingCompatibility } from '../timing-compatibility.mjs';
 
 const createSurface = () => ({ clear() {} });
 
-const createRuntime = overrides => new DgdsRuntime({
-    type: 'TTM',
-    data: { scripts: undefined },
-    island: 0,
-    random: () => 0,
-    timingCompatibility: createTimingCompatibility(),
-    surfaceFactory: createSurface,
-    resourceProvider: { resolve: () => undefined },
-    ...overrides,
-});
+const createRuntime = (overrides) =>
+    new DgdsRuntime({
+        type: 'TTM',
+        data: { scripts: undefined },
+        island: 0,
+        random: () => 0,
+        timingCompatibility: createTimingCompatibility(),
+        surfaceFactory: createSurface,
+        resourceProvider: { resolve: () => undefined },
+        ...overrides,
+    });
 
 describe('DgdsRuntime', () => {
     it('owns mutable execution state per instance', () => {
@@ -40,7 +41,7 @@ describe('DgdsRuntime', () => {
 
     it('loads ADS resource declarations through the provider', () => {
         const decoded = { name: 'SCENES.TTM', scenes: [] };
-        const resolve = name => name === 'SCENES.TTM' ? decoded : undefined;
+        const resolve = (name) => (name === 'SCENES.TTM' ? decoded : undefined);
         const runtime = createRuntime({
             type: 'ADS',
             resourceProvider: { resolve },
@@ -68,18 +69,24 @@ describe('DgdsRuntime', () => {
     });
 
     it('requires host services instead of selecting browser globals', () => {
-        expect(() => new DgdsRuntime({
-            random: () => 0,
-            timingCompatibility: createTimingCompatibility(),
-        })).toThrow('surfaceFactory');
+        expect(
+            () =>
+                new DgdsRuntime({
+                    random: () => 0,
+                    timingCompatibility: createTimingCompatibility(),
+                }),
+        ).toThrow('surfaceFactory');
     });
 
     it('requires a synchronous named-resource provider', () => {
-        expect(() => new DgdsRuntime({
-            random: () => 0,
-            timingCompatibility: createTimingCompatibility(),
-            surfaceFactory: createSurface,
-        })).toThrow('resourceProvider');
+        expect(
+            () =>
+                new DgdsRuntime({
+                    random: () => 0,
+                    timingCompatibility: createTimingCompatibility(),
+                    surfaceFactory: createSurface,
+                }),
+        ).toThrow('resourceProvider');
     });
 
     it('does not retain browser contexts or completion callbacks', () => {
@@ -106,11 +113,13 @@ describe('DgdsRuntime', () => {
 
         expect(runtime.tick(1000 / 60)).toMatchObject({
             completed: true,
-            audioOperations: [{
-                type: 'play-sample',
-                sample: 6,
-                tick: 1,
-            }],
+            audioOperations: [
+                {
+                    type: 'play-sample',
+                    sample: 6,
+                    tick: 1,
+                },
+            ],
         });
     });
 
@@ -125,14 +134,16 @@ describe('DgdsRuntime', () => {
 
         const result = runtime.tick(1000 / 60);
 
-        expect(result.frameOperations).toMatchObject([{
-            type: 'fill-rect',
-            x: 5,
-            y: 6,
-            width: 7,
-            height: 8,
-            tick: 1,
-        }]);
+        expect(result.frameOperations).toMatchObject([
+            {
+                type: 'fill-rect',
+                x: 5,
+                y: 6,
+                width: 7,
+                height: 8,
+                tick: 1,
+            },
+        ]);
         expect(result.frameOperations[0]).not.toHaveProperty('surface');
         expect(result.frameOperations[0]).not.toHaveProperty('canvas');
     });
@@ -143,10 +154,12 @@ describe('DgdsRuntime', () => {
             data: {
                 name: 'test',
                 resources: [],
-                scenes: [{
-                    tagId: { id: 1, description: 'test scene' },
-                    script: [{ opcode: 0xffff, params: [] }],
-                }],
+                scenes: [
+                    {
+                        tagId: { id: 1, description: 'test scene' },
+                        script: [{ opcode: 0xffff, params: [] }],
+                    },
+                ],
             },
         });
 

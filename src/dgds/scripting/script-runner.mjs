@@ -65,7 +65,7 @@ const verboseLog = (...args) => {
  * description if available: e.g. "4:113(flip pages)" or "4:113".
  */
 const sceneLabel = (scenesRes, sceneIdx, tagId) => {
-    const desc = scenesRes?.[sceneIdx]?.tags?.find(t => t.id === tagId)?.description;
+    const desc = scenesRes?.[sceneIdx]?.tags?.find((t) => t.id === tagId)?.description;
     return desc ? `${sceneIdx}:${tagId}(${desc})` : `${sceneIdx}:${tagId}`;
 };
 
@@ -73,7 +73,7 @@ const sceneLabel = (scenesRes, sceneIdx, tagId) => {
 // TTM opcode callbacks
 // ---------------------------------------------------------------------------
 
-const SAVE_BACKGROUND = (state) => { };
+const SAVE_BACKGROUND = (state) => {};
 
 const FREE_SHAPE = (state) => {
     state.res[state.slot] = undefined;
@@ -102,8 +102,8 @@ const SLOT_IMAGE = (state, slot) => {
     state.slot = slot;
 };
 
-const SLOT_PALETTE = (state) => { };
-const TTM_UNKNOWN_0 = (state) => { };
+const SLOT_PALETTE = (state) => {};
+const TTM_UNKNOWN_0 = (state) => {};
 
 const SET_SCENE = (state) => {};
 
@@ -114,7 +114,7 @@ const SET_BACKGROUND = (state, index) => {
 const GOTO = (state, tagId) => {
     if (tagId !== state.tagId) {
         if (state.scenesRes && state.sceneIdx !== undefined) {
-            const newScene = state.scenesRes[state.sceneIdx].scenes.find(s => s.tagId === tagId);
+            const newScene = state.scenesRes[state.sceneIdx].scenes.find((s) => s.tagId === tagId);
             if (newScene) {
                 state.script = newScene.script;
                 state.tagId = tagId;
@@ -123,7 +123,7 @@ const GOTO = (state, tagId) => {
         }
     }
     state.gotoRestart = true;
-    state.continue = false;  // pause execution until next frame (like UPDATE)
+    state.continue = false; // pause execution until next frame (like UPDATE)
 };
 
 const SET_COLORS = (state, fc, bc) => {
@@ -135,7 +135,7 @@ const SET_COLORS = (state, fc, bc) => {
     }
 };
 
-const SET_FRAME1 = (state) => { };
+const SET_FRAME1 = (state) => {};
 
 const SET_TIMER = (state, minimum, maximum) => {
     // Opcode 0x2020 is a random sleep measured in DGDS ticks. Randomness is
@@ -158,11 +158,11 @@ const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
     };
 };
 
-const FADE_OUT = (state) => { };
-const FADE_IN = (state) => { };
+const FADE_OUT = (state) => {};
+const FADE_IN = (state) => {};
 
 const clearAdsSceneBatch = (state) => {
-    state.scenes.forEach(s => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
+    state.scenes.forEach((s) => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
     state.scenes = [];
     state.addScenes = [];
     state.removeScenes = [];
@@ -220,9 +220,9 @@ const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
     });
 };
 
-const TTM_UNKNOWN_4 = (state, x, y, width, height) => { };
+const TTM_UNKNOWN_4 = (state, x, y, width, height) => {};
 
-const SAVE_REGION = (state, x, y, width, height) => { };
+const SAVE_REGION = (state, x, y, width, height) => {};
 
 // Wipes alter presentation timing in DOS but leave the composition unchanged.
 // The browser presenter currently applies the final composition atomically.
@@ -267,7 +267,9 @@ const DRAW_SPRITE = (state, offsetX, offsetY, index, slot) => {
     if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
     if (image === undefined) return;
-    verboseLog(`DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
+    verboseLog(
+        `DRAW_SPRITE ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`,
+    );
     emitFrameOperation(state, {
         type: FrameOperationType.DRAW_SPRITE,
         frame: index,
@@ -294,7 +296,9 @@ const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
     if (state.res[slot] === undefined) return;
     const image = state.res[slot].images[index];
     if (image === undefined) return;
-    verboseLog(`DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`);
+    verboseLog(
+        `DRAW_SPRITE_FLIP ${sceneLabel(state.scenesRes, state.sceneIdx, state.tagId)} frame=${index} slot=${slot} at (${offsetX},${offsetY})`,
+    );
     emitFrameOperation(state, {
         type: FrameOperationType.DRAW_SPRITE,
         frame: index,
@@ -317,18 +321,18 @@ const DRAW_SPRITE_FLIP = (state, offsetX, offsetY, index, slot) => {
     });
 };
 
-const DRAW_SPRITE1 = (state) => { };
-const DRAW_SPRITE3 = (state) => { };
+const DRAW_SPRITE1 = (state) => {};
+const DRAW_SPRITE3 = (state) => {};
 
 const DRAW_GETPUT = (state, index) => {
     beginSceneFrame(state, index);
 };
 
-const DRAW_SCREEN = (state) => { };
+const DRAW_SCREEN = (state) => {};
 
-const LOAD_SAMPLE = (state) => { };
-const SELECT_SAMPLE = (state) => { };
-const DESELECT_SAMPLE = (state) => { };
+const LOAD_SAMPLE = (state) => {};
+const SELECT_SAMPLE = (state) => {};
+const DESELECT_SAMPLE = (state) => {};
 
 const PLAY_SAMPLE = (state, index) => {
     emitPlaySample(state, index);
@@ -338,7 +342,7 @@ const PLAY_SAMPLE = (state, index) => {
     });
 };
 
-const STOP_SAMPLE = (state) => { };
+const STOP_SAMPLE = (state) => {};
 
 const LOAD_SCREEN = (state, name) => {
     loadScreen(state, name);
@@ -350,14 +354,14 @@ const LOAD_IMAGE = (state, name) => {
     if (resource !== undefined) state.res[state.slot] = resource;
 };
 
-const LOAD_PALETTE = (state) => { };
+const LOAD_PALETTE = (state) => {};
 
 // ---------------------------------------------------------------------------
 // ADS opcode callbacks
 // ---------------------------------------------------------------------------
 
 const WHILE_RUNNING = (state, sceneIdx, tagId) => {
-    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const running = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
     state.continue = !running;
 };
@@ -374,7 +378,7 @@ const findMatchingEndIf = (script, ifIndex, stopAtOr = false) => {
     for (let i = ifIndex + 1; i < script.length; i++) {
         if (IF_OPCODES.has(script[i].opcode)) {
             const prevOp = script[i - 1]?.opcode;
-            if (prevOp !== 0x1420 && prevOp !== 0x1430) depth++; 
+            if (prevOp !== 0x1420 && prevOp !== 0x1430) depth++;
         } else if (script[i].opcode === 0xfff0) {
             if (--depth === 0) return i;
         } else if (stopAtOr && script[i].opcode === 0x1430 && depth === 1) {
@@ -387,29 +391,31 @@ const findMatchingEndIf = (script, ifIndex, stopAtOr = false) => {
 const handleIfCondition = (state, conditionPassed) => {
     const wasOrMode = state.orMode;
     state.orMode = false;
-    
+
     if (!wasOrMode) {
         state.orChainPassed = false;
     }
-    
+
     if (state.orChainPassed) {
         conditionPassed = true;
     } else if (conditionPassed && wasOrMode) {
         state.orChainPassed = true;
     }
-    
+
     const script = state.data.scenes[state.currentScene].script;
     const nextOpcode = script[state.reentryNow + 1]?.opcode;
-    
-    if (nextOpcode === 0x1430) { // OR
+
+    if (nextOpcode === 0x1430) {
+        // OR
         if (conditionPassed) {
             state.orChainPassed = true;
         }
         state.continue = true;
         return;
     }
-    
-    if (nextOpcode === 0x1420) { // AND
+
+    if (nextOpcode === 0x1420) {
+        // AND
         if (!conditionPassed) {
             // Short-circuit: fail the entire AND chain immediately.
             const endIfIdx = findMatchingEndIf(script, state.reentryNow, true);
@@ -421,7 +427,7 @@ const handleIfCondition = (state, conditionPassed) => {
         state.continue = true;
         return;
     }
-    
+
     // Terminal condition (no AND/OR follows)
     if (!conditionPassed) {
         const endIfIdx = findMatchingEndIf(script, state.reentryNow);
@@ -429,12 +435,12 @@ const handleIfCondition = (state, conditionPassed) => {
             state.jumpTo = endIfIdx + 1;
         }
     }
-    
+
     state.orChainPassed = false;
     state.continue = true;
 };
 
-const isSceneDone = (s) => s.state.hasTimer ? s.state.timer === 0 : s.state.played;
+const isSceneDone = (s) => (s.state.hasTimer ? s.state.timer === 0 : s.state.played);
 
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
     if (state.orMode && state.orChainPassed) {
@@ -442,9 +448,10 @@ const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
         return;
     }
 
-    const played = state.playedHistory.has(`${sceneIdx}:${tagId}`) ||
-        state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId && isSceneDone(s));
-    
+    const played =
+        state.playedHistory.has(`${sceneIdx}:${tagId}`) ||
+        state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId && isSceneDone(s));
+
     handleIfCondition(state, !played);
 };
 
@@ -465,7 +472,7 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
         return;
     }
 
-    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
 
     if (scene !== undefined) {
         if (isSceneDone(scene)) {
@@ -488,7 +495,7 @@ const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
         handleIfCondition(state, true);
         return;
     }
-    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
     handleIfCondition(state, !isRunning);
 };
@@ -498,13 +505,15 @@ const IF_RUNNING = (state, sceneIdx, tagId) => {
         handleIfCondition(state, true);
         return;
     }
-    const scene = state.scenes.find(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
     handleIfCondition(state, isRunning);
 };
 
-const AND = (state) => { };
-const OR = (state) => { state.orMode = true; };
+const AND = (state) => {};
+const OR = (state) => {
+    state.orMode = true;
+};
 
 // ---------------------------------------------------------------------------
 // More ADS callbacks that depend on getSceneState
@@ -512,8 +521,8 @@ const OR = (state) => { state.orMode = true; };
 
 const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
     // Only add if not already running or pending addition
-    const inScenes = state.scenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
-    const inAddScenes = state.addScenes.some(s => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const inScenes = state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const inAddScenes = state.addScenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     if (inScenes || inAddScenes) return;
 
     if (state.randomize) {
@@ -535,10 +544,10 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
 };
 
 const applySceneChanges = (state) => {
-    state.removeScenes.forEach(s => {
+    state.removeScenes.forEach((s) => {
         let index;
         let removed = false;
-        while ((index = state.scenes.findIndex(sc => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
+        while ((index = state.scenes.findIndex((sc) => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
             state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`);
             sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
             state.scenes.splice(index, 1);
@@ -550,7 +559,7 @@ const applySceneChanges = (state) => {
     });
     state.removeScenes = [];
 
-    state.addScenes.forEach(s => {
+    state.addScenes.forEach((s) => {
         const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
         if (scene !== undefined) {
             if (state.scenes.length === 0) {
@@ -591,7 +600,7 @@ const RANDOM_START = (state) => {
     state.scenesRandom = [];
 };
 
-const RANDOM_UNKNOWN_0 = (state) => { };
+const RANDOM_UNKNOWN_0 = (state) => {};
 
 const RANDOM_END = (state) => {
     state.randomize = false;
@@ -605,8 +614,8 @@ const RANDOM_END = (state) => {
     }
 };
 
-const ADS_UNKNOWN_6 = (state) => { };
-const RUN_SCRIPT = (state) => { };
+const ADS_UNKNOWN_6 = (state) => {};
+const RUN_SCRIPT = (state) => {};
 
 const END = (state) => {
     // NOTE: END toggles state.continue. The authoritative end-of-script signal is detected in
@@ -627,7 +636,7 @@ const END = (state) => {
 };
 
 // CUSTOM COMMAND
-const END_IF = (state) => { };
+const END_IF = (state) => {};
 
 // ---------------------------------------------------------------------------
 // Dispatch tables
@@ -637,7 +646,7 @@ export const TTMDispatch = [
     { opcode: 0x0020, callback: SAVE_BACKGROUND },
     { opcode: 0x0080, callback: FREE_SHAPE },
     { opcode: 0x0110, callback: PURGE },
-    { opcode: 0x0FF0, callback: UPDATE },
+    { opcode: 0x0ff0, callback: UPDATE },
     { opcode: 0x1020, callback: SET_DELAY },
     { opcode: 0x1050, callback: SLOT_IMAGE },
     { opcode: 0x1060, callback: SLOT_PALETTE },
@@ -653,26 +662,26 @@ export const TTMDispatch = [
     { opcode: 0x4120, callback: FADE_IN },
     { opcode: 0x4200, callback: STORE_AREA },
     { opcode: 0x4210, callback: SAVE_IMAGE_REGION },
-    { opcode: 0xA000, callback: TTM_UNKNOWN_4 },
-    { opcode: 0xA050, callback: SAVE_REGION },
-    { opcode: 0xA060, callback: WIPE_RIGHT_TO_LEFT },
-    { opcode: 0xA0A0, callback: DRAW_LINE },
-    { opcode: 0xA100, callback: DRAW_RECT },
-    { opcode: 0xA400, callback: DRAW_BUBBLE },
-    { opcode: 0xA500, callback: DRAW_SPRITE },
-    { opcode: 0xA510, callback: DRAW_SPRITE1 },
-    { opcode: 0xA520, callback: DRAW_SPRITE_FLIP },
-    { opcode: 0xA530, callback: DRAW_SPRITE3 },
-    { opcode: 0xA600, callback: DRAW_GETPUT },
-    { opcode: 0xB600, callback: DRAW_SCREEN },
-    { opcode: 0xC020, callback: LOAD_SAMPLE },
-    { opcode: 0xC030, callback: SELECT_SAMPLE },
-    { opcode: 0xC040, callback: DESELECT_SAMPLE },
-    { opcode: 0xC050, callback: PLAY_SAMPLE },
-    { opcode: 0xC060, callback: STOP_SAMPLE },
-    { opcode: 0xF010, callback: LOAD_SCREEN },
-    { opcode: 0xF020, callback: LOAD_IMAGE },
-    { opcode: 0xF050, callback: LOAD_PALETTE },
+    { opcode: 0xa000, callback: TTM_UNKNOWN_4 },
+    { opcode: 0xa050, callback: SAVE_REGION },
+    { opcode: 0xa060, callback: WIPE_RIGHT_TO_LEFT },
+    { opcode: 0xa0a0, callback: DRAW_LINE },
+    { opcode: 0xa100, callback: DRAW_RECT },
+    { opcode: 0xa400, callback: DRAW_BUBBLE },
+    { opcode: 0xa500, callback: DRAW_SPRITE },
+    { opcode: 0xa510, callback: DRAW_SPRITE1 },
+    { opcode: 0xa520, callback: DRAW_SPRITE_FLIP },
+    { opcode: 0xa530, callback: DRAW_SPRITE3 },
+    { opcode: 0xa600, callback: DRAW_GETPUT },
+    { opcode: 0xb600, callback: DRAW_SCREEN },
+    { opcode: 0xc020, callback: LOAD_SAMPLE },
+    { opcode: 0xc030, callback: SELECT_SAMPLE },
+    { opcode: 0xc040, callback: DESELECT_SAMPLE },
+    { opcode: 0xc050, callback: PLAY_SAMPLE },
+    { opcode: 0xc060, callback: STOP_SAMPLE },
+    { opcode: 0xf010, callback: LOAD_SCREEN },
+    { opcode: 0xf020, callback: LOAD_IMAGE },
+    { opcode: 0xf050, callback: LOAD_PALETTE },
 ];
 
 // ADS-only opcodes. Kept separate from TTMDispatch so that opcodes sharing hex values
@@ -724,18 +733,18 @@ export const runScript = (state, script, main = false) => {
     const dispatchTable = state.type === 'ADS' ? ADSDispatch : TTMDispatch;
     for (let i = state.reentry; i < script.length; i++) {
         const c = script[i];
-        const type = dispatchTable.find(ct => ct.opcode === c.opcode);
+        const type = dispatchTable.find((ct) => ct.opcode === c.opcode);
         if (!type) {
             continue;
         }
-        if (i === (script.length - 1)) {
+        if (i === script.length - 1) {
             state.lastCommand = true;
         }
-        state.reentryNow = i;  // expose current index to callbacks (e.g. IF_NOT_PLAYED jump)
+        state.reentryNow = i; // expose current index to callbacks (e.g. IF_NOT_PLAYED jump)
         type.callback(state, ...c.params);
         if (state.jumpTo !== undefined) {
             // Callback requested a forward jump (e.g. IF_NOT_PLAYED skipping a block).
-            i = state.jumpTo - 1;  // -1 because the loop will i++ before next iteration
+            i = state.jumpTo - 1; // -1 because the loop will i++ before next iteration
             state.reentry = i;
             state.jumpTo = undefined;
         } else {
@@ -745,7 +754,7 @@ export const runScript = (state, script, main = false) => {
             break;
         }
     }
-    if (state.reentry === (script.length - 1) && !state.gotoRestart && state.continue) {
+    if (state.reentry === script.length - 1 && !state.gotoRestart && state.continue) {
         state.lastCommand = true;
         state.reentry = 0;
         state.runs++;
@@ -772,7 +781,11 @@ export const runScript = (state, script, main = false) => {
     }
     const frameBoundary = state.frameBoundary;
     state.frameBoundary = null;
-    return executionOutcome(ExecutionStatus.YIELDED, state, frameBoundary
-        ? { reason: 'frame-boundary', frameBoundary }
-        : { reason: state.continue ? 'advanced' : 'blocked' });
+    return executionOutcome(
+        ExecutionStatus.YIELDED,
+        state,
+        frameBoundary
+            ? { reason: 'frame-boundary', frameBoundary }
+            : { reason: state.continue ? 'advanced' : 'blocked' },
+    );
 };

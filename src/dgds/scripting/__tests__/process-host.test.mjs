@@ -9,7 +9,10 @@ const context = () => ({
 
 describe('browser process lifecycle', () => {
     beforeEach(() => {
-        vi.stubGlobal('requestAnimationFrame', vi.fn(() => 17));
+        vi.stubGlobal(
+            'requestAnimationFrame',
+            vi.fn(() => 17),
+        );
         vi.stubGlobal('cancelAnimationFrame', vi.fn());
     });
 

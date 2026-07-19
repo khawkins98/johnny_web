@@ -2,7 +2,7 @@ import { isFrameBoundary } from './frame-timing.mjs';
 
 const DEFAULT_TIMING_PROFILE = 'faithful-browser';
 
-const browserYieldFloor = ticks => Math.max(1, ticks);
+const browserYieldFloor = (ticks) => Math.max(1, ticks);
 
 /**
  * Maps faithful DGDS timing into host scheduler timing.
@@ -16,7 +16,7 @@ export const createTimingCompatibility = ({
     patches = [{ name: 'browser-yield-floor', map: browserYieldFloor }],
 } = {}) => ({
     profile,
-    patchNames: patches.map(patch => patch.name),
+    patchNames: patches.map((patch) => patch.name),
 
     mapFrameBoundary(boundary, context = {}) {
         if (!isFrameBoundary(boundary)) {
@@ -32,7 +32,7 @@ export const createTimingCompatibility = ({
             authoredDelayTicks: boundary.delayTicks,
             runtimeDelayTicks: Math.max(1, Math.trunc(runtimeDelayTicks || 0)),
             profile,
-            patches: patches.map(patch => patch.name),
+            patches: patches.map((patch) => patch.name),
         });
     },
 });

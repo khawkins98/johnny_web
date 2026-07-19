@@ -40,11 +40,13 @@ const getSoundFxSource = (config, context, output) => {
         source.isPlaying = false;
     };
     source.load = (index, callback) => {
-        if (!Number.isInteger(index) ||
+        if (
+            !Number.isInteger(index) ||
             index < 0 ||
             index >= sampleOffsets.length ||
             (source.currentIndex === index && source.isPlaying) ||
-            sampleOffsets[index] === -1) {
+            sampleOffsets[index] === -1
+        ) {
             return;
         }
         if (source.isPlaying) {
@@ -62,27 +64,30 @@ const getSoundFxSource = (config, context, output) => {
             source.connect();
             callback.call();
         } else {
-            fetch(`${import.meta.env.BASE_URL}data/${archive}`).then((response) => response.arrayBuffer()).then((fileBuffer) => {
-                const data = new DataView(fileBuffer);
-                const size = data.getInt32(sampleOffsets[index] + 4, true) + 8;
-                const buffer = data.buffer.slice(sampleOffsets[index], sampleOffsets[index] + size);
+            fetch(`${import.meta.env.BASE_URL}data/${archive}`)
+                .then((response) => response.arrayBuffer())
+                .then((fileBuffer) => {
+                    const data = new DataView(fileBuffer);
+                    const size = data.getInt32(sampleOffsets[index] + 4, true) + 8;
+                    const buffer = data.buffer.slice(sampleOffsets[index], sampleOffsets[index] + size);
 
-                context.decodeAudioData(
-                    buffer,
-                    (decodeBuffer) => {
-                        if (!samplesSourceCache.has(cacheKey)) {
-                            if (!source.bufferSource.buffer) {
-                                source.bufferSource.buffer = decodeBuffer;
-                                samplesSourceCache.set(cacheKey, decodeBuffer);
-                                source.connect();
-                                callback.call();
+                    context.decodeAudioData(
+                        buffer,
+                        (decodeBuffer) => {
+                            if (!samplesSourceCache.has(cacheKey)) {
+                                if (!source.bufferSource.buffer) {
+                                    source.bufferSource.buffer = decodeBuffer;
+                                    samplesSourceCache.set(cacheKey, decodeBuffer);
+                                    source.connect();
+                                    callback.call();
+                                }
                             }
-                        }
-                    }, (err) => {
-                        console.error(err);
-                    }
-                );
-            });
+                        },
+                        (err) => {
+                            console.error(err);
+                        },
+                    );
+                });
         }
     };
 

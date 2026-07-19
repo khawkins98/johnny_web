@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-    EXPERIENCE_SETTING_KEY,
-    setupSettingsUI,
-    SOUND_SETTING_KEY,
-} from '../settings.mjs';
+import { EXPERIENCE_SETTING_KEY, setupSettingsUI, SOUND_SETTING_KEY } from '../settings.mjs';
 
 describe('settings UI', () => {
     beforeEach(() => {
@@ -38,7 +34,7 @@ describe('settings UI', () => {
 
     it('applies coherent classic and enhanced profiles', () => {
         const settings = setupSettingsUI();
-        const setting = name => document.querySelector(`[data-setting="${name}"]`);
+        const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
 
         settings.applyExperience('enhanced');
         expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
@@ -82,9 +78,17 @@ describe('settings UI', () => {
         const onRestart = vi.fn();
         setupSettingsUI({ onRestart });
 
-        expect([...document.querySelectorAll('.settings-shortcut kbd')]
-            .map(key => key.innerText)).toEqual([
-            '←', '→', '↑', '↓', 'H', 'S', 'D', 'F', 'R', 'Esc',
+        expect([...document.querySelectorAll('.settings-shortcut kbd')].map((key) => key.innerText)).toEqual([
+            '←',
+            '→',
+            '↑',
+            '↓',
+            'H',
+            'S',
+            'D',
+            'F',
+            'R',
+            'Esc',
         ]);
 
         document.querySelector('[data-setting="restart"]').click();

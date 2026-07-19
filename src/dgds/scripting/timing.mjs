@@ -8,10 +8,7 @@
 export const DGDS_TICK_MS = 1000 / 60;
 export const MAX_CATCH_UP_TICKS = 5;
 
-export const createFixedStepClock = ({
-    tickMs = DGDS_TICK_MS,
-    maxCatchUpTicks = MAX_CATCH_UP_TICKS,
-} = {}) => {
+export const createFixedStepClock = ({ tickMs = DGDS_TICK_MS, maxCatchUpTicks = MAX_CATCH_UP_TICKS } = {}) => {
     let previousTimestamp;
     let accumulator = 0;
 

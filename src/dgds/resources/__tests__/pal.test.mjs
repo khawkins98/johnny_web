@@ -13,9 +13,11 @@ function ws(arr, off, str) {
 
 function makePALEntry(paletteRGB = new Uint8Array(768)) {
     const arr = new Uint8Array(12 + 768);
-    ws(arr, 0, 'PAL');  arr[3] = 0x00;
+    ws(arr, 0, 'PAL');
+    arr[3] = 0x00;
     // bytes 4-7: unknown, leave as zeros
-    ws(arr, 8, 'VGA');  arr[11] = 0x00;
+    ws(arr, 8, 'VGA');
+    arr[11] = 0x00;
     arr.set(paletteRGB, 12);
     return { name: 'TEST.PAL', type: 'PAL', data: new DataView(arr.buffer), buffer: arr.buffer };
 }
@@ -59,7 +61,9 @@ describe('loadPALResourceEntry', () => {
     it('r/g/b values are raw byte × 4', () => {
         const rgb = new Uint8Array(768);
         // index 5: R=10, G=20, B=30
-        rgb[15] = 10; rgb[16] = 20; rgb[17] = 30;
+        rgb[15] = 10;
+        rgb[16] = 20;
+        rgb[17] = 30;
         const { palette } = loadPALResourceEntry(makePALEntry(rgb));
         expect(palette[5]).toEqual({ index: 5, a: 255, r: 40, g: 80, b: 120 });
     });

@@ -21,4 +21,3 @@ describe('entry resource provider', () => {
         expect(decode).not.toHaveBeenCalled();
     });
 });
-

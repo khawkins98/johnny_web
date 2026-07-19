@@ -81,12 +81,10 @@ export const startProcess = (initialState) => {
     } = initialState;
 
     const random = runtimeInitialState.random || Math.random;
-    const timingCompatibility = runtimeInitialState.timingCompatibility
-        || createTimingCompatibility();
+    const timingCompatibility = runtimeInitialState.timingCompatibility || createTimingCompatibility();
     const surfaceFactory = runtimeInitialState.surfaceFactory || createSoftwareSurface;
     const resourceProvider = suppliedResourceProvider || createEntryResourceProvider(entries);
-    const presentationPolicy = suppliedPresentationPolicy
-        || createBrowserPresentationPolicy({ random });
+    const presentationPolicy = suppliedPresentationPolicy || createBrowserPresentationPolicy({ random });
 
     const runtime = new DgdsRuntime({
         ...runtimeInitialState,
@@ -111,7 +109,7 @@ export const startProcess = (initialState) => {
     const scheduler = createBrowserScheduler();
     activeScheduler = scheduler;
     let finished = false;
-    const finish = reason => {
+    const finish = (reason) => {
         if (finished) return false;
         finished = true;
         scheduler.stop();
@@ -128,7 +126,7 @@ export const startProcess = (initialState) => {
         return true;
     };
     activeStop = finish;
-    scheduler.start(baseTicks => {
+    scheduler.start((baseTicks) => {
         const state = runtime.state;
         state.speedRemainder += baseTicks * state.playbackRate;
         const ticks = Math.floor(state.speedRemainder);
@@ -155,22 +153,23 @@ export const startProcess = (initialState) => {
 // Engine state belongs to DgdsRuntime; this façade only targets the active host
 // session and can be removed once UI consumers receive a runtime instance.
 export const __DEBUG__ = {
-    jumpToScene: tagId => {
+    jumpToScene: (tagId) => {
         const jumped = activeRuntime?.jumpToScene(tagId);
         if (jumped) activeFramePresenter?.clear();
         return jumped;
     },
-    setNightMode: isNight => {
+    setNightMode: (isNight) => {
         activeRuntime?.setNightMode(isNight);
         if (activeRuntime) activeFramePresenter?.presentBackground(activeRuntime.state);
     },
-    stepScene: direction => activeRuntime?.stepScene(direction),
-    setPlaybackRate: rate => activeRuntime?.setPlaybackRate(rate),
-    getPresentation: () => activeRuntime?.getPresentation() ?? {
-        scene: null,
-        name: '',
-        playbackRate: 1,
-    },
+    stepScene: (direction) => activeRuntime?.stepScene(direction),
+    setPlaybackRate: (rate) => activeRuntime?.setPlaybackRate(rate),
+    getPresentation: () =>
+        activeRuntime?.getPresentation() ?? {
+            scene: null,
+            name: '',
+            playbackRate: 1,
+        },
     getState: () => activeRuntime?.state ?? null,
     getTrace: () => activeRuntime?.state.trace?.snapshot() || [],
     saveTrace: () => {

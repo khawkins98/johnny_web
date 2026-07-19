@@ -1,7 +1,7 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
-        <meta charSet="utf-8" />
+        <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#000000" />
         <link rel="manifest" href="manifest.json" />
@@ -48,7 +48,7 @@
                 box-sizing: border-box;
                 border-radius: 8px;
                 background: #d4c4a8;
-                background-image: linear-gradient(rgba(255,255,255,0.08), rgba(90,55,25,0.04));
+                background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(90, 55, 25, 0.04));
                 box-shadow:
                     0 10px 24px rgba(0, 0, 0, 0.48),
                     0 2px 5px rgba(0, 0, 0, 0.28),
@@ -214,7 +214,7 @@
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
-        
+
         <div id="root" class="background">
             <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
             <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
@@ -223,20 +223,26 @@
                 <div id="data-error-card">
                     <h2>Game data required</h2>
                     <p>
-                        Johnny Castaway requires the original proprietary game files,
-                        which are not included in this project. See
-                        <a href="NOTICE" style="color:#8ab4d4">NOTICE</a> for details.
+                        Johnny Castaway requires the original proprietary game files, which are not included in this
+                        project. See
+                        <a href="NOTICE" style="color: #8ab4d4">NOTICE</a> for details.
                     </p>
                     <ul id="data-error-files"></ul>
                     <p class="detail"></p>
                     <div class="instruction">
                         Place the files above in
                         <span class="path">public/data/</span>
-                        relative to the project root, then reload the page.<br>
-                        See the <a href="README.md" style="color:#8ab4d4">README</a>
+                        relative to the project root, then reload the page.<br />
+                        See the <a href="README.md" style="color: #8ab4d4">README</a>
                         for acquisition instructions, including a verified
-                        <a href="https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m" style="color:#8ab4d4" target="_blank" rel="noopener">
-                            Internet Archive source</a>.
+                        <a
+                            href="https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m"
+                            style="color: #8ab4d4"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            Internet Archive source</a
+                        >.
                     </div>
                 </div>
             </div>
@@ -244,16 +250,29 @@
 
         <div id="start-overlay">
             <div id="start-actions">
-                <button id="start-classic-btn" class="start-action"><span aria-hidden="true">▶</span> Play Classic</button>
-                <button id="start-enhanced-btn" class="start-action"><span aria-hidden="true">✦</span> Play Enhanced</button>
-                <button id="start-help-btn" class="start-action secondary" aria-expanded="false" aria-controls="start-help" aria-label="What is Enhanced mode?">?</button>
-                <button id="start-settings-btn" class="start-action secondary"><span aria-hidden="true">⚙</span> Settings</button>
+                <button id="start-classic-btn" class="start-action">
+                    <span aria-hidden="true">▶</span> Play Classic
+                </button>
+                <button id="start-enhanced-btn" class="start-action">
+                    <span aria-hidden="true">✦</span> Play Enhanced
+                </button>
+                <button
+                    id="start-help-btn"
+                    class="start-action secondary"
+                    aria-expanded="false"
+                    aria-controls="start-help"
+                    aria-label="What is Enhanced mode?"
+                >
+                    ?
+                </button>
+                <button id="start-settings-btn" class="start-action secondary">
+                    <span aria-hidden="true">⚙</span> Settings
+                </button>
                 <div id="start-help" role="note">
-                    <strong>Enhanced mode</strong> adds responsive scaling, drifting clouds,
-                    animated waves, and keyboard controls. Use <strong>←/→</strong> to change
-                    scenes, <strong>↑/↓</strong> to adjust speed, and <strong>F</strong> for full screen;
-                    a small HUD shows the current stage and rate. Press <strong>H</strong> to hide
-                    or restore it.
+                    <strong>Enhanced mode</strong> adds responsive scaling, drifting clouds, animated waves, and
+                    keyboard controls. Use <strong>←/→</strong> to change scenes, <strong>↑/↓</strong> to adjust speed,
+                    and <strong>F</strong> for full screen; a small HUD shows the current stage and rate. Press
+                    <strong>H</strong> to hide or restore it.
                 </div>
             </div>
         </div>

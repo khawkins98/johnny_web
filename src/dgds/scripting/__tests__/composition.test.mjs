@@ -14,10 +14,7 @@ describe('DGDS frame composition', () => {
         const state = {
             surface,
             ttmEnvironments: new Map([[1, environment]]),
-            scenes: [
-                { state: { surface: firstLayer } },
-                { state: { surface: secondLayer } },
-            ],
+            scenes: [{ state: { surface: firstLayer } }, { state: { surface: secondLayer } }],
         };
 
         composeTtmFrame(state);
@@ -80,12 +77,14 @@ describe('DGDS frame composition', () => {
     it('changes retained-composition identity only when a layer changes', () => {
         const state = {
             ttmEnvironments: new Map(),
-            scenes: [{
-                sceneIdx: 5,
-                tagId: 21,
-                lifecycle: 'running',
-                state: { layerRevision: 3 },
-            }],
+            scenes: [
+                {
+                    sceneIdx: 5,
+                    tagId: 21,
+                    lifecycle: 'running',
+                    state: { layerRevision: 3 },
+                },
+            ],
         };
         const initial = getCompositionRevision(state);
 

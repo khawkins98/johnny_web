@@ -3,17 +3,15 @@ import { TTMDispatch } from '../script-runner.mjs';
 import { createRecordingSurface, createSoftwareSurface } from '../surface.mjs';
 import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
-const opcode = value => TTMDispatch.find(entry => entry.opcode === value).callback;
-const withPresenter = state => ({
+const opcode = (value) => TTMDispatch.find((entry) => entry.opcode === value).callback;
+const withPresenter = (state) => ({
     frameOperations: [],
     presentFrameOperation: presentSurfaceFrameOperation,
     ...state,
 });
 
-const pixel = (surface, x, y) => Array.from(surface.pixels.slice(
-    ((y * surface.width) + x) * 4,
-    (((y * surface.width) + x) * 4) + 4,
-));
+const pixel = (surface, x, y) =>
+    Array.from(surface.pixels.slice((y * surface.width + x) * 4, (y * surface.width + x) * 4 + 4));
 
 describe('software DGDS surface', () => {
     it('rasterizes clipped sprites and horizontal flips deterministically', () => {
@@ -111,7 +109,7 @@ describe('TTM drawing opcode surface contract', () => {
             { operation: 'fillRect', x: 5, y: 6, width: 7, height: 8, color },
             { operation: 'fillCircle', x: 25, y: 35, radius: 15, color: 'white' },
         ]);
-        expect(state.frameOperations.map(operation => operation.type)).toEqual([
+        expect(state.frameOperations.map((operation) => operation.type)).toEqual([
             'draw-line',
             'fill-rect',
             'fill-circle',
@@ -156,10 +154,12 @@ describe('TTM drawing opcode surface contract', () => {
 
         opcode(0xa600)(state, 0);
 
-        expect(surface.commands).toEqual([{
-            operation: 'clear',
-            rect: { x: 0, y: 0, width: 640, height: 480 },
-        }]);
+        expect(surface.commands).toEqual([
+            {
+                operation: 'clear',
+                rect: { x: 0, y: 0, width: 640, height: 480 },
+            },
+        ]);
         expect(state.layerRevision).toBe(1);
     });
 });

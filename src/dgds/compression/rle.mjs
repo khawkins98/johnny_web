@@ -4,7 +4,7 @@ export const decompressRLE = (data, offset, length) => {
         const control = data.getUint8(offset, true);
         offset += 1;
         if ((control & 0x80) === 0x80) {
-            const len = (control & 0x7F);
+            const len = control & 0x7f;
             const value = data.getUint8(offset, true);
             offset += 1;
             for (let i = 0; i < len; i += 1) {

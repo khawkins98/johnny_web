@@ -29,29 +29,35 @@ function ws(arr, off, str) {
     for (let i = 0; i < str.length; i++) arr[off + i] = str.charCodeAt(i);
 }
 function u16(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
 }
 function u32(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
-    arr[off + 2] = (val >> 16) & 0xff; arr[off + 3] = (val >> 24) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
+    arr[off + 2] = (val >> 16) & 0xff;
+    arr[off + 3] = (val >> 24) & 0xff;
 }
 
 function makeSCREntry() {
     const arr = new Uint8Array(36);
-    ws(arr, 0, 'SCR');  arr[3] = 0x00;
-    u16(arr, 4, 0);   // totalSize (unused)
-    u16(arr, 6, 0);   // flags (unused)
-    ws(arr, 8, 'DIM'); arr[11] = 0x00;
-    u32(arr, 12, 4);  // DIM blockSize = 4
-    u16(arr, 16, 2);  // width = 2
-    u16(arr, 18, 2);  // height = 2
-    ws(arr, 20, 'BIN'); arr[23] = 0x00;
-    u32(arr, 24, 8);  // BIN blockSize = 8 (5-byte sub-header + 3-byte payload)
-    arr[28] = 1;      // compressionType = 1 (RLE)
-    u32(arr, 29, 2);  // uncompressedSize = 2
-    arr[33] = 0x02;   // RLE: 2 literal bytes
-    arr[34] = 0xAB;
-    arr[35] = 0xCD;
+    ws(arr, 0, 'SCR');
+    arr[3] = 0x00;
+    u16(arr, 4, 0); // totalSize (unused)
+    u16(arr, 6, 0); // flags (unused)
+    ws(arr, 8, 'DIM');
+    arr[11] = 0x00;
+    u32(arr, 12, 4); // DIM blockSize = 4
+    u16(arr, 16, 2); // width = 2
+    u16(arr, 18, 2); // height = 2
+    ws(arr, 20, 'BIN');
+    arr[23] = 0x00;
+    u32(arr, 24, 8); // BIN blockSize = 8 (5-byte sub-header + 3-byte payload)
+    arr[28] = 1; // compressionType = 1 (RLE)
+    u32(arr, 29, 2); // uncompressedSize = 2
+    arr[33] = 0x02; // RLE: 2 literal bytes
+    arr[34] = 0xab;
+    arr[35] = 0xcd;
     return { name: 'TEST.SCR', type: 'SCR', data: new DataView(arr.buffer), buffer: arr.buffer };
 }
 
@@ -87,22 +93,22 @@ describe('loadSCRResourceEntry', () => {
 
     it('images[0].buffer[0] equals the high nibble of first pixel byte (0xA = 10)', () => {
         const { images } = loadSCRResourceEntry(makeSCREntry());
-        expect(images[0].buffer[0]).toBe(0xA);
+        expect(images[0].buffer[0]).toBe(0xa);
     });
 
     it('all pixel indices are correctly decoded from 4-bit packed bytes', () => {
         const { images } = loadSCRResourceEntry(makeSCREntry());
-        expect(images[0].buffer).toEqual([0xA, 0xB, 0xC, 0xD]);
+        expect(images[0].buffer).toEqual([0xa, 0xb, 0xc, 0xd]);
     });
 
     it('pixel objects at images[0].pixels have index, a, r, g, b from PALETTE', () => {
         const { images } = loadSCRResourceEntry(makeSCREntry());
         const p = images[0].pixels[0];
-        expect(p.index).toBe(0xA);
-        expect(p.a).toBe(PALETTE[0xA].a);
-        expect(p.r).toBe(PALETTE[0xA].r);
-        expect(p.g).toBe(PALETTE[0xA].g);
-        expect(p.b).toBe(PALETTE[0xA].b);
+        expect(p.index).toBe(0xa);
+        expect(p.a).toBe(PALETTE[0xa].a);
+        expect(p.r).toBe(PALETTE[0xa].r);
+        expect(p.g).toBe(PALETTE[0xa].g);
+        expect(p.b).toBe(PALETTE[0xa].b);
     });
 
     it('throws when the SCR header is wrong', () => {

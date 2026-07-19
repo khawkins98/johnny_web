@@ -14,19 +14,19 @@
  * Output written to: public/data/RESOURCE.MAP, RESOURCE.001, SCRANTIC.SCR
  */
 
-import { execFileSync }                             from 'child_process';
-import { mkdirSync, rmSync, existsSync,
-         readFileSync, writeFileSync, copyFileSync } from 'fs';
-import { Readable, Transform }                      from 'stream';
-import path                                         from 'path';
-import os                                           from 'os';
-import { explode }                                  from 'node-pkware';
+import { execFileSync } from 'child_process';
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync, copyFileSync } from 'fs';
+import { Readable, Transform } from 'stream';
+import path from 'path';
+import os from 'os';
+import { createHash } from 'crypto';
+import { explode } from 'node-pkware';
 
 // ---------------------------------------------------------------------------
 // Paths
 // ---------------------------------------------------------------------------
 
-const root   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const outDir = path.join(root, 'public', 'data');
 
 // ---------------------------------------------------------------------------
@@ -38,8 +38,8 @@ function requireTool(cmd) {
         execFileSync('which', [cmd], { stdio: 'ignore' });
     } catch {
         const hints = {
-            unzip:  'macOS: built-in  |  Linux: apt install unzip',
-            mcopy:  'macOS: brew install mtools  |  Linux: apt install mtools',
+            unzip: 'macOS: built-in  |  Linux: apt install unzip',
+            mcopy: 'macOS: brew install mtools  |  Linux: apt install mtools',
         };
         console.error(`✗  Missing prerequisite: ${cmd}`);
         if (hints[cmd]) console.error('   ' + hints[cmd]);
@@ -64,18 +64,18 @@ function run(cmd, args, opts = {}) {
  *   42    start of PKWARE implode compressed stream
  */
 function decompressTSComp(buf) {
-    const nameLen   = buf[28];
-    const origName  = buf.slice(29, 29 + nameLen).toString('ascii');
+    const nameLen = buf[28];
+    const origName = buf.slice(29, 29 + nameLen).toString('ascii');
     const dataStart = 29 + nameLen + 1;
 
     return new Promise((resolve, reject) => {
         const chunks = [];
-        const xform  = new Transform();
+        const xform = new Transform();
         xform._transform = explode();
-        xform._flush     = (cb) => cb();
+        xform._flush = (cb) => cb();
         Readable.from(buf.slice(dataStart)).pipe(xform);
-        xform.on('data',  (c) => chunks.push(c));
-        xform.on('end',   ()  => resolve({ buf: Buffer.concat(chunks), origName }));
+        xform.on('data', (c) => chunks.push(c));
+        xform.on('end', () => resolve({ buf: Buffer.concat(chunks), origName }));
         xform.on('error', reject);
     });
 }
@@ -90,7 +90,9 @@ if (!zipPath) {
     console.error('Usage: pnpm run extract -- "<path-to-zip>"');
     console.error('');
     console.error('Download the ZIP from Archive.org:');
-    console.error('  https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m');
+    console.error(
+        '  https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m',
+    );
     process.exit(1);
 }
 
@@ -102,6 +104,18 @@ if (!existsSync(zipPath)) {
 requireTool('unzip');
 requireTool('mcopy');
 
+const EXPECTED_ZIP_SHA256 = 'e084d527921708642a79724e9f0210da659bbc0905c6ce9a3a1f416e4628091c';
+console.log('→ Verifying ZIP fingerprint…');
+const zipBuf = readFileSync(zipPath);
+const zipHash = createHash('sha256').update(zipBuf).digest('hex');
+if (zipHash !== EXPECTED_ZIP_SHA256) {
+    console.error(`✗  Unsupported or corrupted ZIP file.`);
+    console.error(`   Expected SHA-256: ${EXPECTED_ZIP_SHA256}`);
+    console.error(`   Actual SHA-256:   ${zipHash}`);
+    process.exit(1);
+}
+console.log('✓  ZIP fingerprint matches.');
+
 const tmp = path.join(os.tmpdir(), `jc_extract_${Date.now()}`);
 mkdirSync(tmp, { recursive: true });
 
@@ -111,7 +125,10 @@ try {
     run('unzip', ['-j', zipPath, '-d', tmp]);
 
     const imaFiles = run('find', [tmp, '-name', '*.ima', '-o', '-name', '*.img'])
-        .toString().trim().split('\n').filter(Boolean);
+        .toString()
+        .trim()
+        .split('\n')
+        .filter(Boolean);
 
     if (!imaFiles.length) {
         console.error('✗  No .ima/.img floppy image found inside ZIP.');
@@ -128,7 +145,12 @@ try {
     // 2. List floppy contents
     console.log('→ Floppy directory:');
     const dir = run('mdir', ['i:'], { env }).toString();
-    console.log(dir.split('\n').map(l => '   ' + l).join('\n'));
+    console.log(
+        dir
+            .split('\n')
+            .map((l) => '   ' + l)
+            .join('\n'),
+    );
 
     // 3. Copy raw files off the floppy
     const tmpMap = path.join(tmp, 'RESOURCE.MAP');
@@ -136,9 +158,9 @@ try {
     const tmpRes = path.join(tmp, 'RESOURCE.00$');
 
     console.log('→ Copying files from floppy…');
-    run('mcopy', ['i:RESOURCE.MAP',   tmpMap], { env });
-    run('mcopy', ['i:SCRANTIC.SC$',   tmpScr], { env });
-    run('mcopy', ['i:RESOURCE.00$',   tmpRes], { env });
+    run('mcopy', ['i:RESOURCE.MAP', tmpMap], { env });
+    run('mcopy', ['i:SCRANTIC.SC$', tmpScr], { env });
+    run('mcopy', ['i:RESOURCE.00$', tmpRes], { env });
 
     mkdirSync(outDir, { recursive: true });
 
@@ -161,7 +183,6 @@ try {
     console.log('');
     console.log('✓  Done! Files written to public/data/');
     console.log('   Run: pnpm run dev');
-
 } finally {
     rmSync(tmp, { recursive: true, force: true });
 }

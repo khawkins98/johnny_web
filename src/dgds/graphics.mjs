@@ -9,13 +9,16 @@ export const buildSpriteCanvas = (image) => {
     c.width = image.width;
     c.height = image.height;
     const ctx = c.getContext('2d');
-    if (!ctx) { image._canvas = null; return null; }
+    if (!ctx) {
+        image._canvas = null;
+        return null;
+    }
     const img = ctx.createImageData(image.width, image.height);
     for (let p = 0; p < image.pixels.length; p += 1) {
-        img.data[(p * 4)    ] = image.pixels[p].r;
-        img.data[(p * 4) + 1] = image.pixels[p].g;
-        img.data[(p * 4) + 2] = image.pixels[p].b;
-        img.data[(p * 4) + 3] = image.pixels[p].a;
+        img.data[p * 4] = image.pixels[p].r;
+        img.data[p * 4 + 1] = image.pixels[p].g;
+        img.data[p * 4 + 2] = image.pixels[p].b;
+        img.data[p * 4 + 3] = image.pixels[p].a;
     }
     ctx.putImageData(img, 0, 0);
     image._canvas = c;
@@ -25,16 +28,14 @@ export const buildSpriteCanvas = (image) => {
 const drawImage = (image, context, posX, posY) => {
     const img = context.createImageData(image.width, image.height);
     for (let p = 0; p < image.pixels.length; p += 1) {
-        img.data[(p * 4) + 0] = image.pixels[p].r;
-        img.data[(p * 4) + 1] = image.pixels[p].g;
-        img.data[(p * 4) + 2] = image.pixels[p].b;
-        img.data[(p * 4) + 3] = image.pixels[p].a;
+        img.data[p * 4 + 0] = image.pixels[p].r;
+        img.data[p * 4 + 1] = image.pixels[p].g;
+        img.data[p * 4 + 2] = image.pixels[p].b;
+        img.data[p * 4 + 3] = image.pixels[p].a;
     }
 
     context.putImageData(img, posX, posY);
 };
-
-
 
 export const drawScreen = (data, context) => {
     context.fillStyle = 'black';

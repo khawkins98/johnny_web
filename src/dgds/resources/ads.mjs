@@ -51,7 +51,7 @@ export const loadADSResourceEntry = (entry) => {
         const name = getString(entry.data, offset + 2);
         resources.push({
             id,
-            name
+            name,
         });
         offset += 2;
         offset += name.length + 1;
@@ -86,7 +86,7 @@ export const loadADSResourceEntry = (entry) => {
         const description = getString(entry.data, offset + 2);
         tags.push({
             id,
-            description
+            description,
         });
         offset += 2;
         offset += description.length + 1;
@@ -110,7 +110,7 @@ export const loadADSResourceEntry = (entry) => {
             line: '',
             indent: 0,
             tag: null,
-            params: []
+            params: [],
         };
         const c = ADSCommandType.find((ct) => ct.opcode === opcode);
         if (c !== undefined && opcode > 0x100) {
@@ -142,7 +142,7 @@ export const loadADSResourceEntry = (entry) => {
                         line: 'END_IF',
                         indent,
                         tag: null,
-                        params: []
+                        params: [],
                     };
                     scripts.push(endIfCmd);
                     sceneScripts.push(endIfCmd);
@@ -164,7 +164,7 @@ export const loadADSResourceEntry = (entry) => {
                     line: 'END_IF',
                     indent,
                     tag: null,
-                    params: []
+                    params: [],
                 };
                 scripts.push(endIfCmd);
                 sceneScripts.push(endIfCmd);
@@ -177,7 +177,7 @@ export const loadADSResourceEntry = (entry) => {
             if (prevTagId) {
                 scenes.push({
                     tagId: prevTagId,
-                    script: sceneScripts
+                    script: sceneScripts,
                 });
             }
             sceneScripts = []; // reset scene script
@@ -196,7 +196,7 @@ export const loadADSResourceEntry = (entry) => {
             line: 'END_IF',
             indent,
             tag: null,
-            params: []
+            params: [],
         };
         scripts.push(endIfCmd);
         sceneScripts.push(endIfCmd);

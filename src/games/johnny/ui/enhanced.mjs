@@ -2,7 +2,7 @@ import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
 
 const PLAYBACK_RATES = [0.5, 1, 2, 4];
 
-const isTyping = target => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
+const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
 export function setupEnhancedUI() {
     const style = document.createElement('style');
@@ -132,7 +132,7 @@ export function setupEnhancedUI() {
     document.body.appendChild(hud);
 
     let hudVisible = true;
-    const setHudVisible = visible => {
+    const setHudVisible = (visible) => {
         hudVisible = visible;
         hud.classList.toggle('is-hidden', !visible);
         hud.setAttribute('aria-hidden', String(!visible));
@@ -154,7 +154,7 @@ export function setupEnhancedUI() {
     };
     animationFrame = requestAnimationFrame(render);
 
-    const handleKeydown = async event => {
+    const handleKeydown = async (event) => {
         if (isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
         if (document.getElementById('settings-overlay')?.getAttribute('aria-hidden') === 'false') return;
 

@@ -2,7 +2,7 @@ export const TTMCommandType = [
     { opcode: 0x0020, command: 'SAVE_BACKGROUND' }, // not used
     { opcode: 0x0080, command: 'FREE_SHAPE' },
     { opcode: 0x0110, command: 'PURGE' },
-    { opcode: 0x0FF0, command: 'UPDATE' },
+    { opcode: 0x0ff0, command: 'UPDATE' },
     { opcode: 0x1020, command: 'SET_DELAY' },
     { opcode: 0x1050, command: 'SLOT_IMAGE' },
     { opcode: 0x1060, command: 'SLOT_PALETTE' },
@@ -18,26 +18,26 @@ export const TTMCommandType = [
     { opcode: 0x4120, command: 'FADE_IN' },
     { opcode: 0x4200, command: 'STORE_AREA' },
     { opcode: 0x4210, command: 'SAVE_GETPUT_REGION' },
-    { opcode: 0xA000, command: 'UNKNOWN_4' }, // Draw Line related?
-    { opcode: 0xA050, command: 'UNKNOWN_5' }, // Draw Line related?
-    { opcode: 0xA060, command: 'WIPE_RIGHT_TO_LEFT' },
-    { opcode: 0xA0A0, command: 'DRAW_LINE' },
-    { opcode: 0xA100, command: 'DRAW_RECT' },
-    { opcode: 0xA400, command: 'DRAW_BUBBLE' },
-    { opcode: 0xA500, command: 'DRAW_SPRITE' },
-    { opcode: 0xA510, command: 'DRAW_SPRITE1' }, // not used
-    { opcode: 0xA520, command: 'DRAW_SPRITE_FLIP' },
-    { opcode: 0xA530, command: 'DRAW_SPRITE3' }, // not used
-    { opcode: 0xA600, command: 'DRAW_GETPUT' },
-    { opcode: 0xB600, command: 'DRAW_SCREEN' },
-    { opcode: 0xC020, command: 'LOAD_SAMPLE' },
-    { opcode: 0xC030, command: 'SELECT_SAMPLE' },
-    { opcode: 0xC040, command: 'DESELECT_SAMPLE' },
-    { opcode: 0xC050, command: 'PLAY_SAMPLE' },
-    { opcode: 0xC060, command: 'STOP_SAMPLE' },
-    { opcode: 0xF010, command: 'LOAD_SCREEN' },
-    { opcode: 0xF020, command: 'LOAD_IMAGE' },
-    { opcode: 0xF050, command: 'LOAD_PALETTE' },
+    { opcode: 0xa000, command: 'UNKNOWN_4' }, // Draw Line related?
+    { opcode: 0xa050, command: 'UNKNOWN_5' }, // Draw Line related?
+    { opcode: 0xa060, command: 'WIPE_RIGHT_TO_LEFT' },
+    { opcode: 0xa0a0, command: 'DRAW_LINE' },
+    { opcode: 0xa100, command: 'DRAW_RECT' },
+    { opcode: 0xa400, command: 'DRAW_BUBBLE' },
+    { opcode: 0xa500, command: 'DRAW_SPRITE' },
+    { opcode: 0xa510, command: 'DRAW_SPRITE1' }, // not used
+    { opcode: 0xa520, command: 'DRAW_SPRITE_FLIP' },
+    { opcode: 0xa530, command: 'DRAW_SPRITE3' }, // not used
+    { opcode: 0xa600, command: 'DRAW_GETPUT' },
+    { opcode: 0xb600, command: 'DRAW_SCREEN' },
+    { opcode: 0xc020, command: 'LOAD_SAMPLE' },
+    { opcode: 0xc030, command: 'SELECT_SAMPLE' },
+    { opcode: 0xc040, command: 'DESELECT_SAMPLE' },
+    { opcode: 0xc050, command: 'PLAY_SAMPLE' },
+    { opcode: 0xc060, command: 'STOP_SAMPLE' },
+    { opcode: 0xf010, command: 'LOAD_SCREEN' },
+    { opcode: 0xf020, command: 'LOAD_IMAGE' },
+    { opcode: 0xf050, command: 'LOAD_PALETTE' },
 ];
 
 export const ADSCommandType = [

@@ -21,6 +21,9 @@ describe('diagnostics modes', () => {
         controller.setMode('on');
         controller.setMode('off');
 
-        expect(changes).toEqual([['off', 'on'], ['on', 'off']]);
+        expect(changes).toEqual([
+            ['off', 'on'],
+            ['on', 'off'],
+        ]);
     });
 });

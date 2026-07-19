@@ -8,6 +8,7 @@ This project follows
 ## [Unreleased]
 
 ### Added
+
 - Bottle DGDS namespace with a base game-package contract and browser-
   presentation entry point
 - Runtime-selectable diagnostics with downloadable JSONL traces, pixel
@@ -24,6 +25,7 @@ This project follows
 - `pnpm run dump` command for inspecting extracted game assets
 
 ### Changed
+
 - Bottle guidance now targets DGDS playback, inspection, and conformance before
   full interactive-game compatibility; presentation capabilities are host-owned
 - Johnny startup, settings, and Enhanced UI now live under its game namespace;
@@ -45,6 +47,7 @@ This project follows
   responses in the error overlay
 
 ### Fixed
+
 - GET/PUT restoration now overwrites transparent pixels correctly
 - Unsaved `CLEAR_SCREEN` slots clear their isolated scene layer instead of
   retaining every animation frame
@@ -62,6 +65,7 @@ This project follows
 - Historical attribution: corrected initial release year to 1992 (stable release 1.02 in 1993)
 
 ### Docs
+
 - README rewritten: concise getting-started, npm scripts table, roadmap, attribution consolidated in NOTICE
 - NOTICE: credits Dynamix/Sierra On-Line/Activision Blizzard as rights holder; Wikipedia link added
 - CONTRIBUTING: conventional commits, squash-merge policy, changelog requirement

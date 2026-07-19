@@ -13,7 +13,7 @@ import {
     dumpSamples,
 } from './dgds/utils/dump.mjs';
 
-import { loadResources } from './dgds/resource.mjs'
+import { loadResources } from './dgds/resource.mjs';
 import { johnnyCastaway } from './games/johnny/manifest.mjs';
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');

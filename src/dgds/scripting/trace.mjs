@@ -1,15 +1,14 @@
-const sceneIdentity = state => ({
+const sceneIdentity = (state) => ({
     sceneIdx: state.sceneIdx ?? null,
     tagId: state.tagId ?? null,
 });
 
 export const traceFilename = (now = new Date()) => `dgds-${now.toISOString()}.jsonl`;
 
-export const downloadJSONLines = (jsonLines, {
-    filename = traceFilename(),
-    documentRef = document,
-    urlRef = URL,
-} = {}) => {
+export const downloadJSONLines = (
+    jsonLines,
+    { filename = traceFilename(), documentRef = document, urlRef = URL } = {},
+) => {
     const blob = new Blob([jsonLines], { type: 'application/x-ndjson' });
     const objectUrl = urlRef.createObjectURL(blob);
     const anchor = documentRef.createElement('a');
@@ -34,7 +33,9 @@ export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
 
     return {
         pixelHashes,
-        get active() { return active; },
+        get active() {
+            return active;
+        },
         record(type, data = {}) {
             if (active) append(type, data);
         },
@@ -52,8 +53,8 @@ export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
             events.length = 0;
             sequence = 0;
         },
-        snapshot: () => events.map(event => ({ ...event })),
-        toJSONLines: () => events.map(event => JSON.stringify(event)).join('\n') + '\n',
+        snapshot: () => events.map((event) => ({ ...event })),
+        toJSONLines: () => events.map((event) => JSON.stringify(event)).join('\n') + '\n',
         download(options) {
             return downloadJSONLines(this.toJSONLines(), options);
         },

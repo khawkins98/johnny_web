@@ -16,22 +16,23 @@ The data is proprietary and not committed. See the [README](README.md) for the s
 
 - All changes must come in via a pull request — no direct commits to `main`.
 - Keep PRs focused — one logical change per PR. Split unrelated work into separate PRs.
-- Provide a clear description of *what* changed and *why*.
+- Provide a clear description of _what_ changed and _why_.
 - Link any related issues in the PR description.
 
 ## Commit style
 
 - **Squash your commits** before merging. Each PR should land as a single, well-described commit on `main`.
 - Use **[Conventional Commits](https://www.conventionalcommits.org)** format:
-  ```
-  <type>(<optional scope>): <description>
+    ```
+    <type>(<optional scope>): <description>
 
-  [optional body]
-  ```
-  Common types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
+    [optional body]
+    ```
+    Common types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
 - Keep the subject line under 72 characters.
 
 Examples:
+
 ```
 feat(audio): support stereo sample playback
 fix(resource): handle missing PAL entries gracefully
@@ -42,10 +43,10 @@ docs: update setup instructions for Vite
 
 - Every PR that changes behaviour, adds a feature, or fixes a bug **must** include an entry in [`CHANGELOG.md`](CHANGELOG.md).
 - Add your entry under the `## [Unreleased]` section using one of these prefixes:
-  - `Added` — new features
-  - `Changed` — changes to existing behaviour
-  - `Fixed` — bug fixes
-  - `Removed` — removed features
+    - `Added` — new features
+    - `Changed` — changes to existing behaviour
+    - `Fixed` — bug fixes
+    - `Removed` — removed features
 - Follow [Keep a Changelog](https://keepachangelog.com) conventions.
 
 ## Code style

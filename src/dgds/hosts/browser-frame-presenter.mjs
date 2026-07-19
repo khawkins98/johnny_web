@@ -12,19 +12,15 @@ export const createBrowserFramePresenter = ({ context, mainContext, presentation
         context.clearRect(0, 0, 640, 480);
         lastCompositionRevision = null;
     };
-    const backgroundState = state => (
-        state.scenes.find(scene => scene?.state?.bkgScreen)?.state ?? state
-    );
-    const presentBackground = state => {
+    const backgroundState = (state) => state.scenes.find((scene) => scene?.state?.bkgScreen)?.state ?? state;
+    const presentBackground = (state) => {
         mainContext.clearRect(0, 0, 640, 480);
         drawBackground(backgroundState(state), mainContext, presentationPolicy);
     };
     let foregroundImage = null;
-    const presentForeground = surface => {
+    const presentForeground = (surface) => {
         if (!surface?.pixels || typeof context.putImageData !== 'function') return;
-        if (!foregroundImage
-            || foregroundImage.width !== surface.width
-            || foregroundImage.height !== surface.height) {
+        if (!foregroundImage || foregroundImage.width !== surface.width || foregroundImage.height !== surface.height) {
             foregroundImage = context.createImageData(surface.width, surface.height);
         }
         foregroundImage.data.set(surface.pixels);
@@ -61,7 +57,6 @@ export const createBrowserFramePresenter = ({ context, mainContext, presentation
                 }
             }
         }
-
     };
 
     return { clear, present, presentBackground };

@@ -3,6 +3,7 @@
 A public reference outlining the execution model, module boundaries, and known compatibility gaps of the johnny_web engine.
 
 **tl;dr**
+
 - johnny_web runs original DGDS resources through an experimental engine called Bottle DGDS.
 - Logical execution runs at a fixed 60 Hz tick, decoupled from browser wall time and presentation logic.
 - Background canvases handle enhancements (like moving clouds) independently of the faithful DGDS software surface.
@@ -37,40 +38,40 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 
 ## Repository map
 
-| Path | Responsibility |
-|---|---|
-| `src/bottle/browser-presentation.mjs` | Browser startup, resource fetch, audio gate, and repeated ADS presentation cycles |
-| `src/bottle/game-package.mjs` | Validates and freezes base title identity and archive metadata; hosts validate optional capabilities |
-| `src/bottle/debug-ui.mjs` | Generic active-session diagnostics and developer controls |
-| `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
-| `src/dgds/palette.mjs` | Default DGDS palette pending complete authored PAL switching |
-| `src/dgds/resource-provider.mjs` | Adapts archive entries to synchronous named-resource resolution |
-| `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
-| `src/dgds/compression/` | DGDS RLE and LZW decoding |
-| `src/games/johnny/browser-app.mjs` | Composes the Bottle browser host with Johnny's package and UI |
-| `src/games/johnny/manifest.mjs` | Johnny identity, entry points, aliases, audio, and background metadata |
-| `src/games/johnny/ui/` | Johnny-specific settings and Enhanced-mode presentation |
-| `src/dgds/scripting/process.mjs` | Browser session wiring and legacy active-session and debug façade |
-| `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and logical presentation directives |
-| `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
-| `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
-| `src/dgds/hosts/browser-frame-presenter.mjs` | Foreground RGBA upload plus browser backgrounds and fades |
-| `src/dgds/hosts/browser-presentation-policy.mjs` | Enhancement settings, wall time, and presentation randomness |
-| `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
-| `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
-| `src/dgds/scripting/frame-operation.mjs` | Host-neutral drawing operation contract |
-| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to retained logical surfaces |
-| `src/dgds/scripting/background-resources.mjs` | Loads background assets described by an injected game package |
-| `src/dgds/scripting/execution-outcome.mjs` | Interpreter and scheduler outcome contract |
-| `src/dgds/scripting/frame-timing.mjs` | Faithful authored frame-boundary values |
-| `src/dgds/scripting/scene-factory.mjs` | TTM environments and per-scene runtime state |
-| `src/dgds/scripting/scene-frame.mjs` | Logical frame reset and GET/PUT restoration |
-| `src/dgds/scripting/composition.mjs` | Rebuilds the foreground composition from stored areas and scene layers |
-| `src/dgds/scripting/surface.mjs` | Deterministic RGBA software surface plus recording adapter |
-| `src/dgds/scripting/timing.mjs` | Browser timestamp to bounded DGDS tick conversion |
-| `src/dgds/scripting/timing-compatibility.mjs` | Named authored-to-host timing mappings |
-| `src/dgds/scripting/diagnostics.mjs` | Runtime diagnostics mode controller |
-| `src/dgds/scripting/trace.mjs` | Structured JSONL event recording |
+| Path                                             | Responsibility                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `src/bottle/browser-presentation.mjs`            | Browser startup, resource fetch, audio gate, and repeated ADS presentation cycles                    |
+| `src/bottle/game-package.mjs`                    | Validates and freezes base title identity and archive metadata; hosts validate optional capabilities |
+| `src/bottle/debug-ui.mjs`                        | Generic active-session diagnostics and developer controls                                            |
+| `src/dgds/resource.mjs`                          | `RESOURCE.MAP`/`.001` index and loader dispatch                                                      |
+| `src/dgds/palette.mjs`                           | Default DGDS palette pending complete authored PAL switching                                         |
+| `src/dgds/resource-provider.mjs`                 | Adapts archive entries to synchronous named-resource resolution                                      |
+| `src/dgds/resources/`                            | ADS, TTM, BMP, SCR, and PAL parsers                                                                  |
+| `src/dgds/compression/`                          | DGDS RLE and LZW decoding                                                                            |
+| `src/games/johnny/browser-app.mjs`               | Composes the Bottle browser host with Johnny's package and UI                                        |
+| `src/games/johnny/manifest.mjs`                  | Johnny identity, entry points, aliases, audio, and background metadata                               |
+| `src/games/johnny/ui/`                           | Johnny-specific settings and Enhanced-mode presentation                                              |
+| `src/dgds/scripting/process.mjs`                 | Browser session wiring and legacy active-session and debug façade                                    |
+| `src/dgds/scripting/runtime.mjs`                 | Instance-owned ADS/TTM coordination and logical presentation directives                              |
+| `src/dgds/hosts/browser-scheduler.mjs`           | Animation-frame timestamp to logical-tick host adapter                                               |
+| `src/dgds/hosts/browser-audio.mjs`               | Logical sample-operation to Web Audio host adapter                                                   |
+| `src/dgds/hosts/browser-frame-presenter.mjs`     | Foreground RGBA upload plus browser backgrounds and fades                                            |
+| `src/dgds/hosts/browser-presentation-policy.mjs` | Enhancement settings, wall time, and presentation randomness                                         |
+| `src/dgds/scripting/script-runner.mjs`           | Opcode callbacks, dispatch tables, interpreter                                                       |
+| `src/dgds/scripting/audio-operation.mjs`         | Host-neutral audio operation contract                                                                |
+| `src/dgds/scripting/frame-operation.mjs`         | Host-neutral drawing operation contract                                                              |
+| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to retained logical surfaces                                                |
+| `src/dgds/scripting/background-resources.mjs`    | Loads background assets described by an injected game package                                        |
+| `src/dgds/scripting/execution-outcome.mjs`       | Interpreter and scheduler outcome contract                                                           |
+| `src/dgds/scripting/frame-timing.mjs`            | Faithful authored frame-boundary values                                                              |
+| `src/dgds/scripting/scene-factory.mjs`           | TTM environments and per-scene runtime state                                                         |
+| `src/dgds/scripting/scene-frame.mjs`             | Logical frame reset and GET/PUT restoration                                                          |
+| `src/dgds/scripting/composition.mjs`             | Rebuilds the foreground composition from stored areas and scene layers                               |
+| `src/dgds/scripting/surface.mjs`                 | Deterministic RGBA software surface plus recording adapter                                           |
+| `src/dgds/scripting/timing.mjs`                  | Browser timestamp to bounded DGDS tick conversion                                                    |
+| `src/dgds/scripting/timing-compatibility.mjs`    | Named authored-to-host timing mappings                                                               |
+| `src/dgds/scripting/diagnostics.mjs`             | Runtime diagnostics mode controller                                                                  |
+| `src/dgds/scripting/trace.mjs`                   | Structured JSONL event recording                                                                     |
 
 ## Startup
 
@@ -86,13 +87,13 @@ The game data is not committed. `pnpm run extract -- <zip>` populates `public/da
 
 `RESOURCE.MAP` indexes entries in `RESOURCE.001`. `resource.mjs` dispatches an entry by extension:
 
-| Extension | Meaning |
-|---|---|
-| `ADS` | High-level Animation Director Script |
-| `TTM` | Per-frame Tiny Templated Movie |
-| `BMP` | Indexed sprite frames |
-| `SCR` | Screen and background image |
-| `PAL` | Palette data |
+| Extension | Meaning                              |
+| --------- | ------------------------------------ |
+| `ADS`     | High-level Animation Director Script |
+| `TTM`     | Per-frame Tiny Templated Movie       |
+| `BMP`     | Indexed sprite frames                |
+| `SCR`     | Screen and background image          |
+| `PAL`     | Palette data                         |
 
 ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load assets and execute drawing, timing, sound, and control opcodes. ADS and TTM use separate dispatch tables because identical opcode values can mean different things in the two formats.
 
@@ -152,17 +153,17 @@ GET/PUT operations overwrite RGBA values, including transparent pixels. On a sce
 
 ## Host boundaries
 
-| Engine need | Injected/browser implementation |
-|---|---|
-| Frame scheduling | browser scheduler → fixed-step clock → `DgdsRuntime.tick()` |
-| Resource decoding | archive entries → named-resource provider → runtime |
-| Drawing | frame operations → software retained surfaces → RGBA upload by browser frame presenter |
-| Enhancement settings | browser presentation policy → `localStorage` |
-| Randomness | injected random function |
-| Optional wall time and enhancement animation | browser presentation policy |
-| Audio | `play-sample` operation → game sample catalogue → Web Audio adapter |
-| Enhanced controls | runtime control API → scene navigation, playback rate, HUD, full screen |
-| Diagnostics export | JSONL recorder → browser download; optional Vite endpoint for automation |
+| Engine need                                  | Injected/browser implementation                                                        |
+| -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Frame scheduling                             | browser scheduler → fixed-step clock → `DgdsRuntime.tick()`                            |
+| Resource decoding                            | archive entries → named-resource provider → runtime                                    |
+| Drawing                                      | frame operations → software retained surfaces → RGBA upload by browser frame presenter |
+| Enhancement settings                         | browser presentation policy → `localStorage`                                           |
+| Randomness                                   | injected random function                                                               |
+| Optional wall time and enhancement animation | browser presentation policy                                                            |
+| Audio                                        | `play-sample` operation → game sample catalogue → Web Audio adapter                    |
+| Enhanced controls                            | runtime control API → scene navigation, playback rate, HUD, full screen                |
+| Diagnostics export                           | JSONL recorder → browser download; optional Vite endpoint for automation               |
 
 Tests use software or recording surfaces plus deterministic runtime inputs and presentation policies without Canvas or wall time. `pnpm run test:golden` replays four historically fragile Johnny sequences from extracted local data and compares logical-operation digests and retained-frame fingerprints.
 
@@ -170,10 +171,10 @@ Tests use software or recording surfaces plus deterministic runtime inputs and p
 
 Diagnostics can start at page load or change at runtime from Settings (`S`):
 
-| Setting | Output |
-|---|---|
-| Off | No diagnostics |
-| On | Concise console events plus structured events and pixel fingerprints |
+| Setting | Output                                                               |
+| ------- | -------------------------------------------------------------------- |
+| Off     | No diagnostics                                                       |
+| On      | Concise console events plus structured events and pixel fingerprints |
 
 Enabling diagnostics starts a session at the current engine tick. Its first JSONL record contains application and build, engine, timing profile, page, browser-reported capability, and display metadata. `frame-timing-map` events record authored and mapped delays with applied patch names. `audio-sample` events distinguish sample requests from actual playback starts. Disabling diagnostics writes a stop record. The developer panel downloads the capture in the browser; automation may read it directly or use the Vite-only persistence endpoint. `?debug=verbose` adds noisy sprite logging without changing the exported trace.
 

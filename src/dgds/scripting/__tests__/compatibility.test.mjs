@@ -8,7 +8,7 @@ import { johnnyCastaway } from '../../../games/johnny/manifest.mjs';
 
 describe('browser presentation policy', () => {
     it('reads settings with a fallback', () => {
-        const storage = { getItem: key => key === 'enabled' ? 'on' : null };
+        const storage = { getItem: (key) => (key === 'enabled' ? 'on' : null) };
         const policy = createBrowserPresentationPolicy({ storage });
 
         expect(policy.setting('enabled', 'off')).toBe('on');
@@ -16,7 +16,11 @@ describe('browser presentation policy', () => {
     });
 
     it('survives unavailable browser storage', () => {
-        const storage = { getItem: () => { throw new Error('blocked'); } };
+        const storage = {
+            getItem: () => {
+                throw new Error('blocked');
+            },
+        };
         const policy = createBrowserPresentationPolicy({ storage });
         expect(policy.setting('anything', 'fallback')).toBe('fallback');
     });
@@ -39,7 +43,7 @@ describe('frame timing compatibility', () => {
     it('applies named compatibility patches outside the faithful directive', () => {
         const timing = createTimingCompatibility({
             profile: 'test-double-speed',
-            patches: [{ name: 'halve-holds', map: ticks => Math.ceil(ticks / 2) }],
+            patches: [{ name: 'halve-holds', map: (ticks) => Math.ceil(ticks / 2) }],
         });
         const boundary = createFrameBoundary(9);
 
@@ -77,7 +81,7 @@ describe('deterministic background compatibility', () => {
 
     it('advances clouds and waves from injected time and settings', () => {
         const policy = createBrowserPresentationPolicy({
-            storage: { getItem: key => key === 'jc-clouds' || key === 'jc-waves' ? 'on' : null },
+            storage: { getItem: (key) => (key === 'jc-clouds' || key === 'jc-waves' ? 'on' : null) },
             now: () => 1000,
             random: () => 0.5,
         });
@@ -139,7 +143,7 @@ describe('deterministic background compatibility', () => {
             island: 0,
         };
         const policy = createBrowserPresentationPolicy({
-            storage: { getItem: key => key === 'jc-time' ? 'local' : null },
+            storage: { getItem: (key) => (key === 'jc-time' ? 'local' : null) },
             currentHour: () => 22,
         });
 

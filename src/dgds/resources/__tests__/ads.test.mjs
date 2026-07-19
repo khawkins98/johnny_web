@@ -46,49 +46,62 @@ function ws(arr, off, str) {
     for (let i = 0; i < str.length; i++) arr[off + i] = str.charCodeAt(i);
 }
 function u16(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
 }
 function u32(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
-    arr[off + 2] = (val >> 16) & 0xff; arr[off + 3] = (val >> 24) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
+    arr[off + 2] = (val >> 16) & 0xff;
+    arr[off + 3] = (val >> 24) & 0xff;
 }
 
 function makeADSEntry() {
     const arr = new Uint8Array(78);
 
     // VER block
-    ws(arr, 0, 'VER');  arr[3] = 0x00;
+    ws(arr, 0, 'VER');
+    arr[3] = 0x00;
     u32(arr, 4, 5);
-    ws(arr, 8, '4.09'); arr[12] = 0x00;
+    ws(arr, 8, '4.09');
+    arr[12] = 0x00;
 
     // ADS header
-    ws(arr, 13, 'ADS'); arr[16] = 0x00;
-    u16(arr, 17, 0);    // adsUnknown01
-    u16(arr, 19, 0);    // adsUnknown02
+    ws(arr, 13, 'ADS');
+    arr[16] = 0x00;
+    u16(arr, 17, 0); // adsUnknown01
+    u16(arr, 19, 0); // adsUnknown02
 
     // RES block
-    ws(arr, 21, 'RES'); arr[24] = 0x00;
-    u32(arr, 25, 0);    // resSize (unused)
-    u16(arr, 29, 1);    // numResources = 1
-    u16(arr, 31, 1);    // resource id = 1
-    ws(arr, 33, 'game.ttm'); arr[41] = 0x00;
+    ws(arr, 21, 'RES');
+    arr[24] = 0x00;
+    u32(arr, 25, 0); // resSize (unused)
+    u16(arr, 29, 1); // numResources = 1
+    u16(arr, 31, 1); // resource id = 1
+    ws(arr, 33, 'game.ttm');
+    arr[41] = 0x00;
 
     // SCR block
-    ws(arr, 42, 'SCR'); arr[45] = 0x00;
-    u32(arr, 46, 10);   // blockSize = 10 (5 sub-header + 5 payload)
-    arr[50] = 1;        // compressionType = 1 (RLE)
-    u32(arr, 51, 4);    // uncompressedSize = 4
+    ws(arr, 42, 'SCR');
+    arr[45] = 0x00;
+    u32(arr, 46, 10); // blockSize = 10 (5 sub-header + 5 payload)
+    arr[50] = 1; // compressionType = 1 (RLE)
+    u32(arr, 51, 4); // uncompressedSize = 4
     // RLE: 4 literal bytes → [0x01,0x00, 0xFF,0xFF]
     arr[55] = 0x04;
-    arr[56] = 0x01; arr[57] = 0x00; // opcode 0x0001 (LE) → tag reference id=1
-    arr[58] = 0xFF; arr[59] = 0xFF; // opcode 0xFFFF (LE) → END
+    arr[56] = 0x01;
+    arr[57] = 0x00; // opcode 0x0001 (LE) → tag reference id=1
+    arr[58] = 0xff;
+    arr[59] = 0xff; // opcode 0xFFFF (LE) → END
 
     // TAG block
-    ws(arr, 60, 'TAG'); arr[63] = 0x00;
-    u32(arr, 64, 0);    // tagSize (unused)
-    u16(arr, 68, 1);    // numTags = 1
-    u16(arr, 70, 1);    // tag id = 1
-    ws(arr, 72, 'start'); arr[77] = 0x00;
+    ws(arr, 60, 'TAG');
+    arr[63] = 0x00;
+    u32(arr, 64, 0); // tagSize (unused)
+    u16(arr, 68, 1); // numTags = 1
+    u16(arr, 70, 1); // tag id = 1
+    ws(arr, 72, 'start');
+    arr[77] = 0x00;
 
     return { name: 'TEST.ADS', type: 'ADS', data: new DataView(arr.buffer), buffer: arr.buffer };
 }
@@ -131,7 +144,7 @@ describe('loadADSResourceEntry', () => {
 
     it('second script entry is the END command (opcode 0xFFFF)', () => {
         const { scripts } = loadADSResourceEntry(makeADSEntry());
-        expect(scripts[1].opcode).toBe(0xFFFF);
+        expect(scripts[1].opcode).toBe(0xffff);
         expect(scripts[1].line).toContain('END');
     });
 
@@ -142,7 +155,7 @@ describe('loadADSResourceEntry', () => {
         const { scenes } = loadADSResourceEntry(makeADSEntry());
         expect(scenes).toHaveLength(1);
         expect(scenes[0].script).toHaveLength(1); // the END command
-        expect(scenes[0].script[0].opcode).toBe(0xFFFF);
+        expect(scenes[0].script[0].opcode).toBe(0xffff);
     });
 
     it('throws when the VER header is wrong', () => {

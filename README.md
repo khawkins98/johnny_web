@@ -3,6 +3,7 @@
 A web-native reimplementation of the 1992 [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver, powered by **Bottle DGDS**: an experimental runtime, inspection, and conformance toolkit for DGDS animations.
 
 **tl;dr**
+
 - Run `pnpm install` and `pnpm run extract -- "<path-to-downloaded.zip>"` to get started.
 - This is a hard fork of [xesf/castaway](https://github.com/xesf/castaway) modernized for ES modules and Vite.
 - You must supply the original screensaver data files to run the project.
@@ -31,8 +32,8 @@ See [Obtaining the screensaver data files](#obtaining-the-screensaver-data-files
 
 The screensaver requires three proprietary data files that are not included in this repository. These files originate from the original 1992/1993 Windows 3.1 floppy distribution by Sierra On-Line.
 
-| Source | What you get | Notes |
-|--------|-------------|-------|
+| Source                                                                                                                | What you get                      | Notes                        |
+| --------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------- |
 | [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m) | Win3.1 floppy `.ima` inside a ZIP | Use `pnpm run extract` below |
 
 ### Extracting from the Internet Archive floppy image
@@ -63,18 +64,18 @@ The script writes `public/data/RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`
 
 ## Command reference
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run dev` | Start Vite dev server at http://localhost:5173 |
-| `pnpm run build` | Production build to `dist/` |
-| `pnpm run preview` | Serve the `dist/` build locally |
-| `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
-| `pnpm test` | Run the Vitest test suite |
-| `pnpm run test:watch` | Run Vitest in watch mode while developing |
-| `pnpm run test:coverage` | Run the Vitest suite with V8 coverage |
-| `pnpm run test:golden` | Replay known rendering sequences against committed logical/pixel fingerprints (requires extracted data) |
-| `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change (requires extracted data) |
-| `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection (requires extracted data) |
+| Command                       | Description                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `pnpm run dev`                | Start Vite dev server at http://localhost:5173                                                          |
+| `pnpm run build`              | Production build to `dist/`                                                                             |
+| `pnpm run preview`            | Serve the `dist/` build locally                                                                         |
+| `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP                                                           |
+| `pnpm test`                   | Run the Vitest test suite                                                                               |
+| `pnpm run test:watch`         | Run Vitest in watch mode while developing                                                               |
+| `pnpm run test:coverage`      | Run the Vitest suite with V8 coverage                                                                   |
+| `pnpm run test:golden`        | Replay known rendering sequences against committed logical/pixel fingerprints (requires extracted data) |
+| `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change (requires extracted data)       |
+| `pnpm run dump`               | Dump screensaver assets to `dumps/` for inspection (requires extracted data)                            |
 
 ## Playback modes
 
@@ -107,9 +108,9 @@ Choose **Settings** on the opening screen, or press `S` at any time. Sound can b
 
 Set Diagnostics to **On**. This starts a fresh structured trace from the current engine tick and enables the concise console log. Press `D` to open the developer panel; opening it also enables diagnostics.
 
-| URL | Output |
-|-----|--------|
-| `?debug` | Diagnostics on at page load |
+| URL              | Output                                          |
+| ---------------- | ----------------------------------------------- |
+| `?debug`         | Diagnostics on at page load                     |
 | `?debug=verbose` | Same trace plus noisy per-sprite console output |
 
 The developer panel's **Download JSONL trace** button downloads the capture. Its first record identifies the build, browser, display, and engine state. Later records include lifecycle, drawing, timing-map, layer, pixel-fingerprint, and audio-sample events.

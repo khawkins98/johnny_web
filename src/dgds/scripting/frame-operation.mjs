@@ -17,9 +17,10 @@ export const FrameOperationType = Object.freeze({
 export const emitFrameOperation = (state, operation) => {
     const rect = operation.rect ? Object.freeze({ ...operation.rect }) : undefined;
     const clip = operation.clip ? Object.freeze({ ...operation.clip }) : undefined;
-    const color = operation.color && typeof operation.color === 'object'
-        ? Object.freeze({ ...operation.color })
-        : operation.color;
+    const color =
+        operation.color && typeof operation.color === 'object'
+            ? Object.freeze({ ...operation.color })
+            : operation.color;
     const emitted = Object.freeze({
         ...operation,
         ...(rect ? { rect } : {}),

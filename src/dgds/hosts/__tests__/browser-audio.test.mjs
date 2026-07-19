@@ -41,14 +41,19 @@ describe('browser audio host adapter', () => {
     it('records an unavailable host without blocking the machine', () => {
         const record = vi.fn();
 
-        expect(() => consumeBrowserAudio([operation], {
-            audioManager: null,
-            trace: { record },
-        })).not.toThrow();
-        expect(record).toHaveBeenCalledWith('audio-sample', expect.objectContaining({
-            action: 'unavailable',
-            sample: 6,
-        }));
+        expect(() =>
+            consumeBrowserAudio([operation], {
+                audioManager: null,
+                trace: { record },
+            }),
+        ).not.toThrow();
+        expect(record).toHaveBeenCalledWith(
+            'audio-sample',
+            expect.objectContaining({
+                action: 'unavailable',
+                sample: 6,
+            }),
+        );
     });
 
     it('resumes a suspended context as a host concern', () => {

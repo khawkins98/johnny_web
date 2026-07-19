@@ -12,7 +12,7 @@ import { setupEnhancedUI } from '../enhanced.mjs';
 
 describe('enhanced playback HUD', () => {
     beforeEach(() => {
-        document.head.querySelectorAll('style').forEach(style => style.remove());
+        document.head.querySelectorAll('style').forEach((style) => style.remove());
         document.body.innerHTML = '';
         vi.stubGlobal('requestAnimationFrame', vi.fn());
         vi.stubGlobal('cancelAnimationFrame', vi.fn());

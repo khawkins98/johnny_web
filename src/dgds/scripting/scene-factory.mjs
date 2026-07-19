@@ -99,7 +99,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     waveFrame: assets.waveFrame || 0,
 });
 
-const createSaveSlot = surfaceFactory => ({
+const createSaveSlot = (surfaceFactory) => ({
     surface: surfaceFactory(),
     x: 0,
     y: 0,
@@ -109,25 +109,26 @@ const createSaveSlot = surfaceFactory => ({
     revision: 0,
 });
 
-const cloneSaveSlots = (slots, surfaceFactory) => (slots || []).map(source => {
-    const copy = createSaveSlot(surfaceFactory);
-    if (!source) return copy;
-    copy.x = source.x;
-    copy.y = source.y;
-    copy.width = source.width;
-    copy.height = source.height;
-    copy.canDraw = source.canDraw;
-    copy.revision = source.revision || 0;
-    if (source.canDraw) {
-        copy.surface.drawSurface(source.surface, {
-            x: source.x,
-            y: source.y,
-            width: source.width,
-            height: source.height,
-        });
-    }
-    return copy;
-});
+const cloneSaveSlots = (slots, surfaceFactory) =>
+    (slots || []).map((source) => {
+        const copy = createSaveSlot(surfaceFactory);
+        if (!source) return copy;
+        copy.x = source.x;
+        copy.y = source.y;
+        copy.width = source.width;
+        copy.height = source.height;
+        copy.canDraw = source.canDraw;
+        copy.revision = source.revision || 0;
+        if (source.canDraw) {
+            copy.surface.drawSurface(source.surface, {
+                x: source.x,
+                y: source.y,
+                width: source.width,
+                height: source.height,
+            });
+        }
+        return copy;
+    });
 
 /** Allocate the mutable resources owned by a single loaded TTM environment. */
 const createTtmEnvironmentAssets = (parent) => {
@@ -155,17 +156,13 @@ const createTtmEnvironmentAssets = (parent) => {
     };
 };
 
-export const canRunTtmScene = scene => (
-    !scene.environment || scene.environment.ready || scene.environment.owner === scene
-);
+export const canRunTtmScene = (scene) =>
+    !scene.environment || scene.environment.ready || scene.environment.owner === scene;
 
 /** Detach a runnable sibling's mutable GET/PUT buffers from its resource template. */
-export const prepareTtmScene = scene => {
+export const prepareTtmScene = (scene) => {
     if (!scene?.needsPrivateSave || !scene.environment?.ready) return;
-    scene.state.save = cloneSaveSlots(
-        scene.environment.assets.save,
-        scene.environment.surfaceFactory,
-    );
+    scene.state.save = cloneSaveSlots(scene.environment.assets.save, scene.environment.surfaceFactory);
     scene.needsPrivateSave = false;
 };
 
@@ -181,26 +178,29 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
         console.log('add failed ttm', sceneIdx, tagId);
         return;
     }
-    const sequenceOrder = ttm.scenes.findIndex(s => s.tagId === tagId);
+    const sequenceOrder = ttm.scenes.findIndex((s) => s.tagId === tagId);
     const scene = ttm.scenes[sequenceOrder];
     // ADS positive run counts include the initial pass. The runtime stores only
     // the number of additional passes remaining after that first execution.
     const retries = retriesDelay > 0 ? retriesDelay - 1 : 0;
     const delay = retriesDelay < 0 ? retriesDelay : state.delay;
 
-    const resourceOrder = state.data?.resources?.findIndex(resource => resource.id === sceneIdx) ?? -1;
-    const s = Object.assign({
-        sceneIdx,
-        delay,
-        retries,
-        lifecycle: 'active',
-        // DGDS repaints active TTM sequences in resource/declaration order. ADS
-        // start order is scheduling state, not painter state.
-        paintOrder: {
-            resource: resourceOrder < 0 ? sceneIdx : resourceOrder,
-            sequence: sequenceOrder,
+    const resourceOrder = state.data?.resources?.findIndex((resource) => resource.id === sceneIdx) ?? -1;
+    const s = Object.assign(
+        {
+            sceneIdx,
+            delay,
+            retries,
+            lifecycle: 'active',
+            // DGDS repaints active TTM sequences in resource/declaration order. ADS
+            // start order is scheduling state, not painter state.
+            paintOrder: {
+                resource: resourceOrder < 0 ? sceneIdx : resourceOrder,
+                sequence: sequenceOrder,
+            },
         },
-    }, scene);
+        scene,
+    );
     if (s.script === undefined) {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;

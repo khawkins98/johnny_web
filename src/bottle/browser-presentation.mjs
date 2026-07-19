@@ -42,7 +42,7 @@ export const runBrowserPresentation = async ({
 
     // Vite's dev server returns 200 + text/html (SPA history fallback) for
     // files that don't exist, so content-type is a more reliable signal than ok.
-    const isMissing = r => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
+    const isMissing = (r) => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
     const missing = [
         isMissing(resMapResp) && game.resources.map,
         isMissing(resFileResp) && game.resources.archive,
@@ -55,16 +55,9 @@ export const runBrowserPresentation = async ({
 
     let res;
     try {
-        res = loadResources(
-            await resMapResp.arrayBuffer(),
-            await resFileResp.arrayBuffer(),
-        );
+        res = loadResources(await resMapResp.arrayBuffer(), await resFileResp.arrayBuffer());
     } catch (err) {
-        showDataError(
-            game,
-            [game.resources.map, game.resources.archive],
-            `Could not parse game data: ${err.message}`,
-        );
+        showDataError(game, [game.resources.map, game.resources.archive], `Could not parse game data: ${err.message}`);
         return;
     }
 
@@ -165,18 +158,20 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
         };
         settingsBtn.addEventListener('click', openSettings);
         helpBtn.addEventListener('click', toggleHelp);
-        const start = experience => {
+        const start = (experience) => {
             classicBtn.removeEventListener('click', startClassic);
             enhancedBtn.removeEventListener('click', startEnhanced);
             settingsBtn.removeEventListener('click', openSettings);
             helpBtn.removeEventListener('click', toggleHelp);
             settings.applyExperience(experience);
             overlay.classList.remove('visible');
-            const nextAudioManager = existingAudioManager || createAudioManager({
-                soundFxVolume: 0.50,
-                enabled: localStorage.getItem(soundSettingKey) !== 'off',
-                sampleCatalog: game.audio,
-            });
+            const nextAudioManager =
+                existingAudioManager ||
+                createAudioManager({
+                    soundFxVolume: 0.5,
+                    enabled: localStorage.getItem(soundSettingKey) !== 'off',
+                    sampleCatalog: game.audio,
+                });
             nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
                 experience,
@@ -195,14 +190,8 @@ function showDataError(game, missing, detail) {
     const list = document.getElementById('data-error-files');
     if (!overlay || !list) return;
 
-    const allFiles = [
-        game.resources.map,
-        game.resources.archive,
-        game.audio.archive,
-    ];
-    list.innerHTML = allFiles
-        .map(f => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`)
-        .join('');
+    const allFiles = [game.resources.map, game.resources.archive, game.audio.archive];
+    list.innerHTML = allFiles.map((f) => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`).join('');
 
     if (detail) {
         const detailEl = overlay.querySelector('.detail');

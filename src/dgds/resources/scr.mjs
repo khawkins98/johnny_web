@@ -52,12 +52,14 @@ export const loadSCRResourceEntry = (entry) => {
     const data = decompress(compressionType, compressedData, 0, compressedData.byteLength);
 
     const numImages = 1;
-    const images = [{
-        width,
-        height,
-        buffer: [],
-        pixels: []
-    }];
+    const images = [
+        {
+            width,
+            height,
+            buffer: [],
+            pixels: [],
+        },
+    ];
     const image = images[0];
     let dataIndex = 0;
     let pixelIndex = 0;

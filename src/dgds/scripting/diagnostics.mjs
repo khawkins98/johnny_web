@@ -1,13 +1,14 @@
 const MODES = new Set(['off', 'on', 'verbose']);
 
-const modeState = (mode) => Object.freeze({
-    mode,
-    enabled: mode !== 'off',
-    ui: mode !== 'off',
-    console: mode !== 'off',
-    verbose: mode === 'verbose',
-    trace: mode !== 'off',
-});
+const modeState = (mode) =>
+    Object.freeze({
+        mode,
+        enabled: mode !== 'off',
+        ui: mode !== 'off',
+        console: mode !== 'off',
+        verbose: mode === 'verbose',
+        trace: mode !== 'off',
+    });
 
 export const parseDiagnostics = (search = '') => {
     const params = new URLSearchParams(search);
@@ -23,19 +24,31 @@ export const createDiagnosticsController = (initial = modeState('off')) => {
     let current = initial;
     const listeners = new Set();
     const controller = {
-        get mode() { return current.mode; },
-        get enabled() { return current.enabled; },
-        get ui() { return current.ui; },
-        get console() { return current.console; },
-        get verbose() { return current.verbose; },
-        get trace() { return current.trace; },
+        get mode() {
+            return current.mode;
+        },
+        get enabled() {
+            return current.enabled;
+        },
+        get ui() {
+            return current.ui;
+        },
+        get console() {
+            return current.console;
+        },
+        get verbose() {
+            return current.verbose;
+        },
+        get trace() {
+            return current.trace;
+        },
         snapshot: () => current,
         setMode(mode) {
             if (!MODES.has(mode)) throw new RangeError(`Unknown diagnostics mode: ${mode}`);
             if (mode === current.mode) return current;
             const previous = current;
             current = modeState(mode);
-            listeners.forEach(listener => listener(current, previous));
+            listeners.forEach((listener) => listener(current, previous));
             return current;
         },
         subscribe(listener) {
@@ -47,8 +60,11 @@ export const createDiagnosticsController = (initial = modeState('off')) => {
 };
 
 const initialDiagnostics = (() => {
-    try { return parseDiagnostics(window.location.search); }
-    catch { return parseDiagnostics(); }
+    try {
+        return parseDiagnostics(window.location.search);
+    } catch {
+        return parseDiagnostics();
+    }
 })();
 
 export const diagnostics = createDiagnosticsController(initialDiagnostics);

@@ -44,12 +44,14 @@ describe('logical scene frames', () => {
             restored: true,
             restoreSlot: 0,
         });
-        expect(state.frameOperations).toMatchObject([{
-            type: 'begin-scene-frame',
-            restoreSlot: 0,
-            sceneIdx: 5,
-            tagId: 21,
-        }]);
+        expect(state.frameOperations).toMatchObject([
+            {
+                type: 'begin-scene-frame',
+                restoreSlot: 0,
+                sceneIdx: 5,
+                tagId: 21,
+            },
+        ]);
     });
 
     it('starts with an empty layer when the save slot is unavailable', () => {
@@ -64,9 +66,7 @@ describe('logical scene frames', () => {
 
         beginSceneFrame(state, 0);
 
-        expect(surface.commands).toEqual([
-            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
-        ]);
+        expect(surface.commands).toEqual([{ operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } }]);
         expect(state.layerRevision).toBe(5);
     });
 });

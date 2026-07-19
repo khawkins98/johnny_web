@@ -47,7 +47,7 @@ export const loadResources = (buffer, resbuffer) => {
             size: 0,
             entries: [],
         };
-        res.getEntry = (name) => res.entries.find(e => e.name === name);
+        res.getEntry = (name) => res.entries.find((e) => e.name === name);
         res.loadEntry = (name) => {
             const entry = res.getEntry(name);
             if (entry !== undefined) {

@@ -44,48 +44,61 @@ function ws(arr, off, str) {
     for (let i = 0; i < str.length; i++) arr[off + i] = str.charCodeAt(i);
 }
 function u16(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
 }
 function u32(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
-    arr[off + 2] = (val >> 16) & 0xff; arr[off + 3] = (val >> 24) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
+    arr[off + 2] = (val >> 16) & 0xff;
+    arr[off + 3] = (val >> 24) & 0xff;
 }
 
 function makeTTMEntry() {
     const arr = new Uint8Array(69);
 
     // VER block
-    ws(arr, 0, 'VER');  arr[3] = 0x00;
+    ws(arr, 0, 'VER');
+    arr[3] = 0x00;
     u32(arr, 4, 5);
-    ws(arr, 8, '4.09'); arr[12] = 0x00;
+    ws(arr, 8, '4.09');
+    arr[12] = 0x00;
 
     // PAG block
-    ws(arr, 13, 'PAG'); arr[16] = 0x00;
-    u32(arr, 17, 1);    // numPages = 1
-    u16(arr, 21, 0);    // pagUnknown02
+    ws(arr, 13, 'PAG');
+    arr[16] = 0x00;
+    u32(arr, 17, 1); // numPages = 1
+    u16(arr, 21, 0); // pagUnknown02
 
     // TT3 block
-    ws(arr, 23, 'TT3'); arr[26] = 0x00;
-    u32(arr, 27, 12);   // blockSize = 12 (5 sub-header + 7 payload)
-    arr[31] = 1;        // compressionType = 1 (RLE)
-    u32(arr, 32, 6);    // uncompressedSize = 6
+    ws(arr, 23, 'TT3');
+    arr[26] = 0x00;
+    u32(arr, 27, 12); // blockSize = 12 (5 sub-header + 7 payload)
+    arr[31] = 1; // compressionType = 1 (RLE)
+    u32(arr, 32, 6); // uncompressedSize = 6
     // RLE-encoded opcodes: SET_SCENE(0x1111) + tagId(1) + UPDATE(0x0FF0)
-    arr[36] = 0x06;     // 6 literal bytes
-    arr[37] = 0x11; arr[38] = 0x11; // raw opcode 0x1111 (LE) → SET_SCENE, size=1
-    arr[39] = 0x01; arr[40] = 0x00; // tagId = 1 (LE)
-    arr[41] = 0xF0; arr[42] = 0x0F; // raw opcode 0x0FF0 (LE) → UPDATE, size=0
+    arr[36] = 0x06; // 6 literal bytes
+    arr[37] = 0x11;
+    arr[38] = 0x11; // raw opcode 0x1111 (LE) → SET_SCENE, size=1
+    arr[39] = 0x01;
+    arr[40] = 0x00; // tagId = 1 (LE)
+    arr[41] = 0xf0;
+    arr[42] = 0x0f; // raw opcode 0x0FF0 (LE) → UPDATE, size=0
 
     // TTI block
-    ws(arr, 43, 'TTI'); arr[46] = 0x00;
-    u16(arr, 47, 0);    // ttiUnknown01
-    u16(arr, 49, 0);    // ttiUnknown02
+    ws(arr, 43, 'TTI');
+    arr[46] = 0x00;
+    u16(arr, 47, 0); // ttiUnknown01
+    u16(arr, 49, 0); // ttiUnknown02
 
     // TAG block
-    ws(arr, 51, 'TAG'); arr[54] = 0x00;
-    u32(arr, 55, 0);    // tagSize (unused by parser)
-    u16(arr, 59, 1);    // numTags = 1
-    u16(arr, 61, 1);    // tag id = 1
-    ws(arr, 63, 'scene'); arr[68] = 0x00;
+    ws(arr, 51, 'TAG');
+    arr[54] = 0x00;
+    u32(arr, 55, 0); // tagSize (unused by parser)
+    u16(arr, 59, 1); // numTags = 1
+    u16(arr, 61, 1); // tag id = 1
+    ws(arr, 63, 'scene');
+    arr[68] = 0x00;
 
     return { name: 'TEST.TTM', type: 'TTM', data: new DataView(arr.buffer), buffer: arr.buffer };
 }
@@ -131,7 +144,7 @@ describe('loadTTMResourceEntry', () => {
 
     it('second script command is UPDATE (opcode 0x0FF0)', () => {
         const { scripts } = loadTTMResourceEntry(makeTTMEntry());
-        expect(scripts[1].opcode).toBe(0x0FF0);
+        expect(scripts[1].opcode).toBe(0x0ff0);
         expect(scripts[1].line).toContain('UPDATE');
         expect(scripts[1].params).toHaveLength(0);
     });

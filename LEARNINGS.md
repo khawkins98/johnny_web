@@ -3,6 +3,7 @@
 A compact reverse-engineering record for johnny_web. This document outlines the parsing rules, scene lifecycle, and execution nuances of the DGDS engine.
 
 **tl;dr**
+
 - ADS controls the high-level flow and sequences.
 - TTM manages the drawing, timing, and frame operations.
 - The engine uses distinct opcode tables for ADS and TTM.

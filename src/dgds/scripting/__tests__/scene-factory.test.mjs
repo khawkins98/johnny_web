@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-    canRunTtmScene,
-    createTtmRuntimeState,
-    getSceneState,
-    prepareTtmScene,
-} from '../scene-factory.mjs';
+import { canRunTtmScene, createTtmRuntimeState, getSceneState, prepareTtmScene } from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('TTM runtime state boundary', () => {
@@ -92,8 +87,8 @@ describe('TTM runtime state boundary', () => {
     });
 
     it('shares assets within one TTM resource but isolates different resources', () => {
-        const command = opcode => ({ opcode, params: [] });
-        const ttm = tag => ({
+        const command = (opcode) => ({ opcode, params: [] });
+        const ttm = (tag) => ({
             scenes: [
                 { tagId: 0, script: [command(0x0ff0)] },
                 { tagId: tag, script: [command(0xa500)] },

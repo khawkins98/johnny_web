@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    DGDS_TICK_MS,
-    MAX_CATCH_UP_TICKS,
-    createFixedStepClock,
-} from '../timing.mjs';
+import { DGDS_TICK_MS, MAX_CATCH_UP_TICKS, createFixedStepClock } from '../timing.mjs';
 
 describe('browser-to-DGDS timing adapter', () => {
     it('runs one engine tick on the first browser frame', () => {

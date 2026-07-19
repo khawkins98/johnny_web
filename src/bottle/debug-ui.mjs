@@ -11,7 +11,8 @@ export function setupDebugUI() {
     container.style.right = '10px';
     container.style.zIndex = '1000';
     container.style.background = '#d4c4a8';
-    container.style.backgroundImage = 'url(\'data:image/svg+xml;utf8,<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.1"/></svg>\')';
+    container.style.backgroundImage =
+        'url(\'data:image/svg+xml;utf8,<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23noise)" opacity="0.1"/></svg>\')';
     container.style.color = '#4a3520';
     container.style.padding = '15px';
     container.style.borderRadius = '8px';
@@ -64,8 +65,8 @@ export function setupDebugUI() {
         if (!isDragging) return;
         const dx = e.clientX - dragStartX;
         const dy = e.clientY - dragStartY;
-        container.style.left = (initialX + dx) + 'px';
-        container.style.top = (initialY + dy) + 'px';
+        container.style.left = initialX + dx + 'px';
+        container.style.top = initialY + dy + 'px';
     });
 
     window.addEventListener('mouseup', () => {
@@ -120,7 +121,7 @@ export function setupDebugUI() {
             });
 
             let prevId = 0;
-            sortedScenes.forEach(scene => {
+            sortedScenes.forEach((scene) => {
                 if (scene.tagId && scene.tagId.id) {
                     const currentId = scene.tagId.id;
 
@@ -223,20 +224,22 @@ export function setupDebugUI() {
         line.style.paddingBottom = '2px';
         line.style.marginBottom = '2px';
         line.style.whiteSpace = 'pre-wrap';
-        line.innerText = Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+        line.innerText = Array.from(args)
+            .map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a)))
+            .join(' ');
         consoleArea.appendChild(line);
         consoleArea.scrollTop = consoleArea.scrollHeight;
     }
 
-    console.log = function(...args) {
+    console.log = function (...args) {
         origLog.apply(console, args);
         appendLog('#a8ccd4', args);
     };
-    console.warn = function(...args) {
+    console.warn = function (...args) {
         origWarn.apply(console, args);
         appendLog('#e6d5a7', args);
     };
-    console.error = function(...args) {
+    console.error = function (...args) {
         origError.apply(console, args);
         appendLog('#e69a9a', args);
     };

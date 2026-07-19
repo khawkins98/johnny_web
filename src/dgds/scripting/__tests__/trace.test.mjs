@@ -13,16 +13,18 @@ describe('structured DGDS tracing', () => {
 
         traceEvent(state, 'draw-sprite', { frame: 22, x: 366, y: 279 });
 
-        expect(trace.snapshot()).toEqual([{
-            sequence: 0,
-            type: 'draw-sprite',
-            tick: 12,
-            sceneIdx: 1,
-            tagId: 9,
-            frame: 22,
-            x: 366,
-            y: 279,
-        }]);
+        expect(trace.snapshot()).toEqual([
+            {
+                sequence: 0,
+                type: 'draw-sprite',
+                tick: 12,
+                sceneIdx: 1,
+                tagId: 9,
+                frame: 22,
+                x: 366,
+                y: 279,
+            },
+        ]);
         expect(trace.toJSONLines()).toBe(
             '{"sequence":0,"type":"draw-sprite","tick":12,"sceneIdx":1,"tagId":9,"frame":22,"x":366,"y":279}\n',
         );
@@ -45,11 +47,7 @@ describe('structured DGDS tracing', () => {
         trace.stopSession({ tick: 5 });
         trace.record('composition', { tick: 6 });
 
-        expect(trace.snapshot().map(event => event.type)).toEqual([
-            'session-start',
-            'composition',
-            'session-stop',
-        ]);
+        expect(trace.snapshot().map((event) => event.type)).toEqual(['session-start', 'composition', 'session-stop']);
         expect(trace.active).toBe(false);
     });
 
@@ -67,11 +65,13 @@ describe('structured DGDS tracing', () => {
         };
         const filename = traceFilename(new Date('2026-07-18T16:18:06.014Z'));
 
-        expect(downloadJSONLines('{"type":"session-start"}\n', {
-            filename,
-            documentRef,
-            urlRef,
-        })).toEqual({ filename: 'dgds-2026-07-18T16:18:06.014Z.jsonl' });
+        expect(
+            downloadJSONLines('{"type":"session-start"}\n', {
+                filename,
+                documentRef,
+                urlRef,
+            }),
+        ).toEqual({ filename: 'dgds-2026-07-18T16:18:06.014Z.jsonl' });
         expect(anchor).toMatchObject({ href: 'blob:trace', download: filename });
         expect(documentRef.body.appendChild).toHaveBeenCalledWith(anchor);
         expect(click).toHaveBeenCalledOnce();

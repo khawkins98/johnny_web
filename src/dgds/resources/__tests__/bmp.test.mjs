@@ -30,30 +30,36 @@ function ws(arr, off, str) {
     for (let i = 0; i < str.length; i++) arr[off + i] = str.charCodeAt(i);
 }
 function u16(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
 }
 function u32(arr, off, val) {
-    arr[off] = val & 0xff; arr[off + 1] = (val >> 8) & 0xff;
-    arr[off + 2] = (val >> 16) & 0xff; arr[off + 3] = (val >> 24) & 0xff;
+    arr[off] = val & 0xff;
+    arr[off + 1] = (val >> 8) & 0xff;
+    arr[off + 2] = (val >> 16) & 0xff;
+    arr[off + 3] = (val >> 24) & 0xff;
 }
 
 function makeBMPEntry() {
     const arr = new Uint8Array(38);
-    ws(arr, 0, 'BMP');  arr[3] = 0x00;
-    u16(arr, 4, 0);   // outer width (unused)
-    u16(arr, 6, 0);   // outer height (unused)
-    ws(arr, 8, 'INF'); arr[11] = 0x00;
-    u32(arr, 12, 0);  // INF blockSize (unused)
-    u16(arr, 16, 1);  // numImages = 1
-    u16(arr, 18, 2);  // images[0].width = 2
-    u16(arr, 20, 2);  // images[0].height = 2
-    ws(arr, 22, 'BIN'); arr[25] = 0x00;
-    u32(arr, 26, 8);  // BIN blockSize = 8 (5-byte sub-header + 3-byte payload)
-    arr[30] = 1;      // compressionType = 1 (RLE)
-    u32(arr, 31, 2);  // uncompressedSize = 2
-    arr[35] = 0x02;   // RLE: 2 literal bytes
-    arr[36] = 0xAB;
-    arr[37] = 0xCD;
+    ws(arr, 0, 'BMP');
+    arr[3] = 0x00;
+    u16(arr, 4, 0); // outer width (unused)
+    u16(arr, 6, 0); // outer height (unused)
+    ws(arr, 8, 'INF');
+    arr[11] = 0x00;
+    u32(arr, 12, 0); // INF blockSize (unused)
+    u16(arr, 16, 1); // numImages = 1
+    u16(arr, 18, 2); // images[0].width = 2
+    u16(arr, 20, 2); // images[0].height = 2
+    ws(arr, 22, 'BIN');
+    arr[25] = 0x00;
+    u32(arr, 26, 8); // BIN blockSize = 8 (5-byte sub-header + 3-byte payload)
+    arr[30] = 1; // compressionType = 1 (RLE)
+    u32(arr, 31, 2); // uncompressedSize = 2
+    arr[35] = 0x02; // RLE: 2 literal bytes
+    arr[36] = 0xab;
+    arr[37] = 0xcd;
     return { name: 'TEST.BMP', type: 'BMP', data: new DataView(arr.buffer), buffer: arr.buffer };
 }
 
@@ -81,22 +87,22 @@ describe('loadBMPResourceEntry', () => {
 
     it('first pixel index is the high nibble of the first data byte (0xA = 10)', () => {
         const { images } = loadBMPResourceEntry(makeBMPEntry());
-        expect(images[0].buffer[0]).toBe(0xA);
+        expect(images[0].buffer[0]).toBe(0xa);
     });
 
     it('all four pixel indices are decoded correctly from 4-bit packed bytes', () => {
         const { images } = loadBMPResourceEntry(makeBMPEntry());
-        expect(images[0].buffer).toEqual([0xA, 0xB, 0xC, 0xD]);
+        expect(images[0].buffer).toEqual([0xa, 0xb, 0xc, 0xd]);
     });
 
     it('pixel objects have index, a, r, g, b from PALETTE', () => {
         const { images } = loadBMPResourceEntry(makeBMPEntry());
         const p0 = images[0].pixels[0];
-        expect(p0.index).toBe(0xA);
-        expect(p0.a).toBe(PALETTE[0xA].a);
-        expect(p0.r).toBe(PALETTE[0xA].r);
-        expect(p0.g).toBe(PALETTE[0xA].g);
-        expect(p0.b).toBe(PALETTE[0xA].b);
+        expect(p0.index).toBe(0xa);
+        expect(p0.a).toBe(PALETTE[0xa].a);
+        expect(p0.r).toBe(PALETTE[0xa].r);
+        expect(p0.g).toBe(PALETTE[0xa].g);
+        expect(p0.b).toBe(PALETTE[0xa].b);
     });
 
     it('returns name and type from the entry', () => {

@@ -6,9 +6,10 @@
  */
 const DGDS_FRAME_BOUNDARY = 'dgds-frame-boundary';
 
-export const createFrameBoundary = delayTicks => Object.freeze({
-    type: DGDS_FRAME_BOUNDARY,
-    delayTicks: Math.max(0, Math.trunc(delayTicks || 0)),
-});
+export const createFrameBoundary = (delayTicks) =>
+    Object.freeze({
+        type: DGDS_FRAME_BOUNDARY,
+        delayTicks: Math.max(0, Math.trunc(delayTicks || 0)),
+    });
 
-export const isFrameBoundary = value => value?.type === DGDS_FRAME_BOUNDARY;
+export const isFrameBoundary = (value) => value?.type === DGDS_FRAME_BOUNDARY;

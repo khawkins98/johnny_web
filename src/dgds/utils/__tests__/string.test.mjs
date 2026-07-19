@@ -5,7 +5,7 @@ const dv = (...bytes) => new DataView(new Uint8Array(bytes).buffer);
 
 describe('getString', () => {
     it('reads a null-terminated string from the start of a buffer', () => {
-        const data = dv(0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x00, 0xFF, 0xFF); // "Hello\0..."
+        const data = dv(0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x00, 0xff, 0xff); // "Hello\0..."
         expect(getString(data, 0)).toBe('Hello');
     });
 
@@ -39,7 +39,7 @@ describe('getString', () => {
     });
 
     it('handles a string that fills exactly `length` characters with no null', () => {
-        const data = dv(0x58, 0x59, 0x5A, 0x00); // "XYZ\0"
+        const data = dv(0x58, 0x59, 0x5a, 0x00); // "XYZ\0"
         // length=3 → reads exactly 3 chars, never reaches null
         expect(getString(data, 0, 3)).toBe('XYZ');
     });

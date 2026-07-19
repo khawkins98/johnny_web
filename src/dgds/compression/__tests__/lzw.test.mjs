@@ -32,9 +32,11 @@ describe('decompressLZW', () => {
 
     it('returns an array for any input (never throws due to try/catch)', () => {
         // Garbage bytes — should not throw; result is a (possibly empty/partial) array
-        const data = dv(0xDE, 0xAD, 0xBE, 0xEF, 0xFF, 0xFF);
+        const data = dv(0xde, 0xad, 0xbe, 0xef, 0xff, 0xff);
         let result;
-        expect(() => { result = decompressLZW(data, 0, 6); }).not.toThrow();
+        expect(() => {
+            result = decompressLZW(data, 0, 6);
+        }).not.toThrow();
         expect(Array.isArray(result)).toBe(true);
     });
 

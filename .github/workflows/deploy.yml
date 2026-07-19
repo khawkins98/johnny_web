@@ -1,64 +1,54 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+    push:
+        branches: [main]
+    workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+    contents: read
+    pages: write
+    id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+    group: pages
+    cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+            - name: Setup Pages
+              uses: actions/configure-pages@v5
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip mtools
+            - run: pnpm install
 
-      - run: pnpm install
+            - name: Build
+              run: pnpm run build
+              env:
+                  VITE_BASE_PATH: /johnny_web/
 
-      - name: Extract game data
-        run: |
-          curl -L -O "https://archive.org/download/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m/Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
-          pnpm run extract -- "Screen%20Antics%20-%20Johnny%20Castaway%20(16%20Color)%20(v1.01%2C%20Int.%201.4.93)%20(Win3.1)%20(1.44M).zip"
+            - uses: actions/upload-pages-artifact@v3
+              with:
+                  path: dist
 
-      - name: Build
-        run: pnpm run build
-        env:
-          VITE_BASE_PATH: /johnny_web/
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - uses: actions/deploy-pages@v4
+              id: deployment

@@ -33,12 +33,7 @@ export const johnnyCastaway = defineGamePackage({
             Object.freeze({ stateKey: 'bkgRes', name: 'BACKGRND.BMP' }),
             Object.freeze({ stateKey: 'bkgRaft', name: 'MRAFT.BMP' }),
         ]),
-        oceans: Object.freeze([
-            'OCEAN00.SCR',
-            'OCEAN01.SCR',
-            'OCEAN02.SCR',
-            'NIGHT.SCR',
-        ]),
+        oceans: Object.freeze(['OCEAN00.SCR', 'OCEAN01.SCR', 'OCEAN02.SCR', 'NIGHT.SCR']),
         layouts: Object.freeze({
             1: Object.freeze({ x: 288 }),
             2: Object.freeze({ x: 16 }),
@@ -68,16 +63,9 @@ export const johnnyCastaway = defineGamePackage({
     audio: Object.freeze({
         archive: 'SCRANTIC.SCR',
         sampleOffsets: Object.freeze([
-            -1,
-            0x1DC00, 0x20800, 0x20E00,
-            0x22C00, 0x24000, 0x24C00,
-            0x28A00, 0x2C600, 0x2D000,
-            0x2DE00,
-            -1, 0x34400, 0x32E00,
-            0x39C00, 0x43400, 0x37200,
-            0x37E00, 0x45A00, 0x3AE00,
-            0x3E600, 0x3F400, 0x41200,
-            0x42600, 0x42C00, 0x43400,
+            -1, 0x1dc00, 0x20800, 0x20e00, 0x22c00, 0x24000, 0x24c00, 0x28a00, 0x2c600, 0x2d000, 0x2de00, -1, 0x34400,
+            0x32e00, 0x39c00, 0x43400, 0x37200, 0x37e00, 0x45a00, 0x3ae00, 0x3e600, 0x3f400, 0x41200, 0x42600, 0x42c00,
+            0x43400,
         ]),
     }),
 });

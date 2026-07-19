@@ -77,7 +77,7 @@ export const loadTTMResourceEntry = (entry) => {
         const description = getString(entry.data, offset + 2);
         tags.push({
             id,
-            description
+            description,
         });
         offset += 2;
         offset += description.length + 1;
@@ -100,7 +100,7 @@ export const loadTTMResourceEntry = (entry) => {
             line: null,
             name: null,
             tag: null,
-            params: []
+            params: [],
         };
         if (opcode === 0x1110 && size === 1) {
             const tagId = data.getUint16(innerOffset, true);
@@ -113,7 +113,7 @@ export const loadTTMResourceEntry = (entry) => {
             }
             scenes.push({
                 tagId: prevTagId,
-                script: sceneScripts
+                script: sceneScripts,
             });
             sceneScripts = []; // reset scene script
             prevTagId = tagId;
@@ -155,7 +155,7 @@ export const loadTTMResourceEntry = (entry) => {
 
     scenes.push({
         tagId: prevTagId,
-        script: sceneScripts
+        script: sceneScripts,
     });
     // NOTE: The trailing scene after the last SET_SCENE is correctly pushed here.
     // Contrast with ads.mjs which has no equivalent final push (see BUG note there).

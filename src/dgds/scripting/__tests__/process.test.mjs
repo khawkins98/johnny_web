@@ -31,37 +31,37 @@ describe('opcode dispatch tables', () => {
     });
 
     it('TTMDispatch: opcode 0x2010 resolves to SET_FRAME1', () => {
-        const entry = TTMDispatch.find(e => e.opcode === 0x2010);
+        const entry = TTMDispatch.find((e) => e.opcode === 0x2010);
         expect(entry).toBeDefined();
         expect(entry.callback.name).toBe('SET_FRAME1');
     });
 
     it('ADSDispatch: opcode 0x2010 resolves to STOP_SCENE (correctly separated from TTM)', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0x2010);
+        const entry = ADSDispatch.find((e) => e.opcode === 0x2010);
         expect(entry).toBeDefined();
         expect(entry.callback.name).toBe('STOP_SCENE');
     });
 
     it('TTMDispatch: opcode 0xF010 resolves to LOAD_SCREEN', () => {
-        const entry = TTMDispatch.find(e => e.opcode === 0xF010);
+        const entry = TTMDispatch.find((e) => e.opcode === 0xf010);
         expect(entry).toBeDefined();
         expect(entry.callback.name).toBe('LOAD_SCREEN');
     });
 
     it('ADSDispatch: opcode 0xf010 resolves to ADS_FADE_OUT (correctly separated from TTM)', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0xf010);
+        const entry = ADSDispatch.find((e) => e.opcode === 0xf010);
         expect(entry).toBeDefined();
         expect(entry.callback.name).toBe('ADS_FADE_OUT');
     });
 
     it('GOTO entry exists at opcode 0x1200 in TTMDispatch with a valid callback', () => {
-        const entry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const entry = TTMDispatch.find((e) => e.opcode === 0x1200);
         expect(entry).toBeDefined();
         expect(typeof entry.callback).toBe('function');
     });
 
     it('GOTO callback is named GOTO', () => {
-        const entry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const entry = TTMDispatch.find((e) => e.opcode === 0x1200);
         expect(entry.callback.name).toBe('GOTO');
     });
 });
@@ -111,7 +111,7 @@ describe('opcode parameter decoding (TTM 16-bit encoding rule)', () => {
 // ---------------------------------------------------------------------------
 describe('GOTO handler', () => {
     it('sets gotoRestart=true so runScript restarts from 0 on the next call', () => {
-        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find((e) => e.opcode === 0x1200);
         const mockState = { reentry: 42, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 7);
         expect(mockState.gotoRestart).toBe(true);
@@ -120,14 +120,14 @@ describe('GOTO handler', () => {
     });
 
     it('sets continue=false so execution pauses until the next frame', () => {
-        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find((e) => e.opcode === 0x1200);
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 5);
         expect(mockState.continue).toBe(false);
     });
 
     it('leaves loop accounting to the interpreter outcome', () => {
-        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find((e) => e.opcode === 0x1200);
         const mockState = { reentry: 0, gotoRestart: false, continue: true, runs: 0 };
         gotoEntry.callback(mockState, 99);
         expect(mockState.runs).toBe(0);
@@ -137,11 +137,11 @@ describe('GOTO handler', () => {
     it('runScript: clears gotoRestart and resets reentry to 0 at the top of the next call', () => {
         // Simulate state AFTER a GOTO fired: gotoRestart=true, reentry=last_idx, continue=false
         const mockState = {
-            reentry: 2,       // index GOTO was at (will be overwritten to 0)
+            reentry: 2, // index GOTO was at (will be overwritten to 0)
             reentryNow: 2,
             jumpTo: undefined,
             gotoRestart: true,
-            continue: false,  // GOTO set this; runScript shouldn't block due to it
+            continue: false, // GOTO set this; runScript shouldn't block due to it
             lastCommand: false,
             runs: 1,
             played: false,
@@ -150,21 +150,21 @@ describe('GOTO handler', () => {
         // 3-command script; after reset reentry=0 the for-loop runs cmd0 (PURGE = no-op) then
         // hits cmd1 (an unknown opcode — skipped), then cmd2 (PURGE again as last cmd → end-of-script).
         const script = [
-            { opcode: 0x0110, params: [], line: 'PURGE' },   // 0 — known, runs
-            { opcode: 0x9999, params: [], line: 'UNK' },     // 1 — unknown, skipped
-            { opcode: 0x0110, params: [], line: 'PURGE' },   // 2 — known, runs (last → end-of-script)
+            { opcode: 0x0110, params: [], line: 'PURGE' }, // 0 — known, runs
+            { opcode: 0x9999, params: [], line: 'UNK' }, // 1 — unknown, skipped
+            { opcode: 0x0110, params: [], line: 'PURGE' }, // 2 — known, runs (last → end-of-script)
         ];
         runScript(mockState, script, false);
         // gotoRestart was cleared; script ran from 0 to end
         expect(mockState.gotoRestart).toBe(false);
-        expect(mockState.played).toBe(true);  // end-of-script fires after gotoRestart is consumed
+        expect(mockState.played).toBe(true); // end-of-script fires after gotoRestart is consumed
     });
 
     it('runScript: GOTO as last command does not trigger end-of-script on the same frame', () => {
         // Script: [PURGE, GOTO], GOTO is at index 1 (length-1).
         // GOTO fires gotoRestart=true; end-of-script must NOT fire this frame.
         let goFired = false;
-        const gotoEntry = TTMDispatch.find(e => e.opcode === 0x1200);
+        const gotoEntry = TTMDispatch.find((e) => e.opcode === 0x1200);
         const mockState = {
             reentry: 0,
             reentryNow: 0,
@@ -178,13 +178,13 @@ describe('GOTO handler', () => {
         };
         // We'll use a real script with the actual GOTO opcode so the dispatch runs it.
         const script = [
-            { opcode: 0x0110, params: [], line: 'PURGE' },    // 0
-            { opcode: 0x1200, params: [7], line: 'GOTO 7' },  // 1 — last cmd
+            { opcode: 0x0110, params: [], line: 'PURGE' }, // 0
+            { opcode: 0x1200, params: [7], line: 'GOTO 7' }, // 1 — last cmd
         ];
         const outcome = runScript(mockState, script, false);
-        expect(mockState.played).toBe(false);   // end-of-script suppressed
-        expect(mockState.gotoRestart).toBe(true);  // deferred restart flagged
-        expect(mockState.runs).toBe(1);         // GOTO incremented runs
+        expect(mockState.played).toBe(false); // end-of-script suppressed
+        expect(mockState.gotoRestart).toBe(true); // deferred restart flagged
+        expect(mockState.runs).toBe(1); // GOTO incremented runs
         expect(outcome.status).toBe(ExecutionStatus.LOOPED);
     });
 });
@@ -290,7 +290,7 @@ describe('runScript scene transition', () => {
             gotoRestart: false,
             continue: true,
             lastCommand: false,
-            runs: 1,     // already ran once
+            runs: 1, // already ran once
             played: true, // already completed
             type: 'TTM',
         };
@@ -305,8 +305,8 @@ describe('runScript scene transition', () => {
 // UPDATE / SET_DELAY timing
 // ---------------------------------------------------------------------------
 describe('TTM frame timing', () => {
-    const update = TTMDispatch.find(e => e.opcode === 0x0ff0);
-    const setDelay = TTMDispatch.find(e => e.opcode === 0x1020);
+    const update = TTMDispatch.find((e) => e.opcode === 0x0ff0);
+    const setDelay = TTMDispatch.find((e) => e.opcode === 0x1020);
 
     it('keeps SET_DELAY in logical DGDS ticks', () => {
         const state = { delay: 0 };
@@ -383,7 +383,7 @@ describe('TTM frame timing', () => {
 });
 
 describe('PLAY_SAMPLE tracing', () => {
-    const playSample = TTMDispatch.find(e => e.opcode === 0xc050);
+    const playSample = TTMDispatch.find((e) => e.opcode === 0xc050);
 
     it('emits a logical operation without changing script scheduling state', () => {
         const record = vi.fn();
@@ -400,16 +400,22 @@ describe('PLAY_SAMPLE tracing', () => {
 
         playSample.callback(state, 6);
 
-        expect(audioOperations).toEqual([{
-            type: 'play-sample',
-            tick: 824,
-            sceneIdx: 5,
-            tagId: 19,
-            sample: 6,
-        }]);
-        expect(record).toHaveBeenCalledWith('audio-sample', expect.objectContaining({
-            action: 'requested', sample: 6,
-        }));
+        expect(audioOperations).toEqual([
+            {
+                type: 'play-sample',
+                tick: 824,
+                sceneIdx: 5,
+                tagId: 19,
+                sample: 6,
+            },
+        ]);
+        expect(record).toHaveBeenCalledWith(
+            'audio-sample',
+            expect.objectContaining({
+                action: 'requested',
+                sample: 6,
+            }),
+        );
         expect(state).toMatchObject({ continue: true, delay: 120 });
     });
 
@@ -429,7 +435,7 @@ describe('PLAY_SAMPLE tracing', () => {
 
 describe('named resource provider opcodes', () => {
     it('LOAD_IMAGE resolves a game alias through the injected provider', () => {
-        const loadImage = TTMDispatch.find(entry => entry.opcode === 0xf020);
+        const loadImage = TTMDispatch.find((entry) => entry.opcode === 0xf020);
         const decoded = { name: 'FIRE1.BMP', images: [] };
         const resolve = vi.fn(() => decoded);
         const state = {
@@ -450,7 +456,7 @@ describe('named resource provider opcodes', () => {
     });
 
     it('LOAD_IMAGE leaves the current slot intact when a name is unavailable', () => {
-        const loadImage = TTMDispatch.find(entry => entry.opcode === 0xf020);
+        const loadImage = TTMDispatch.find((entry) => entry.opcode === 0xf020);
         const existing = { name: 'EXISTING.BMP' };
         const state = {
             slot: 0,
@@ -468,7 +474,7 @@ describe('named resource provider opcodes', () => {
 // SET_TIMER handler (opcode 0x2020: random sleep)
 // ---------------------------------------------------------------------------
 describe('SET_TIMER handler', () => {
-    const entry = TTMDispatch.find(e => e.opcode === 0x2020);
+    const entry = TTMDispatch.find((e) => e.opcode === 0x2020);
 
     it('selects an inclusive deterministic tick count from the supplied range', () => {
         const state = { timer: 0, random: () => 0.5 };
@@ -485,7 +491,7 @@ describe('SET_TIMER handler', () => {
 });
 
 describe('RANDOM_END handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x30ff);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x30ff);
 
     it('uses injected randomness when selecting an ADS scene', () => {
         const state = {
@@ -502,9 +508,7 @@ describe('RANDOM_END handler', () => {
         entry.callback(state);
 
         expect(state.randomize).toBe(false);
-        expect(state.addScenes).toEqual([
-            { sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 },
-        ]);
+        expect(state.addScenes).toEqual([{ sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 }]);
     });
 });
 
@@ -512,7 +516,7 @@ describe('RANDOM_END handler', () => {
 // IF_NOT_PLAYED handler
 // ---------------------------------------------------------------------------
 describe('IF_NOT_PLAYED handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1330);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1330);
 
     const makeState = (played, script) => ({
         playedHistory: new Set(played),
@@ -536,10 +540,10 @@ describe('IF_NOT_PLAYED handler', () => {
 
     it('sets jumpTo to endIfIdx+1 when scene IS in playedHistory (skip block)', () => {
         const script = [
-            { opcode: 0x1330, params: [1, 7] },  // index 0: IF_NOT_PLAYED
-            { opcode: 0x2005, params: [] },       // index 1: inside block
-            { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x2005, params: [] },       // index 3: after block
+            { opcode: 0x1330, params: [1, 7] }, // index 0: IF_NOT_PLAYED
+            { opcode: 0x2005, params: [] }, // index 1: inside block
+            { opcode: 0xfff0, params: [] }, // index 2: END_IF
+            { opcode: 0x2005, params: [] }, // index 3: after block
         ];
         const state = makeState(['1:7'], script);
         entry.callback(state, 1, 7);
@@ -572,16 +576,22 @@ describe('IF_NOT_PLAYED handler', () => {
 // IF_NOT_RUNNING handler
 // ---------------------------------------------------------------------------
 describe('IF_NOT_RUNNING handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1360);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1360);
 
     const makeState = (scenes) => ({
         scenes,
-        data: { scenes: [{ script: [
-            { opcode: 0x1360, params: [1, 7] },  // index 0
-            { opcode: 0x2005, params: [] },       // index 1: inside block
-            { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x2005, params: [] },       // index 3: after block
-        ]}] },
+        data: {
+            scenes: [
+                {
+                    script: [
+                        { opcode: 0x1360, params: [1, 7] }, // index 0
+                        { opcode: 0x2005, params: [] }, // index 1: inside block
+                        { opcode: 0xfff0, params: [] }, // index 2: END_IF
+                        { opcode: 0x2005, params: [] }, // index 3: after block
+                    ],
+                },
+            ],
+        },
         currentScene: 0,
         reentryNow: 0,
         jumpTo: undefined,
@@ -616,16 +626,22 @@ describe('IF_NOT_RUNNING handler', () => {
 // IF_RUNNING handler
 // ---------------------------------------------------------------------------
 describe('IF_RUNNING handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1370);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1370);
 
     const makeState = (scenes) => ({
         scenes,
-        data: { scenes: [{ script: [
-            { opcode: 0x1370, params: [1, 7] },  // index 0
-            { opcode: 0x2005, params: [] },       // index 1: inside block
-            { opcode: 0xfff0, params: [] },       // index 2: END_IF
-            { opcode: 0x2005, params: [] },       // index 3: after block
-        ]}] },
+        data: {
+            scenes: [
+                {
+                    script: [
+                        { opcode: 0x1370, params: [1, 7] }, // index 0
+                        { opcode: 0x2005, params: [] }, // index 1: inside block
+                        { opcode: 0xfff0, params: [] }, // index 2: END_IF
+                        { opcode: 0x2005, params: [] }, // index 3: after block
+                    ],
+                },
+            ],
+        },
         currentScene: 0,
         reentryNow: 0,
         jumpTo: undefined,
@@ -660,15 +676,15 @@ describe('IF_RUNNING handler', () => {
 // IF_PLAYED handler
 // ---------------------------------------------------------------------------
 describe('IF_PLAYED handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1350);
-    const orEntry = ADSDispatch.find(e => e.opcode === 0x1430);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1350);
+    const orEntry = ADSDispatch.find((e) => e.opcode === 0x1430);
 
     // Minimal script with IF_PLAYED at index 0, body at 1, END_IF at 2, after at 3.
     const flatScript = [
-        { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED
-        { opcode: 0x2005, params: [] },       // 1: ADD_SCENE (body)
-        { opcode: 0xfff0, params: [] },       // 2: END_IF
-        { opcode: 0x1510, params: [] },       // 3: branch-end commit
+        { opcode: 0x1350, params: [1, 7] }, // 0: IF_PLAYED
+        { opcode: 0x2005, params: [] }, // 1: ADD_SCENE (body)
+        { opcode: 0xfff0, params: [] }, // 2: END_IF
+        { opcode: 0x1510, params: [] }, // 3: branch-end commit
     ];
 
     const makeState = (scenes = [], history = [], script = flatScript) => ({
@@ -715,11 +731,11 @@ describe('IF_PLAYED handler', () => {
     it('does NOT skip when never-added but OR follows (chain continues)', () => {
         // Script: IF_PLAYED(1:7) OR IF_PLAYED(1:8) body END_IF
         const script = [
-            { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED 1:7 (never added)
-            { opcode: 0x1430, params: [] },       // 1: OR ← nextOpcode, don't skip yet
-            { opcode: 0x1350, params: [1, 8] },  // 2: IF_PLAYED 1:8
-            { opcode: 0x2005, params: [] },       // 3: body
-            { opcode: 0xfff0, params: [] },       // 4: END_IF
+            { opcode: 0x1350, params: [1, 7] }, // 0: IF_PLAYED 1:7 (never added)
+            { opcode: 0x1430, params: [] }, // 1: OR ← nextOpcode, don't skip yet
+            { opcode: 0x1350, params: [1, 8] }, // 2: IF_PLAYED 1:8
+            { opcode: 0x2005, params: [] }, // 3: body
+            { opcode: 0xfff0, params: [] }, // 4: END_IF
         ];
         const state = makeState([], [], script);
         entry.callback(state, 1, 7);
@@ -730,9 +746,9 @@ describe('IF_PLAYED handler', () => {
     it('OR chain: once one condition passes, subsequent IF_PLAYEDs pass through', () => {
         // Scenario: 1:8 played → OR fires → IF_PLAYED 1:7 (never added) should pass through.
         const script = [
-            { opcode: 0x1350, params: [1, 8] },  // 0: IF_PLAYED 1:8 (played) → orChainPassed=true
-            { opcode: 0x1430, params: [] },       // 1: OR
-            { opcode: 0x1350, params: [1, 7] },  // 2: IF_PLAYED 1:7 (never added)
+            { opcode: 0x1350, params: [1, 8] }, // 0: IF_PLAYED 1:8 (played) → orChainPassed=true
+            { opcode: 0x1430, params: [] }, // 1: OR
+            { opcode: 0x1350, params: [1, 7] }, // 2: IF_PLAYED 1:7 (never added)
         ];
         const state = makeState(
             [{ sceneIdx: 1, tagId: 8, lifecycle: 'completed', state: { played: true, timer: 0 } }],
@@ -758,11 +774,11 @@ describe('IF_PLAYED handler', () => {
 
     it('OR chain: all conditions fail → terminal IF_PLAYED skips block', () => {
         const script = [
-            { opcode: 0x1350, params: [1, 7] },  // 0: IF_PLAYED 1:7 (never added, OR follows)
-            { opcode: 0x1430, params: [] },       // 1: OR
-            { opcode: 0x1350, params: [1, 8] },  // 2: IF_PLAYED 1:8 (never added, nothing follows)
-            { opcode: 0x2005, params: [] },       // 3: body
-            { opcode: 0xfff0, params: [] },       // 4: END_IF
+            { opcode: 0x1350, params: [1, 7] }, // 0: IF_PLAYED 1:7 (never added, OR follows)
+            { opcode: 0x1430, params: [] }, // 1: OR
+            { opcode: 0x1350, params: [1, 8] }, // 2: IF_PLAYED 1:8 (never added, nothing follows)
+            { opcode: 0x2005, params: [] }, // 3: body
+            { opcode: 0xfff0, params: [] }, // 4: END_IF
         ];
         const state = makeState([], [], script);
 
@@ -785,12 +801,12 @@ describe('IF_PLAYED handler', () => {
     it('findMatchingEndIf skips nested END_IFs correctly', () => {
         // Script: IF_PLAYED(outer) IF_PLAYED(inner) body END_IF(inner) END_IF(outer) after
         const script = [
-            { opcode: 0x1350, params: [1, 7] },  // 0: outer IF_PLAYED
-            { opcode: 0x1350, params: [1, 8] },  // 1: inner IF_PLAYED (inside body)
-            { opcode: 0x2005, params: [] },       // 2: body
-            { opcode: 0xfff0, params: [] },       // 3: END_IF (inner)
-            { opcode: 0xfff0, params: [] },       // 4: END_IF (outer) ← target
-            { opcode: 0x1510, params: [] },       // 5: after
+            { opcode: 0x1350, params: [1, 7] }, // 0: outer IF_PLAYED
+            { opcode: 0x1350, params: [1, 8] }, // 1: inner IF_PLAYED (inside body)
+            { opcode: 0x2005, params: [] }, // 2: body
+            { opcode: 0xfff0, params: [] }, // 3: END_IF (inner)
+            { opcode: 0xfff0, params: [] }, // 4: END_IF (outer) ← target
+            { opcode: 0x1510, params: [] }, // 5: after
         ];
         const state = makeState([], [], script);
         // Outer IF_PLAYED never added, no OR follows → skip to matching END_IF
@@ -807,11 +823,11 @@ describe('runScript jumpTo mechanism', () => {
     let origAndCallback;
 
     beforeEach(() => {
-        origAndCallback = ADSDispatch.find(e => e.opcode === 0x1420).callback;
+        origAndCallback = ADSDispatch.find((e) => e.opcode === 0x1420).callback;
     });
 
     afterEach(() => {
-        ADSDispatch.find(e => e.opcode === 0x1420).callback = origAndCallback;
+        ADSDispatch.find((e) => e.opcode === 0x1420).callback = origAndCallback;
     });
 
     it('skips the block when IF_NOT_PLAYED fires (scene already in playedHistory)', () => {
@@ -819,10 +835,10 @@ describe('runScript jumpTo mechanism', () => {
         // IF_NOT_PLAYED sees '1:7' in history → sets jumpTo=3, skipping indices 1-2.
         // Execution resumes at index 3. Index 3 is the last command, so played=true.
         const script = [
-            { opcode: 0x1330, params: [1, 7] },  // 0: IF_NOT_PLAYED
-            { opcode: 0x1430, params: [] },       // 1: OR — inside block (skipped)
-            { opcode: 0xfff0, params: [] },       // 2: END_IF
-            { opcode: 0x1430, params: [] },       // 3: OR — after block (runs)
+            { opcode: 0x1330, params: [1, 7] }, // 0: IF_NOT_PLAYED
+            { opcode: 0x1430, params: [] }, // 1: OR — inside block (skipped)
+            { opcode: 0xfff0, params: [] }, // 2: END_IF
+            { opcode: 0x1430, params: [] }, // 3: OR — after block (runs)
         ];
         const mockState = {
             reentry: 0,
@@ -845,10 +861,10 @@ describe('runScript jumpTo mechanism', () => {
 
     it('does not skip the block when IF_NOT_PLAYED fires (scene NOT in playedHistory)', () => {
         const script = [
-            { opcode: 0x1330, params: [1, 7] },  // 0: IF_NOT_PLAYED — NOT in history → no jump
-            { opcode: 0x1430, params: [] },       // 1: OR — executes normally
-            { opcode: 0xfff0, params: [] },       // 2: END_IF — executes normally
-            { opcode: 0x1430, params: [] },       // 3: OR — executes normally
+            { opcode: 0x1330, params: [1, 7] }, // 0: IF_NOT_PLAYED — NOT in history → no jump
+            { opcode: 0x1430, params: [] }, // 1: OR — executes normally
+            { opcode: 0xfff0, params: [] }, // 2: END_IF — executes normally
+            { opcode: 0x1430, params: [] }, // 3: OR — executes normally
         ];
         const mockState = {
             reentry: 0,
@@ -872,14 +888,14 @@ describe('runScript jumpTo mechanism', () => {
 
     it('sets state.reentryNow to the index of each command before invoking its callback', () => {
         let capturedIdx = -1;
-        const andEntry = ADSDispatch.find(e => e.opcode === 0x1420);
+        const andEntry = ADSDispatch.find((e) => e.opcode === 0x1420);
         andEntry.callback = (state, ...params) => {
             capturedIdx = state.reentryNow;
             origAndCallback(state, ...params);
         };
         const script = [
-            { opcode: 0x1430, params: [] },  // 0: OR (no spy)
-            { opcode: 0x1420, params: [] },  // 1: AND (spy captures reentryNow)
+            { opcode: 0x1430, params: [] }, // 0: OR (no spy)
+            { opcode: 0x1420, params: [] }, // 1: AND (spy captures reentryNow)
         ];
         const mockState = {
             reentry: 0,
@@ -904,7 +920,7 @@ describe('runScript jumpTo mechanism', () => {
 // ADS branch end (0x1510) — queued scene changes
 // ---------------------------------------------------------------------------
 describe('ADS branch-end scene changes', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1510);
 
     it('adds removed scenes to playedHistory before splicing them out', () => {
         const mockState = {
@@ -952,7 +968,7 @@ describe('ADS branch-end scene changes', () => {
 // ADS branch end (0x1510) — synchronization policy
 // ---------------------------------------------------------------------------
 describe('ADS branch-end synchronization', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1510);
 
     it('does not serialize unrelated running scenes', () => {
         const state = {
@@ -961,7 +977,10 @@ describe('ADS branch-end synchronization', () => {
                 { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { played: false } },
                 { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: { played: false } },
             ],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+            removeScenes: [],
+            addScenes: [],
+            playedHistory: new Set(),
+            scenesRes: {},
         };
         entry.callback(state);
         expect(state.continue).toBe(true);
@@ -970,14 +989,19 @@ describe('ADS branch-end synchronization', () => {
     it('leaves looping ambient scenes active', () => {
         const state = {
             continue: false,
-            scenes: [{
-                sceneIdx: 5,
-                tagId: 30,
-                lifecycle: 'running',
-                state: { played: false, runs: 1 },
-                execution: executionOutcome(ExecutionStatus.LOOPED, { sceneIdx: 5, tagId: 30 }),
-            }],
-            removeScenes: [], addScenes: [], playedHistory: new Set(), scenesRes: {},
+            scenes: [
+                {
+                    sceneIdx: 5,
+                    tagId: 30,
+                    lifecycle: 'running',
+                    state: { played: false, runs: 1 },
+                    execution: executionOutcome(ExecutionStatus.LOOPED, { sceneIdx: 5, tagId: 30 }),
+                },
+            ],
+            removeScenes: [],
+            addScenes: [],
+            playedHistory: new Set(),
+            scenesRes: {},
         };
 
         entry.callback(state);
@@ -991,7 +1015,7 @@ describe('ADS branch-end synchronization', () => {
 // ADS_FADE_OUT — fade-to-black animation
 // ---------------------------------------------------------------------------
 describe('ADS_FADE_OUT handler', () => {
-    const entry = ADSDispatch.find(e => e.opcode === 0xf010);
+    const entry = ADSDispatch.find((e) => e.opcode === 0xf010);
 
     it('starts the fade on first call (continue=true): sets fadingOut, opacity=0, blocks', () => {
         const state = { continue: true, fadingOut: false, fadeOpacity: 0, frameDelta: 16 };
@@ -1012,7 +1036,7 @@ describe('ADS_FADE_OUT handler', () => {
         const state = { continue: false, fadingOut: true, fadeOpacity: 0.95, frameDelta: 100 };
         entry.callback(state);
         expect(state.fadeOpacity).toBe(1);
-        expect(state.fadingOut).toBe(true);  // still true so runScripts draws the black frame
+        expect(state.fadingOut).toBe(true); // still true so runScripts draws the black frame
         expect(state.continue).toBe(true);
     });
 
@@ -1056,11 +1080,15 @@ describe('ADS_FADE_OUT handler', () => {
 // Scenario A: branch-end remove-before-add ordering
 describe('ADS branch end — remove-before-add ordering', () => {
     let consoleSpy;
-    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
-    afterEach(() => { consoleSpy.mockRestore(); });
+    beforeEach(() => {
+        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+    afterEach(() => {
+        consoleSpy.mockRestore();
+    });
 
     it('records removed scenes in playedHistory before processing addScenes', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0x1510);
+        const entry = ADSDispatch.find((e) => e.opcode === 0x1510);
         const mockState = {
             continue: true,
             playedHistory: new Set(),
@@ -1075,7 +1103,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
         // Remove phase ran first: scene 1:5 recorded and spliced out
         expect(mockState.playedHistory.has('1:5')).toBe(true);
         expect(mockState.removeScenes).toHaveLength(0);
-        expect(mockState.scenes.find(s => s.sceneIdx === 1 && s.tagId === 5)).toBeUndefined();
+        expect(mockState.scenes.find((s) => s.sceneIdx === 1 && s.tagId === 5)).toBeUndefined();
         // addScenes phase ran but found no TTM data, so nothing added
         expect(mockState.addScenes).toHaveLength(0);
     });
@@ -1084,7 +1112,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
 // Scenario B & C: END batch-clear semantics
 describe('END — batch-clear semantics', () => {
     it('clears all scenes and records each in playedHistory when lastCommand=true', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const entry = ADSDispatch.find((e) => e.opcode === 0xffff);
         const mockState = {
             continue: true,
             lastCommand: true,
@@ -1101,11 +1129,11 @@ describe('END — batch-clear semantics', () => {
         // Regression: GOTO-looping scenes never set played=true, so the old
         // `scene !== undefined` guard skipped the batch-clear, leaving them in
         // state.scenes to ghost over the next ADS gag.
-        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const entry = ADSDispatch.find((e) => e.opcode === 0xffff);
         const mockState = {
             continue: true,
             lastCommand: true,
-            scenes: [{ sceneIdx: 6, tagId: 28, state: { played: false } }],  // frenzied dance (GOTO loop)
+            scenes: [{ sceneIdx: 6, tagId: 28, state: { played: false } }], // frenzied dance (GOTO loop)
             playedHistory: new Set(),
         };
         entry.callback(mockState);
@@ -1115,7 +1143,7 @@ describe('END — batch-clear semantics', () => {
     });
 
     it('does NOT clear scenes when lastCommand=false', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0xffff);
+        const entry = ADSDispatch.find((e) => e.opcode === 0xffff);
         const mockState = {
             continue: true,
             lastCommand: false,
@@ -1131,8 +1159,12 @@ describe('END — batch-clear semantics', () => {
 // Scenario D: runScript TTM completion sets played=true, runs=1
 describe('runScript — TTM script completion', () => {
     let consoleSpy;
-    beforeEach(() => { consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {}); });
-    afterEach(() => { consoleSpy.mockRestore(); });
+    beforeEach(() => {
+        consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    });
+    afterEach(() => {
+        consoleSpy.mockRestore();
+    });
 
     it('sets played=true and runs=1 after completing a single-command TTM script', () => {
         const mockState = {
@@ -1158,22 +1190,22 @@ describe('runScript — TTM script completion', () => {
 // ---------------------------------------------------------------------------
 describe('ADS WHILE boundaries', () => {
     it('decodes 0x1520 independently from the following ADD_SCENE opcode', () => {
-        expect(ADSCommandType.find(entry => entry.opcode === 0x1520)).toMatchObject({
+        expect(ADSCommandType.find((entry) => entry.opcode === 0x1520)).toMatchObject({
             command: 'END_WHILE',
             paramSize: 0,
         });
-        expect(ADSCommandType.find(entry => entry.opcode === 0x2005)).toMatchObject({
+        expect(ADSCommandType.find((entry) => entry.opcode === 0x2005)).toMatchObject({
             command: 'ADD_SCENE',
             paramSize: 4,
         });
-        expect(ADSCommandType.find(entry => entry.opcode === 0xf010)).toMatchObject({
+        expect(ADSCommandType.find((entry) => entry.opcode === 0xf010)).toMatchObject({
             command: 'FADE_OUT',
             paramSize: 1,
         });
     });
 
     it('waits on the named WHILE_RUNNING dependency and not unrelated scenes', () => {
-        const entry = ADSDispatch.find(e => e.opcode === 0x1070);
+        const entry = ADSDispatch.find((e) => e.opcode === 0x1070);
         const state = {
             continue: true,
             scenes: [
