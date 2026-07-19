@@ -4,11 +4,14 @@ export const getDB = () => {
     if (!dbPromise) {
         dbPromise = (async () => {
             if (window.location.search.includes('reset')) {
-                await new Promise((resolve) => {
+                await new Promise((resolve, reject) => {
                     const req = indexedDB.deleteDatabase('BottleDGDS');
                     req.onsuccess = resolve;
                     req.onerror = resolve; // Ignore errors on delete
-                    req.onblocked = resolve;
+                    req.onblocked = () => {
+                        console.warn('IndexedDB delete is blocked by another tab');
+                        resolve();
+                    };
                 });
                 window.history.replaceState(null, '', window.location.pathname);
             }
@@ -23,6 +26,7 @@ export const getDB = () => {
                 };
                 req.onsuccess = () => resolve(req.result);
                 req.onerror = () => reject(req.error);
+                req.onblocked = () => reject(new Error('IndexedDB open blocked by another connection'));
             });
         })();
     }
