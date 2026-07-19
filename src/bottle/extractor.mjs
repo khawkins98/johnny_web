@@ -106,13 +106,17 @@ export const extractArchiveToIndexedDB = async (buffer, filename, onProgress) =>
         throw new Error('Could not find required files inside floppy image.');
     }
 
-    onProgress('Decompressing SCRANTIC.SCR...');
-    const scrBuf = decompressTSComp(fatFiles['SCRANTIC.SC$']);
-    await saveFile('SCRANTIC.SCR', scrBuf);
+    try {
+        onProgress('Decompressing SCRANTIC.SCR...');
+        const scrBuf = decompressTSComp(fatFiles['SCRANTIC.SC$']);
+        await saveFile('SCRANTIC.SCR', scrBuf);
 
-    onProgress('Decompressing RESOURCE.001...');
-    const resBuf = decompressTSComp(fatFiles['RESOURCE.00$']);
-    await saveFile('RESOURCE.001', resBuf);
+        onProgress('Decompressing RESOURCE.001...');
+        const resBuf = decompressTSComp(fatFiles['RESOURCE.00$']);
+        await saveFile('RESOURCE.001', resBuf);
+    } catch (err) {
+        throw new Error('Decompression failed. The floppy image may be corrupted or fragmented. Please use the exact recommended file.');
+    }
 
     onProgress('Saving RESOURCE.MAP...');
     await saveFile('RESOURCE.MAP', fatFiles['RESOURCE.MAP'].buffer);
