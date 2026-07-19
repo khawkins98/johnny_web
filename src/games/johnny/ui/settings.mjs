@@ -9,8 +9,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
-        @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=VT323&display=swap');
-
         html {
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
@@ -349,12 +347,14 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const close = () => {
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
+        document.getElementById('root').inert = false;
         previousFocus?.focus?.();
     };
     const open = () => {
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
+        document.getElementById('root').inert = true;
         hideCog();
         closeBtn.focus();
     };
@@ -734,6 +734,22 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     window.addEventListener('keydown', (e) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (isTyping(e.target) && e.key !== 'Escape') return;
+        
+        if (e.key === 'Tab' && overlay.style.display === 'flex') {
+            const focusable = Array.from(modal.querySelectorAll('button, select, [href], input, textarea, [tabindex]:not([tabindex="-1"])'));
+            if (focusable.length > 0) {
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (e.shiftKey && document.activeElement === first) {
+                    last.focus();
+                    e.preventDefault();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    first.focus();
+                    e.preventDefault();
+                }
+            }
+        }
+
         if (e.key === 's' || e.key === 'S') {
             e.preventDefault();
             if (overlay.style.display === 'flex') close();

@@ -1,5 +1,5 @@
-const appVersion = typeof __JOHNNY_VERSION__ === 'string' ? __JOHNNY_VERSION__ : 'development';
-const buildId = typeof __JOHNNY_BUILD__ === 'string' ? __JOHNNY_BUILD__ : 'unknown';
+const appVersion = typeof __BOTTLE_VERSION__ === 'string' ? __BOTTLE_VERSION__ : 'development';
+const buildId = typeof __BOTTLE_BUILD__ === 'string' ? __BOTTLE_BUILD__ : 'unknown';
 
 export const createSessionInfo = ({ mode, tick = null } = {}) => {
     const browser =
@@ -32,7 +32,7 @@ export const createSessionInfo = ({ mode, tick = null } = {}) => {
         enabledAt: new Date().toISOString(),
         mode,
         tick,
-        application: { name: 'johnny_web', version: appVersion, build: buildId },
+        application: { name: 'Bottle DGDS', version: appVersion, build: buildId },
         page: typeof location === 'undefined' ? null : location.href,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser,

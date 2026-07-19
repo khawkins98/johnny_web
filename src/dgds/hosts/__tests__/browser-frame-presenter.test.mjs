@@ -29,7 +29,7 @@ const createState = () => ({
         height: 1,
         pixels: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 0, 0]),
     },
-    island: 0,
+    backgroundId: 0,
     fadingOut: false,
     fadingIn: false,
     fadeOpacity: 0,

@@ -40,12 +40,12 @@ export const loadOcean = (state) => {
 
 export const loadScreen = (state, name) => {
     const profile = state.game?.background;
-    state.island = profile?.screens?.[name];
+    state.backgroundId = profile?.screens?.[name];
 
     if (!state.bkgScreen) {
         state.bkgScreen = loadNamedEntry(state, name) ?? null;
     }
-    if (state.island) {
+    if (state.backgroundId) {
         loadBackgroundAssets(state);
         loadOcean(state);
     }

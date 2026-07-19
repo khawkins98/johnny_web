@@ -86,7 +86,7 @@ export class DgdsRuntime {
             frameBoundary: null,
             timer: 0,
             continue: true,
-            island: 1,
+            backgroundId: 1,
             foregroundColor: PALETTE[0],
             backgroundColor: PALETTE[0],
             clip: { x: 0, y: 0, width: 640, height: 480 },
@@ -291,7 +291,7 @@ export class DgdsRuntime {
             completed: runScript(state, state.data.scripts).status === ExecutionStatus.COMPLETED,
             presentation: Object.freeze({
                 clearForeground: false,
-                backgroundOnly: Boolean(state.island),
+                backgroundOnly: Boolean(state.backgroundId),
                 compose: false,
             }),
         };

@@ -39,11 +39,11 @@ const dgdsTracePlugin = () => ({
 
 export default defineConfig({
     base: process.env.VITE_BASE_PATH ?? '/',
-    publicDir: 'public',
+    publicDir: process.env.VITE_EMPTY_PUBLIC ? false : 'public',
     plugins: [dgdsTracePlugin()],
     define: {
-        __JOHNNY_VERSION__: JSON.stringify(process.env.npm_package_version || '0.1.0'),
-        __JOHNNY_BUILD__: JSON.stringify(buildId),
+        __BOTTLE_VERSION__: JSON.stringify(process.env.npm_package_version || '0.1.0'),
+        __BOTTLE_BUILD__: JSON.stringify(buildId),
     },
     build: {
         outDir: 'dist',

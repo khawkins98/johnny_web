@@ -8,7 +8,7 @@ const createRuntime = (overrides) =>
     new DgdsRuntime({
         type: 'TTM',
         data: { scripts: undefined },
-        island: 0,
+        backgroundId: 0,
         random: () => 0,
         timingCompatibility: createTimingCompatibility(),
         surfaceFactory: createSurface,

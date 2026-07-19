@@ -1,5 +1,7 @@
 import { drawScreen } from '../dgds/graphics.mjs';
 import { loadResources } from '../dgds/resource.mjs';
+import { loadFile } from './idb.mjs';
+import { extractArchiveToIndexedDB } from './extractor.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
 
@@ -28,34 +30,50 @@ export const runBrowserPresentation = async ({
 
     const base = import.meta.env.BASE_URL;
 
-    // Load resources immediately so errors surface before any user interaction.
-    let resMapResp, resFileResp;
+    // 1. Try to load from IndexedDB first
+    let mapBuf, arcBuf, sndBuf;
     try {
-        [resMapResp, resFileResp] = await Promise.all([
-            fetch(`${base}data/${game.resources.map}`),
-            fetch(`${base}data/${game.resources.archive}`),
-        ]);
-    } catch {
-        showDataError(game, [game.resources.map, game.resources.archive]);
-        return;
+        mapBuf = await loadFile(game.resources.map);
+        arcBuf = await loadFile(game.resources.archive);
+        sndBuf = await loadFile(game.audio.archive);
+    } catch (e) {
+        console.warn('IndexedDB read failed:', e);
     }
 
-    // Vite's dev server returns 200 + text/html (SPA history fallback) for
-    // files that don't exist, so content-type is a more reliable signal than ok.
-    const isMissing = (r) => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
-    const missing = [
-        isMissing(resMapResp) && game.resources.map,
-        isMissing(resFileResp) && game.resources.archive,
-    ].filter(Boolean);
+    // 2. Fallback to network fetch if not in IDB
+    if (!mapBuf || !arcBuf || !sndBuf) {
+        let resMapResp, resFileResp, resSndResp;
+        try {
+            [resMapResp, resFileResp, resSndResp] = await Promise.all([
+                fetch(`${base}data/${game.resources.map}`),
+                fetch(`${base}data/${game.resources.archive}`),
+                fetch(`${base}data/${game.audio.archive}`),
+            ]);
+        } catch {
+            showDataError(game, [game.resources.map, game.resources.archive, game.audio.archive]);
+            return;
+        }
 
-    if (missing.length) {
-        showDataError(game, missing);
-        return;
+        const isMissing = (r) => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
+        const missing = [
+            isMissing(resMapResp) && game.resources.map,
+            isMissing(resFileResp) && game.resources.archive,
+            isMissing(resSndResp) && game.audio.archive,
+        ].filter(Boolean);
+
+        if (missing.length) {
+            showDataError(game, missing);
+            return;
+        }
+        
+        mapBuf = await resMapResp.arrayBuffer();
+        arcBuf = await resFileResp.arrayBuffer();
+        sndBuf = await resSndResp.arrayBuffer();
     }
 
     let res;
     try {
-        res = loadResources(await resMapResp.arrayBuffer(), await resFileResp.arrayBuffer());
+        res = loadResources(mapBuf, arcBuf);
     } catch (err) {
         showDataError(game, [game.resources.map, game.resources.archive], `Could not parse game data: ${err.message}`);
         return;
@@ -89,6 +107,7 @@ export const runBrowserPresentation = async ({
             existingAudioManager: audioManager,
             game,
             soundSettingKey,
+            archiveBuffer: sndBuf,
         });
         audioManager = start.audioManager;
         enhancedUI?.destroy();
@@ -140,7 +159,7 @@ const requireBrowserPresentationPackage = (game, soundSettingKey) => {
  * clicks. AudioContext must be constructed synchronously inside the click
  * handler — creating it after an await loses the user-activation context.
  */
-function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey }) {
+function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey, archiveBuffer }) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
         const classicBtn = document.getElementById('start-classic-btn');
@@ -171,6 +190,7 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
                     soundFxVolume: 0.5,
                     enabled: localStorage.getItem(soundSettingKey) !== 'off',
                     sampleCatalog: game.audio,
+                    archiveBuffer,
                 });
             nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
@@ -187,11 +207,7 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
 
 function showDataError(game, missing, detail) {
     const overlay = document.getElementById('data-error');
-    const list = document.getElementById('data-error-files');
-    if (!overlay || !list) return;
-
-    const allFiles = [game.resources.map, game.resources.archive, game.audio.archive];
-    list.innerHTML = allFiles.map((f) => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`).join('');
+    if (!overlay) return;
 
     if (detail) {
         const detailEl = overlay.querySelector('.detail');
@@ -200,4 +216,75 @@ function showDataError(game, missing, detail) {
 
     overlay.classList.add('visible');
     console.error(`[bottle-dgds:${game.id}]`, missing.join(', '), detail ?? '');
+
+    // Setup drag and drop on the entire window to prevent accidental navigation
+    const card = document.getElementById('data-error-card');
+    if (!card) return;
+
+    if (window.__bottleDropWired) return;
+    window.__bottleDropWired = true;
+
+    window.addEventListener('dragenter', (e) => e.preventDefault());
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        card.classList.add('dragover');
+    });
+    window.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        if (e.target === overlay || e.target === document.body) {
+            card.classList.remove('dragover');
+        }
+    });
+    window.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        card.classList.remove('dragover');
+
+        if (card.dataset.isExtracting) return;
+        card.dataset.isExtracting = 'true';
+
+        const inst = overlay.querySelector('.instruction');
+        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+        const file = e.dataTransfer.files[0];
+
+        let buffer;
+        let filename = '';
+        
+        const isSupportedExt = (name) => {
+            const low = name.toLowerCase();
+            return low.endsWith('.zip') || low.endsWith('.ima') || low.endsWith('.img');
+        };
+
+        if (file && isSupportedExt(file.name)) {
+            buffer = await file.arrayBuffer();
+            filename = file.name;
+        } else if (url && isSupportedExt(url)) {
+            inst.innerHTML = 'Downloading from Internet Archive...<br/><small>Please wait</small>';
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Download failed');
+                buffer = await response.arrayBuffer();
+                filename = url;
+            } catch (err) {
+                inst.textContent = `Could not download: ${err.message}`;
+                inst.style.color = '#e07070';
+                card.dataset.isExtracting = '';
+                return;
+            }
+        } else {
+            card.dataset.isExtracting = '';
+            return;
+        }
+        
+        try {
+            await extractArchiveToIndexedDB(buffer, filename, (msg) => {
+                inst.innerHTML = `<strong>Extracting...</strong><br/>${msg}`;
+            });
+            inst.innerHTML = '<strong>All set!</strong><br/>Reloading...';
+            setTimeout(() => window.location.reload(), 500);
+        } catch (err) {
+            inst.textContent = `Error: ${err.message}`;
+            inst.style.color = '#e07070';
+            card.dataset.isExtracting = '';
+        }
+    });
 }

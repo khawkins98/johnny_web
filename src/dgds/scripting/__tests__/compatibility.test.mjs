@@ -76,7 +76,7 @@ describe('deterministic background compatibility', () => {
 
         loadScreen(state, 'CUSTOM.SCR');
 
-        expect(state.island).toBe(7);
+        expect(state.backgroundId).toBe(7);
     });
 
     it('advances clouds and waves from injected time and settings', () => {
@@ -87,7 +87,7 @@ describe('deterministic background compatibility', () => {
         });
         const state = {
             game: johnnyCastaway,
-            island: 1,
+            backgroundId: 1,
             bkgScreen: null,
             bkgOcean: [],
             bkgRes: null,
@@ -140,7 +140,7 @@ describe('deterministic background compatibility', () => {
             bkgScreen: day,
             bkgOcean: [day, day, day, night],
             dayOceanIndex: 0,
-            island: 0,
+            backgroundId: 0,
         };
         const policy = createBrowserPresentationPolicy({
             storage: { getItem: (key) => (key === 'jc-time' ? 'local' : null) },

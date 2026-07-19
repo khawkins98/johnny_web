@@ -8,7 +8,10 @@ describe('diagnostic session information', () => {
         expect(info).toMatchObject({
             mode: 'trace',
             tick: 42,
-            application: { name: 'johnny_web' },
+            application: {
+                name: 'Bottle DGDS',
+                version: expect.any(String),
+            },
             browser: { userAgent: expect.any(String) },
             display: {
                 viewport: {
