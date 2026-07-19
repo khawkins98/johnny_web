@@ -112,7 +112,7 @@ AI was used heavily in building this modernization, and it made the reverse engi
 
 That being said, while AI was a great accelerator, **none of this would have been possible without the hard work that many others put in first**. A huge thanks to:
 
-- **The Original Creators:** The team at Sierra On-Line / Dynamix for creating such an iconic piece of 90s software.
+- **The Original Creators:** The team at Dynamix / Sierra On-Line—including Jeff Tunnell (producer), Rich Rayl (programming), Sherry Wheeler (animation), Shawn Bird (character design), and Brian Hahn (gags)—for creating such an iconic piece of 90s software.
 - **The Reverse Engineers:** The folks who did all the foundational work to decode the DGDS engine formats, including [Alexandre Fontoura](https://github.com/xesf/castaway), [Jérémie Guillaume](https://github.com/jno6809/jc_reborn), [Hans Milling](https://github.com/nivs1978/Johnny-Castaway-Open-Source), [Vasco Costa](https://github.com/vcosta/scummvm/tree/master/engines/dgds), and the [ScummVM team](https://github.com/scummvm/scummvm/tree/master/engines/dgds).
 - **The Archivists:** The people who preserved the original floppy disks and uploaded them to the Internet Archive, especially [Greyfalken](https://archive.org/details/@greyfalken).
 
