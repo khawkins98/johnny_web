@@ -89,6 +89,20 @@ In Enhanced mode, use `←`/`→` to change scenes, `↑`/`↓` to change speed,
 
 During playback, move the pointer to reveal the Settings cog. Press `S` for Settings at any time, or `R` to stop playback and return to the title screen.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/settings-enhanced.webp" width="720" alt="Johnny Castaway Enhanced mode with Island Options and keyboard shortcut guide open">
+  <br>
+  <sub>Enhanced presentation controls remain separate from the faithful DGDS runtime.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/images/gag-dives.webp" width="464" alt="Johnny's dive being scored by animals on the island">
+  <br>
+  <sub>The original 16-color artwork rendered by Bottle DGDS.</sub>
+</p>
+
 ## Diagnostics
 
 Choose **Settings** on the opening screen, or press `S` at any time. Sound can be turned on or off there, and the choice persists across reloads.
