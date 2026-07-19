@@ -7,7 +7,9 @@ see the [README](../README.md). For reverse-engineering conclusions, see
 ## System overview
 
 `johnny_web` parses the original DGDS resources in JavaScript and runs their
-ADS/TTM scripts in a browser-hosted engine.
+ADS/TTM scripts through **Bottle DGDS**, the experimental engine developed in
+this repository. “Bottle” names the reusable package/host surface; “DGDS” still
+names the faithful resource and execution model.
 
 ```text
 RESOURCE.MAP + RESOURCE.001
@@ -40,12 +42,17 @@ logical audio operations, and present composed RGBA frames on Canvas. See
 
 | Path | Responsibility |
 |---|---|
-| `src/scrantic/main.mjs` | Startup, resource fetch, user-gesture/audio gate, repeated ADS cycles |
+| `src/bottle/browser-app.mjs` | Reusable browser startup, resource fetch, audio gate, and repeated ADS cycles |
+| `src/bottle/game-package.mjs` | Validates and freezes the title metadata consumed by the current host and machine |
+| `src/bottle/debug-ui.mjs` | Generic active-session diagnostics and developer controls |
 | `src/dgds/resource.mjs` | `RESOURCE.MAP`/`.001` index and loader dispatch |
+| `src/dgds/palette.mjs` | Default DGDS palette pending complete authored PAL switching |
 | `src/dgds/resource-provider.mjs` | Adapts archive entries to synchronous named-resource resolution |
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
+| `src/games/johnny/browser-app.mjs` | Composes the Bottle browser host with Johnny's package and UI |
 | `src/games/johnny/manifest.mjs` | Johnny identity, entry points, aliases, audio, and background metadata |
+| `src/games/johnny/ui/` | Johnny-specific settings and Enhanced-mode presentation |
 | `src/dgds/scripting/process.mjs` | Browser session wiring and legacy active-session/debug façade |
 | `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and logical presentation directives |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
@@ -67,12 +74,12 @@ logical audio operations, and present composed RGBA frames on Canvas. See
 | `src/dgds/scripting/timing-compatibility.mjs` | Named authored-to-host timing mappings |
 | `src/dgds/scripting/diagnostics.mjs` | Runtime diagnostics mode controller |
 | `src/dgds/scripting/trace.mjs` | Structured JSONL event recording |
-| `src/debug-ui.mjs`, `src/settings-ui.mjs` | Runtime controls and human-readable diagnostics |
 
 ## Startup
 
 1. Fetch `RESOURCE.MAP` and `RESOURCE.001`.
-2. Use the Johnny game manifest to select the resource archive and draw its
+2. The Johnny application passes its validated game package and UI factories to
+   the Bottle browser host. The host selects the resource archive and draws the
    configured intro screen.
 3. Wait for a click; construct `AudioContext` synchronously inside that user
    gesture to satisfy browser autoplay rules.
@@ -259,6 +266,8 @@ automation may read it directly or use the Vite-only persistence endpoint.
   controls. Unknown ADS control opcodes are retained but not interpreted.
 - The browser application intentionally exposes one active runtime through a
   legacy developer-UI façade, but engine state itself is instance-owned.
+- Bottle's game-package and browser-host exports are experimental. A second
+  title must validate them before they become a stable public API.
 - The Johnny game package currently identifies its supported version by label;
   automatic resource fingerprint verification has not been added yet.
 - The browser background renderer is still separate from logical TTM

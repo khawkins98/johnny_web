@@ -2,12 +2,26 @@ import { drawScreen } from '../dgds/graphics.mjs';
 import { loadResources } from '../dgds/resource.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
-import { setupDebugUI } from '../debug-ui.mjs';
-import { setupEnhancedUI } from '../enhanced-ui.mjs';
-import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings-ui.mjs';
-import { johnnyCastaway } from '../games/johnny/manifest.mjs';
 
-export const run = async () => {
+/**
+ * Run one packaged DGDS title in the Bottle browser host.
+ *
+ * The game package supplies title/version resource knowledge. UI factories are
+ * injected because settings and enhancements belong to the title/application,
+ * not to the faithful DGDS machine.
+ */
+export const runBrowserGame = async ({
+    game,
+    setupDebugUI = () => {},
+    setupEnhancedUI = () => null,
+    setupSettingsUI,
+    soundSettingKey,
+}) => {
+    if (!game) throw new TypeError('Bottle browser host requires a game package');
+    if (typeof setupSettingsUI !== 'function') {
+        throw new TypeError('Bottle browser host requires a settings UI factory');
+    }
+
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
     mainContext.clearRect(0, 0, 640, 480);
 
@@ -17,11 +31,11 @@ export const run = async () => {
     let resMapResp, resFileResp;
     try {
         [resMapResp, resFileResp] = await Promise.all([
-            fetch(`${base}data/${johnnyCastaway.resources.map}`),
-            fetch(`${base}data/${johnnyCastaway.resources.archive}`),
+            fetch(`${base}data/${game.resources.map}`),
+            fetch(`${base}data/${game.resources.archive}`),
         ]);
     } catch {
-        showDataError([johnnyCastaway.resources.map, johnnyCastaway.resources.archive]);
+        showDataError(game, [game.resources.map, game.resources.archive]);
         return;
     }
 
@@ -29,12 +43,12 @@ export const run = async () => {
     // files that don't exist, so content-type is a more reliable signal than ok.
     const isMissing = r => !r.ok || r.headers.get('content-type')?.startsWith('text/html');
     const missing = [
-        isMissing(resMapResp) && johnnyCastaway.resources.map,
-        isMissing(resFileResp) && johnnyCastaway.resources.archive,
+        isMissing(resMapResp) && game.resources.map,
+        isMissing(resFileResp) && game.resources.archive,
     ].filter(Boolean);
 
     if (missing.length) {
-        showDataError(missing);
+        showDataError(game, missing);
         return;
     }
 
@@ -46,14 +60,15 @@ export const run = async () => {
         );
     } catch (err) {
         showDataError(
-            [johnnyCastaway.resources.map, johnnyCastaway.resources.archive],
+            game,
+            [game.resources.map, game.resources.archive],
             `Could not parse game data: ${err.message}`,
         );
         return;
     }
 
-    const resource = res.getResource(johnnyCastaway.resources.archive);
-    const introRes = resource.loadEntry(johnnyCastaway.resources.intro);
+    const resource = res.getResource(game.resources.archive);
+    const introRes = resource.loadEntry(game.resources.intro);
     let audioManager = null;
     let enhancedUI = null;
     setupDebugUI();
@@ -66,7 +81,7 @@ export const run = async () => {
     });
 
     const context = document.getElementById('canvas').getContext('2d');
-    const data = resource.loadEntry(johnnyCastaway.resources.activity);
+    const data = resource.loadEntry(game.resources.activity);
 
     while (true) {
         context.clearRect(0, 0, 640, 480);
@@ -75,7 +90,12 @@ export const run = async () => {
 
         // Gate first-time audio creation behind a user gesture. Returning to
         // the title reuses the existing AudioContext instead of leaking one.
-        const start = await waitForStart(settings, audioManager);
+        const start = await waitForStart({
+            settings,
+            existingAudioManager: audioManager,
+            game,
+            soundSettingKey,
+        });
         audioManager = start.audioManager;
         enhancedUI?.destroy();
         enhancedUI = start.experience === 'enhanced' ? setupEnhancedUI() : null;
@@ -91,7 +111,7 @@ export const run = async () => {
                     mainContext,
                     data,
                     entries: resource.entries,
-                    game: johnnyCastaway,
+                    game,
                     audioManager,
                     onComplete: resolve,
                 });
@@ -108,7 +128,7 @@ export const run = async () => {
  * clicks. AudioContext must be constructed synchronously inside the click
  * handler — creating it after an await loses the user-activation context.
  */
-function waitForStart(settings, existingAudioManager = null) {
+function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey }) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
         const classicBtn = document.getElementById('start-classic-btn');
@@ -135,10 +155,10 @@ function waitForStart(settings, existingAudioManager = null) {
             overlay.classList.remove('visible');
             const nextAudioManager = existingAudioManager || createAudioManager({
                 soundFxVolume: 0.50,
-                enabled: localStorage.getItem(SOUND_SETTING_KEY) !== 'off',
-                sampleCatalog: johnnyCastaway.audio,
+                enabled: localStorage.getItem(soundSettingKey) !== 'off',
+                sampleCatalog: game.audio,
             });
-            nextAudioManager.setEnabled(localStorage.getItem(SOUND_SETTING_KEY) !== 'off');
+            nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
                 experience,
                 audioManager: nextAudioManager,
@@ -151,15 +171,15 @@ function waitForStart(settings, existingAudioManager = null) {
     });
 }
 
-function showDataError(missing, detail) {
+function showDataError(game, missing, detail) {
     const overlay = document.getElementById('data-error');
     const list = document.getElementById('data-error-files');
     if (!overlay || !list) return;
 
     const allFiles = [
-        johnnyCastaway.resources.map,
-        johnnyCastaway.resources.archive,
-        johnnyCastaway.audio.archive,
+        game.resources.map,
+        game.resources.archive,
+        game.audio.archive,
     ];
     list.innerHTML = allFiles
         .map(f => `<li class="${missing.includes(f) ? '' : 'ok'}">${f}</li>`)
@@ -171,5 +191,5 @@ function showDataError(missing, detail) {
     }
 
     overlay.classList.add('visible');
-    console.error('[johnny_web]', missing.join(', '), detail ?? '');
+    console.error(`[bottle-dgds:${game.id}]`, missing.join(', '), detail ?? '');
 }

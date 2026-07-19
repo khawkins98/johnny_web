@@ -1,4 +1,4 @@
-import { diagnostics } from './dgds/scripting/diagnostics.mjs';
+import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 
 export const SOUND_SETTING_KEY = 'jc-sound';
 export const EXPERIENCE_SETTING_KEY = 'jc-experience';

@@ -4,7 +4,9 @@
  * This module contains title/version knowledge. Generic DGDS parsers, runtime,
  * and host adapters must receive these values rather than importing them.
  */
-export const johnnyCastaway = Object.freeze({
+import { defineGamePackage } from '../../bottle/game-package.mjs';
+
+export const johnnyCastaway = defineGamePackage({
     id: 'johnny-castaway',
     title: 'Johnny Castaway',
     version: '1.01-international',

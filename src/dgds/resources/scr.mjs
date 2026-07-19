@@ -16,7 +16,7 @@
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 
-import { PALETTE } from '../../scrantic/palette.mjs';
+import { PALETTE } from '../palette.mjs';
 
 export const loadSCRResourceEntry = (entry) => {
     let offset = 0;

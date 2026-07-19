@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { loadBMPResourceEntry } from '../bmp.mjs';
-import { PALETTE } from '../../../scrantic/palette.mjs';
+import { PALETTE } from '../../palette.mjs';
 
 // KNOWN ISSUE: decompression type 0 (no compression) returns the DataView as-is from
 // decompress(). The BMP/SCR pixel loop then does `data[dataIndex]` which array-indexes a

@@ -4,7 +4,8 @@ A web-native reimplementation of the 1992
 [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver by
 Dynamix/Sierra On-Line. It is a hard fork of
 [xesf/castaway](https://github.com/xesf/castaway), modernized around ES modules,
-Web APIs, Vite, and a testable DGDS engine.
+Web APIs, Vite, and **Bottle DGDS**, the experimental reusable engine taking
+shape inside this repository.
 
 ![Johnny Castaway on his island beneath the screensaver title](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
@@ -28,6 +29,8 @@ for the download and extractor prerequisites.
 - Learn and document the Dynamix Game Development System (DGDS) file formats
 - Keep faithful script/composition behavior separate from browser compatibility
 - Provide extraction, dump, test, and deterministic rendering-trace tooling
+- Continue extracting Bottle DGDS into a reusable engine for other compatible
+  DGDS/Screen Antics titles
 
 ## Obtaining the Screensaver Data Files
 
@@ -129,6 +132,17 @@ download with `saveTrace()`, or write under `traces/` through the Vite-only
 - [DGDS learnings](LEARNINGS.md) and [resource index](docs/resindex.md) — file
   formats and reverse-engineering notes
 - [Contributing](CONTRIBUTING.md) — verification and change guidelines
+
+## Engine roadmap
+
+Bottle DGDS currently means the reusable DGDS machine, game-package contract,
+and browser host under `src/dgds/` and `src/bottle/`. Johnny's manifest and UI
+live separately under `src/games/johnny/`.
+
+The next portability milestone is to run a second DGDS/Screen Antics title by
+adding a game package without changing the faithful engine. That exercise will
+identify missing opcodes and metadata before the Bottle API is treated as
+stable. This is future work rather than a claim of drop-in compatibility today.
 
 ## Acknowledgements
 

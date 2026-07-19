@@ -8,6 +8,8 @@ This project follows
 ## [Unreleased]
 
 ### Added
+- Bottle DGDS namespace with a validated game-package contract and reusable
+  browser-host entry point
 - Runtime-selectable diagnostics with downloadable JSONL traces, pixel
   fingerprints, and session/build/device metadata
 - Fixed-step DGDS timing, logical drawing surfaces, per-resource TTM
@@ -22,6 +24,8 @@ This project follows
 - `pnpm run dump` command for inspecting extracted game assets
 
 ### Changed
+- Johnny startup, settings, and Enhanced UI now live under its game namespace;
+  generic palette data now lives under DGDS
 - TTM interpretation now reports structured execution outcomes to the ADS
   scheduler, and logical frame reset/restore behavior has its own engine boundary
 - TTM scenes now render to retained software layers; foreground composition is

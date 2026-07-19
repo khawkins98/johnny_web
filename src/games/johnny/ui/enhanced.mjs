@@ -1,4 +1,4 @@
-import { __DEBUG__ } from './dgds/scripting/process.mjs';
+import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
 
 const PLAYBACK_RATES = [0.5, 1, 2, 4];
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('../dgds/scripting/process.mjs', () => ({
+vi.mock('../../../../dgds/scripting/process.mjs', () => ({
     __DEBUG__: {
         getPresentation: vi.fn(() => ({ scene: 11, name: 'GULL 2 BATHING', playbackRate: 1 })),
         stepScene: vi.fn(),
@@ -8,7 +8,7 @@ vi.mock('../dgds/scripting/process.mjs', () => ({
     },
 }));
 
-import { setupEnhancedUI } from '../enhanced-ui.mjs';
+import { setupEnhancedUI } from '../enhanced.mjs';
 
 describe('enhanced playback HUD', () => {
     beforeEach(() => {

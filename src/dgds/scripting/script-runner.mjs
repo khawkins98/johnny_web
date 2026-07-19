@@ -4,7 +4,7 @@
  * All opcode callbacks are plain functions of the form (state, ...params).
  * They are kept as plain functions (not class methods) so tests can call them directly.
  */
-import { PALETTE } from '../../scrantic/palette.mjs';
+import { PALETTE } from '../palette.mjs';
 import { getSceneState } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';

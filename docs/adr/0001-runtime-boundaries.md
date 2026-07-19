@@ -63,6 +63,8 @@ enhancement code.
 
 The machine now has instance-owned state and emits logical frame, audio, and
 presentation operations. Browser scheduling, Canvas upload, Web Audio, storage,
-and enhancements are host concerns; Johnny resource metadata lives in its game
-package. `process.mjs` remains only as the single-session browser/debug façade.
-See [Architecture](../architecture.md) for current module ownership.
+and enhancements are host concerns. The experimental **Bottle DGDS** namespace
+now owns the reusable browser host and validated game-package contract; Johnny's
+resource metadata and presentation UI live under `src/games/johnny/`.
+`process.mjs` remains only as the single-session browser/debug façade. See
+[Architecture](../architecture.md) for current module ownership.

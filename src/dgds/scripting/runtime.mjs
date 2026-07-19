@@ -6,7 +6,7 @@
  * services. Opcode drawing and audio are emitted as logical operations, while
  * deterministic retained pixels preserve synchronous DGDS GET/PUT semantics.
  */
-import { PALETTE } from '../../scrantic/palette.mjs';
+import { PALETTE } from '../palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';

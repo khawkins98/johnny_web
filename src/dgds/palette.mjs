@@ -1,3 +1,4 @@
+// Default 16-color DGDS palette used until authored PAL switching is complete.
 export const PALETTE = [
     { a: 0, r: 168, g: 0, b: 168 },
     { a: 255, r: 0, g: 0, b: 168 },

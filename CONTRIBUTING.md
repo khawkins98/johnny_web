@@ -62,8 +62,8 @@ execution model and links code to responsibilities. The main boundaries are:
 
 - `src/dgds/` — reusable resource parsing and faithful DGDS execution
 - `src/dgds/hosts/` — browser scheduling, audio, and presentation adapters
-- `src/games/johnny/` — Johnny-specific resources and metadata
-- `src/scrantic/main.mjs` — browser application startup and runtime wiring
+- `src/bottle/` — experimental reusable game-package and browser-host API
+- `src/games/johnny/` — Johnny-specific resources, startup composition, and UI
 
 Keep DGDS behavior, title-specific compatibility, browser accommodation, and
 optional enhancements in their respective layers. New compatibility rules

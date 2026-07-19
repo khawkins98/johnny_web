@@ -1,3 +1,3 @@
-import { run } from './scrantic/main.mjs';
+import { runJohnnyCastaway } from './games/johnny/browser-app.mjs';
 
-run();
+runJohnnyCastaway();

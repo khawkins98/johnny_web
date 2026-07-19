@@ -1,5 +1,5 @@
-import { __DEBUG__ } from './dgds/scripting/process.mjs';
-import { diagnostics } from './dgds/scripting/diagnostics.mjs';
+import { __DEBUG__ } from '../dgds/scripting/process.mjs';
+import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
 export function setupDebugUI() {
     // Stable automation hook for Playwright/headless browser diagnostics.

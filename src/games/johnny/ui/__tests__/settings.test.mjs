@@ -3,7 +3,7 @@ import {
     EXPERIENCE_SETTING_KEY,
     setupSettingsUI,
     SOUND_SETTING_KEY,
-} from '../settings-ui.mjs';
+} from '../settings.mjs';
 
 describe('settings UI', () => {
     beforeEach(() => {
