@@ -34,7 +34,7 @@ game background metadata + decoded assets ──► browser background renderer
                                       background canvas
 ```
 
-The engine uses logical ticks, instance-owned state, injected resources, and a software drawing surface. Host adapters convert browser timestamps, consume logical audio operations, and present composed RGBA frames on Canvas. See [ADR 0001](adr/0001-runtime-boundaries.md) for the dependency decision.
+The engine uses logical ticks, instance-owned state, injected resources, and a software drawing surface. Host adapters convert browser timestamps, consume logical audio operations, and present composed RGBA frames on Canvas.
 
 ## Repository map
 
@@ -81,7 +81,7 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 4. Load the manifest's activity ADS and call `startProcess()`, which constructs a named-resource provider, constructs a fresh `DgdsRuntime`, and connects it to a browser scheduler.
 5. When the ADS program completes, start a fresh cycle.
 
-The game data is not committed. `pnpm run extract -- <zip>` populates `public/data/`. See the README for prerequisites.
+The game data is not committed. The browser application includes an extractor that accepts a `.zip` or `.ima` file via drag-and-drop or file picker, parsing and decompressing the resources directly into IndexedDB on the client.
 
 ## Resource and script model
 
@@ -178,14 +178,4 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 
 Enabling diagnostics starts a session at the current engine tick. Its first JSONL record contains application and build, engine, timing profile, page, browser-reported capability, and display metadata. `frame-timing-map` events record authored and mapped delays with applied patch names. `audio-sample` events distinguish sample requests from actual playback starts. Disabling diagnostics writes a stop record. The developer panel downloads the capture in the browser; automation may read it directly or use the Vite-only persistence endpoint. `?debug=verbose` adds noisy sprite logging without changing the exported trace.
 
-## Current limitations
 
-- The production framebuffer is deterministic RGBA rather than indexed color; palette transitions remain approximate.
-- Several parsed TTM and ADS opcodes are still no-ops, including TTM fades, `SAVE_BACKGROUND`, `SAVE_REGION`, `DRAW_SCREEN`, and some sound and palette controls. Unknown ADS control opcodes are retained but not interpreted.
-- The browser application intentionally exposes one active runtime through a legacy developer-UI façade, but engine state itself is instance-owned.
-- Bottle's package and browser-presentation exports are experimental. An independently sourced DGDS presentation must validate them before they become a stable public API; complete games require additional interaction systems.
-- The Johnny game package currently identifies its supported version by label; automatic resource fingerprint verification has not been added yet.
-- The browser background renderer is still separate from logical TTM composition, so some original buffer-copy behavior may require more work.
-- Opcode drawing and audio are logical operations, software composition is deterministic, and final Canvas upload is host-owned. Game background state remains a mutable runtime structure and should become snapshot-friendly before the `DgdsMachine` API described by ADR 0001 is stabilized.
-
-Treat these as explicit compatibility gaps. Opcode behavior should be corrected in the faithful layer; browser accommodations belong in adapters or profiles.
