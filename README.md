@@ -96,6 +96,9 @@ In Enhanced mode, use `←`/`→` to change scenes, `↑`/`↓` to change speed,
 press `H` to hide or restore it. Every option remains individually adjustable in
 Settings.
 
+During playback, move the pointer to reveal the Settings cog. Press `S` for
+Settings at any time, or `R` to stop playback and return to the title screen.
+
 ## Diagnostics
 
 Choose **Settings** on the opening screen, or press `S` at any time. Sound can

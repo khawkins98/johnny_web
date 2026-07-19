@@ -140,6 +140,7 @@ export function setupEnhancedUI() {
     dismiss.addEventListener('click', () => setHudVisible(false));
 
     let lastStatus = '';
+    let animationFrame = null;
     const render = () => {
         const presentation = __DEBUG__.getPresentation();
         const nextStatus = `${presentation.scene}|${presentation.name}|${presentation.playbackRate}`;
@@ -149,11 +150,11 @@ export function setupEnhancedUI() {
             name.innerText = presentation.name || '';
             rate.innerText = `${presentation.playbackRate}×`;
         }
-        requestAnimationFrame(render);
+        animationFrame = requestAnimationFrame(render);
     };
-    requestAnimationFrame(render);
+    animationFrame = requestAnimationFrame(render);
 
-    window.addEventListener('keydown', async event => {
+    const handleKeydown = async event => {
         if (isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
         if (document.getElementById('settings-overlay')?.getAttribute('aria-hidden') === 'false') return;
 
@@ -175,7 +176,15 @@ export function setupEnhancedUI() {
             event.preventDefault();
             setHudVisible(!hudVisible);
         }
-    });
+    };
+    window.addEventListener('keydown', handleKeydown);
 
-    return { hud, setHudVisible };
+    const destroy = () => {
+        if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+        window.removeEventListener('keydown', handleKeydown);
+        hud.remove();
+        style.remove();
+    };
+
+    return { hud, setHudVisible, destroy };
 }

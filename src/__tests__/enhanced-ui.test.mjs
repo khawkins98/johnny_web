@@ -15,10 +15,11 @@ describe('enhanced playback HUD', () => {
         document.head.querySelectorAll('style').forEach(style => style.remove());
         document.body.innerHTML = '';
         vi.stubGlobal('requestAnimationFrame', vi.fn());
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
     });
 
     it('can be dismissed and restored with H', () => {
-        setupEnhancedUI();
+        const enhanced = setupEnhancedUI();
         const hud = document.getElementById('enhanced-hud');
 
         document.getElementById('enhanced-hud-dismiss').click();
@@ -28,5 +29,9 @@ describe('enhanced playback HUD', () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' }));
         expect(hud.classList.contains('is-hidden')).toBe(false);
         expect(hud.getAttribute('aria-hidden')).toBe('false');
+
+        enhanced.destroy();
+        expect(document.getElementById('enhanced-hud')).toBeNull();
+        expect(cancelAnimationFrame).toHaveBeenCalled();
     });
 });

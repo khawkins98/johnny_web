@@ -38,6 +38,11 @@ describe('audio manager', () => {
         expect(masterGain.gain.setValueAtTime).toHaveBeenLastCalledWith(1, 12);
         expect(manager.enabled).toBe(true);
 
+        const sound = manager.getSoundFxSource();
+        sound.isPlaying = true;
+        manager.stopAll();
+        expect(sound.isPlaying).toBe(false);
+
         expect(() => manager.getSoundFxSource().load(999, vi.fn())).not.toThrow();
     });
 

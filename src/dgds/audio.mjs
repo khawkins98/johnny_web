@@ -113,6 +113,9 @@ export const createAudioManager = (config) => {
             manager.enabled = Boolean(enabled);
             masterGain.gain.setValueAtTime(manager.enabled ? 1 : 0, context.currentTime);
         },
+        stopAll() {
+            sfxSource.stop();
+        },
     };
     manager.setEnabled(manager.enabled);
     return manager;

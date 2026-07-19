@@ -3,7 +3,14 @@ import { diagnostics } from './dgds/scripting/diagnostics.mjs';
 export const SOUND_SETTING_KEY = 'jc-sound';
 export const EXPERIENCE_SETTING_KEY = 'jc-experience';
 
-export function setupSettingsUI({ getAudioManager = () => null } = {}) {
+const isTyping = target => target?.matches?.(
+    'input, select, textarea, button, a, [contenteditable="true"]',
+);
+
+export function setupSettingsUI({
+    getAudioManager = () => null,
+    onRestart = () => {},
+} = {}) {
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
@@ -103,7 +110,8 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
         }
 
         .settings-row select:focus-visible, .settings-row button:focus-visible,
-        .close-btn:focus-visible, .settings-done:focus-visible {
+        .close-btn:focus-visible, .settings-done:focus-visible,
+        .settings-return:focus-visible {
             outline: 3px solid rgba(74, 53, 32, 0.35);
             outline-offset: 2px;
         }
@@ -133,6 +141,55 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
         .settings-link:hover {
             color: #1a3c5c;
         }
+
+        #settings-cog {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 1800;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: #d4c4a8;
+            color: #4a3520;
+            box-shadow:
+                0 0 0 2px rgba(139, 90, 43, 0.72),
+                0 5px 14px rgba(0, 0, 0, 0.34),
+                inset 0 1px rgba(255, 255, 255, 0.48);
+            cursor: pointer;
+            font-family: sans-serif;
+            font-size: 22px;
+            line-height: 44px;
+            opacity: 0;
+            scale: 0.25;
+            filter: blur(4px);
+            pointer-events: none;
+            transition-property: opacity, scale, filter, background-color;
+            transition-duration: 180ms;
+            transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        #settings-cog.is-visible {
+            opacity: 1;
+            scale: 1;
+            filter: blur(0);
+            pointer-events: auto;
+        }
+
+        #settings-cog:hover {
+            background: #f4e4c8;
+        }
+
+        #settings-cog.is-visible:active {
+            scale: 0.96;
+        }
+
+        #settings-cog:focus-visible {
+            outline: 3px solid rgba(244, 228, 200, 0.86);
+            outline-offset: 3px;
+        }
         
         .close-btn {
             position: absolute;
@@ -160,7 +217,7 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
             background: #fff4dc;
         }
 
-        .close-btn:active, .settings-done:active {
+        .close-btn:active, .settings-done:active, .settings-return:active {
             transform: scale(0.96);
         }
 
@@ -174,7 +231,63 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
             border-top: 2px dashed rgba(139, 90, 43, 0.72);
         }
 
-        .settings-done {
+        .settings-shortcuts {
+            margin-top: 18px;
+            padding-top: 14px;
+            border-top: 2px dashed rgba(139, 90, 43, 0.58);
+        }
+
+        .settings-shortcuts h3 {
+            margin: 0 0 10px;
+            font-family: 'Caveat', cursive;
+            font-size: 23px;
+            text-wrap: balance;
+        }
+
+        .settings-shortcut-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 7px 18px;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+        }
+
+        .settings-shortcut {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .settings-shortcut-keys {
+            display: flex;
+            flex: 0 0 58px;
+            gap: 3px;
+        }
+
+        .settings-shortcut kbd {
+            min-width: 24px;
+            height: 24px;
+            padding: 0 4px;
+            box-sizing: border-box;
+            border-radius: 3px;
+            background: #f4e4c8;
+            box-shadow:
+                0 0 0 1px rgba(139, 90, 43, 0.62),
+                0 2px 0 rgba(139, 90, 43, 0.42);
+            color: #4a3520;
+            font-family: 'VT323', monospace;
+            font-size: 15px;
+            line-height: 24px;
+            text-align: center;
+        }
+
+        .settings-footer-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .settings-done, .settings-return {
             min-width: 112px;
             min-height: 42px;
             padding: 6px 16px;
@@ -190,8 +303,13 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
             transition-duration: 140ms;
         }
 
-        .settings-done:hover {
+        .settings-done:hover, .settings-return:hover {
             background: #fff4dc;
+        }
+
+        .settings-return {
+            min-width: 142px;
+            background: rgba(244, 228, 200, 0.58);
         }
 
         @media (max-width: 560px) {
@@ -205,6 +323,12 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
             .settings-footer {
                 align-items: stretch;
                 flex-direction: column-reverse;
+            }
+            .settings-footer-actions {
+                flex-direction: column-reverse;
+            }
+            .settings-shortcut-grid {
+                grid-template-columns: 1fr;
             }
             .settings-link {
                 text-align: center;
@@ -233,13 +357,48 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
         previousFocus?.focus?.();
     };
     const open = () => {
-        previousFocus = document.activeElement;
+        previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
+        hideCog();
         closeBtn.focus();
     };
     closeBtn.onclick = close;
     modal.appendChild(closeBtn);
+
+    const cog = document.createElement('button');
+    cog.id = 'settings-cog';
+    cog.type = 'button';
+    cog.innerText = '⚙';
+    cog.tabIndex = -1;
+    cog.setAttribute('aria-label', 'Open Island Options');
+    cog.setAttribute('aria-hidden', 'true');
+    let cogTimer = null;
+    const hideCog = () => {
+        if (cogTimer !== null) window.clearTimeout(cogTimer);
+        cogTimer = null;
+        cog.classList.remove('is-visible');
+        cog.tabIndex = -1;
+        cog.setAttribute('aria-hidden', 'true');
+    };
+    const scheduleCogHide = () => {
+        if (cogTimer !== null) window.clearTimeout(cogTimer);
+        cogTimer = window.setTimeout(() => {
+            if (document.activeElement === cog) scheduleCogHide();
+            else hideCog();
+        }, 2400);
+    };
+    const showCog = () => {
+        if (overlay.getAttribute('aria-hidden') === 'false') return;
+        cog.classList.add('is-visible');
+        cog.tabIndex = 0;
+        cog.setAttribute('aria-hidden', 'false');
+        scheduleCogHide();
+    };
+    cog.addEventListener('click', open);
+    cog.addEventListener('blur', scheduleCogHide);
+    window.addEventListener('mousemove', showCog, { passive: true });
+    document.body.appendChild(cog);
 
     const title = document.createElement('h2');
     title.id = 'settings-title';
@@ -489,6 +648,41 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
         if (event.target.value !== 'custom') applyExperience(event.target.value);
     };
 
+    const shortcuts = document.createElement('section');
+    shortcuts.className = 'settings-shortcuts';
+    shortcuts.setAttribute('aria-labelledby', 'settings-shortcuts-title');
+    const shortcutsTitle = document.createElement('h3');
+    shortcutsTitle.id = 'settings-shortcuts-title';
+    shortcutsTitle.innerText = 'Deck Shortcuts';
+    const shortcutGrid = document.createElement('div');
+    shortcutGrid.className = 'settings-shortcut-grid';
+    [
+        [['←', '→'], 'Enhanced · previous / next scene'],
+        [['↑', '↓'], 'Enhanced · slower / faster'],
+        [['H'], 'Enhanced · show / hide HUD'],
+        [['S'], 'Island Options'],
+        [['D'], 'Developer panel'],
+        [['F'], 'Enhanced · full screen'],
+        [['R'], 'Return to title'],
+        [['Esc'], 'Close this panel'],
+    ].forEach(([keys, description]) => {
+        const item = document.createElement('div');
+        item.className = 'settings-shortcut';
+        const keyGroup = document.createElement('span');
+        keyGroup.className = 'settings-shortcut-keys';
+        keys.forEach(key => {
+            const keycap = document.createElement('kbd');
+            keycap.innerText = key;
+            keyGroup.appendChild(keycap);
+        });
+        const label = document.createElement('span');
+        label.innerText = description;
+        item.append(keyGroup, label);
+        shortcutGrid.appendChild(item);
+    });
+    shortcuts.append(shortcutsTitle, shortcutGrid);
+    modal.appendChild(shortcuts);
+
     const footer = document.createElement('div');
     footer.className = 'settings-footer';
 
@@ -500,11 +694,25 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
     githubLink.innerText = 'Message in a Bottle (GitHub)';
     footer.appendChild(githubLink);
 
+    const footerActions = document.createElement('div');
+    footerActions.className = 'settings-footer-actions';
+    const restart = () => {
+        close();
+        onRestart();
+    };
+    const returnBtn = document.createElement('button');
+    returnBtn.className = 'settings-return';
+    returnBtn.dataset.setting = 'restart';
+    returnBtn.innerText = '↶ Return to Title';
+    returnBtn.onclick = restart;
+    footerActions.appendChild(returnBtn);
+
     const doneBtn = document.createElement('button');
     doneBtn.className = 'settings-done';
     doneBtn.innerText = 'Done';
     doneBtn.onclick = close;
-    footer.appendChild(doneBtn);
+    footerActions.appendChild(doneBtn);
+    footer.appendChild(footerActions);
     modal.appendChild(footer);
 
     overlay.appendChild(modal);
@@ -517,9 +725,16 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
 
     // Keyboard shortcut 'S'
     window.addEventListener('keydown', (e) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (isTyping(e.target) && e.key !== 'Escape') return;
         if (e.key === 's' || e.key === 'S') {
+            e.preventDefault();
             if (overlay.style.display === 'flex') close();
             else open();
+        }
+        if (e.key === 'r' || e.key === 'R') {
+            e.preventDefault();
+            restart();
         }
         if (e.key === 'Escape' && overlay.style.display === 'flex') {
             close();
@@ -537,7 +752,7 @@ export function setupSettingsUI({ getAudioManager = () => null } = {}) {
     // Apply initial
     applyScaling(savedScale);
 
-    return { open, close, applyExperience };
+    return { open, close, applyExperience, restart };
 }
 
 function applyScaling(mode) {

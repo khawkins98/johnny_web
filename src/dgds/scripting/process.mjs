@@ -21,6 +21,7 @@ import { createBrowserPresentationPolicy } from '../hosts/browser-presentation-p
 let activeRuntime = null;
 let activeScheduler = null;
 let activeFramePresenter = null;
+let activeStop = null;
 
 const runtimeSessionInfo = () => ({
     ...createSessionInfo({
@@ -63,8 +64,10 @@ diagnostics.subscribe((current, previous) => {
     }
 });
 
+export const stopProcess = (reason = 'stopped') => activeStop?.(reason) ?? false;
+
 export const startProcess = (initialState) => {
-    activeScheduler?.stop();
+    activeStop?.('replaced');
 
     const {
         audioManager = null,
@@ -107,6 +110,24 @@ export const startProcess = (initialState) => {
 
     const scheduler = createBrowserScheduler();
     activeScheduler = scheduler;
+    let finished = false;
+    const finish = reason => {
+        if (finished) return false;
+        finished = true;
+        scheduler.stop();
+        if (activeScheduler === scheduler) {
+            activeScheduler = null;
+            activeStop = null;
+        }
+        if (reason !== 'completed' && activeRuntime === runtime) {
+            framePresenter.clear();
+            activeRuntime = null;
+            activeFramePresenter = null;
+        }
+        onComplete?.({ reason });
+        return true;
+    };
+    activeStop = finish;
     scheduler.start(baseTicks => {
         const state = runtime.state;
         state.speedRemainder += baseTicks * state.playbackRate;
@@ -121,9 +142,7 @@ export const startProcess = (initialState) => {
                 trace: state.trace,
             });
             if (result.completed) {
-                scheduler.stop();
-                if (activeScheduler === scheduler) activeScheduler = null;
-                onComplete?.();
+                finish('completed');
                 break;
             }
         }

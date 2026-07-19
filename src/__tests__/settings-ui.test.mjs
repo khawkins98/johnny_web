@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     EXPERIENCE_SETTING_KEY,
     setupSettingsUI,
@@ -9,6 +9,10 @@ describe('settings UI', () => {
     beforeEach(() => {
         document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
         localStorage.clear();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('opens before playback and persists live sound changes', () => {
@@ -58,5 +62,35 @@ describe('settings UI', () => {
         const done = document.querySelector('.settings-done');
         done.click();
         expect(document.getElementById('settings-overlay').getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('reveals a temporary settings cog on mouse movement', () => {
+        vi.useFakeTimers();
+        setupSettingsUI();
+        const cog = document.getElementById('settings-cog');
+
+        window.dispatchEvent(new MouseEvent('mousemove'));
+        expect(cog.classList.contains('is-visible')).toBe(true);
+        expect(cog.getAttribute('aria-hidden')).toBe('false');
+
+        vi.advanceTimersByTime(2400);
+        expect(cog.classList.contains('is-visible')).toBe(false);
+        expect(cog.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('shows the key guide and can return to the title', () => {
+        const onRestart = vi.fn();
+        setupSettingsUI({ onRestart });
+
+        expect([...document.querySelectorAll('.settings-shortcut kbd')]
+            .map(key => key.innerText)).toEqual([
+            '←', '→', '↑', '↓', 'H', 'S', 'D', 'F', 'R', 'Esc',
+        ]);
+
+        document.querySelector('[data-setting="restart"]').click();
+        expect(onRestart).toHaveBeenCalledOnce();
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+        expect(onRestart).toHaveBeenCalledTimes(2);
     });
 });
