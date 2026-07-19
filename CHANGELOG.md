@@ -8,8 +8,8 @@ This project follows
 ## [Unreleased]
 
 ### Added
-- Bottle DGDS namespace with a validated game-package contract and reusable
-  browser-host entry point
+- Bottle DGDS namespace with a base game-package contract and browser-
+  presentation entry point
 - Runtime-selectable diagnostics with downloadable JSONL traces, pixel
   fingerprints, and session/build/device metadata
 - Fixed-step DGDS timing, logical drawing surfaces, per-resource TTM
@@ -24,6 +24,8 @@ This project follows
 - `pnpm run dump` command for inspecting extracted game assets
 
 ### Changed
+- Bottle guidance now targets DGDS playback, inspection, and conformance before
+  full interactive-game compatibility; presentation capabilities are host-owned
 - Johnny startup, settings, and Enhanced UI now live under its game namespace;
   generic palette data now lives under DGDS
 - TTM interpretation now reports structured execution outcomes to the ADS

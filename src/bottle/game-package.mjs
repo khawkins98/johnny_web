@@ -13,9 +13,9 @@ const requireString = (value, path) => {
 /**
  * Validate and freeze the title/version knowledge supplied to Bottle DGDS.
  *
- * This intentionally specifies only the fields the current host and machine
- * consume. A second title should extend the contract from evidence rather than
- * adding speculative configuration here.
+ * The base contract contains identity and archive discovery only. Individual
+ * hosts validate optional capabilities such as presentation entry points,
+ * background metadata, audio catalogues, or interaction models.
  */
 export const defineGamePackage = definition => {
     if (!definition || typeof definition !== 'object') {
@@ -27,15 +27,5 @@ export const defineGamePackage = definition => {
     requireString(definition.version, 'version');
     requireString(definition.resources?.map, 'resources.map');
     requireString(definition.resources?.archive, 'resources.archive');
-    requireString(definition.resources?.intro, 'resources.intro');
-    requireString(definition.resources?.activity, 'resources.activity');
-    requireString(definition.audio?.archive, 'audio.archive');
-    if (!Array.isArray(definition.audio?.sampleOffsets)) {
-        throw new TypeError('Bottle game package requires audio.sampleOffsets');
-    }
-    if (!definition.background || typeof definition.background !== 'object') {
-        throw new TypeError('Bottle game package requires background metadata');
-    }
-
     return deepFreeze(definition);
 };

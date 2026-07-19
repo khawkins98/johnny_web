@@ -1,10 +1,10 @@
-import { runBrowserGame } from '../../bottle/browser-app.mjs';
+import { runBrowserPresentation } from '../../bottle/browser-presentation.mjs';
 import { setupDebugUI } from '../../bottle/debug-ui.mjs';
 import { johnnyCastaway } from './manifest.mjs';
 import { setupEnhancedUI } from './ui/enhanced.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from './ui/settings.mjs';
 
-export const runJohnnyCastaway = () => runBrowserGame({
+export const runJohnnyCastaway = () => runBrowserPresentation({
     game: johnnyCastaway,
     setupDebugUI,
     setupEnhancedUI,

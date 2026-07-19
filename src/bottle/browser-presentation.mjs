@@ -4,13 +4,13 @@ import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
 
 /**
- * Run one packaged DGDS title in the Bottle browser host.
+ * Run one packaged, non-interactive DGDS presentation in a browser.
  *
  * The game package supplies title/version resource knowledge. UI factories are
  * injected because settings and enhancements belong to the title/application,
  * not to the faithful DGDS machine.
  */
-export const runBrowserGame = async ({
+export const runBrowserPresentation = async ({
     game,
     setupDebugUI = () => {},
     setupEnhancedUI = () => null,
@@ -21,6 +21,7 @@ export const runBrowserGame = async ({
     if (typeof setupSettingsUI !== 'function') {
         throw new TypeError('Bottle browser host requires a settings UI factory');
     }
+    requireBrowserPresentationPackage(game, soundSettingKey);
 
     const mainContext = document.getElementById('mainCanvas').getContext('2d');
     mainContext.clearRect(0, 0, 640, 480);
@@ -120,6 +121,24 @@ export const runBrowserGame = async ({
 
         enhancedUI?.destroy();
         enhancedUI = null;
+    }
+};
+
+const requireBrowserPresentationPackage = (game, soundSettingKey) => {
+    const requireString = (value, path) => {
+        if (typeof value !== 'string' || value.length === 0) {
+            throw new TypeError(`Bottle browser presentation requires ${path}`);
+        }
+    };
+    requireString(game.resources?.intro, 'resources.intro');
+    requireString(game.resources?.activity, 'resources.activity');
+    requireString(game.audio?.archive, 'audio.archive');
+    requireString(soundSettingKey, 'soundSettingKey');
+    if (!Array.isArray(game.audio?.sampleOffsets)) {
+        throw new TypeError('Bottle browser presentation requires audio.sampleOffsets');
+    }
+    if (!game.background || typeof game.background !== 'object') {
+        throw new TypeError('Bottle browser presentation requires background metadata');
     }
 };
 

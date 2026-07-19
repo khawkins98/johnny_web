@@ -30,8 +30,18 @@ describe('Bottle game package', () => {
 
     it('reports a missing required field by package path', () => {
         const game = validPackage();
-        delete game.resources.activity;
+        delete game.resources.archive;
 
-        expect(() => defineGamePackage(game)).toThrow('resources.activity');
+        expect(() => defineGamePackage(game)).toThrow('resources.archive');
+    });
+
+    it('does not require browser-presentation capabilities', () => {
+        const game = validPackage();
+        delete game.resources.intro;
+        delete game.resources.activity;
+        delete game.background;
+        delete game.audio;
+
+        expect(() => defineGamePackage(game)).not.toThrow();
     });
 });

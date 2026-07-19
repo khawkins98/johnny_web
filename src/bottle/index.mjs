@@ -1,4 +1,4 @@
-export { runBrowserGame } from './browser-app.mjs';
+export { runBrowserPresentation } from './browser-presentation.mjs';
 export { defineGamePackage } from './game-package.mjs';
 
 export const BOTTLE_DGDS = Object.freeze({

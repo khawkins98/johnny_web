@@ -45,8 +45,9 @@ focused regression or conformance test.
 - The original implementation, resource traces, and reference engines are
   evidence. Tests distinguish decoder, conformance, compatibility, host, and
   enhancement behavior.
-- A second DGDS/Screen Antics title is required before stabilizing a reusable
-  public engine API.
+- An independently sourced DGDS presentation is required before stabilizing the
+  reusable playback API. Full-game APIs require separate validation against an
+  interactive DGDS title.
 
 ## Intended dependency direction
 
@@ -64,7 +65,7 @@ enhancement code.
 The machine now has instance-owned state and emits logical frame, audio, and
 presentation operations. Browser scheduling, Canvas upload, Web Audio, storage,
 and enhancements are host concerns. The experimental **Bottle DGDS** namespace
-now owns the reusable browser host and validated game-package contract; Johnny's
+now owns the browser-presentation host and base game-package contract; Johnny's
 resource metadata and presentation UI live under `src/games/johnny/`.
 `process.mjs` remains only as the single-session browser/debug façade. See
 [Architecture](../architecture.md) for current module ownership.
