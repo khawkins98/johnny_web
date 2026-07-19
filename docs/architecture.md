@@ -136,6 +136,8 @@ ADS condition branches stage scene additions and removals:
 
 The browser has background and foreground canvases. TTM opcodes address neither — the retained-surface presenter applies their operations to per-scene software surfaces.
 
+The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the historical sequence policy and the remaining compatibility gap between flat ambient selection and complete story/walking orchestration.
+
 When retained foreground state changes, `composeTtmFrame()`:
 
 1. clears the process composition surface;
@@ -164,6 +166,8 @@ GET/PUT operations overwrite RGBA values, including transparent pixels. On a sce
 | Audio                                        | `play-sample` operation → game sample catalogue → Web Audio adapter                    |
 | Enhanced controls                            | runtime control API → scene navigation, playback rate, HUD, full screen                |
 | Diagnostics export                           | JSONL recorder → browser download; optional Vite endpoint for automation               |
+| Title scene/story policy                     | game-owned selector or scheduler → ADS resource and tag                                |
+| Title background overlays                    | game-owned decorator → browser background presenter                                   |
 
 Tests use software or recording surfaces plus deterministic runtime inputs and presentation policies without Canvas or wall time. `pnpm run test:golden` replays four historically fragile Johnny sequences from extracted local data and compares logical-operation digests and retained-frame fingerprints.
 
@@ -177,5 +181,3 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 | On      | Concise console events plus structured events and pixel fingerprints |
 
 Enabling diagnostics starts a session at the current engine tick. Its first JSONL record contains application and build, engine, timing profile, page, browser-reported capability, and display metadata. `frame-timing-map` events record authored and mapped delays with applied patch names. `audio-sample` events distinguish sample requests from actual playback starts. Disabling diagnostics writes a stop record. The developer panel downloads the capture in the browser; automation may read it directly or use the Vite-only persistence endpoint. `?debug=verbose` adds noisy sprite logging without changing the exported trace.
-
-

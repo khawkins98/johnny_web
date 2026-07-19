@@ -4,6 +4,7 @@ import { loadFile } from './idb.mjs';
 import { extractArchiveToIndexedDB } from './extractor.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
+import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -18,6 +19,8 @@ export const runBrowserPresentation = async ({
     setupEnhancedUI = () => null,
     setupSettingsUI,
     soundSettingKey,
+    createBackgroundDecorator = () => null,
+    selectScene = null,
 }) => {
     if (!game) throw new TypeError('Bottle browser host requires a game package');
     if (typeof setupSettingsUI !== 'function') {
@@ -80,6 +83,8 @@ export const runBrowserPresentation = async ({
     }
 
     const resource = res.getResource(game.resources.archive);
+    const resourceProvider = createEntryResourceProvider(resource.entries);
+    const backgroundDecorator = createBackgroundDecorator({ resourceProvider });
     const introRes = resource.loadEntry(game.resources.intro);
     let audioManager = null;
     let enhancedUI = null;
@@ -93,8 +98,6 @@ export const runBrowserPresentation = async ({
     });
 
     const context = document.getElementById('canvas').getContext('2d');
-    const data = resource.loadEntry(game.resources.activity);
-
     while (true) {
         context.clearRect(0, 0, 640, 480);
         mainContext.clearRect(0, 0, 640, 480);
@@ -115,21 +118,32 @@ export const runBrowserPresentation = async ({
 
         let outcome;
         do {
+            const override = window.__NEXT_SCRIPT_OVERRIDE__;
+            window.__NEXT_SCRIPT_OVERRIDE__ = null;
+            const selection = override || selectScene?.({ resourceProvider }) || {};
+            const script = selection.script || game.resources.activity;
+            const tagId = selection.tagId ?? null;
+
             context.clearRect(0, 0, 640, 480);
             mainContext.clearRect(0, 0, 640, 480);
+            const data = resourceProvider.resolve(script);
+
             outcome = await new Promise((resolve) => {
                 startProcess({
                     type: 'ADS',
                     context,
                     mainContext,
                     data,
-                    entries: resource.entries,
+                    resourceProvider,
+                    backgroundDecorator,
                     game,
                     audioManager,
+                    adsSceneTag: tagId,
+                    singleAdsScene: tagId !== null,
                     onComplete: resolve,
                 });
             });
-        } while (outcome?.reason === 'completed');
+        } while (outcome?.reason === 'completed' || outcome?.reason === 'script_override');
 
         enhancedUI?.destroy();
         enhancedUI = null;

@@ -172,4 +172,36 @@ describe('DgdsRuntime', () => {
             },
         });
     });
+
+    it('runs only the ADS tag selected by the host', () => {
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 2,
+            singleAdsScene: true,
+            data: {
+                name: 'test',
+                resources: [],
+                scenes: [
+                    { tagId: { id: 1, description: 'first' }, script: [{ opcode: 0xffff, params: [] }] },
+                    { tagId: { id: 2, description: 'selected' }, script: [{ opcode: 0xffff, params: [] }] },
+                    { tagId: { id: 3, description: 'third' }, script: [{ opcode: 0xffff, params: [] }] },
+                ],
+            },
+        });
+
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.tick(1000 / 60).completed).toBe(true);
+        expect(runtime.state.currentScene).toBe(2);
+    });
+
+    it('rejects an unknown host-selected ADS tag', () => {
+        expect(() =>
+            createRuntime({
+                type: 'ADS',
+                adsSceneTag: 99,
+                singleAdsScene: true,
+                data: { name: 'test', resources: [], scenes: [] },
+            }),
+        ).toThrow('ADS scene 99 does not exist');
+    });
 });

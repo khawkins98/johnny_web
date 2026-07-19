@@ -77,6 +77,7 @@ export const startProcess = (initialState) => {
         entries,
         resourceProvider: suppliedResourceProvider,
         presentationPolicy: suppliedPresentationPolicy,
+        backgroundDecorator,
         ...runtimeInitialState
     } = initialState;
 
@@ -98,6 +99,7 @@ export const startProcess = (initialState) => {
         context,
         mainContext,
         presentationPolicy,
+        backgroundDecorator,
     });
     activeFramePresenter = framePresenter;
 

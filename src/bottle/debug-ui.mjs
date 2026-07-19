@@ -1,4 +1,4 @@
-import { __DEBUG__ } from '../dgds/scripting/process.mjs';
+import { __DEBUG__, stopProcess } from '../dgds/scripting/process.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
 export function setupDebugUI() {
@@ -81,7 +81,7 @@ export function setupDebugUI() {
             if (!diagnostics.enabled) diagnostics.setMode('on');
             if (container.style.display === 'none') {
                 container.style.display = 'flex';
-                populateSelect(); // Load actual scenes from engine
+                originalPopulateSelect(); // Load actual scenes from engine
             } else {
                 container.style.display = 'none';
             }
@@ -99,64 +99,110 @@ export function setupDebugUI() {
         cursor: pointer;
     `;
 
-    // Scene Selection
+    const scriptsRow = document.createElement('div');
+    scriptsRow.style.display = 'flex';
+    scriptsRow.style.gap = '8px';
+    scriptsRow.style.alignItems = 'center';
+
     const sceneRow = document.createElement('div');
     sceneRow.style.display = 'flex';
     sceneRow.style.gap = '8px';
     sceneRow.style.alignItems = 'center';
 
-    const select = document.createElement('select');
-    select.style.cssText = controlStyle;
-    select.style.flex = '1';
+    const scriptSelect = document.createElement('select');
+    scriptSelect.style.cssText = controlStyle;
+    scriptSelect.style.flex = '1';
 
-    const populateSelect = () => {
-        select.innerHTML = ''; // clear
+    const adsFiles = [
+        'ACTIVITY.ADS',
+        'BUILDING.ADS',
+        'FISHING.ADS',
+        'JOHNNY.ADS',
+        'MARY.ADS',
+        'MISCGAG.ADS',
+        'STAND.ADS',
+        'SUZY.ADS',
+        'VISITOR.ADS',
+        'WALKSTUF.ADS',
+    ];
+    adsFiles.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file;
+        opt.innerText = file;
+        scriptSelect.appendChild(opt);
+    });
+
+    const sceneSelect = document.createElement('select');
+    sceneSelect.style.cssText = controlStyle;
+    sceneSelect.style.flex = '1';
+
+    const populateScenes = () => {
+        sceneSelect.innerHTML = ''; // clear
         const state = __DEBUG__.getState();
-        if (state && state.data && state.data.scenes) {
-            // Sort scenes numerically by tag ID
-            const sortedScenes = [...state.data.scenes].sort((a, b) => {
-                const idA = a.tagId && a.tagId.id ? a.tagId.id : 0;
-                const idB = b.tagId && b.tagId.id ? b.tagId.id : 0;
-                return idA - idB;
-            });
+        if (!state || !state.resourceProvider) return;
 
-            let prevId = 0;
-            sortedScenes.forEach((scene) => {
-                if (scene.tagId && scene.tagId.id) {
-                    const currentId = scene.tagId.id;
+        const scriptName = scriptSelect.value;
+        const scriptData = state.resourceProvider.resolve(scriptName);
+        if (!scriptData || !scriptData.scenes) return;
 
-                    // Add stubs for missing IDs in the sequence
-                    for (let i = prevId + 1; i < currentId; i++) {
-                        const stub = document.createElement('option');
-                        stub.value = i;
-                        stub.innerText = `${i}: [MISSING IN ORIGINAL GAME]`;
-                        stub.disabled = true;
-                        select.appendChild(stub);
-                    }
+        const sortedScenes = [...scriptData.scenes].sort((a, b) => {
+            const idA = a.tagId && a.tagId.id ? a.tagId.id : 0;
+            const idB = b.tagId && b.tagId.id ? b.tagId.id : 0;
+            return idA - idB;
+        });
 
-                    const option = document.createElement('option');
-                    option.value = currentId;
-                    option.innerText = `${currentId}: ${scene.tagId.description}`;
-                    select.appendChild(option);
-
-                    prevId = currentId;
+        let prevId = 0;
+        sortedScenes.forEach((scene) => {
+            if (scene.tagId && scene.tagId.id) {
+                const currentId = scene.tagId.id;
+                for (let i = prevId + 1; i < currentId; i++) {
+                    const stub = document.createElement('option');
+                    stub.value = i;
+                    stub.innerText = `${i}: [MISSING IN ORIGINAL GAME]`;
+                    stub.disabled = true;
+                    sceneSelect.appendChild(stub);
                 }
-            });
-        }
+                const option = document.createElement('option');
+                option.value = currentId;
+                option.innerText = `${currentId}: ${scene.tagId.description}`;
+                sceneSelect.appendChild(option);
+                prevId = currentId;
+            }
+        });
     };
 
+    scriptSelect.addEventListener('change', populateScenes);
+
     const jumpBtn = document.createElement('button');
-    jumpBtn.innerText = 'Jump to Gag';
+    jumpBtn.innerText = 'Jump to Script/Gag';
     jumpBtn.style.cssText = controlStyle;
 
     jumpBtn.addEventListener('click', () => {
-        const tagId = Number(select.value);
-        __DEBUG__.jumpToScene(tagId);
+        const script = scriptSelect.value;
+        const tagId = Number(sceneSelect.value);
+        const state = __DEBUG__.getState();
+        if (state && state.data && state.data.name === script) {
+            __DEBUG__.jumpToScene(tagId);
+        } else {
+            window.__NEXT_SCRIPT_OVERRIDE__ = { script, tagId };
+            stopProcess('script_override');
+        }
     });
 
-    sceneRow.appendChild(select);
+    scriptsRow.appendChild(scriptSelect);
+    sceneRow.appendChild(sceneSelect);
     sceneRow.appendChild(jumpBtn);
+    container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
+
+    // Patch original populateSelect call
+    const originalPopulateSelect = () => {
+        const state = __DEBUG__.getState();
+        if (state && state.data && state.data.name) {
+            scriptSelect.value = state.data.name;
+        }
+        populateScenes();
+    };
 
     const traceBtn = document.createElement('button');
     traceBtn.innerText = 'Download JSONL Trace';

@@ -3,6 +3,8 @@ import { setupDebugUI } from '../../bottle/debug-ui.mjs';
 import { johnnyCastaway } from './manifest.mjs';
 import { setupEnhancedUI } from './ui/enhanced.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from './ui/settings.mjs';
+import { createHolidayOverlay } from './ui/holidays.mjs';
+import { createJohnnySceneSelector } from './scene-selector.mjs';
 
 export const runJohnnyCastaway = () =>
     runBrowserPresentation({
@@ -11,4 +13,6 @@ export const runJohnnyCastaway = () =>
         setupEnhancedUI,
         setupSettingsUI,
         soundSettingKey: SOUND_SETTING_KEY,
+        createBackgroundDecorator: createHolidayOverlay,
+        selectScene: createJohnnySceneSelector(),
     });

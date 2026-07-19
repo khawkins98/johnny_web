@@ -119,4 +119,20 @@ describe('browser frame presenter', () => {
         expect(context.fillRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(state.fadeOpacity).toBeCloseTo(0.25);
     });
+
+    it('decorates the background after drawing it', () => {
+        const mainContext = createContext();
+        const backgroundDecorator = vi.fn();
+        const presenter = createBrowserFramePresenter({
+            context: createContext(),
+            mainContext,
+            presentationPolicy,
+            backgroundDecorator,
+        });
+        const state = createState();
+
+        presenter.presentBackground(state);
+
+        expect(backgroundDecorator).toHaveBeenCalledWith(state, mainContext);
+    });
 });

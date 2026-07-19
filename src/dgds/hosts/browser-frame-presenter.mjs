@@ -2,7 +2,12 @@ import { composeTtmFrame, getCompositionRevision } from '../scripting/compositio
 import { drawBackground } from '../scripting/frame-renderer.mjs';
 
 /** Browser adapter for final composition, backgrounds, fades, and Canvas. */
-export const createBrowserFramePresenter = ({ context, mainContext, presentationPolicy }) => {
+export const createBrowserFramePresenter = ({
+    context,
+    mainContext,
+    presentationPolicy,
+    backgroundDecorator = null,
+}) => {
     if (!context || !mainContext || !presentationPolicy) {
         throw new TypeError('Browser frame presenter requires contexts and a presentation policy');
     }
@@ -15,7 +20,9 @@ export const createBrowserFramePresenter = ({ context, mainContext, presentation
     const backgroundState = (state) => state.scenes.find((scene) => scene?.state?.bkgScreen)?.state ?? state;
     const presentBackground = (state) => {
         mainContext.clearRect(0, 0, 640, 480);
-        drawBackground(backgroundState(state), mainContext, presentationPolicy);
+        const source = backgroundState(state);
+        drawBackground(source, mainContext, presentationPolicy);
+        backgroundDecorator?.(source, mainContext);
     };
     let foregroundImage = null;
     const presentForeground = (surface) => {
@@ -29,7 +36,10 @@ export const createBrowserFramePresenter = ({ context, mainContext, presentation
 
     const present = (state, directive) => {
         if (directive.clearForeground && !directive.compose) clear();
-        if (directive.backgroundOnly) drawBackground(state, mainContext, presentationPolicy);
+        if (directive.backgroundOnly) {
+            drawBackground(state, mainContext, presentationPolicy);
+            backgroundDecorator?.(state, mainContext);
+        }
         if (!directive.compose) return;
 
         const compositionRevision = getCompositionRevision(state);

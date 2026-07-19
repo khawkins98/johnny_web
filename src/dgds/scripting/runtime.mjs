@@ -120,6 +120,7 @@ export class DgdsRuntime {
 
         if (this.state.type === 'ADS') {
             this.#loadAdsResources();
+            this.#selectInitialAdsScene();
         }
     }
 
@@ -137,6 +138,18 @@ export class DgdsRuntime {
                 .filter(Boolean)
                 .join(', '),
         );
+    }
+
+    #selectInitialAdsScene() {
+        const state = this.state;
+        if (state.adsSceneTag == null) return;
+
+        const sceneIndex = state.data.scenes.findIndex((scene) => scene.tagId?.id === state.adsSceneTag);
+        if (sceneIndex === -1) {
+            throw new RangeError(`ADS scene ${state.adsSceneTag} does not exist in "${state.data.name}"`);
+        }
+        state.currentScene = sceneIndex;
+        state.adsSceneEnd = state.singleAdsScene ? sceneIndex + 1 : null;
     }
 
     describe() {
@@ -182,6 +195,15 @@ export class DgdsRuntime {
     #runAdsController() {
         const state = this.state;
         let completed = false;
+        if (
+            state.adsSceneEnd != null &&
+            state.currentScene >= state.adsSceneEnd &&
+            state.scenes.length === 0 &&
+            state.addScenes.length === 0
+        ) {
+            debugLog(`ADS selected scene complete in "${state.data?.name ?? '?'}"`);
+            return true;
+        }
         const scene = state.data.scenes[state.currentScene];
 
         if (scene !== undefined) {
