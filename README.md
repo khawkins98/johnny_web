@@ -25,6 +25,14 @@ pnpm run dev       # http://localhost:5173
 
 When you first open the local dev server, you will be prompted to drag and drop the downloaded ZIP or IMA file into the window to extract the required data as described above. Alternatively, a CLI extraction script (`pnpm run extract`) is provided for headless environments.
 
+### Local asset status and inspection
+
+- `public/data/` contains the extracted proprietary runtime archives. It is ignored by Git and must never be committed.
+- Browser drag-and-drop stores extracted data in IndexedDB; `pnpm run extract -- "<zip>"` creates the local `public/data/` files used by CLI diagnostics and golden tests.
+- `pnpm run dump` is the supported inspection tool. It regenerates resource indexes, compressed entries, decoded image data, ADS/TTM script listings, and audio samples under the ignored `dumps/` directory.
+- `dumps/` is disposable derived output. Delete and regenerate it instead of committing dumps or adding one-off extraction scripts at the repository root.
+- Durable reverse-engineering conclusions belong in parsers, focused tests, `docs/resindex.md`, or the title-specific historical notes.
+
 > [!TIP]
 > **Testing the empty state locally**
 > If you have already extracted the files locally but want to test the first-run drag-and-drop experience, run `pnpm run dev:empty`. This starts Vite without local assets and automatically opens `http://localhost:5173/?reset` to clear the local browser cache and force the empty state.
@@ -43,7 +51,7 @@ When you first open the local dev server, you will be prompted to drag and drop 
 | `pnpm run test:coverage`      | Run the Vitest suite with V8 coverage                                                                   |
 | `pnpm run test:golden`        | Replay known rendering sequences against committed logical/pixel fingerprints (requires extracted data) |
 | `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change (requires extracted data)       |
-| `pnpm run dump`               | Dump screensaver assets to `dumps/` for inspection (requires extracted data)                            |
+| `pnpm run dump`               | Regenerate disposable inspection output under ignored `dumps/` (requires `public/data/`)                |
 
 ## Playback modes
 

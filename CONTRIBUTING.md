@@ -61,5 +61,7 @@ Keep DGDS behavior, title-specific compatibility, browser accommodation, and opt
 
 - Run `pnpm test` and `pnpm run build` before opening a PR.
 - Rendering changes also require extracted local data and `pnpm run test:golden`. Use `pnpm run test:golden:update` only after visually reviewing an intentional logical-frame change.
+- Use `pnpm run dump` to regenerate ignored inspection output under `dumps/`. Do not commit proprietary files from `public/data/`, derived dumps, asset inventories, or ad hoc root-level extraction scripts.
+- Preserve findings that need to survive regeneration in parser/runtime tests and the relevant document under `docs/`.
 - Press `S` to open Settings and enable diagnostics, or press `D` to open the developer panel and enable them immediately.
 - For rendering bugs, reproduce after enabling diagnostics and attach the downloaded JSONL trace. Use `?debug=verbose` only when live sprite logs help.

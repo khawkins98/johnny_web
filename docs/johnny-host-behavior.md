@@ -43,6 +43,8 @@ The browser implementation therefore:
 
 The reproduced date ranges are March 15–17, October 29–31, December 23–25, and December 29–January 1.
 
+To verify an overlay, set the operating system's local date into the corresponding range and reload the page. Holiday selection intentionally follows the browser-visible local calendar, as the original screensaver followed the Windows system clock. There is currently no query-string or developer-menu override.
+
 ## Architectural ownership
 
 | Responsibility | Owner |
@@ -56,6 +58,7 @@ The reproduced date ranges are March 15–17, October 29–31, December 23–25,
 ## Historical references
 
 - The archived game data in `public/data/` is the primary evidence for resource contents and ADS/TTM behavior; it remains user-supplied and uncommitted.
+- `pnpm run dump` regenerates disposable decoded evidence under ignored `dumps/`. The repository intentionally carries no decoded holiday images, resource inventories, or one-off extraction scripts.
 - [Johnny Reborn's scene catalogue](https://github.com/jno6809/jc_reborn/blob/master/story_data.h) documents the executable-level scene metadata recovered by its clean-room implementation.
 - [Johnny Reborn's story scheduler](https://github.com/jno6809/jc_reborn/blob/master/story.c) documents final-scene selection, intermediate scene counts, story-day state, and island configuration.
 - [Johnny Reborn's island renderer](https://github.com/jno6809/jc_reborn/blob/master/island.c) documents the holiday ranges, sprite indices, and placement coordinates used for cross-checking.

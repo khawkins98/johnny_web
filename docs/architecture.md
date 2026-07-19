@@ -78,10 +78,12 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 1. Fetch `RESOURCE.MAP` and `RESOURCE.001`.
 2. The Johnny application passes its validated game package and UI factories to the Bottle browser host. The host selects the resource archive and draws the configured intro screen.
 3. Wait for a click — construct `AudioContext` synchronously inside that user gesture to satisfy browser autoplay rules.
-4. Load the manifest's activity ADS and call `startProcess()`, which constructs a named-resource provider, constructs a fresh `DgdsRuntime`, and connects it to a browser scheduler.
-5. When the ADS program completes, start a fresh cycle.
+4. Create the named-resource provider, ask the optional title selector for an ADS resource and tag, then call `startProcess()` to construct a fresh `DgdsRuntime` and connect it to the browser scheduler.
+5. When the selected ADS program completes, ask the title selector for the next cycle. Packages without a selector fall back to the manifest's activity ADS.
 
 The game data is not committed. The browser application includes an extractor that accepts a `.zip` or `.ima` file via drag-and-drop or file picker, parsing and decompressing the resources directly into IndexedDB on the client.
+
+CLI extraction writes the three proprietary runtime archives under ignored `public/data/`. `pnpm run dump` reads those archives through the same resource parsers and regenerates disposable inspection output under ignored `dumps/`, including the resource index, compressed entries, decoded images, ADS/TTM listings, and samples. Reverse-engineering evidence that must persist belongs in tests and documentation rather than generated asset dumps.
 
 ## Resource and script model
 
