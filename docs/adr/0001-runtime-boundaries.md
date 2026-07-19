@@ -1,15 +1,14 @@
 # ADR 0001: DGDS runtime boundaries
 
-Status: accepted for incremental migration
+Status: accepted
 
 ## Context
 
-The first implementation grew around Johnny Castaway and correctly prioritized
-discovering DGDS behavior. As a result, `process.mjs` came to own interpreter
+The original implementation grew around Johnny Castaway and correctly
+prioritized discovering DGDS behavior. As a result, `process.mjs` came to own interpreter
 coordination, mutable process state, browser scheduling, presentation, audio,
 diagnostics, and developer controls. Those responsibilities make behavioral
-fixes harder to classify and prevent the engine from being reused by another
-DGDS title.
+fixes harder to classify and would prevent reuse by another DGDS title.
 
 Passing tests protect observed behavior, but do not by themselves distinguish
 faithful DGDS semantics from Johnny-specific data, browser accommodation, or an
@@ -17,7 +16,7 @@ optional enhancement.
 
 ## Decision
 
-The implementation will move incrementally toward four explicit layers:
+The implementation uses four explicit layers:
 
 1. **DGDS machine** — deterministic script and scene state transitions. It
    consumes logical ticks and input, and emits logical frame, audio, and
@@ -37,19 +36,15 @@ Compatibility rules must be named, scoped, and testable. A game-specific rule
 must identify the applicable resource/version fingerprint, its evidence, and a
 focused regression or conformance test.
 
-## Migration constraints
+## Constraints
 
-- This is an extraction, not a rewrite. Each step must preserve characterized
-  runtime behavior and keep the application runnable.
-- The first step introduces an instance-owned `DgdsRuntime` and separates the
-  browser animation-frame host. It is intentionally an interim boundary: until
-  drawing and audio become logical operations, the runtime still has presenter
-  dependencies and must not be advertised as the final pure machine API.
+- This was an extraction, not a rewrite. Each migration step preserved
+  characterized runtime behavior and kept the application runnable.
 - Module-global state may exist only as a legacy façade for the single active
   browser session and developer UI. It must not own engine semantics.
 - The original implementation, resource traces, and reference engines are
-  evidence. Tests are classified as decoder, conformance, compatibility, host,
-  or enhancement tests as the migration proceeds.
+  evidence. Tests distinguish decoder, conformance, compatibility, host, and
+  enhancement behavior.
 - A second DGDS/Screen Antics title is required before stabilizing a reusable
   public engine API.
 
@@ -64,3 +59,10 @@ application / enhancements ──► game package ──► DGDS machine
 The DGDS machine must not import browser APIs, Johnny-specific settings, or
 enhancement code.
 
+## Implementation status
+
+The machine now has instance-owned state and emits logical frame, audio, and
+presentation operations. Browser scheduling, Canvas upload, Web Audio, storage,
+and enhancements are host concerns; Johnny resource metadata lives in its game
+package. `process.mjs` remains only as the single-session browser/debug façade.
+See [Architecture](../architecture.md) for current module ownership.

@@ -6,16 +6,21 @@ Dynamix/Sierra On-Line. It is a hard fork of
 [xesf/castaway](https://github.com/xesf/castaway), modernized around ES modules,
 Web APIs, Vite, and a testable DGDS engine.
 
-![alt text](castaway.png "Dynamix Johnny Castaway Screen Saver")
+![Johnny Castaway on his island beneath the screensaver title](castaway.png "Dynamix Johnny Castaway Screen Saver")
 
 ## Getting started
 
+Requirements: Node.js 20.19+ (or 22.12+) and pnpm 10. The original game data is
+also required and is not included in this repository.
+
 ```bash
 pnpm install
+pnpm run extract -- "<path-to-downloaded.zip>"
 pnpm run dev       # http://localhost:5173
 ```
 
-Game data files are required — see [Obtaining the Game Data Files](#obtaining-the-game-data-files) below.
+See [Obtaining the Screensaver Data Files](#obtaining-the-screensaver-data-files)
+for the download and extractor prerequisites.
 
 ## Project goals
 
@@ -73,10 +78,11 @@ files.
 | `pnpm run preview` | Serve the `dist/` build locally |
 | `pnpm run extract -- "<zip>"` | Extract screensaver data from Archive.org ZIP |
 | `pnpm test` | Run the Vitest test suite |
+| `pnpm run test:watch` | Run Vitest in watch mode while developing |
 | `pnpm run test:coverage` | Run the Vitest suite with V8 coverage |
 | `pnpm run test:golden` | Replay known rendering sequences against committed logical/pixel fingerprints (requires extracted data) |
-| `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change |
-| `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection |
+| `pnpm run test:golden:update` | Regenerate rendering fingerprints after reviewing an intentional change (requires extracted data) |
+| `pnpm run dump` | Dump screensaver assets to `dumps/` for inspection (requires extracted data) |
 
 ## Playback modes
 
@@ -110,8 +116,15 @@ request/playback events. Headless tools can read `window.__DGDS__.getTrace()`,
 download with `saveTrace()`, or write under `traces/` through the Vite-only
 `persistTrace()` endpoint. Old diagnostics URLs remain compatible aliases.
 
-See [Architecture](docs/architecture.md) for engine boundaries and
-[DGDS learnings](LEARNINGS.md) for reverse-engineering conclusions.
+## Documentation
+
+- [Architecture](docs/architecture.md) — current execution model, repository map,
+  host boundaries, and known compatibility gaps
+- [Runtime boundaries ADR](docs/adr/0001-runtime-boundaries.md) — the intended
+  separation between the DGDS machine, game package, host, and enhancements
+- [DGDS learnings](LEARNINGS.md) and [resource index](docs/resindex.md) — file
+  formats and reverse-engineering notes
+- [Contributing](CONTRIBUTING.md) — verification and change guidelines
 
 ## Acknowledgements
 

@@ -2,6 +2,17 @@
 
 Thanks for your interest in contributing to johnny_web! Please follow these guidelines to keep the project clean and easy to navigate.
 
+## Getting Started
+
+```bash
+pnpm install
+pnpm run extract -- "<path-to-downloaded.zip>"
+pnpm run dev       # http://localhost:5173
+```
+
+The data is proprietary and not committed. See the [README](README.md) for the
+supported download and extractor prerequisites.
+
 ## Pull Requests
 
 - All changes must come in via a pull request — no direct commits to `main`.
@@ -44,21 +55,28 @@ docs: update setup instructions for Vite
 - Prefer native Web APIs over third-party libraries where reasonable.
 - Run the project locally and verify your change works before opening a PR.
 
+## Finding your way around
+
+Start with [`docs/architecture.md`](docs/architecture.md), which describes the
+execution model and links code to responsibilities. The main boundaries are:
+
+- `src/dgds/` — reusable resource parsing and faithful DGDS execution
+- `src/dgds/hosts/` — browser scheduling, audio, and presentation adapters
+- `src/games/johnny/` — Johnny-specific resources and metadata
+- `src/scrantic/main.mjs` — browser application startup and runtime wiring
+
+Keep DGDS behavior, title-specific compatibility, browser accommodation, and
+optional enhancements in their respective layers. New compatibility rules
+should be named, scoped, and covered by a focused test; see
+[`docs/adr/0001-runtime-boundaries.md`](docs/adr/0001-runtime-boundaries.md).
+
 ## Verification and diagnostics
 
 - Run `pnpm test` and `pnpm run build` before opening a PR.
 - Rendering changes also require extracted local data and `pnpm run test:golden`.
   Use `pnpm run test:golden:update` only after visually reviewing an intentional
   logical-frame change.
-- Press `S` to enable diagnostics; press `D` for the developer panel.
+- Press `S` to open Settings and enable diagnostics, or press `D` to open the
+  developer panel and enable them immediately.
 - For rendering bugs, reproduce after enabling diagnostics and attach the
   downloaded JSONL trace. Use `?debug=verbose` only when live sprite logs help.
-
-## Getting Started
-
-```bash
-pnpm install
-pnpm run dev   # http://localhost:5173
-```
-
-See the [README](README.md) for full setup and game data extraction instructions.

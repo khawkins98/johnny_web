@@ -15,26 +15,26 @@ RESOURCE.MAP + RESOURCE.001
             ▼
       resource parsers
             │
-       ADS controller
-            │ starts/stops
-            ▼
-       TTM sequences ──► per-scene software surfaces
-                              │
-                              ▼
-                    software frame compositor
-                              │
-               ┌──────────────┴──────────────┐
-               ▼                             ▼
-       browser background             foreground canvas
+       ADS controller ── starts/stops ──► TTM sequences
+                                              │ frame operations
+                                              ▼
+                                  per-scene software surfaces
+                                              │
+                                  software foreground compositor
+                                              │ RGBA upload
+                                              ▼
+                                      foreground canvas
+
+game background metadata + decoded assets ──► browser background renderer
+                                              │
+                                              ▼
+                                      background canvas
 ```
 
-The engine-facing code uses logical ticks, instance-owned execution state,
-injected host services, and a drawing-surface contract. Browser animation-frame
-timestamps are converted by a host adapter, and audio opcodes emit logical
-operations consumed by a Web Audio host. Drawing opcodes emit logical frame
-operations, while final composition and Canvas rendering belong to a browser
-presenter. See [ADR 0001](adr/0001-runtime-boundaries.md) for the target
-dependency direction.
+The engine uses logical ticks, instance-owned state, injected resources, and a
+software drawing surface. Host adapters convert browser timestamps, consume
+logical audio operations, and present composed RGBA frames on Canvas. See
+[ADR 0001](adr/0001-runtime-boundaries.md) for the dependency decision.
 
 ## Repository map
 
@@ -46,11 +46,11 @@ dependency direction.
 | `src/dgds/resources/` | ADS, TTM, BMP, SCR, and PAL parsers |
 | `src/dgds/compression/` | DGDS RLE/LZW decoding |
 | `src/games/johnny/manifest.mjs` | Johnny identity, entry points, aliases, audio, and background metadata |
-| `src/dgds/scripting/process.mjs` | Browser host composition and legacy active-session/debug façade |
-| `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and transitional presentation |
+| `src/dgds/scripting/process.mjs` | Browser session wiring and legacy active-session/debug façade |
+| `src/dgds/scripting/runtime.mjs` | Instance-owned ADS/TTM coordination and logical presentation directives |
 | `src/dgds/hosts/browser-scheduler.mjs` | Animation-frame timestamp to logical-tick host adapter |
 | `src/dgds/hosts/browser-audio.mjs` | Logical sample-operation to Web Audio host adapter |
-| `src/dgds/hosts/browser-frame-presenter.mjs` | Composition, backgrounds, fades, and Canvas presentation |
+| `src/dgds/hosts/browser-frame-presenter.mjs` | Foreground RGBA upload plus browser backgrounds and fades |
 | `src/dgds/hosts/browser-presentation-policy.mjs` | Enhancement settings, wall time, and presentation randomness |
 | `src/dgds/scripting/script-runner.mjs` | Opcode callbacks, dispatch tables, interpreter |
 | `src/dgds/scripting/audio-operation.mjs` | Host-neutral audio operation contract |
@@ -109,10 +109,9 @@ resource prologue and named sequences.
 ## Logical execution
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs
-until an opcode blocks, normally `UPDATE`, then returns a structured `yielded`,
-`looped`, or `completed` outcome. `UPDATE` emits an authored frame boundary with
-the current `SET_DELAY` value; it does not count browser ticks. The scheduler
-maps that directive through the named timing-compatibility profile and owns the resulting
+until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or
+`completed`. `UPDATE` emits an authored frame boundary with the current
+`SET_DELAY`; the scheduler maps it through the named timing profile and owns the
 wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
 Each `DgdsRuntime` owns its mutable script, scene, and composition state. The
@@ -124,12 +123,10 @@ preserves them and applies one named compatibility rule:
 `browser-yield-floor` makes a zero-delay frame visible for one logical tick.
 Browser wall time does not enter opcode execution.
 
-The runtime receives its random function and timing-compatibility map directly;
-it does not retain browser storage, wall-time, or presentation-policy services.
-Enhanced cloud/wave animation state is owned by the browser policy in a
-per-scene `WeakMap`, initialized from scene state but never written back. Thus
-enabling enhancements cannot alter interpreter timers, random choices, or
-authored scene state.
+The runtime receives randomness and timing compatibility directly; it does not
+retain storage, wall time, or presentation policy. The browser policy owns
+enhanced cloud/wave state without writing it into authored scene state. Thus
+enhancements cannot alter interpreter timers, random choices, or scene state.
 
 `PLAY_SAMPLE` emits a logical `play-sample` operation into the current tick
 result. The opcode does not inspect, resume, load, or await browser audio. The
@@ -144,11 +141,12 @@ synchronously into deterministic RGBA pixels so a later opcode in the same
 script observes the faithful GET/PUT result. `DgdsRuntime.tick()` also returns
 the emitted operations for conformance tests and alternate hosts.
 
-The tick result also contains a presentation directive: clear the foreground,
-update a standalone background, and/or compose active retained layers. The
-browser frame presenter consumes that directive and exclusively owns the two
-Canvas contexts, final composition, enhanced backgrounds, and fade drawing.
-Canvas contexts and completion callbacks are not retained in runtime state.
+The tick result also directs the host to clear the foreground, update a
+background, and/or request composition of retained layers. The engine's
+`composeTtmFrame()` owns foreground layer ordering and RGBA composition. The
+browser presenter uploads that result and owns the separate background Canvas,
+enhanced backgrounds, and fades; runtime state retains no Canvas context or
+completion callback.
 
 The application injects the Johnny game package into the runtime. `LOAD_SCREEN`,
 `LOAD_IMAGE`, ocean selection, and the browser background renderer obtain file
@@ -186,28 +184,29 @@ ADS condition branches stage scene additions and removals:
 
 ## Frame composition
 
-The browser page has a background canvas and a foreground presentation canvas.
-TTM opcodes never address either directly. They emit frame operations; the
-retained-surface presenter applies them to per-scene software surfaces.
+The browser has background and foreground canvases. TTM opcodes address neither;
+the retained-surface presenter applies their operations to per-scene software
+surfaces.
 
-For every rendered logical frame, `composeTtmFrame()`:
+When retained foreground state changes, `composeTtmFrame()`:
 
 1. clears the process composition surface;
 2. paints stored areas;
 3. paints active/retained scene surfaces in TTM resource/declaration order;
-4. optionally records a structured composition event and pixel fingerprint;
-5. presents the result on the foreground canvas.
+4. optionally records a structured composition event and pixel fingerprint.
+
+The browser presenter then uploads the composed RGBA surface to the foreground
+canvas. It caches the retained-layer revision to avoid recomposing and uploading
+an unchanged frame.
 
 Removing a scene therefore removes its pixels on the next composition; there is
 no scene-removal clear heuristic. A scene surface retains its current TTM frame
 while a logical delay elapses.
 
-GET/PUT operations are overwrite operations. The software surface copies RGBA
-values directly so transparent saved pixels erase prior content. On a scene
-layer, `CLEAR_SCREEN` first discards the entire
-previous frame, then restores the saved region; saved rectangles do not always
-cover sprites moving elsewhere on screen. `STORE_AREA` and saved GET/PUT slots
-are owned by the faithful scripting/composition layer, not the browser presenter.
+GET/PUT operations overwrite RGBA values, including transparent pixels. On a
+scene layer, `CLEAR_SCREEN` discards the previous frame before restoring the
+saved region, because the region may not cover a moving sprite. `STORE_AREA`
+and GET/PUT slots belong to the scripting/composition layer, not the browser.
 
 `frame-renderer.mjs` draws the configured background separately. Optional
 cloud, wave, and local-time behavior uses the injected game metadata and browser
@@ -242,8 +241,8 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 | Off | No diagnostics |
 | On | Concise console events plus structured events and pixel fingerprints |
 
-Enabling diagnostics starts a new session at the current engine tick. Its first JSONL
-record contains application/build, engine, timing profile, page,
+Enabling diagnostics starts a session at the current engine tick. Its first
+JSONL record contains application/build, engine, timing profile, page,
 browser-reported capability, and display metadata. `frame-timing-map` events
 record authored and mapped delays with applied patch names; `audio-sample` events
 distinguish sample requests from actual playback starts. Disabling diagnostics

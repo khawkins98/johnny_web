@@ -2,7 +2,8 @@
 
 All notable changes to this project will be documented here.
 
-This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) conventions.
+This project follows
+[Keep a Changelog](https://keepachangelog.com/en/1.0.0/) conventions.
 
 ## [Unreleased]
 
@@ -13,11 +14,12 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   environments, and deterministic recording surfaces for tests
 - Deterministic RGBA software framebuffer and golden logical-frame checks for
   bathing, dive/walk-out, gull-landing, and concurrent-layer sequences
-- `npm run extract` script (`src/extract.mjs`) — unpacks the Archive.org floppy ZIP, mounts the `.ima` image via `mtools`, and decompresses the TSComp/PKWARE archives to `public/data/`
+- `pnpm run extract` command to unpack the floppy image and decompress its
+  archives into `public/data/`
 - `node-pkware` dependency for PKWARE DCL implode decompression
-- Full-viewport error overlay (`#data-error`) shown when screensaver data files are missing or unreadable, with per-file status list and download guidance
+- Full-viewport error overlay for missing or unreadable game data
 - GitHub Pages deployment workflow (`.github/workflows/deploy.yml`)
-- `npm run dump` script for inspecting extracted game assets
+- `pnpm run dump` command for inspecting extracted game assets
 
 ### Changed
 - TTM interpretation now reports structured execution outcomes to the ADS
@@ -28,11 +30,9 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   host boundaries rather than opcode-interpreter globals
 - Diagnostics now present a clear Off/On setting; the legacy verbose URL remains
   available for live console investigation
-- Migrated from plain HTTP serving to **Vite** for local dev and production builds
-- Error overlay wired to DOM (was attempting canvas drawing); uses `classList.add('visible')` toggle
-- `loadResources()` wrapped in try/catch to surface binary parse errors in the overlay
-- Vite SPA-fallback 200 response correctly detected via `content-type` check (was silently treated as success)
-- `#data-error` overlay uses `position: fixed; inset: 0` for full-viewport coverage
+- Migrated local development and production builds to Vite
+- Resource loading now reports binary parse failures and detects Vite fallback
+  responses in the error overlay
 
 ### Fixed
 - GET/PUT restoration now overwrites transparent pixels correctly
@@ -48,8 +48,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) co
   saved regions
 - Stopped scenes disappear from the next composition instead of leaving their
   final pixels on a persistent shared canvas
-- Layout: removed inline `style="width: 100%"` on `#root` that was overriding the canvas container width
-- CSS: restored accidentally dropped `.instruction` selector that left bare properties silently ignored
+- Corrected canvas layout styles and restored the `.instruction` selector
 - Historical attribution: corrected initial release year to 1992 (stable release 1.02 in 1993)
 
 ### Docs

@@ -1,4 +1,4 @@
-# `RESOURCE.MAP` format
+# RESOURCE.MAP format
 
 This partial specification matches `src/dgds/resource.mjs`. Multi-volume maps
 are described by the format, although Johnny Castaway uses one resource volume.
@@ -54,5 +54,5 @@ internal block header identifies its compression algorithm.
 - 2026-07-18: corrected field widths and aligned the description with the
   current parser
 
-Earlier reverse-engineering references included Johnny Castaway tooling by
-Hans Milling (`nivs1978`) and DGDS work in ScummVM.
+Earlier references include Johnny Castaway tooling by Hans Milling (`nivs1978`)
+and the DGDS engine in ScummVM.

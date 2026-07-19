@@ -39,7 +39,7 @@ The original engine rebuilds its composition from background/stored buffers and
 then executes active sequences in painter order. Treating a browser canvas as
 both retained scene state and final composition causes stopped-scene ghosts.
 
-The working model is:
+The evidence-backed model is:
 
 - one retained surface per TTM scene;
 - one decoded-asset and saved-area environment per TTM resource;
@@ -48,15 +48,15 @@ The working model is:
 - deterministic software RGBA for retained state; Canvas only for final host
   presentation and background enhancements.
 
-`0x4210` saves a GET/PUT region and `0xa600` draws it back by overwrite. A
-source-over compositing is insufficient because transparent saved pixels must
+`0x4210` saves a GET/PUT region and `0xa600` draws it back by overwrite.
+Source-over compositing is insufficient because transparent saved pixels must
 replace destination pixels. The saved blit must copy transparent values too.
-On an isolated scene layer, `0xa600` also begins a fresh scene frame:
-clear the whole prior layer before restoring the saved rectangle. Some sprites
-move outside that rectangle and would otherwise leave trails.
+On an isolated scene layer, `0xa600` also begins a fresh scene frame: clear the
+prior layer before restoring the saved rectangle. Sprites can move outside that
+rectangle and would otherwise leave trails.
 
 `0x4200` stores an area for later frames. `0x4000` clip arguments are inclusive
-maximum coordinates, so Canvas width/height require `+1`.
+maximum coordinates, so surface width/height require `+1`.
 
 ## Resource environment ownership
 
@@ -105,9 +105,9 @@ played history, fades, and condition state are not copied into TTM state.
 
 ## Diagnostics
 
-Console text is helpful for live inspection but insufficient for rendering
-bugs. A useful trace needs logical ticks, lifecycle changes, sprite/GETPUT
-events, ordered layer revisions, and a final composition fingerprint.
+Console text helps live inspection but is insufficient for rendering bugs. A
+trace needs logical ticks, lifecycle changes, sprite/GETPUT events, ordered
+layer revisions, and a final composition fingerprint.
 
 JSON Lines is the canonical artifact because composition records contain nested
 layer data. CSV can be derived for analysis. A session header records when

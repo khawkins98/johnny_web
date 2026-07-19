@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * npm run extract -- "<path-to-zip>"
+ * pnpm run extract -- "<path-to-zip>"
  *
  * Extracts the three screensaver data files needed by johnny_web from the
  * original Johnny Castaway floppy disk ZIP image available on Archive.org:
@@ -87,7 +87,7 @@ function decompressTSComp(buf) {
 const zipPath = process.argv[2];
 
 if (!zipPath) {
-    console.error('Usage: npm run extract -- "<path-to-zip>"');
+    console.error('Usage: pnpm run extract -- "<path-to-zip>"');
     console.error('');
     console.error('Download the ZIP from Archive.org:');
     console.error('  https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m');
@@ -160,7 +160,7 @@ try {
 
     console.log('');
     console.log('✓  Done! Files written to public/data/');
-    console.log('   Run: npm run dev');
+    console.log('   Run: pnpm run dev');
 
 } finally {
     rmSync(tmp, { recursive: true, force: true });
