@@ -2,8 +2,6 @@
 
 A web-native reimplementation of the 1992 [Johnny Castaway](https://en.wikipedia.org/wiki/Johnny_Castaway) screensaver, powered by **Bottle DGDS**: an experimental runtime, inspection, and conformance toolkit for DGDS animations.
 
-![Johnny Castaway on his island beneath the screensaver title](castaway.png "Dynamix Johnny Castaway Screen Saver")
-
 **tl;dr**
 - Run `pnpm install` and `pnpm run extract -- "<path-to-downloaded.zip>"` to get started.
 - This is a hard fork of [xesf/castaway](https://github.com/xesf/castaway) modernized for ES modules and Vite.
