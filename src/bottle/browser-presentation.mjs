@@ -235,17 +235,11 @@ function showDataError(game, missing, detail) {
             card.classList.remove('dragover');
         }
     });
-    window.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        card.classList.remove('dragover');
-
+    const processFile = async (file, url) => {
         if (card.dataset.isExtracting) return;
         card.dataset.isExtracting = 'true';
 
         const inst = overlay.querySelector('.instruction');
-        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
-        const file = e.dataTransfer.files[0];
-
         let buffer;
         let filename = '';
         
@@ -286,5 +280,33 @@ function showDataError(game, missing, detail) {
             inst.style.color = '#e07070';
             card.dataset.isExtracting = '';
         }
+    };
+
+    window.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        card.classList.remove('dragover');
+
+        const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+        const file = e.dataTransfer.files[0];
+        
+        await processFile(file, url);
     });
+
+    const filePicker = document.getElementById('file-picker');
+    const instructionBox = document.getElementById('upload-instruction');
+    
+    if (instructionBox && filePicker) {
+        instructionBox.addEventListener('click', (e) => {
+            // Prevent clicking the anchor tag from opening the file picker
+            if (e.target.tagName.toLowerCase() !== 'a') {
+                filePicker.click();
+            }
+        });
+        filePicker.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await processFile(file, null);
+            }
+        });
+    }
 }

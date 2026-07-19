@@ -226,16 +226,17 @@
 
             <div id="data-error" role="alert" aria-live="assertive">
                 <div id="data-error-card">
-                    <h2>Ready to (not) set sail?</h2>
+                    <h2>Ready to cast away?</h2>
                     <p>
-                        To get started, we need the original game files.
+                        We need the original game files.
                         Check out the <a href="https://github.com/khawkins98/johnny_web/blob/main/README.md" target="_blank" rel="noopener">README</a>.
                     </p>
                     <p class="detail"></p>
-                    <div class="instruction">
+                    <div class="instruction" id="upload-instruction" style="cursor: pointer; transition: background 0.2s, border-color 0.2s;" onmouseover="this.style.background='rgba(244, 228, 200, 0.8)';" onmouseout="this.style.background='rgba(244, 228, 200, 0.46)';">
                         <strong>Got the original files?</strong><br/>
                         Download the Windows 3.1 floppy image ZIP from the <a href="https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m" target="_blank" rel="noopener noreferrer">Internet Archive</a> <br/>
-                        and drag and drop it anywhere on this window!
+                        and <strong>click here</strong> or drag and drop it anywhere!
+                        <input type="file" id="file-picker" accept=".zip,.ima,.img" style="display: none;" />
                     </div>
                 </div>
             </div>
