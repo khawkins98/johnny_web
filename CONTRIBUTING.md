@@ -38,15 +38,7 @@ fix(resource): handle missing PAL entries gracefully
 docs: update setup instructions for Vite
 ```
 
-## Changelog
 
-- Every PR that changes behaviour, adds a feature, or fixes a bug **must** include an entry in [`CHANGELOG.md`](CHANGELOG.md).
-- Add your entry under the `## [Unreleased]` section using one of these prefixes:
-    - `Added` — new features
-    - `Changed` — changes to existing behaviour
-    - `Fixed` — bug fixes
-    - `Removed` — removed features
-- Follow [Keep a Changelog](https://keepachangelog.com) conventions.
 
 ## Code style
 
