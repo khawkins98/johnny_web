@@ -15,8 +15,8 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:coverage": "vitest run --coverage",
-        "test:golden": "node tools/render-goldens.mjs",
-        "test:golden:update": "node tools/render-goldens.mjs --update",
+        "test:golden": "node test/render-goldens.mjs",
+        "test:golden:update": "node test/render-goldens.mjs --update",
         "dump": "node src/dump.mjs",
         "extract": "node src/extract.mjs"
     },
