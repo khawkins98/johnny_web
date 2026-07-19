@@ -92,8 +92,9 @@ The opening screen leaves the original Sierra artwork unobstructed and offers:
 - **Enhanced** — responsive scaling, moving clouds and waves, plus a small HUD.
 
 In Enhanced mode, use `←`/`→` to change scenes, `↑`/`↓` to change speed, and
-`F` to enter or leave full screen. Every option remains individually adjustable
-in Settings.
+`F` to enter or leave full screen. Dismiss the status note with its close button;
+press `H` to hide or restore it. Every option remains individually adjustable in
+Settings.
 
 ## Diagnostics
 

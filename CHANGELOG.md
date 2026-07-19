@@ -30,6 +30,8 @@ This project follows
   host boundaries rather than opcode-interpreter globals
 - Diagnostics now present a clear Off/On setting; the legacy verbose URL remains
   available for live console investigation
+- The Enhanced-mode HUD now matches the parchment UI and can be dismissed or
+  restored with `H`
 - Migrated local development and production builds to Vite
 - Resource loading now reports binary parse failures and detects Vite fallback
   responses in the error overlay
