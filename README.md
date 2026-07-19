@@ -106,4 +106,11 @@ The next portability milestone is to replay an independently sourced, non-intera
 
 ## Acknowledgements
 
+**A Personal Note**
+I remember in the early 90s going to the office with one of my parents and seeing this running on a machine as a screensaver. I thought it was really cool! For decades you basically didn't see it anymore, and it's super cool that I can now just have it running in a browser tab for a bit of fun. It was a really fun way to learn more about how these old screensavers worked.
+
+AI was used in building this project, and it made doing all the reverse engineering and testing vastly easier than a traditional way of hand-scaling it. I managed to complete this effort over a few intense sessions—what probably would have taken me several weeks of detailed reverse engineering and testing otherwise.
+
+That being said, while AI was a great help, none of this would have been possible without the hard work that a lot of people put in. A huge thanks to the folks who did all the basic reverse engineering, the people who preserved and uploaded the files to the [Internet Archive](https://archive.org/details/screen-antics-johnny-castaway-16-color-v1.01-int.-1.4.93-win3.1-1.44m), and of course, the original screensaver creators at Sierra On-Line.
+
 See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.
