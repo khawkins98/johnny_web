@@ -1,7 +1,7 @@
 import { __DEBUG__, stopProcess } from '../dgds/scripting/process.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
-export function setupDebugUI() {
+export function setupDebugUI({ themes = null } = {}) {
     // Stable automation hook for Playwright/headless browser diagnostics.
     window.__DGDS__ = __DEBUG__;
     const container = document.createElement('div');
@@ -240,6 +240,31 @@ export function setupDebugUI() {
     timeLabel.prepend(timeCheckbox);
     timeRow.appendChild(timeLabel);
     container.appendChild(timeRow);
+
+    if (themes?.storageKey && Array.isArray(themes.options)) {
+        const themeRow = document.createElement('label');
+        themeRow.style.display = 'flex';
+        themeRow.style.gap = '8px';
+        themeRow.style.alignItems = 'center';
+        themeRow.innerText = `${themes.label || 'Theme'}: `;
+
+        const themeSelect = document.createElement('select');
+        themeSelect.style.cssText = controlStyle;
+        themeSelect.style.flex = '1';
+        for (const theme of themes.options) {
+            const option = document.createElement('option');
+            option.value = theme.value;
+            option.innerText = theme.label;
+            themeSelect.appendChild(option);
+        }
+        themeSelect.value = localStorage.getItem(themes.storageKey) || themes.options[0]?.value || '';
+        themeSelect.addEventListener('change', () => {
+            localStorage.setItem(themes.storageKey, themeSelect.value);
+            __DEBUG__.refreshBackground();
+        });
+        themeRow.appendChild(themeSelect);
+        container.appendChild(themeRow);
+    }
 
     // Console Log Area
     const consoleArea = document.createElement('div');

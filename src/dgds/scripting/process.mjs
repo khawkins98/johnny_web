@@ -164,6 +164,9 @@ export const __DEBUG__ = {
         activeRuntime?.setNightMode(isNight);
         if (activeRuntime) activeFramePresenter?.presentBackground(activeRuntime.state);
     },
+    refreshBackground: () => {
+        if (activeRuntime) activeFramePresenter?.presentBackground(activeRuntime.state);
+    },
     stepScene: (direction) => activeRuntime?.stepScene(direction),
     setPlaybackRate: (rate) => activeRuntime?.setPlaybackRate(rate),
     getPresentation: () =>

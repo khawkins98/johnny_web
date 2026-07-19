@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHolidayOverlay, holidayForDate } from '../holidays.mjs';
+import { createHolidayOverlay, HOLIDAY_SETTING_KEY, holidayForDate } from '../holidays.mjs';
 
 describe('Johnny holiday overlays', () => {
     beforeEach(() => {
@@ -52,5 +52,28 @@ describe('Johnny holiday overlays', () => {
         expect(overlay(state, context)).toBe(true);
         expect(resourceProvider.resolve).toHaveBeenCalledWith('HOLIDAY.BMP');
         expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 132, 267);
+    });
+
+    it('allows the debug palette to override the calendar theme', () => {
+        const image = {
+            width: 1,
+            height: 1,
+            pixels: [{ r: 1, g: 2, b: 3, a: 255 }],
+        };
+        const storage = { getItem: vi.fn((key) => (key === HOLIDAY_SETTING_KEY ? 'halloween' : null)) };
+        const context = { drawImage: vi.fn() };
+        const overlay = createHolidayOverlay({
+            resourceProvider: { resolve: () => ({ images: [image, image, image, image] }) },
+            now: () => new Date(2026, 6, 19),
+            storage,
+        });
+
+        expect(
+            overlay(
+                { backgroundId: 1, game: { background: { layouts: { 1: { x: 288 } } } } },
+                context,
+            ),
+        ).toBe(true);
+        expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 410, 298);
     });
 });

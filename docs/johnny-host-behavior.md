@@ -43,7 +43,7 @@ The browser implementation therefore:
 
 The reproduced date ranges are March 15–17, October 29–31, December 23–25, and December 29–January 1.
 
-To verify an overlay, set the operating system's local date into the corresponding range and reload the page. Holiday selection intentionally follows the browser-visible local calendar, as the original screensaver followed the Windows system clock. There is currently no query-string or developer-menu override.
+Holiday selection defaults to **Calendar**, following the browser-visible local date as the original screensaver followed the Windows system clock. To preview a theme without changing the clock, press `D`, use **Holiday Theme** in the developer panel, and choose Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year. The choice persists locally until changed.
 
 ## Architectural ownership
 

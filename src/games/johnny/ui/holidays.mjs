@@ -1,10 +1,33 @@
 import { buildSpriteCanvas } from '../../../dgds/graphics.mjs';
 
+export const HOLIDAY_SETTING_KEY = 'jc-holiday-theme';
+
 const HOLIDAYS = Object.freeze([
-    Object.freeze({ name: 'st-patricks-day', start: 315, end: 317, sprite: 1, x: 333, y: 286 }),
-    Object.freeze({ name: 'halloween', start: 1029, end: 1031, sprite: 0, x: 410, y: 298 }),
-    Object.freeze({ name: 'christmas', start: 1223, end: 1225, sprite: 2, x: 404, y: 267 }),
-    Object.freeze({ name: 'new-year', dates: Object.freeze([1229, 1230, 1231, 101]), sprite: 3, x: 361, y: 155 }),
+    Object.freeze({
+        name: 'st-patricks-day',
+        label: "St Patrick's Day",
+        start: 315,
+        end: 317,
+        sprite: 1,
+        x: 333,
+        y: 286,
+    }),
+    Object.freeze({ name: 'halloween', label: 'Halloween', start: 1029, end: 1031, sprite: 0, x: 410, y: 298 }),
+    Object.freeze({ name: 'christmas', label: 'Christmas', start: 1223, end: 1225, sprite: 2, x: 404, y: 267 }),
+    Object.freeze({
+        name: 'new-year',
+        label: 'New Year',
+        dates: Object.freeze([1229, 1230, 1231, 101]),
+        sprite: 3,
+        x: 361,
+        y: 155,
+    }),
+]);
+
+export const HOLIDAY_THEME_OPTIONS = Object.freeze([
+    Object.freeze({ value: 'calendar', label: 'Calendar' }),
+    Object.freeze({ value: 'none', label: 'None' }),
+    ...HOLIDAYS.map((holiday) => Object.freeze({ value: holiday.name, label: holiday.label })),
 ]);
 
 export const holidayForDate = (date = new Date()) => {
@@ -19,14 +42,24 @@ export const holidayForDate = (date = new Date()) => {
     );
 };
 
-export const createHolidayOverlay = ({ resourceProvider, now = () => new Date() }) => {
+export const createHolidayOverlay = ({
+    resourceProvider,
+    now = () => new Date(),
+    storage = globalThis.localStorage,
+}) => {
     if (typeof resourceProvider?.resolve !== 'function') {
         throw new TypeError('Holiday overlay requires a resource provider');
     }
 
     let holidayResource;
     return (state, mainContext) => {
-        const holiday = holidayForDate(now());
+        const theme = storage?.getItem(HOLIDAY_SETTING_KEY) || 'calendar';
+        const holiday =
+            theme === 'calendar'
+                ? holidayForDate(now())
+                : theme === 'none'
+                  ? null
+                  : HOLIDAYS.find((candidate) => candidate.name === theme) || null;
         const layout = state.game?.background?.layouts?.[state.backgroundId];
         if (!holiday || !layout) return false;
 

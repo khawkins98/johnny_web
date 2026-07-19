@@ -91,6 +91,8 @@ Set Diagnostics to **On**. This starts a fresh structured trace from the current
 
 The developer panel's **Download JSONL trace** button downloads the capture. Its first record identifies the build, browser, display, and engine state. Later records include lifecycle, drawing, timing-map, layer, pixel-fingerprint, and audio-sample events.
 
+The panel's **Holiday Theme** selector previews Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year without changing the operating-system clock. Calendar remains the faithful default.
+
 Headless tools can read `window.__DGDS__.getTrace()`, download with `saveTrace()`, or write under `traces/` through the Vite-only `persistTrace()` endpoint. Old diagnostics URLs remain compatible aliases.
 
 ## Documentation
