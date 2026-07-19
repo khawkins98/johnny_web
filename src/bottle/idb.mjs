@@ -1,24 +1,30 @@
 let dbPromise = null;
 
 export const getDB = () => {
-    if (window.location.search.includes('reset')) {
-        indexedDB.deleteDatabase('BottleDGDS');
-        window.history.replaceState(null, '', window.location.pathname);
-        dbPromise = null;
-    }
-
     if (!dbPromise) {
-        dbPromise = new Promise((resolve, reject) => {
-            const req = indexedDB.open('BottleDGDS', 1);
-            req.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains('files')) {
-                    db.createObjectStore('files');
-                }
-            };
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
-        });
+        dbPromise = (async () => {
+            if (window.location.search.includes('reset')) {
+                await new Promise((resolve) => {
+                    const req = indexedDB.deleteDatabase('BottleDGDS');
+                    req.onsuccess = resolve;
+                    req.onerror = resolve; // Ignore errors on delete
+                    req.onblocked = resolve;
+                });
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('BottleDGDS', 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('files')) {
+                        db.createObjectStore('files');
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        })();
     }
     return dbPromise;
 };
