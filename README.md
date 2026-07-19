@@ -104,15 +104,19 @@ The next portability milestone is to replay an independently sourced, non-intera
 - [xesf/castaway](https://github.com/xesf/castaway) — the project from which this repository was originally forked.
 - [DGDS resource index](docs/resindex.md) — this project's current format findings.
 
-## Acknowledgements
+## A Personal Note & Acknowledgements
 
-See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.
-
-**A Personal Note**
 I remember in the early 90s going to the office with one of my parents and seeing this running on a machine as a screensaver. I thought it was really cool! For decades you basically didn't see it anymore, and it's super cool that I can now just have it running in a browser tab for a bit of fun. It was a really fun way to learn more about how these old screensavers worked.
 
-AI was used in building this project, and it made doing the reverse engineering and testing vastly easier than a traditional way of hand-scaling it. I managed to complete this effort over a few intense sessions. What probably would have taken me several weeks of detailed reverse engineering and testing otherwise.
+AI was used heavily in building this modernization, and it made the reverse engineering and testing vastly easier than traditional hand-scaling. I managed to complete this effort over a few intense sessions—something that probably would have taken me several weeks of detailed work otherwise.
 
-That said, while AI was a great help, none of this would have been possible without the hard work that a lot of people put in. A huge thanks to the folks who did all the foundational reverse engineering work (including Alexandre Fontoura, Jérémie Guillaume, Hans Milling, Vasco Costa, and the [ScummVM team](https://github.com/scummvm/scummvm/tree/master/engines/dgds)), the people who preserved and uploaded the files to the Internet Archive (like [Greyfalken](https://archive.org/details/@greyfalken)), and of course, the original screensaver creators at Sierra On-Line.
+That being said, while AI was a great accelerator, **none of this would have been possible without the hard work that many others put in first**. A huge thanks to:
 
-If you want to learn more about the history of the screensaver, check out this [great YouTube video](https://www.youtube.com/watch?v=E5lxiTJGqHw) and its page on the [Sierra Chest](https://sierrachest.com/index.php?a=games&id=255&title=johnny-castaway&fld=general). You can also run the original version in DOSBox directly on the [Internet Archive](https://archive.org/details/johnny-castaway-screensaver).
+- **The Original Creators:** The team at Sierra On-Line / Dynamix for creating such an iconic piece of 90s software.
+- **The Reverse Engineers:** The folks who did all the foundational work to decode the DGDS engine formats, including [Alexandre Fontoura](https://github.com/xesf/castaway), [Jérémie Guillaume](https://github.com/jno6809/jc_reborn), [Hans Milling](https://github.com/nivs1978/Johnny-Castaway-Open-Source), [Vasco Costa](https://github.com/vcosta/scummvm/tree/master/engines/dgds), and the [ScummVM team](https://github.com/scummvm/scummvm/tree/master/engines/dgds).
+- **The Archivists:** The people who preserved the original floppy disks and uploaded them to the Internet Archive, especially [Greyfalken](https://archive.org/details/@greyfalken).
+
+**Further Reading & History**  
+If you want to learn more about the history of the screensaver, check out this [great YouTube video](https://www.youtube.com/watch?v=E5lxiTJGqHw) and its page on the [Sierra Chest](https://sierrachest.com/index.php?a=games&id=255&title=johnny-castaway&fld=general). You can also run the original 1992 version in DOSBox directly on the [Internet Archive](https://archive.org/details/johnny-castaway-screensaver).
+
+See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.
