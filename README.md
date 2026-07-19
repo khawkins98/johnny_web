@@ -16,7 +16,7 @@ If you are just looking to run the screensaver on an already-hosted version of t
 
 ## Developer setup
 
-Requirements: Node.js 20.19+ (or 22.12+) and pnpm 10. 
+Requirements: Node.js 24+ and pnpm 10. 
 
 ```bash
 pnpm install
