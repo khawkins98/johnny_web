@@ -6,7 +6,33 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
     if (!sequenceTools) return null;
     let pendingOverride = null;
     let activeAttempt = null;
+    let activeSelection = null;
     let generation = 0;
+    const statusListeners = new Set();
+
+    const status = () => {
+        const resumedSequence = sequenceTools.status?.() ?? null;
+        if (!activeSelection?.preview) return resumedSequence;
+
+        return Object.freeze({
+            storyDay: activeSelection.titleState?.storyDay ?? resumedSequence?.storyDay ?? 1,
+            current: 1,
+            total: 1,
+            remaining: 0,
+            active: Object.freeze({ script: activeSelection.script, tagId: activeSelection.tagId }),
+            next: null,
+            final: Object.freeze({ script: activeSelection.script, tagId: activeSelection.tagId }),
+            lowTide: activeSelection.titleState?.lowTide ?? false,
+            preview: true,
+            resume: resumedSequence,
+        });
+    };
+
+    const publishStatus = () => {
+        for (const listener of statusListeners) listener(status());
+    };
+
+    sequenceTools.subscribeStatus?.(publishStatus);
 
     const request = ({ mode, script, tagId, storyDay }) => {
         const options = { storyDay };
@@ -25,6 +51,16 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
 
     return Object.freeze({
         request,
+        status,
+        subscribeStatus(listener) {
+            statusListeners.add(listener);
+            listener(status());
+            return () => statusListeners.delete(listener);
+        },
+        activate(selection) {
+            activeSelection = selection;
+            publishStatus();
+        },
         beginAttempt() {
             const attempt = Object.freeze({
                 generation,

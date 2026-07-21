@@ -109,7 +109,7 @@ describe('developer sequence controls', () => {
         setupDebugUI();
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 
-        const checkbox = document.querySelector('input[type="checkbox"]');
+        const checkbox = document.querySelector('[data-debug-control="night-mode"]');
         expect(checkbox.checked).toBe(true);
         checkbox.checked = false;
         checkbox.dispatchEvent(new Event('change'));
@@ -156,6 +156,7 @@ describe('developer sequence controls', () => {
         const day = document.querySelector('[data-debug-control="story-day"]');
         expect(day.value).toBe('11');
         expect(day.disabled).toBe(true);
+        expect(document.querySelector('[data-debug-row="story-day"]').style.display).toBe('none');
         expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
             'Run plan: Chapter 11 — Test scene only',
         );
@@ -165,6 +166,21 @@ describe('developer sequence controls', () => {
 
     it('labels selected controls separately from live playback', () => {
         let publishStatus;
+        processMocks.debug.getState.mockReturnValue({
+            data: { name: 'ACTIVITY.ADS' },
+            resourceProvider: {
+                resolve: (name) => ({
+                    scenes: [
+                        {
+                            tagId: {
+                                id: name === 'FISHING.ADS' ? 2 : 1,
+                                description: 'Test scene',
+                            },
+                        },
+                    ],
+                }),
+            },
+        });
         const sequenceTools = {
             preview: vi.fn(),
             planFrom: vi.fn(),
@@ -189,7 +205,7 @@ describe('developer sequence controls', () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 
         expect(document.querySelector('[data-debug-section="target"]').innerText).toBe('Start a debug run');
-        expect(document.querySelector('[data-debug-section="playback"]').innerText).toBe('Now playing');
+        expect(document.querySelector('[data-debug-section="playback"]').innerText).toBe('Now playing — host event');
         expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
             'compatible island events → Test scene finale',
         );
@@ -197,11 +213,15 @@ describe('developer sequence controls', () => {
             'Chapter 2 · Event 3 of 8',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Current: FISHING.ADS #2',
+            'Host event: FISHING.ADS #2',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
             'Next: MARY.ADS #1 · 5 remaining',
         );
+        expect(document.querySelector('[data-debug-control="follow-playback"]').checked).toBe(true);
+        expect(document.querySelectorAll('select')[0].value).toBe('FISHING.ADS');
+        expect(document.querySelectorAll('select')[1].value).toBe('2');
+        expect(document.querySelector('[data-debug-control="story-day"]').value).toBe('2');
 
         sequenceTools.status.mockReturnValue({
             storyDay: 2,
@@ -215,7 +235,73 @@ describe('developer sequence controls', () => {
         });
         publishStatus();
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Current: MARY.ADS #1',
+            'Host event: MARY.ADS #1',
+        );
+        expect(document.querySelectorAll('select')[0].value).toBe('MARY.ADS');
+        expect(document.querySelectorAll('select')[1].value).toBe('1');
+
+        document.querySelectorAll('select')[0].dispatchEvent(new Event('pointerdown'));
+        expect(document.querySelector('[data-debug-control="follow-playback"]').checked).toBe(false);
+        sequenceTools.status.mockReturnValue({
+            storyDay: 2,
+            current: 5,
+            total: 8,
+            remaining: 3,
+            active: { script: 'VISITOR.ADS', tagId: 1 },
+            next: { script: 'JOHNNY.ADS', tagId: 4 },
+            final: { script: 'JOHNNY.ADS', tagId: 4 },
+            lowTide: true,
+        });
+        publishStatus();
+        expect(document.querySelectorAll('select')[0].value).toBe('MARY.ADS');
+
+        const follow = document.querySelector('[data-debug-control="follow-playback"]');
+        follow.checked = true;
+        follow.dispatchEvent(new Event('change'));
+        expect(document.querySelectorAll('select')[0].value).toBe('VISITOR.ADS');
+
+        sequenceTools.status.mockReturnValue({
+            storyDay: 3,
+            current: 6,
+            total: 8,
+            remaining: 2,
+            active: { script: 'STAND.ADS', tagId: 1 },
+            next: { script: 'JOHNNY.ADS', tagId: 4 },
+            final: { script: 'JOHNNY.ADS', tagId: 4 },
+            lowTide: false,
+        });
+        vi.advanceTimersByTime(250);
+        expect(document.querySelectorAll('select')[0].value).toBe('STAND.ADS');
+        expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
+            'Host event: STAND.ADS #1',
+        );
+    });
+
+    it('identifies a selected-scene preview separately from the sequence it will resume', () => {
+        const sequenceTools = {
+            describe: vi.fn(() => ({ fixedDay: null, action: 'starting-event' })),
+            status: vi.fn(() => ({
+                storyDay: 4,
+                current: 1,
+                total: 1,
+                remaining: 0,
+                active: { script: 'VISITOR.ADS', tagId: 1 },
+                next: null,
+                final: { script: 'VISITOR.ADS', tagId: 1 },
+                lowTide: false,
+                preview: true,
+                resume: {
+                    storyDay: 4,
+                    next: { script: 'COCONUT.ADS', tagId: 6 },
+                },
+            })),
+        };
+
+        setupDebugUI({ sequenceTools });
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+
+        expect(document.querySelector('[data-debug-status="sequence"]').innerText).toBe(
+            'Selected-scene preview\nHost event: VISITOR.ADS #1\nResume: Chapter 4 · Next COCONUT.ADS #6',
         );
     });
 });

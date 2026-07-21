@@ -5,14 +5,23 @@ describe('debug run coordinator', () => {
     const create = () => {
         const preview = vi.fn((script, tagId) => ({ script, tagId, preview: true }));
         const planFrom = vi.fn();
+        const status = vi.fn(() => ({
+            storyDay: 4,
+            next: { script: 'ACTIVITY.ADS', tagId: 2 },
+        }));
+        let publishStatus;
+        const subscribeStatus = vi.fn((listener) => {
+            publishStatus = listener;
+            return vi.fn();
+        });
         const stopRuntime = vi.fn();
         const stopAudio = vi.fn();
         const coordinator = createDebugRunCoordinator({
-            sequenceTools: { preview, planFrom },
+            sequenceTools: { preview, planFrom, status, subscribeStatus },
             stopRuntime,
             stopAudio,
         });
-        return { coordinator, preview, planFrom, stopRuntime, stopAudio };
+        return { coordinator, preview, planFrom, status, publishStatus, stopRuntime, stopAudio };
     };
 
     it('atomically interrupts the complete host attempt and queues a preview', () => {
@@ -49,5 +58,37 @@ describe('debug run coordinator', () => {
 
         expect(planFrom).toHaveBeenCalledWith('FISHING.ADS', 3, { storyDay: 4 });
         expect(coordinator.takeOverride()).toBeNull();
+    });
+
+    it('reports an active preview instead of the paused story queue', () => {
+        const { coordinator, publishStatus } = create();
+        const listener = vi.fn();
+        coordinator.subscribeStatus(listener);
+        listener.mockClear();
+
+        coordinator.activate({
+            script: 'VISITOR.ADS',
+            tagId: 3,
+            preview: true,
+            titleState: { storyDay: 7, lowTide: true },
+        });
+
+        expect(coordinator.status()).toMatchObject({
+            storyDay: 7,
+            active: { script: 'VISITOR.ADS', tagId: 3 },
+            preview: true,
+            lowTide: true,
+            resume: { storyDay: 4, next: { script: 'ACTIVITY.ADS', tagId: 2 } },
+        });
+        expect(listener).toHaveBeenCalledOnce();
+
+        publishStatus();
+        expect(listener).toHaveBeenCalledTimes(2);
+
+        coordinator.activate({ script: 'FISHING.ADS', tagId: 4 });
+        expect(coordinator.status()).toEqual({
+            storyDay: 4,
+            next: { script: 'ACTIVITY.ADS', tagId: 2 },
+        });
     });
 });

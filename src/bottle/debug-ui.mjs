@@ -121,10 +121,26 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     targetLabel.dataset.debugSection = 'target';
 
     const targetHelp = document.createElement('div');
-    targetHelp.innerText = 'Choose what to start. Current playback is shown below.';
+    targetHelp.innerText = 'Following the host event now playing. Change a selector to choose a different target.';
     targetHelp.style.fontSize = '14px';
     targetHelp.style.opacity = '0.78';
     targetHelp.style.textWrap = 'pretty';
+
+    const followPlaybackRow = document.createElement('label');
+    followPlaybackRow.style.display = sequenceTools ? 'flex' : 'none';
+    followPlaybackRow.style.alignItems = 'center';
+    followPlaybackRow.style.gap = '8px';
+    followPlaybackRow.style.minHeight = '40px';
+    followPlaybackRow.style.cursor = 'pointer';
+    followPlaybackRow.title = 'Keep the debug target synchronized with the event currently playing.';
+    const followPlaybackCheckbox = document.createElement('input');
+    followPlaybackCheckbox.type = 'checkbox';
+    followPlaybackCheckbox.checked = true;
+    followPlaybackCheckbox.dataset.debugControl = 'follow-playback';
+    const followPlaybackText = document.createElement('span');
+    followPlaybackText.innerText = 'Follow host event';
+    followPlaybackRow.appendChild(followPlaybackCheckbox);
+    followPlaybackRow.appendChild(followPlaybackText);
 
     const sceneRow = document.createElement('div');
     sceneRow.style.display = 'flex';
@@ -133,6 +149,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     sceneRow.style.alignItems = 'stretch';
 
     const storyRow = document.createElement('label');
+    storyRow.dataset.debugRow = 'story-day';
     storyRow.style.display = sequenceTools ? 'flex' : 'none';
     storyRow.style.flexDirection = 'column';
     storyRow.style.gap = '3px';
@@ -272,7 +289,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     playbackModeSelect.dataset.debugControl = 'playback-mode';
     playbackModeSelect.style.cssText = controlStyle;
     for (const [value, label] of [
-        ['sequence', 'Complete chapter'],
+        ['sequence', 'Complete chapter sequence'],
         ['preview', 'Selected scene only'],
     ]) {
         const option = document.createElement('option');
@@ -291,6 +308,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         if (!sequenceTools) return;
         const metadata = sequenceTools.describe?.(scriptSelect.value, Number(sceneSelect.value));
         if (!metadata) {
+            storyRow.style.display = 'flex';
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
             storyDayHelp.style.display = 'none';
@@ -301,8 +319,10 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         if (metadata.fixedDay) {
             storyDaySelect.value = String(metadata.fixedDay);
             storyDaySelect.disabled = true;
-            storyDayHelp.style.display = 'block';
+            storyRow.style.display = 'none';
+            storyDayHelp.style.display = 'none';
         } else {
+            storyRow.style.display = 'flex';
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
             storyDayHelp.style.display = 'none';
@@ -323,6 +343,50 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     scriptSelect.addEventListener('change', syncSelectedSceneContext);
     sceneSelect.addEventListener('change', syncSelectedSceneContext);
     playbackModeSelect.addEventListener('change', syncSelectedSceneContext);
+
+    let syncingPlaybackTarget = false;
+    const updateFollowPlaybackHelp = () => {
+        targetHelp.innerText = followPlaybackCheckbox.checked
+            ? 'Following the host event now playing. Change a selector to choose a different target.'
+            : 'Debug target paused. Turn on Follow host event to track active playback.';
+    };
+    const stopFollowingPlayback = () => {
+        if (syncingPlaybackTarget || !followPlaybackCheckbox.checked) return;
+        followPlaybackCheckbox.checked = false;
+        updateFollowPlaybackHelp();
+    };
+    for (const control of [scriptSelect, sceneSelect, storyDaySelect]) {
+        control.addEventListener('pointerdown', stopFollowingPlayback);
+        control.addEventListener('keydown', (event) => {
+            if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', ' '].includes(event.key)) {
+                stopFollowingPlayback();
+            }
+        });
+    }
+
+    const syncTargetToPlayback = (status) => {
+        if (!followPlaybackCheckbox.checked || !status?.active) return;
+        const { script, tagId } = status.active;
+        if (![...scriptSelect.options].some((option) => option.value === script)) return;
+
+        syncingPlaybackTarget = true;
+        if (scriptSelect.value !== script) {
+            scriptSelect.value = script;
+            populateScenes();
+        }
+        if ([...sceneSelect.options].some((option) => Number(option.value) === Number(tagId))) {
+            sceneSelect.value = String(tagId);
+        }
+        preferredStoryDay = String(status.storyDay);
+        storyDaySelect.value = preferredStoryDay;
+        syncSelectedSceneContext();
+        syncingPlaybackTarget = false;
+    };
+
+    followPlaybackCheckbox.addEventListener('change', () => {
+        updateFollowPlaybackHelp();
+        if (followPlaybackCheckbox.checked) syncTargetToPlayback(sequenceTools?.status?.());
+    });
 
     const selectedScene = () => ({
         script: scriptSelect.value,
@@ -409,6 +473,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     sceneRow.appendChild(sceneSelect);
     container.appendChild(targetLabel);
     container.appendChild(targetHelp);
+    container.appendChild(followPlaybackRow);
     container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
     container.appendChild(storyRow);
@@ -418,7 +483,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     container.appendChild(actionRow);
     container.appendChild(actionFeedback);
 
-    const playbackLabel = makeSectionLabel('Now playing');
+    const playbackLabel = makeSectionLabel('Now playing — host event');
     playbackLabel.dataset.debugSection = 'playback';
     playbackLabel.style.display = sequenceTools ? 'block' : 'none';
     container.appendChild(playbackLabel);
@@ -439,6 +504,15 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
             sequenceStatus.innerText = 'No sequence is queued yet.';
             return;
         }
+        syncTargetToPlayback(status);
+        if (status.preview) {
+            const resume = status.resume;
+            const resumeText = resume?.next
+                ? `Resume: Chapter ${resume.storyDay} · Next ${resume.next.script} #${resume.next.tagId}`
+                : 'Resume: normal story playback';
+            sequenceStatus.innerText = `Selected-scene preview\nHost event: ${status.active.script} #${status.active.tagId}\n${resumeText}`;
+            return;
+        }
         const tide = status.lowTide ? 'Low tide' : 'High tide';
         if (status.current === 0) {
             sequenceStatus.innerText = `Chapter ${status.storyDay} · ${status.total} event${status.total === 1 ? '' : 's'} queued\nFirst: ${status.next.script} #${status.next.tagId}\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
@@ -446,16 +520,13 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
         const active = status.active ? `${status.active.script} #${status.active.tagId}` : 'loading';
         const next = status.next ? `${status.next.script} #${status.next.tagId}` : 'Finale in progress';
-        sequenceStatus.innerText = `Chapter ${status.storyDay} · Event ${status.current} of ${status.total}\nCurrent: ${active}\nNext: ${next} · ${status.remaining} remaining\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
+        sequenceStatus.innerText = `Chapter ${status.storyDay} · Event ${status.current} of ${status.total}\nHost event: ${active}\nNext: ${next} · ${status.remaining} remaining\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
     };
     container.appendChild(sequenceStatus);
-    if (sequenceTools?.subscribeStatus) {
-        sequenceTools.subscribeStatus(renderSequenceStatus);
-    } else if (sequenceTools) {
-        // Generic hosts may expose only a status snapshot; keep polling as the
-        // compatibility path while title controllers can publish immediately.
-        window.setInterval(() => renderSequenceStatus(), 500);
-    }
+    if (sequenceTools?.subscribeStatus) sequenceTools.subscribeStatus(renderSequenceStatus);
+    // Reconcile as well as subscribe: host playback can cross runtime and
+    // interlude boundaries where a title-specific notification may be missed.
+    if (sequenceTools) window.setInterval(() => renderSequenceStatus(), 250);
 
     // Patch original populateSelect call
     const originalPopulateSelect = () => {
@@ -493,6 +564,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
 
     const timeCheckbox = document.createElement('input');
     timeCheckbox.type = 'checkbox';
+    timeCheckbox.dataset.debugControl = 'night-mode';
     timeCheckbox.style.cursor = 'pointer';
     timeCheckbox.addEventListener('change', (e) => {
         __DEBUG__.setNightMode(e.target.checked);

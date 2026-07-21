@@ -107,6 +107,8 @@ export const runBrowserPresentation = async ({
         ? {
               ...debugSequence,
               startRun: (request) => debugRuns.request(request),
+              status: () => debugRuns.status(),
+              subscribeStatus: (listener) => debugRuns.subscribeStatus(listener),
           }
         : debugSequence;
     setupDebugUI({ themes: debugThemes, sequenceTools });
@@ -143,6 +145,7 @@ export const runBrowserPresentation = async ({
             const override = debugRuns?.takeOverride() || window.__NEXT_SCRIPT_OVERRIDE__;
             window.__NEXT_SCRIPT_OVERRIDE__ = null;
             const selection = override || selectScene?.({ resourceProvider }) || {};
+            debugRuns?.activate(selection);
             const script = selection.script || game.resources.activity;
             const tagId = selection.tagId ?? null;
 
