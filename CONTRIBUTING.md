@@ -57,6 +57,8 @@ Start with [`docs/architecture.md`](docs/architecture.md), which describes the e
 
 Keep DGDS behavior, title-specific compatibility, browser accommodation, and optional enhancements in their respective layers. New compatibility rules should be named, scoped, and covered by a focused test.
 
+When consulting another implementation, record the exact upstream file and the behavior being cross-checked in the relevant test or document. The ScummVM DGDS engine is a frequent GPL-3.0-or-later behavioral reference; see [NOTICE](NOTICE). Do not copy or adapt upstream source into this MIT-licensed tree without explicitly identifying its provenance and satisfying the applicable license and copyright requirements.
+
 ## Verification and diagnostics
 
 - Run `pnpm test` and `pnpm run build` before opening a PR.

@@ -113,6 +113,7 @@ The next portability milestone is to replay an independently sourced, non-intera
 ## Related projects and references
 
 - [ScummVM DGDS engine](https://github.com/scummvm/scummvm/tree/master/engines/dgds) — the most complete open implementation and an important behavioral reference.
+- [ScummVM DGDS ADS interpreter](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ads.cpp) and [TTM interpreter](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ttm.cpp) — specific upstream sources used to cross-check opcode, active-segment, run-flag, and frame semantics; see [NOTICE](NOTICE) for attribution and licensing context.
 - [ScummVM DGDS detection table](https://github.com/scummvm/scummvm/blob/master/engines/dgds/detection_tables.h) — known DGDS releases, demos, platforms, and resource fingerprints.
 - [xesf/castaway](https://github.com/xesf/castaway) — the project from which this repository was originally forked.
 - [DGDS resource index](docs/resindex.md) — this project's current format findings.

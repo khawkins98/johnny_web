@@ -123,6 +123,10 @@ When a change is needed to behavior:
 2. If it is playback or environment adaptation, place it in host/johnny policy.
 3. If it is an intentional timing compatibility change, add a named patch in timing compatibility and cover it with a test.
 
+### Reference provenance
+
+The original resources and traces are primary evidence. The project also cross-checks ambiguous behavior against ScummVM's GPL-3.0-or-later DGDS implementation, especially [`ads.cpp`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ads.cpp), [`ttm.cpp`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ttm.cpp), and [`ttm.h`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ttm.h). These references informed opcode identities, the repeated evaluation of active ADS segments, TTM run types, sequence ordering, and reset/frame progression. Bottle keeps an independently structured JavaScript runtime and records adopted behavioral conclusions in tests and documentation rather than vendoring upstream files. Full acknowledgement and licensing context are in [NOTICE](../NOTICE).
+
 ## Logical execution
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or `completed`. `UPDATE` emits an authored frame boundary with the current `SET_DELAY`. The scheduler maps it through the named timing profile and owns the wait. `GOTO` requests a restart or switches to another tagged TTM script.
@@ -162,7 +166,7 @@ ADS condition branches stage scene additions and removals:
 
 The collection mutations are normally staged, but running-state tests later in the same branch observe and materialize pending additions and removals. This mirrors the original engine's immediate sequence run flags: after `ADD_SCENE`, an `IF_NOT_RUNNING` in that branch already sees the child as running even though JavaScript ordinarily commits scene-array changes at the branch boundary. A finite running child holds that condition at its program counter while TTM ticks advance it; an unbounded self-loop remains a false conditional without deadlocking ADS completion.
 
-Branch commit is explicitly remove-before-add. An ADS branch may therefore finish, remove, and re-add the same TTM tag to keep a visual layer alive across a longer actor routine. The replacement is a fresh execution and clears the removed instance's completion history. Johnny's campfire uses this pattern to cycle the very-large-fire layer while Johnny walks to the tree, returns with the boot, and cooks it; rejecting the staged re-add makes the fire disappear until a later actor frame happens to draw it again.
+Branch commit is explicitly remove-before-add. An ADS branch may therefore finish, remove, and re-add the same zero-run-count TTM tag to keep a visual layer alive across a longer actor routine. The replacement is a fresh execution, clears the removed instance's completion history, and restarts its body until an explicit `STOP_SCENE`. This models the original ADS host's repeated active-segment evaluation without making every ordinary zero-run-count actor animation loop. Johnny's campfire uses this pattern to cycle the very-large-fire layer while Johnny walks to the tree, returns with the boot, and cooks it; retaining a completed replacement lets later GET/PUT restores retire the fire even though ADS has not stopped it.
 
 ## Frame composition
 

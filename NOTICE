@@ -26,11 +26,29 @@ This repository is a hard fork of
 [xesf/castaway](https://github.com/xesf/castaway) by Alexandre Fontoura,
 whose original work is gratefully acknowledged. For a modern desktop viewer capable of inspecting these DGDS assets, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer).
 
+## ScummVM DGDS Behavioral Reference
+
+This project regularly consults the [ScummVM DGDS engine](https://github.com/scummvm/scummvm/tree/master/engines/dgds)
+to identify opcodes and cross-check parser, ADS scheduler, TTM run-flag, timing,
+and composition behavior. In particular, the following upstream files are
+important references:
+
+- [`ads.cpp`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ads.cpp) — ADS conditions, active-segment evaluation, sequence run flags, and ordering operations;
+- [`ttm.cpp`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ttm.cpp) — TTM parsing/execution, frame progression, drawing operations, and sequence reset behavior;
+- [`ttm.h`](https://github.com/scummvm/scummvm/blob/master/engines/dgds/ttm.h) — TTM environment, sequence state, and run-type definitions.
+
+ScummVM is distributed under the GNU General Public License, version 3 or
+later; its copyright remains with the ScummVM contributors. This repository
+does not vendor those ScummVM source files. Bottle's JavaScript implementation
+is maintained separately, with behavioral findings captured in local tests and
+documentation. Contributions that copy or adapt upstream code must identify
+that provenance and preserve all applicable license and copyright obligations.
+
 ## Special Thanks (from the original project)
 
 - **Jérémie Guillaume** (jno6809) — sharing findings from
   [jc_reborn](https://github.com/jno6809/jc_reborn)
 - **Hans Milling** (nivs1978) — C# remake
   [Johnny-Castaway-Open-Source](https://github.com/nivs1978/Johnny-Castaway-Open-Source)
-- **Vasco Costa** (vcosta) — DGDS engine work in
-  [ScummVM](https://github.com/vcosta/scummvm/tree/master/engines/dgds)
+- **Vasco Costa** (vcosta) and the **ScummVM DGDS contributors** — DGDS engine work in
+  [ScummVM](https://github.com/scummvm/scummvm/tree/master/engines/dgds)
