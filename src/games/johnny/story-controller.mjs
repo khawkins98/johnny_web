@@ -155,11 +155,17 @@ const createClouds = (random) => {
     });
 };
 
-const createIslandState = (finalScene, storyDay, date, random) => {
-    const lowTide = hasAll(finalScene.flags, F.LOWTIDE_OK) && random() >= 0.5;
+const createIslandState = (
+    finalScene,
+    storyDay,
+    date,
+    random,
+    { allowLowTide = true, allowVariablePosition = true } = {},
+) => {
+    const lowTide = allowLowTide && hasAll(finalScene.flags, F.LOWTIDE_OK) && random() >= 0.5;
     let x = 0;
     let y = 0;
-    if (hasAll(finalScene.flags, F.VARPOS_OK)) {
+    if (allowVariablePosition && hasAll(finalScene.flags, F.VARPOS_OK)) {
         if (random() >= 0.5) {
             x = -222 + Math.floor(random() * 109);
             y = -44 + Math.floor(random() * 128);
@@ -170,7 +176,7 @@ const createIslandState = (finalScene, storyDay, date, random) => {
             x = -114 + Math.floor(random() * 119);
             y = -73 + Math.floor(random() * 60);
         }
-    } else if (hasAll(finalScene.flags, F.LEFT_ISLAND)) {
+    } else if (allowVariablePosition && hasAll(finalScene.flags, F.LEFT_ISLAND)) {
         x = -272;
     }
     const raft = hasAll(finalScene.flags, F.NORAFT) ? 0 : storyDay <= 2 ? 1 : storyDay <= 5 ? storyDay - 1 : 5;
@@ -194,6 +200,7 @@ export const createJohnnyStoryController = ({
 } = {}) => {
     let queue = [];
     let transition = 0;
+    let sequenceStatus = null;
 
     const eligible = (storyDay, wanted = 0, unwanted = 0) =>
         JOHNNY_SCENES.filter(
@@ -203,21 +210,72 @@ export const createJohnnyStoryController = ({
                 (candidate.day === 0 || candidate.day === storyDay),
         );
 
-    const buildSequence = () => {
-        const date = now();
-        const storyDay = updateStoryDay(storage, date);
-        const finalScene = pick(random, eligible(storyDay, F.FINAL));
-        const islandState = createIslandState(finalScene, storyDay, date, random);
+    const findScene = (script, tagId) =>
+        JOHNNY_SCENES.find((candidate) => candidate.script === script && candidate.tagId === Number(tagId));
+
+    const makeSelection = ({ selected, walkFrom = null, islandState, index, total, wipe, anchor = null }) => {
+        const sequenceEnd = index === total - 1;
+        const sceneOffset = Object.freeze({
+            x: islandState.x + (hasAll(selected.flags, F.LEFT_ISLAND) ? 272 : 0),
+            y: islandState.y,
+        });
+        return Object.freeze({
+            script: selected.script,
+            tagId: selected.tagId,
+            titleState: Object.freeze({ ...islandState, sceneOffset }),
+            walk:
+                walkFrom?.endSpot != null && selected.startSpot != null
+                    ? Object.freeze({
+                          fromSpot: walkFrom.endSpot,
+                          fromHeading: walkFrom.endHeading,
+                          toSpot: selected.startSpot,
+                          toHeading: selected.startHeading,
+                      })
+                    : null,
+            sequenceEnd,
+            transition: sequenceEnd ? wipe : null,
+            sequence: Object.freeze({
+                index: index + 1,
+                total,
+                storyDay: islandState.storyDay,
+                anchor,
+            }),
+        });
+    };
+
+    const chooseDebugFinal = (anchor, storyDay) => {
+        const candidates = eligible(storyDay, F.FINAL, F.FIRST).filter(
+            (candidate) =>
+                hasAll(anchor.flags, F.VARPOS_OK) ||
+                !hasAll(candidate.flags, F.LEFT_ISLAND) ||
+                hasAll(candidate.flags, F.VARPOS_OK),
+        );
+        return pick(random, candidates);
+    };
+
+    const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now() }) => {
+        const constraints = anchorScene
+            ? {
+                  allowLowTide: hasAll(anchorScene.flags, F.LOWTIDE_OK),
+                  allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
+              }
+            : undefined;
+        const islandState = createIslandState(finalScene, storyDay, date, random, constraints);
         const planned = [];
         let previous = null;
+
+        if (anchorScene) {
+            planned.push({ scene: anchorScene, walkFrom: null });
+            previous = anchorScene;
+        }
 
         if (!hasAll(finalScene.flags, F.FIRST)) {
             let wanted = 0;
             if (islandState.lowTide) wanted |= F.LOWTIDE_OK;
             if (islandState.x !== 0 || islandState.y !== 0) wanted |= F.VARPOS_OK;
-            let unwanted = F.FINAL;
+            let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
             const count = 6 + Math.floor(random() * 14);
-            for (let index = 0; index < count; index++) {
+            for (let index = anchorScene ? 1 : 0; index < count; index++) {
                 const next = pick(random, eligible(storyDay, wanted, unwanted));
                 planned.push({ scene: next, walkFrom: previous });
                 previous = next;
@@ -225,38 +283,83 @@ export const createJohnnyStoryController = ({
             }
         }
         planned.push({ scene: finalScene, walkFrom: previous });
+        return { planned, islandState };
+    };
 
-        queue = planned.map(({ scene: selected, walkFrom }, index) => {
-            const sequenceEnd = index === planned.length - 1;
-            const sceneOffset = Object.freeze({
-                x: islandState.x + (hasAll(selected.flags, F.LEFT_ISLAND) ? 272 : 0),
-                y: islandState.y,
-            });
-            return Object.freeze({
-                script: selected.script,
-                tagId: selected.tagId,
-                titleState: Object.freeze({ ...islandState, sceneOffset }),
-                walk:
-                    walkFrom?.endSpot != null && selected.startSpot != null
-                        ? Object.freeze({
-                              fromSpot: walkFrom.endSpot,
-                              fromHeading: walkFrom.endHeading,
-                              toSpot: selected.startSpot,
-                              toHeading: selected.startHeading,
-                          })
-                        : null,
-                sequenceEnd,
-                transition: sequenceEnd ? transition : null,
-            });
+    const installPlan = ({ planned, islandState }, anchor = null) => {
+        const wipe = transition;
+        queue = planned.map(({ scene: selected, walkFrom }, index) =>
+            makeSelection({
+                selected,
+                walkFrom,
+                islandState,
+                index,
+                total: planned.length,
+                wipe,
+                anchor,
+            }),
+        );
+        sequenceStatus = Object.freeze({
+            storyDay: islandState.storyDay,
+            total: planned.length,
+            current: 0,
+            remaining: planned.length,
+            final: Object.freeze({ script: planned.at(-1).scene.script, tagId: planned.at(-1).scene.tagId }),
+            anchor,
+            lowTide: islandState.lowTide,
         });
         transition = (transition + 1) % 5;
     };
 
+    const buildSequence = () => {
+        const date = now();
+        const storyDay = updateStoryDay(storage, date);
+        const finalScene = pick(random, eligible(storyDay, F.FINAL));
+        installPlan(createPlan({ storyDay, finalScene, date }));
+    };
+
+    const debugStoryDay = (sceneMetadata, requestedDay) =>
+        sceneMetadata.day || Math.max(1, Math.min(11, Number(requestedDay) || 1));
+
     return {
         next() {
             if (queue.length === 0) buildSequence();
-            return queue.shift();
+            const selection = queue.shift();
+            sequenceStatus = Object.freeze({
+                ...sequenceStatus,
+                current: selection.sequence.index,
+                remaining: queue.length,
+                active: Object.freeze({ script: selection.script, tagId: selection.tagId }),
+            });
+            return selection;
         },
+        preview(script, tagId, { storyDay: requestedDay = 1 } = {}) {
+            const selected = findScene(script, tagId);
+            if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
+            const storyDay = debugStoryDay(selected, requestedDay);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
+            const islandState = createIslandState(finalScene, storyDay, now(), random, {
+                allowLowTide: hasAll(selected.flags, F.LOWTIDE_OK),
+                allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
+            });
+            return Object.freeze({
+                ...makeSelection({ selected, islandState, index: 0, total: 1, wipe: null }),
+                sequenceEnd: false,
+                transition: null,
+                preview: true,
+            });
+        },
+        planFrom(script, tagId, { storyDay: requestedDay = 1 } = {}) {
+            const selected = findScene(script, tagId);
+            if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
+            const storyDay = debugStoryDay(selected, requestedDay);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
+            const anchorScene = hasAll(selected.flags, F.FINAL) ? null : selected;
+            const anchor = Object.freeze({ script: selected.script, tagId: selected.tagId });
+            installPlan(createPlan({ storyDay, finalScene, anchorScene }), anchor);
+            return sequenceStatus;
+        },
+        status: () => sequenceStatus,
         snapshot: () => Object.freeze([...queue]),
     };
 };

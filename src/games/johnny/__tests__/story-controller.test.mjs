@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createJohnnyStoryController, JOHNNY_SCENES } from '../story-controller.mjs';
+import { createJohnnyStoryController, JOHNNY_SCENES, SceneFlags } from '../story-controller.mjs';
 
 const memoryStorage = (initial = {}) => {
     const values = new Map(Object.entries(initial));
@@ -77,5 +77,66 @@ describe('Johnny host story controller', () => {
 
         expect(selections[0].titleState).toMatchObject({ island: true, night: true, storyDay: 1 });
         expect(selections[1].walk).toMatchObject({ fromSpot: expect.any(Number), toSpot: expect.any(Number) });
+    });
+
+    it('previews one contextualized scene without disturbing the planned queue', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        controller.next();
+        const queued = controller.snapshot();
+        const preview = controller.preview('JOHNNY.ADS', 3, { storyDay: 1 });
+
+        expect(preview).toMatchObject({
+            script: 'JOHNNY.ADS',
+            tagId: 3,
+            preview: true,
+            sequenceEnd: false,
+            titleState: { storyDay: 6 },
+        });
+        expect(controller.snapshot()).toEqual(queued);
+    });
+
+    it.each([0, 0.999999])('anchors and terminates every catalogue entry at random boundary %f', (randomValue) => {
+        for (const anchor of JOHNNY_SCENES) {
+            const controller = createJohnnyStoryController({
+                random: () => randomValue,
+                storage: memoryStorage(),
+                now: () => new Date(2026, 6, 21, 12),
+            });
+            controller.planFrom(anchor.script, anchor.tagId, { storyDay: anchor.day || 1 });
+            const selections = [];
+            do selections.push(controller.next());
+            while (!selections.at(-1).sequenceEnd && selections.length < 30);
+
+            expect(selections.at(-1).sequenceEnd, `${anchor.script}#${anchor.tagId} did not terminate`).toBe(true);
+            const anchorIndex = selections.findIndex(
+                (selection) => selection.script === anchor.script && selection.tagId === anchor.tagId,
+            );
+            expect(anchorIndex, `${anchor.script}#${anchor.tagId} was absent`).toBeGreaterThanOrEqual(0);
+            if (anchor.flags & SceneFlags.FINAL) expect(anchorIndex).toBe(selections.length - 1);
+            else expect(anchorIndex).toBe(0);
+
+            for (const selection of selections.slice(0, -1)) {
+                const metadata = JOHNNY_SCENES.find(
+                    (scene) => scene.script === selection.script && scene.tagId === selection.tagId,
+                );
+                if (selection.titleState.lowTide) {
+                    expect(metadata.flags & SceneFlags.LOWTIDE_OK, `${selection.script}#${selection.tagId} at low tide`).toBeTruthy();
+                }
+                if (selection.titleState.x || selection.titleState.y) {
+                    expect(metadata.flags & SceneFlags.VARPOS_OK, `${selection.script}#${selection.tagId} at variable position`).toBeTruthy();
+                }
+            }
+
+            expect(controller.status()).toMatchObject({
+                storyDay: anchor.day || 1,
+                current: selections.length,
+                remaining: 0,
+                active: { script: selections.at(-1).script, tagId: selections.at(-1).tagId },
+            });
+        }
     });
 });

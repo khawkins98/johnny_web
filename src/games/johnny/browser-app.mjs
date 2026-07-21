@@ -25,5 +25,10 @@ export const runJohnnyCastaway = () => {
             storageKey: HOLIDAY_SETTING_KEY,
             options: HOLIDAY_THEME_OPTIONS,
         },
+        debugSequence: {
+            preview: (script, tagId, options) => story.preview(script, tagId, options),
+            planFrom: (script, tagId, options) => story.planFrom(script, tagId, options),
+            status: () => story.status(),
+        },
     });
 };

@@ -1,7 +1,7 @@
 import { __DEBUG__, stopProcess } from '../dgds/scripting/process.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
-export function setupDebugUI({ themes = null } = {}) {
+export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     // Stable automation hook for Playwright/headless browser diagnostics.
     window.__DGDS__ = __DEBUG__;
     const container = document.createElement('div');
@@ -109,6 +109,17 @@ export function setupDebugUI({ themes = null } = {}) {
     sceneRow.style.gap = '8px';
     sceneRow.style.alignItems = 'center';
 
+    const storyRow = document.createElement('label');
+    storyRow.style.display = sequenceTools ? 'flex' : 'none';
+    storyRow.style.gap = '8px';
+    storyRow.style.alignItems = 'center';
+    storyRow.innerText = 'Story Day: ';
+
+    const actionRow = document.createElement('div');
+    actionRow.style.display = 'grid';
+    actionRow.style.gridTemplateColumns = sequenceTools ? '1fr 1fr' : '1fr';
+    actionRow.style.gap = '8px';
+
     const scriptSelect = document.createElement('select');
     scriptSelect.style.cssText = controlStyle;
     scriptSelect.style.flex = '1';
@@ -173,11 +184,62 @@ export function setupDebugUI({ themes = null } = {}) {
 
     scriptSelect.addEventListener('change', populateScenes);
 
-    const jumpBtn = document.createElement('button');
-    jumpBtn.innerText = 'Jump to Script/Gag';
-    jumpBtn.style.cssText = controlStyle;
+    const storyDaySelect = document.createElement('select');
+    storyDaySelect.dataset.debugControl = 'story-day';
+    storyDaySelect.style.cssText = controlStyle;
+    storyDaySelect.style.flex = '1';
+    for (let day = 1; day <= 11; day++) {
+        const option = document.createElement('option');
+        option.value = String(day);
+        option.innerText = `Day ${day}`;
+        storyDaySelect.appendChild(option);
+    }
+    try {
+        storyDaySelect.value = localStorage.getItem('jc-debug-story-day') || '1';
+    } catch {
+        storyDaySelect.value = '1';
+    }
+    storyDaySelect.addEventListener('change', () => {
+        try {
+            localStorage.setItem('jc-debug-story-day', storyDaySelect.value);
+        } catch {
+            // The selected value still applies for this page session.
+        }
+    });
+    storyRow.appendChild(storyDaySelect);
 
-    jumpBtn.addEventListener('click', () => {
+    const selectedScene = () => ({
+        script: scriptSelect.value,
+        tagId: Number(sceneSelect.value),
+        storyDay: Number(storyDaySelect.value),
+    });
+
+    const makeActionButton = (label, action) => {
+        const button = document.createElement('button');
+        button.innerText = label;
+        button.style.cssText = `${controlStyle}
+            min-height: 40px;
+            box-shadow: 0 2px 0 rgba(74, 53, 32, 0.28);
+            transition-property: transform, box-shadow;
+            transition-duration: 120ms;
+            transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+        `;
+        button.addEventListener('pointerdown', () => {
+            button.style.transform = 'scale(0.96)';
+            button.style.boxShadow = '0 1px 0 rgba(74, 53, 32, 0.22)';
+        });
+        const release = () => {
+            button.style.transform = 'scale(1)';
+            button.style.boxShadow = '0 2px 0 rgba(74, 53, 32, 0.28)';
+        };
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('pointerleave', release);
+        button.addEventListener('click', action);
+        return button;
+    };
+
+    const legacyJump = () => {
         const script = scriptSelect.value;
         const tagId = Number(sceneSelect.value);
         const state = __DEBUG__.getState();
@@ -187,13 +249,54 @@ export function setupDebugUI({ themes = null } = {}) {
             window.__NEXT_SCRIPT_OVERRIDE__ = { script, tagId };
             stopProcess('script_override');
         }
+    };
+
+    const previewBtn = makeActionButton(sequenceTools ? 'Preview Once' : 'Jump to Script/Gag', () => {
+        if (!sequenceTools) return legacyJump();
+        const { script, tagId, storyDay } = selectedScene();
+        window.__NEXT_SCRIPT_OVERRIDE__ = sequenceTools.preview(script, tagId, { storyDay });
+        stopProcess('script_override');
+        renderSequenceStatus('One-scene preview queued');
     });
+
+    const sequenceBtn = makeActionButton('Run Sequence From Here', () => {
+        if (!sequenceTools) return legacyJump();
+        const { script, tagId, storyDay } = selectedScene();
+        window.__NEXT_SCRIPT_OVERRIDE__ = null;
+        sequenceTools.planFrom(script, tagId, { storyDay });
+        stopProcess('script_override');
+        renderSequenceStatus('Faithful sequence planned');
+    });
+    sequenceBtn.style.display = sequenceTools ? 'block' : 'none';
 
     scriptsRow.appendChild(scriptSelect);
     sceneRow.appendChild(sceneSelect);
-    sceneRow.appendChild(jumpBtn);
     container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
+    container.appendChild(storyRow);
+    actionRow.appendChild(previewBtn);
+    actionRow.appendChild(sequenceBtn);
+    container.appendChild(actionRow);
+
+    const sequenceStatus = document.createElement('div');
+    sequenceStatus.dataset.debugStatus = 'sequence';
+    sequenceStatus.style.display = sequenceTools ? 'block' : 'none';
+    sequenceStatus.style.padding = '8px 10px';
+    sequenceStatus.style.borderRadius = '6px';
+    sequenceStatus.style.background = 'rgba(244, 228, 200, 0.72)';
+    sequenceStatus.style.boxShadow = 'inset 0 0 0 1px rgba(74, 53, 32, 0.16)';
+    sequenceStatus.style.fontVariantNumeric = 'tabular-nums';
+    sequenceStatus.style.textWrap = 'pretty';
+    const renderSequenceStatus = (prefix = '') => {
+        if (!sequenceTools) return;
+        const status = sequenceTools.status?.();
+        const detail = status
+            ? `Day ${status.storyDay} · Scene ${status.current}/${status.total} · ${status.remaining} remaining · Final ${status.final.script} #${status.final.tagId}${status.lowTide ? ' · Low tide' : ' · High tide'}`
+            : 'Normal scheduler has not planned a sequence yet.';
+        sequenceStatus.innerText = prefix ? `${prefix}. ${detail}` : detail;
+    };
+    container.appendChild(sequenceStatus);
+    if (sequenceTools) window.setInterval(() => renderSequenceStatus(), 500);
 
     // Patch original populateSelect call
     const originalPopulateSelect = () => {
@@ -202,6 +305,7 @@ export function setupDebugUI({ themes = null } = {}) {
             scriptSelect.value = state.data.name;
         }
         populateScenes();
+        renderSequenceStatus();
     };
 
     const traceBtn = document.createElement('button');

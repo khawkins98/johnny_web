@@ -24,7 +24,12 @@ Walking is likewise host functionality. The scene catalogue supplies start/end s
 
 Newly reachable animations can still reveal interpreter or composition defects that were hidden when only the first activity tag ran. Those defects belong in DGDS conformance fixes; event eligibility and walking remain in the Johnny host controller/renderer.
 
-The developer menu intentionally lists every ADS file and tag independently. It is a diagnostic tool for isolating those two classes of problem and does not model story sequencing.
+The developer menu lists every ADS file and tag independently but now exposes two deliberately different actions:
+
+- **Preview Once** builds the selected tag with compatible island/story state, plays it once, and leaves the controller's existing queue untouched.
+- **Run Sequence From Here** discards the existing queue and asks the Johnny controller for a new compatible sequence anchored on that tag. An ordinary event becomes the first event; a final event becomes the planned finale. Walking, tide, island position, raft, holiday suppression, and the final wipe continue through the resulting sequence.
+
+The **Story Day** selector supplies days 1–11 for unrestricted events. A story-gated Johnny/Mary/Suzy event automatically uses its historical day regardless of the selector, ensuring it can always be previewed correctly. The status card shows the effective day, current/total event count, remaining events, tide, and planned final. Automated tests anchor all 63 catalogue entries at both randomness boundaries and verify that every sequence terminates and retains compatible tide/position flags.
 
 ## Island state, tides, and transitions
 
@@ -48,7 +53,7 @@ The browser implementation therefore:
 
 The reproduced date ranges are March 15–17, October 29–31, December 23–25, and December 29–January 1.
 
-Holiday selection defaults to **Calendar**, following the browser-visible local date as the original screensaver followed the Windows system clock. To preview a theme without changing the clock, press `D`, use **Holiday Theme** in the developer panel, and choose Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year. The choice persists locally until changed.
+Holiday selection defaults to **Calendar**, following the browser-visible local date as the original screensaver followed the Windows system clock. To preview a theme without changing the clock, press `D`, use **Holiday Theme** in the developer panel, and choose Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year. The choice persists locally until changed and applies to both one-scene previews and controller-planned debug sequences, except for scenes carrying the original holiday-suppression flag.
 
 ## Architectural ownership
 

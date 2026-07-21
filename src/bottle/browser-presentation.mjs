@@ -24,6 +24,7 @@ export const runBrowserPresentation = async ({
     runSequenceTransition = null,
     runInterlude = null,
     debugThemes = null,
+    debugSequence = null,
 }) => {
     if (!game) throw new TypeError('Bottle browser host requires a game package');
     if (typeof setupSettingsUI !== 'function') {
@@ -91,7 +92,7 @@ export const runBrowserPresentation = async ({
     const introRes = resource.loadEntry(game.resources.intro);
     let audioManager = null;
     let enhancedUI = null;
-    setupDebugUI({ themes: debugThemes });
+    setupDebugUI({ themes: debugThemes, sequenceTools: debugSequence });
     const settings = setupSettingsUI({
         getAudioManager: () => audioManager,
         onRestart: () => {
