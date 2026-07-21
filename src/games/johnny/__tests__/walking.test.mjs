@@ -43,6 +43,29 @@ describe('Johnny host walking', () => {
         });
 
         expect(presentBackground).toHaveBeenCalledOnce();
-        expect(wait).toHaveBeenCalledWith(1600);
+        expect(wait).toHaveBeenCalledWith(1600, { signal: null });
+    });
+
+    it('clears and stops before later frames when its host attempt is aborted', async () => {
+        const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
+        const context = { clearRect: vi.fn() };
+        const controller = new AbortController();
+        const wait = vi.fn(async () => {
+            controller.abort();
+        });
+
+        const completed = await runJohnnyWalk({
+            walk: { fromSpot: 0, fromHeading: 0, toSpot: 0, toHeading: 0 },
+            titleState: { x: 0, y: 0 },
+            archiveBuffer,
+            resourceProvider: { resolve: () => ({ images: [] }) },
+            context,
+            wait,
+            signal: controller.signal,
+        });
+
+        expect(completed).toBe(false);
+        expect(wait).toHaveBeenCalledOnce();
+        expect(context.clearRect).toHaveBeenLastCalledWith(0, 0, 640, 480);
     });
 });

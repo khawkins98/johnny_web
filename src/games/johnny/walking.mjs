@@ -91,7 +91,19 @@ export const planJohnnyWalkFrames = (walk, data) => {
     return frames.filter(Boolean);
 };
 
-const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const delay = (milliseconds, { signal } = {}) =>
+    new Promise((resolve) => {
+        if (signal?.aborted) return resolve(false);
+        let timer;
+        const finish = (completed) => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', onAbort);
+            resolve(completed);
+        };
+        const onAbort = () => finish(false);
+        timer = setTimeout(() => finish(true), milliseconds);
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
 
 /** Play the executable-owned walk between two ADS scenes. */
 export const runJohnnyWalk = async ({
@@ -102,8 +114,9 @@ export const runJohnnyWalk = async ({
     context,
     presentBackground = null,
     wait = delay,
+    signal = null,
 }) => {
-    if (!walk) return;
+    if (!walk || signal?.aborted) return false;
     const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer));
     const sprites = resourceProvider.resolve('JOHNWALK.BMP');
     const background = resourceProvider.resolve('BACKGRND.BMP');
@@ -138,7 +151,12 @@ export const runJohnnyWalk = async ({
                 if (sprite) context.drawImage(sprite, x + offsetX, y + offsetY);
             }
         }
-        await wait((index === frames.length - 1 ? 80 : 6) * DGDS_TICK_MS);
+        const completed = await wait((index === frames.length - 1 ? 80 : 6) * DGDS_TICK_MS, { signal });
+        if (signal?.aborted || completed === false) {
+            context.clearRect(0, 0, 640, 480);
+            return false;
+        }
     }
     context.clearRect(0, 0, 640, 480);
+    return true;
 };

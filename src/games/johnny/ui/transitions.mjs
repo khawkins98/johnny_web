@@ -4,7 +4,19 @@ const WIDTH = 640;
 const HEIGHT = 480;
 const STEPS = 20;
 
-const nextFrame = () => new Promise((resolve) => setTimeout(resolve, DGDS_TICK_MS));
+const nextFrame = ({ signal } = {}) =>
+    new Promise((resolve) => {
+        if (signal?.aborted) return resolve(false);
+        let timer;
+        const finish = (completed) => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', onAbort);
+            resolve(completed);
+        };
+        const onAbort = () => finish(false);
+        timer = setTimeout(() => finish(true), DGDS_TICK_MS);
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
 
 /**
  * Reproduce the five wipes owned by Johnny's original screensaver host.
@@ -16,7 +28,9 @@ export const runJohnnySequenceTransition = async ({
     context,
     mainContext,
     wait = nextFrame,
+    signal = null,
 }) => {
+    if (signal?.aborted) return false;
     context.fillStyle = '#000';
     for (let step = 0; step < STEPS; step++) {
         switch (type % 5) {
@@ -46,10 +60,19 @@ export const runJohnnySequenceTransition = async ({
                 break;
             }
         }
-        await wait();
+        const completed = await wait({ signal });
+        if (signal?.aborted || completed === false) {
+            context.clearRect(0, 0, WIDTH, HEIGHT);
+            return false;
+        }
     }
     context.fillRect(0, 0, WIDTH, HEIGHT);
-    await wait();
+    const completed = await wait({ signal });
+    if (signal?.aborted || completed === false) {
+        context.clearRect(0, 0, WIDTH, HEIGHT);
+        return false;
+    }
     context.clearRect(0, 0, WIDTH, HEIGHT);
     mainContext.clearRect(0, 0, WIDTH, HEIGHT);
+    return true;
 };

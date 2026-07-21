@@ -6,6 +6,7 @@ import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
 import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
+import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -97,7 +98,18 @@ export const runBrowserPresentation = async ({
     const introRes = resource.loadEntry(game.resources.intro);
     let audioManager = null;
     let enhancedUI = null;
-    setupDebugUI({ themes: debugThemes, sequenceTools: debugSequence });
+    const debugRuns = createDebugRunCoordinator({
+        sequenceTools: debugSequence,
+        stopRuntime: stopProcess,
+        stopAudio: () => audioManager?.stopAll?.(),
+    });
+    const sequenceTools = debugRuns
+        ? {
+              ...debugSequence,
+              startRun: (request) => debugRuns.request(request),
+          }
+        : debugSequence;
+    setupDebugUI({ themes: debugThemes, sequenceTools });
     const settings = setupSettingsUI({
         getAudioManager: () => audioManager,
         onRestart: () => {
@@ -127,7 +139,8 @@ export const runBrowserPresentation = async ({
 
         let outcome;
         do {
-            const override = window.__NEXT_SCRIPT_OVERRIDE__;
+            const attempt = debugRuns?.beginAttempt() ?? null;
+            const override = debugRuns?.takeOverride() || window.__NEXT_SCRIPT_OVERRIDE__;
             window.__NEXT_SCRIPT_OVERRIDE__ = null;
             const selection = override || selectScene?.({ resourceProvider }) || {};
             const script = selection.script || game.resources.activity;
@@ -149,7 +162,14 @@ export const runBrowserPresentation = async ({
                     context,
                     mainContext,
                     presentBackground: presentSelectionBackground,
+                    signal: attempt?.signal ?? null,
                 });
+            }
+
+            if (attempt && debugRuns.interrupted(attempt)) {
+                outcome = { reason: 'script_override' };
+                debugRuns.endAttempt(attempt);
+                continue;
             }
 
             context.clearRect(0, 0, 640, 480);
@@ -175,13 +195,21 @@ export const runBrowserPresentation = async ({
                     onComplete: resolve,
                 });
             });
-            if (outcome?.reason === 'completed' && selection.sequenceEnd && runSequenceTransition) {
+            if (
+                outcome?.reason === 'completed' &&
+                selection.sequenceEnd &&
+                runSequenceTransition &&
+                !(attempt && debugRuns.interrupted(attempt))
+            ) {
                 await runSequenceTransition({
                     type: selection.transition,
                     context,
                     mainContext,
+                    signal: attempt?.signal ?? null,
                 });
             }
+            if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: 'script_override' };
+            debugRuns?.endAttempt(attempt);
         } while (outcome?.reason === 'completed' || outcome?.reason === 'script_override');
 
         enhancedUI?.destroy();

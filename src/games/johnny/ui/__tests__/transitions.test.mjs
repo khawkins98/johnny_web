@@ -22,4 +22,23 @@ describe('Johnny sequence transitions', () => {
         expect(background.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(foreground.arc.mock.calls.length + foreground.fillRect.mock.calls.length).toBeGreaterThan(0);
     });
+
+    it('clears and stops a wipe when its host attempt is aborted', async () => {
+        const foreground = context();
+        const background = context();
+        const controller = new AbortController();
+        const wait = vi.fn(async () => controller.abort());
+
+        const completed = await runJohnnySequenceTransition({
+            context: foreground,
+            mainContext: background,
+            wait,
+            signal: controller.signal,
+        });
+
+        expect(completed).toBe(false);
+        expect(wait).toHaveBeenCalledOnce();
+        expect(foreground.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
+        expect(background.clearRect).not.toHaveBeenCalled();
+    });
 });

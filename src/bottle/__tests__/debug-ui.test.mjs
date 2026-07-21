@@ -23,6 +23,7 @@ describe('developer sequence controls', () => {
 
     beforeEach(() => {
         vi.useFakeTimers();
+        vi.clearAllMocks();
         document.body.innerHTML = '';
         localStorage.clear();
         window.__NEXT_SCRIPT_OVERRIDE__ = null;
@@ -113,6 +114,33 @@ describe('developer sequence controls', () => {
         checkbox.checked = false;
         checkbox.dispatchEvent(new Event('change'));
         expect(processMocks.debug.setNightMode).toHaveBeenCalledWith(false);
+    });
+
+    it('delegates sequence interruption atomically when the browser host provides it', () => {
+        const startRun = vi.fn();
+        const sequenceTools = {
+            startRun,
+            describe: vi.fn(() => ({ fixedDay: null, action: 'starting-event' })),
+            status: vi.fn(() => null),
+        };
+        setupDebugUI({ sequenceTools });
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+
+        const day = document.querySelector('[data-debug-control="story-day"]');
+        day.value = '3';
+        const start = [...document.querySelectorAll('#debug-menu button')].find(
+            (button) => button.innerText === 'Start Debug Run',
+        );
+        start.click();
+
+        expect(startRun).toHaveBeenCalledWith({
+            mode: 'sequence',
+            script: 'ACTIVITY.ADS',
+            tagId: 1,
+            storyDay: 3,
+        });
+        expect(processMocks.stopProcess).not.toHaveBeenCalled();
+        expect(window.__NEXT_SCRIPT_OVERRIDE__).toBeNull();
     });
 
     it('locks story-gated solo finales to their recovered day and explains the one-event plan', () => {

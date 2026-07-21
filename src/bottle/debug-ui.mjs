@@ -383,6 +383,15 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     const startBtn = makeActionButton(sequenceTools ? 'Start Debug Run' : 'Jump to Script/Gag', () => {
         if (!sequenceTools) return legacyJump();
         const { script, tagId, storyDay } = selectedScene();
+        if (sequenceTools.startRun) {
+            sequenceTools.startRun({ mode: playbackModeSelect.value, script, tagId, storyDay });
+            showActionFeedback(
+                playbackModeSelect.value === 'preview'
+                    ? 'Selected-scene run started; the current chapter will resume afterward.'
+                    : 'Complete-chapter run started.',
+            );
+            return;
+        }
         if (playbackModeSelect.value === 'preview') {
             window.__NEXT_SCRIPT_OVERRIDE__ = sequenceTools.preview(script, tagId, { storyDay });
             showActionFeedback('Selected-scene run started; the current chapter will resume afterward.');
