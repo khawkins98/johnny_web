@@ -200,9 +200,10 @@ export class DgdsRuntime {
             const blockers = state.scenes.filter((scene) => {
                 const done = scene.state.hasTimer ? scene.state.timer === 0 : scene.state.played;
                 const unboundedLoop =
-                    scene.execution?.status === ExecutionStatus.LOOPED &&
-                    scene.retries === 0 &&
-                    !Number.isFinite(scene.timeLimitTicks);
+                    scene.restartUntilStopped === true ||
+                    (scene.execution?.status === ExecutionStatus.LOOPED &&
+                        scene.retries === 0 &&
+                        !Number.isFinite(scene.timeLimitTicks));
                 return !done && !unboundedLoop;
             });
             if (blockers.length === 0 && state.addScenes.length === 0) {
@@ -304,7 +305,8 @@ export class DgdsRuntime {
                 }
                 if (scene.execution.status === ExecutionStatus.COMPLETED) {
                     const repeatsUntilTimeLimit = Number.isFinite(scene.timeLimitTicks);
-                    if (scene.retries > 0 || repeatsUntilTimeLimit) {
+                    const repeatsUntilStopped = scene.restartUntilStopped === true;
+                    if (scene.retries > 0 || repeatsUntilTimeLimit || repeatsUntilStopped) {
                         if (scene.retries > 0) scene.retries--;
                         scene.state.played = false;
                         scene.state.reentry = scene.targetStart || 0;
@@ -315,7 +317,11 @@ export class DgdsRuntime {
                         scene.state.timer = 0;
                         scene.execution = pendingExecution(
                             scene.state,
-                            repeatsUntilTimeLimit ? 'time-limited-retry' : 'retry',
+                            repeatsUntilTimeLimit
+                                ? 'time-limited-retry'
+                                : repeatsUntilStopped
+                                  ? 'restart-until-stopped'
+                                  : 'retry',
                         );
                     } else {
                         scene.lifecycle = 'completed';

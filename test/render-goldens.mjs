@@ -150,12 +150,17 @@ const verifyCampfireContinuity = ({ archive }) => {
     let checkedFrames = 0;
 
     for (const frame of frames) {
-        const tags = new Set(frame.l.filter((layer) => layer[0] === 3).map((layer) => layer[1]));
+        const resourceLayers = frame.l.filter((layer) => layer[0] === 3);
+        const tags = new Set(resourceLayers.map((layer) => layer[1]));
         if (tags.has(44)) fireStarted = true;
         if (!fireStarted || ![...bootRoutineTags].some((tag) => tags.has(tag))) continue;
         checkedFrames++;
         if (!tags.has(44)) {
             throw new Error(`campfire layer disappeared during the boot routine at logical tick ${frame.t}`);
+        }
+        const fire = resourceLayers.find((layer) => layer[1] === 44);
+        if (fire[2] !== 'r') {
+            throw new Error(`campfire layer stopped running during the boot routine at logical tick ${frame.t}`);
         }
     }
 

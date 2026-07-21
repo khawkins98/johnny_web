@@ -578,6 +578,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
             tagId,
             runCount,
             proportion,
+            ...(pendingRemoval && runCount === 0 ? { restartUntilStopped: true } : {}),
         });
         return;
     }
@@ -587,6 +588,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
         tagId,
         runCount,
         proportion,
+        ...(pendingRemoval && runCount === 0 ? { restartUntilStopped: true } : {}),
     });
 };
 
@@ -609,6 +611,7 @@ const applySceneChanges = (state) => {
     state.addScenes.forEach((s) => {
         const scene = getSceneState(state, s.sceneIdx, s.tagId, s.runCount, s.proportion);
         if (scene !== undefined) {
+            scene.restartUntilStopped = s.restartUntilStopped === true;
             // The fresh execution supersedes the completed instance recorded
             // during the removal phase above.
             state.playedHistory.delete(`${s.sceneIdx}:${s.tagId}`);

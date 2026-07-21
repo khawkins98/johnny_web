@@ -1185,13 +1185,26 @@ describe('ADS branch end — remove-before-add ordering', () => {
         };
 
         add.callback(mockState, 3, 44, 0, 1);
-        expect(mockState.addScenes).toEqual([{ sceneIdx: 3, tagId: 44, runCount: 0, proportion: 1 }]);
+        expect(mockState.addScenes).toEqual([
+            {
+                sceneIdx: 3,
+                tagId: 44,
+                runCount: 0,
+                proportion: 1,
+                restartUntilStopped: true,
+            },
+        ]);
 
         branchEnd.callback(mockState);
 
         expect(mockState.scenes).toHaveLength(1);
         expect(mockState.scenes[0]).not.toBe(finished);
-        expect(mockState.scenes[0]).toMatchObject({ sceneIdx: 3, tagId: 44, lifecycle: 'active' });
+        expect(mockState.scenes[0]).toMatchObject({
+            sceneIdx: 3,
+            tagId: 44,
+            lifecycle: 'active',
+            restartUntilStopped: true,
+        });
         expect(mockState.playedHistory.has('3:44')).toBe(false);
     });
 });

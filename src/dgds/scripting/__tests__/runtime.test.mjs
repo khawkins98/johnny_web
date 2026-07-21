@@ -375,6 +375,41 @@ describe('DgdsRuntime', () => {
         expect(child.state.played).toBe(true);
     });
 
+    it('restarts a branch-rearmed child until ADS explicitly stops it', () => {
+        const ttm = {
+            tags: [{ id: 1, description: 'persistent fire cycle' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                {
+                    tagId: 1,
+                    script: [
+                        { opcode: 0x0ff0, params: [] },
+                        { opcode: 0x0110, params: [] },
+                    ],
+                },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'test',
+                resources: [{ id: 1, name: 'FIRE.TTM' }],
+                scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0x1350, params: [1, 1] }] }],
+            },
+        });
+        const child = getSceneState(runtime.state, 1, 1, 0, 1);
+        child.restartUntilStopped = true;
+        runtime.state.scenes.push(child);
+
+        for (let tick = 0; tick < 6; tick++) runtime.tick(20);
+
+        expect(child.lifecycle).toBe('running');
+        expect(child.state.played).toBe(false);
+        expect(child.state.runs).toBeGreaterThan(1);
+        expect(child.execution.reason).toBe('restart-until-stopped');
+    });
+
     it('lets IF_NOT_RUNNING wait on a child added earlier in the same ADS branch', () => {
         const finiteScript = [
             { opcode: 0x0ff0, params: [] },
