@@ -65,27 +65,36 @@ describe('developer sequence controls', () => {
         const day = document.querySelector('[data-debug-control="story-day"]');
         day.value = '4';
         day.dispatchEvent(new Event('change'));
+        const mode = document.querySelector('[data-debug-control="playback-mode"]');
+        mode.value = 'preview';
+        mode.dispatchEvent(new Event('change'));
         const buttons = [...document.querySelectorAll('#debug-menu button')];
-        buttons.find((button) => button.innerText === 'Play Selected Scene Only').click();
+        const start = buttons.find((button) => button.innerText === 'Start Debug Run');
+        start.click();
 
         expect(sequenceTools.preview).toHaveBeenCalledWith('ACTIVITY.ADS', 1, { storyDay: 4 });
         expect(window.__NEXT_SCRIPT_OVERRIDE__).toBe(preview);
         expect(processMocks.stopProcess).toHaveBeenCalledWith('script_override');
+        expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
+            'Play Test scene once, then resume the current chapter',
+        );
 
-        buttons.find((button) => button.innerText === 'Start Sequence With This Scene').click();
+        mode.value = 'sequence';
+        mode.dispatchEvent(new Event('change'));
+        start.click();
         expect(sequenceTools.planFrom).toHaveBeenCalledWith('ACTIVITY.ADS', 1, { storyDay: 4 });
         expect(window.__NEXT_SCRIPT_OVERRIDE__).toBeNull();
         expect(document.querySelector('[data-debug-status="action-feedback"]').innerText).toContain(
-            'New sequence queued',
+            'Complete-chapter run started',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Queued sequence · Chapter 4 · 7 events',
+            'Chapter 4 · 7 events queued',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Starts with: ACTIVITY.ADS #1',
+            'First: ACTIVITY.ADS #1',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').style.fontVariantNumeric).toBe('tabular-nums');
-        expect(day.parentElement.querySelector('span').innerText).toBe('Chapter for new sequence:');
+        expect(day.parentElement.querySelector('span').innerText).toBe('Story chapter to simulate');
     });
 
     it('reflects and changes the active host-owned night state', () => {
@@ -120,11 +129,10 @@ describe('developer sequence controls', () => {
         expect(day.value).toBe('11');
         expect(day.disabled).toBe(true);
         expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
-            'Fixed Chapter 11. This finale starts immediately',
+            'Run plan: Chapter 11 — Test scene only',
         );
-        expect([...document.querySelectorAll('#debug-menu button')].map((button) => button.innerText)).toContain(
-            'Start This One-Event Finale',
-        );
+        expect(document.querySelector('[data-debug-status="fixed-chapter"]').innerText).toBe('Fixed by this scene.');
+        expect([...document.querySelectorAll('#debug-menu button')].map((button) => button.innerText)).toContain('Start Debug Run');
     });
 
     it('labels selected controls separately from live playback', () => {
@@ -146,16 +154,19 @@ describe('developer sequence controls', () => {
         setupDebugUI({ sequenceTools });
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 
-        expect(document.querySelector('[data-debug-section="target"]').innerText).toBe('New debug run');
-        expect(document.querySelector('[data-debug-section="playback"]').innerText).toBe('Live playback');
+        expect(document.querySelector('[data-debug-section="target"]').innerText).toBe('Start a debug run');
+        expect(document.querySelector('[data-debug-section="playback"]').innerText).toBe('Now playing');
         expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
-            'the selected scene is the finale',
+            'compatible island events → Test scene finale',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Playing event 3 of 8 · Chapter 2',
+            'Chapter 2 · Event 3 of 8',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
-            'Now: FISHING.ADS #2 · Next: MARY.ADS #1 · 5 events after this one',
+            'Current: FISHING.ADS #2',
+        );
+        expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
+            'Next: MARY.ADS #1 · 5 remaining',
         );
     });
 });

@@ -101,8 +101,9 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
 
     const scriptsRow = document.createElement('div');
     scriptsRow.style.display = 'flex';
-    scriptsRow.style.gap = '8px';
-    scriptsRow.style.alignItems = 'center';
+    scriptsRow.style.flexDirection = 'column';
+    scriptsRow.style.gap = '3px';
+    scriptsRow.style.alignItems = 'stretch';
 
     const makeSectionLabel = (text) => {
         const label = document.createElement('div');
@@ -116,28 +117,36 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         return label;
     };
 
-    const targetLabel = makeSectionLabel('New debug run');
+    const targetLabel = makeSectionLabel('Start a debug run');
     targetLabel.dataset.debugSection = 'target';
 
     const targetHelp = document.createElement('div');
-    targetHelp.innerText = 'Choose what the controls below will start. These fields do not show live playback.';
+    targetHelp.innerText = 'Choose what to start. Current playback is shown below.';
     targetHelp.style.fontSize = '14px';
     targetHelp.style.opacity = '0.78';
     targetHelp.style.textWrap = 'pretty';
 
     const sceneRow = document.createElement('div');
     sceneRow.style.display = 'flex';
-    sceneRow.style.gap = '8px';
-    sceneRow.style.alignItems = 'center';
+    sceneRow.style.flexDirection = 'column';
+    sceneRow.style.gap = '3px';
+    sceneRow.style.alignItems = 'stretch';
 
     const storyRow = document.createElement('label');
     storyRow.style.display = sequenceTools ? 'flex' : 'none';
-    storyRow.style.gap = '8px';
-    storyRow.style.alignItems = 'center';
+    storyRow.style.flexDirection = 'column';
+    storyRow.style.gap = '3px';
+    storyRow.style.alignItems = 'stretch';
     const storyDayLabel = document.createElement('span');
-    storyDayLabel.innerText = 'Chapter for new sequence:';
+    storyDayLabel.innerText = 'Story chapter to simulate';
     storyDayLabel.title = 'The original 11-day story counter; it gates special finales and advances the raft.';
     storyRow.appendChild(storyDayLabel);
+    const storyDayHelp = document.createElement('span');
+    storyDayHelp.dataset.debugStatus = 'fixed-chapter';
+    storyDayHelp.style.display = 'none';
+    storyDayHelp.style.fontSize = '13px';
+    storyDayHelp.style.opacity = '0.72';
+    storyDayHelp.innerText = 'Fixed by this scene.';
 
     const sceneContext = document.createElement('div');
     sceneContext.dataset.debugStatus = 'scene-context';
@@ -150,12 +159,14 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
 
     const actionRow = document.createElement('div');
     actionRow.style.display = 'grid';
-    actionRow.style.gridTemplateColumns = sequenceTools ? '1fr 1fr' : '1fr';
+    actionRow.style.gridTemplateColumns = '1fr';
     actionRow.style.gap = '8px';
 
     const scriptSelect = document.createElement('select');
     scriptSelect.style.cssText = controlStyle;
     scriptSelect.style.flex = '1';
+    const scriptLabel = document.createElement('span');
+    scriptLabel.innerText = 'Script';
 
     const adsFiles = [
         'ACTIVITY.ADS',
@@ -179,6 +190,8 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     const sceneSelect = document.createElement('select');
     sceneSelect.style.cssText = controlStyle;
     sceneSelect.style.flex = '1';
+    const sceneLabel = document.createElement('span');
+    sceneLabel.innerText = 'Scene';
 
     const populateScenes = () => {
         const previousTag = sceneSelect.value;
@@ -244,8 +257,35 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         } catch {
             // The selected value still applies for this page session.
         }
+        syncSelectedSceneContext();
     });
     storyRow.appendChild(storyDaySelect);
+    storyRow.appendChild(storyDayHelp);
+
+    const playbackModeRow = document.createElement('label');
+    playbackModeRow.style.display = sequenceTools ? 'flex' : 'none';
+    playbackModeRow.style.flexDirection = 'column';
+    playbackModeRow.style.gap = '3px';
+    const playbackModeLabel = document.createElement('span');
+    playbackModeLabel.innerText = 'Playback mode';
+    const playbackModeSelect = document.createElement('select');
+    playbackModeSelect.dataset.debugControl = 'playback-mode';
+    playbackModeSelect.style.cssText = controlStyle;
+    for (const [value, label] of [
+        ['sequence', 'Complete chapter'],
+        ['preview', 'Selected scene only'],
+    ]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.innerText = label;
+        playbackModeSelect.appendChild(option);
+    }
+    playbackModeRow.appendChild(playbackModeLabel);
+    playbackModeRow.appendChild(playbackModeSelect);
+
+    const selectedSceneName = () =>
+        sceneSelect.selectedOptions?.[0]?.innerText?.replace(/^\d+:\s*/, '') ||
+        `${scriptSelect.value} #${sceneSelect.value}`;
 
     const syncSelectedSceneContext = () => {
         if (!sequenceTools) return;
@@ -253,35 +293,36 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         if (!metadata) {
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
-            sceneContext.innerText = 'This decoded tag has no recovered host-catalogue metadata.';
-            sequenceBtn.innerText = 'Run Faithful Sequence';
+            storyDayHelp.style.display = 'none';
+            sceneContext.innerText = `Run plan: Play ${selectedSceneName()} using decoded resource data; host-catalogue metadata is unavailable.`;
             return;
         }
 
         if (metadata.fixedDay) {
             storyDaySelect.value = String(metadata.fixedDay);
             storyDaySelect.disabled = true;
-            storyDayLabel.innerText = 'Chapter for this scene (fixed):';
+            storyDayHelp.style.display = 'block';
         } else {
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
-            storyDayLabel.innerText = 'Chapter for new sequence:';
+            storyDayHelp.style.display = 'none';
         }
 
-        if (metadata.action === 'solo-finale') {
-            const dayContext = metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}` : 'Uses the chapter selected above';
-            sceneContext.innerText = `New sequence: ${dayContext}. This finale starts immediately and is the only event.`;
-            sequenceBtn.innerText = 'Start This One-Event Finale';
+        const chapter = Number(storyDaySelect.value);
+        const sceneName = selectedSceneName();
+        if (playbackModeSelect.value === 'preview') {
+            sceneContext.innerText = `Run plan: Play ${sceneName} once, then resume the current chapter.`;
+        } else if (metadata.action === 'solo-finale') {
+            sceneContext.innerText = `Run plan: Chapter ${chapter} — ${sceneName} only.`;
         } else if (metadata.action === 'ending-finale') {
-            sceneContext.innerText = `New sequence: ${metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}. ` : ''}Compatible island events play first; the selected scene is the finale.`;
-            sequenceBtn.innerText = 'Start Sequence Ending With This Scene';
+            sceneContext.innerText = `Run plan: Chapter ${chapter} — compatible island events → ${sceneName} finale.`;
         } else {
-            sceneContext.innerText = `New sequence: ${metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}. ` : 'Uses the chapter selected above. '}The selected scene plays first; compatible events and a finale follow.`;
-            sequenceBtn.innerText = 'Start Sequence With This Scene';
+            sceneContext.innerText = `Run plan: Chapter ${chapter} — ${sceneName} → compatible events → finale.`;
         }
     };
     scriptSelect.addEventListener('change', syncSelectedSceneContext);
     sceneSelect.addEventListener('change', syncSelectedSceneContext);
+    playbackModeSelect.addEventListener('change', syncSelectedSceneContext);
 
     const selectedScene = () => ({
         script: scriptSelect.value,
@@ -329,50 +370,46 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     const actionFeedback = document.createElement('div');
     actionFeedback.dataset.debugStatus = 'action-feedback';
     actionFeedback.setAttribute('aria-live', 'polite');
-    actionFeedback.style.display = 'none';
-    actionFeedback.style.fontSize = '14px';
-    actionFeedback.style.padding = '7px 9px';
-    actionFeedback.style.borderRadius = '6px';
-    actionFeedback.style.background = 'rgba(244, 228, 200, 0.5)';
-    actionFeedback.style.textWrap = 'pretty';
+    actionFeedback.style.position = 'absolute';
+    actionFeedback.style.width = '1px';
+    actionFeedback.style.height = '1px';
+    actionFeedback.style.overflow = 'hidden';
+    actionFeedback.style.clipPath = 'inset(50%)';
 
     const showActionFeedback = (message) => {
         actionFeedback.innerText = message;
-        actionFeedback.style.display = 'block';
     };
 
-    const previewBtn = makeActionButton(sequenceTools ? 'Play Selected Scene Only' : 'Jump to Script/Gag', () => {
+    const startBtn = makeActionButton(sequenceTools ? 'Start Debug Run' : 'Jump to Script/Gag', () => {
         if (!sequenceTools) return legacyJump();
         const { script, tagId, storyDay } = selectedScene();
-        window.__NEXT_SCRIPT_OVERRIDE__ = sequenceTools.preview(script, tagId, { storyDay });
+        if (playbackModeSelect.value === 'preview') {
+            window.__NEXT_SCRIPT_OVERRIDE__ = sequenceTools.preview(script, tagId, { storyDay });
+            showActionFeedback('Selected-scene run started; the current chapter will resume afterward.');
+        } else {
+            window.__NEXT_SCRIPT_OVERRIDE__ = null;
+            sequenceTools.planFrom(script, tagId, { storyDay });
+            showActionFeedback('Complete-chapter run started.');
+        }
         stopProcess('script_override');
-        showActionFeedback('One-scene preview queued. The existing sequence remains saved and resumes afterward.');
     });
 
-    const sequenceBtn = makeActionButton('Run Sequence From Here', () => {
-        if (!sequenceTools) return legacyJump();
-        const { script, tagId, storyDay } = selectedScene();
-        window.__NEXT_SCRIPT_OVERRIDE__ = null;
-        sequenceTools.planFrom(script, tagId, { storyDay });
-        stopProcess('script_override');
-        showActionFeedback('New sequence queued. Live playback updates below when it begins.');
-    });
-    sequenceBtn.style.display = sequenceTools ? 'block' : 'none';
-
+    scriptsRow.appendChild(scriptLabel);
     scriptsRow.appendChild(scriptSelect);
+    sceneRow.appendChild(sceneLabel);
     sceneRow.appendChild(sceneSelect);
     container.appendChild(targetLabel);
     container.appendChild(targetHelp);
     container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
     container.appendChild(storyRow);
+    container.appendChild(playbackModeRow);
     container.appendChild(sceneContext);
-    actionRow.appendChild(previewBtn);
-    actionRow.appendChild(sequenceBtn);
+    actionRow.appendChild(startBtn);
     container.appendChild(actionRow);
     container.appendChild(actionFeedback);
 
-    const playbackLabel = makeSectionLabel('Live playback');
+    const playbackLabel = makeSectionLabel('Now playing');
     playbackLabel.dataset.debugSection = 'playback';
     playbackLabel.style.display = sequenceTools ? 'block' : 'none';
     container.appendChild(playbackLabel);
@@ -395,12 +432,12 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
         const tide = status.lowTide ? 'Low tide' : 'High tide';
         if (status.current === 0) {
-            sequenceStatus.innerText = `Queued sequence · Chapter ${status.storyDay} · ${status.total} event${status.total === 1 ? '' : 's'}\nStarts with: ${status.next.script} #${status.next.tagId} · Finale: ${status.final.script} #${status.final.tagId} · ${tide}`;
+            sequenceStatus.innerText = `Chapter ${status.storyDay} · ${status.total} event${status.total === 1 ? '' : 's'} queued\nFirst: ${status.next.script} #${status.next.tagId}\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
             return;
         }
         const active = status.active ? `${status.active.script} #${status.active.tagId}` : 'loading';
-        const next = status.next ? ` · Next: ${status.next.script} #${status.next.tagId}` : '';
-        sequenceStatus.innerText = `Playing event ${status.current} of ${status.total} · Chapter ${status.storyDay}\nNow: ${active}${next} · ${status.remaining} event${status.remaining === 1 ? '' : 's'} after this one\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
+        const next = status.next ? `${status.next.script} #${status.next.tagId}` : 'Finale in progress';
+        sequenceStatus.innerText = `Chapter ${status.storyDay} · Event ${status.current} of ${status.total}\nCurrent: ${active}\nNext: ${next} · ${status.remaining} remaining\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
     };
     container.appendChild(sequenceStatus);
     if (sequenceTools) window.setInterval(() => renderSequenceStatus(), 500);
