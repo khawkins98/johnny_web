@@ -29,7 +29,9 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     container.style.minHeight = '240px';
     container.style.maxHeight = '80vh';
     container.style.resize = 'both';
-    container.style.overflow = 'hidden';
+    container.style.overflow = 'auto';
+    container.style.scrollbarGutter = 'stable';
+    container.style.overscrollBehavior = 'contain';
 
     // Drag capability
     let isDragging = false;
@@ -50,6 +52,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     title.style.cursor = 'move';
     title.style.userSelect = 'none';
     title.style.textWrap = 'balance';
+    title.style.flexShrink = '0';
 
     const titleText = document.createElement('span');
     titleText.innerText = '⎈ Developer Tools';

@@ -124,6 +124,9 @@ describe('developer sequence controls', () => {
         expect(panel.style.right).toBe('auto');
         expect(panel.style.resize).toBe('both');
         expect(panel.style.minWidth).toBe('320px');
+        expect(panel.style.overflow).toBe('auto');
+        expect(panel.style.scrollbarGutter).toBe('stable');
+        expect(panel.style.overscrollBehavior).toBe('contain');
     });
 
     it('restores standard and verbose console controls in the panel', () => {
