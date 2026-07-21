@@ -29,6 +29,18 @@ describe('Johnny host story controller', () => {
         );
     });
 
+    it('describes debug action semantics from recovered host flags', () => {
+        const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+        expect(controller.describe('JOHNNY.ADS', 1)).toMatchObject({
+            fixedDay: 11,
+            final: true,
+            first: true,
+            action: 'solo-finale',
+        });
+        expect(controller.describe('FISHING.ADS', 3).action).toBe('ending-finale');
+        expect(controller.describe('STAND.ADS', 1).action).toBe('starting-event');
+    });
+
     it('plans ordinary scenes followed by one final and rotates five wipes', () => {
         const controller = createJohnnyStoryController({
             random: () => 0,

@@ -104,6 +104,12 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     scriptsRow.style.gap = '8px';
     scriptsRow.style.alignItems = 'center';
 
+    const targetLabel = document.createElement('div');
+    targetLabel.innerText = 'Debug target (not current playback)';
+    targetLabel.style.fontSize = '14px';
+    targetLabel.style.opacity = '0.78';
+    targetLabel.style.textWrap = 'balance';
+
     const sceneRow = document.createElement('div');
     sceneRow.style.display = 'flex';
     sceneRow.style.gap = '8px';
@@ -113,7 +119,18 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyRow.style.display = sequenceTools ? 'flex' : 'none';
     storyRow.style.gap = '8px';
     storyRow.style.alignItems = 'center';
-    storyRow.innerText = 'Story Day: ';
+    const storyDayLabel = document.createElement('span');
+    storyDayLabel.innerText = 'Story Day:';
+    storyRow.appendChild(storyDayLabel);
+
+    const sceneContext = document.createElement('div');
+    sceneContext.dataset.debugStatus = 'scene-context';
+    sceneContext.style.display = sequenceTools ? 'block' : 'none';
+    sceneContext.style.padding = '7px 9px';
+    sceneContext.style.borderRadius = '6px';
+    sceneContext.style.background = 'rgba(244, 228, 200, 0.5)';
+    sceneContext.style.boxShadow = 'inset 0 0 0 1px rgba(74, 53, 32, 0.12)';
+    sceneContext.style.textWrap = 'pretty';
 
     const actionRow = document.createElement('div');
     actionRow.style.display = 'grid';
@@ -148,6 +165,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     sceneSelect.style.flex = '1';
 
     const populateScenes = () => {
+        const previousTag = sceneSelect.value;
         sceneSelect.innerHTML = ''; // clear
         const state = __DEBUG__.getState();
         if (!state || !state.resourceProvider) return;
@@ -180,6 +198,9 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
                 prevId = currentId;
             }
         });
+        if ([...sceneSelect.options].some((option) => option.value === previousTag && !option.disabled)) {
+            sceneSelect.value = previousTag;
+        }
     };
 
     scriptSelect.addEventListener('change', populateScenes);
@@ -199,7 +220,9 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     } catch {
         storyDaySelect.value = '1';
     }
+    let preferredStoryDay = storyDaySelect.value;
     storyDaySelect.addEventListener('change', () => {
+        preferredStoryDay = storyDaySelect.value;
         try {
             localStorage.setItem('jc-debug-story-day', storyDaySelect.value);
         } catch {
@@ -207,6 +230,42 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
     });
     storyRow.appendChild(storyDaySelect);
+
+    const syncSelectedSceneContext = () => {
+        if (!sequenceTools) return;
+        const metadata = sequenceTools.describe?.(scriptSelect.value, Number(sceneSelect.value));
+        if (!metadata) {
+            storyDaySelect.disabled = false;
+            storyDaySelect.value = preferredStoryDay;
+            sceneContext.innerText = 'This decoded tag has no recovered host-catalogue metadata.';
+            sequenceBtn.innerText = 'Run Faithful Sequence';
+            return;
+        }
+
+        if (metadata.fixedDay) {
+            storyDaySelect.value = String(metadata.fixedDay);
+            storyDaySelect.disabled = true;
+            storyDayLabel.innerText = 'Story Day (fixed):';
+        } else {
+            storyDaySelect.disabled = false;
+            storyDaySelect.value = preferredStoryDay;
+            storyDayLabel.innerText = 'Story Day:';
+        }
+
+        if (metadata.action === 'solo-finale') {
+            const dayContext = metadata.fixedDay ? `Fixed Day ${metadata.fixedDay}` : 'Uses the selected story day';
+            sceneContext.innerText = `${dayContext} · Start-immediately finale · A faithful plan contains this one event.`;
+            sequenceBtn.innerText = 'Run This Finale (1 Event)';
+        } else if (metadata.action === 'ending-finale') {
+            sceneContext.innerText = `${metadata.fixedDay ? `Fixed Day ${metadata.fixedDay} · ` : ''}Finale · Compatible island events play first; this selected event ends the sequence.`;
+            sequenceBtn.innerText = 'Run Sequence Ending Here';
+        } else {
+            sceneContext.innerText = `${metadata.fixedDay ? `Fixed Day ${metadata.fixedDay} · ` : 'Uses the selected story day · '}This event starts the sequence; compatible events and a finale follow.`;
+            sequenceBtn.innerText = 'Start Sequence With This Scene';
+        }
+    };
+    scriptSelect.addEventListener('change', syncSelectedSceneContext);
+    sceneSelect.addEventListener('change', syncSelectedSceneContext);
 
     const selectedScene = () => ({
         script: scriptSelect.value,
@@ -271,9 +330,11 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
 
     scriptsRow.appendChild(scriptSelect);
     sceneRow.appendChild(sceneSelect);
+    container.appendChild(targetLabel);
     container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
     container.appendChild(storyRow);
+    container.appendChild(sceneContext);
     actionRow.appendChild(previewBtn);
     actionRow.appendChild(sequenceBtn);
     container.appendChild(actionRow);
@@ -290,8 +351,15 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     const renderSequenceStatus = (prefix = '') => {
         if (!sequenceTools) return;
         const status = sequenceTools.status?.();
+        const progress = !status
+            ? ''
+            : status.current === 0
+              ? `Queued · ${status.total} event${status.total === 1 ? '' : 's'}`
+              : `Playing ${status.current}/${status.total}`;
+        const next = status?.next ? ` · Next ${status.next.script} #${status.next.tagId}` : '';
+        const active = status?.active ? ` · Active ${status.active.script} #${status.active.tagId}` : '';
         const detail = status
-            ? `Day ${status.storyDay} · Scene ${status.current}/${status.total} · ${status.remaining} remaining · Final ${status.final.script} #${status.final.tagId}${status.lowTide ? ' · Low tide' : ' · High tide'}`
+            ? `Day ${status.storyDay} · ${progress}${active} · ${status.remaining} remaining${next} · Final ${status.final.script} #${status.final.tagId}${status.lowTide ? ' · Low tide' : ' · High tide'}`
             : 'Normal scheduler has not planned a sequence yet.';
         sequenceStatus.innerText = prefix ? `${prefix}. ${detail}` : detail;
     };
@@ -300,11 +368,8 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
 
     // Patch original populateSelect call
     const originalPopulateSelect = () => {
-        const state = __DEBUG__.getState();
-        if (state && state.data && state.data.name) {
-            scriptSelect.value = state.data.name;
-        }
         populateScenes();
+        syncSelectedSceneContext();
         renderSequenceStatus();
     };
 

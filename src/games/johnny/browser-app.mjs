@@ -31,6 +31,7 @@ export const runJohnnyCastaway = () => {
             preview: (script, tagId, options) => story.preview(script, tagId, options),
             planFrom: (script, tagId, options) => story.planFrom(script, tagId, options),
             status: () => story.status(),
+            describe: (script, tagId) => story.describe(script, tagId),
         },
     });
 };

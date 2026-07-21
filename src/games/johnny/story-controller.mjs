@@ -223,6 +223,21 @@ export const createJohnnyStoryController = ({
     const findScene = (script, tagId) =>
         JOHNNY_SCENES.find((candidate) => candidate.script === script && candidate.tagId === Number(tagId));
 
+    const describeScene = (script, tagId) => {
+        const selected = findScene(script, tagId);
+        if (!selected) return null;
+        const final = hasAll(selected.flags, F.FINAL);
+        const first = hasAll(selected.flags, F.FIRST);
+        return Object.freeze({
+            script: selected.script,
+            tagId: selected.tagId,
+            fixedDay: selected.day || null,
+            final,
+            first,
+            action: final ? (first ? 'solo-finale' : 'ending-finale') : 'starting-event',
+        });
+    };
+
     const makeSelection = ({ selected, walkFrom = null, islandState, index, total, wipe, anchor = null }) => {
         const sequenceEnd = index === total - 1;
         const sceneOffset = Object.freeze({
@@ -317,6 +332,7 @@ export const createJohnnyStoryController = ({
             final: Object.freeze({ script: planned.at(-1).scene.script, tagId: planned.at(-1).scene.tagId }),
             anchor,
             lowTide: islandState.lowTide,
+            next: Object.freeze({ script: planned[0].scene.script, tagId: planned[0].scene.tagId }),
         });
         transition = (transition + 1) % 5;
     };
@@ -340,6 +356,9 @@ export const createJohnnyStoryController = ({
                 current: selection.sequence.index,
                 remaining: queue.length,
                 active: Object.freeze({ script: selection.script, tagId: selection.tagId }),
+                next: queue.length
+                    ? Object.freeze({ script: queue[0].script, tagId: queue[0].tagId })
+                    : null,
             });
             return selection;
         },
@@ -370,6 +389,7 @@ export const createJohnnyStoryController = ({
             return sequenceStatus;
         },
         status: () => sequenceStatus,
+        describe: describeScene,
         snapshot: () => Object.freeze([...queue]),
     };
 };
