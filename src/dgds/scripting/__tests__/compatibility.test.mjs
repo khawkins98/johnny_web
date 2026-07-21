@@ -155,4 +155,26 @@ describe('deterministic background compatibility', () => {
         expect(context.drawImage).toHaveBeenCalledWith(night.images[0]._canvas, 0, 0);
         expect(state.bkgScreen).toBe(day);
     });
+
+    it('keeps host-owned island placement independent of a child TTM background id', () => {
+        const island = { images: [{ _canvas: { name: 'island' }, width: 10, height: 10 }] };
+        const context = { clearRect: vi.fn(), drawImage: vi.fn() };
+        const state = {
+            game: {
+                background: {
+                    layouts: { 1: { x: 288 }, 2: { x: 16 } },
+                    layers: [{ source: 'bkgRes', frame: 0, x: 0, y: 279 }],
+                    settings: { clouds: 'clouds', waves: 'waves', time: 'time' },
+                },
+            },
+            bkgOcean: [],
+            bkgRes: island,
+            backgroundId: 2,
+            titleState: { island: true, islandLayoutId: 1, x: -272, presentationKey: {}, clouds: [] },
+        };
+
+        drawBackground(state, context, createBrowserPresentationPolicy({ storage: null, random: () => 0 }));
+
+        expect(context.drawImage).toHaveBeenCalledWith(island.images[0]._canvas, 0, 0, 10, 10, 16, 279, 10, 10);
+    });
 });

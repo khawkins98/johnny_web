@@ -65,7 +65,8 @@ export const createHolidayOverlay = ({
                 : theme === 'none'
                   ? null
                   : HOLIDAYS.find((candidate) => candidate.name === theme) || null;
-        const layout = state.game?.background?.layouts?.[state.backgroundId];
+        const layoutId = state.titleState?.islandLayoutId ?? state.backgroundId;
+        const layout = state.game?.background?.layouts?.[layoutId];
         if (!holiday || !layout || state.titleState?.island === false || state.titleState?.holidayAllowed === false) {
             return false;
         }

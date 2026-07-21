@@ -79,6 +79,25 @@ describe('developer sequence controls', () => {
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain('Queued · 7 events');
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain('Next ACTIVITY.ADS #1');
         expect(document.querySelector('[data-debug-status="sequence"]').style.fontVariantNumeric).toBe('tabular-nums');
+        expect(day.parentElement.querySelector('span').innerText).toBe('Story Chapter:');
+    });
+
+    it('reflects and changes the active host-owned night state', () => {
+        processMocks.debug.getState.mockReturnValue({
+            titleState: { night: true },
+            data: { name: 'ACTIVITY.ADS' },
+            resourceProvider: {
+                resolve: () => ({ scenes: [{ tagId: { id: 1, description: 'Test scene' } }] }),
+            },
+        });
+        setupDebugUI();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+
+        const checkbox = document.querySelector('input[type="checkbox"]');
+        expect(checkbox.checked).toBe(true);
+        checkbox.checked = false;
+        checkbox.dispatchEvent(new Event('change'));
+        expect(processMocks.debug.setNightMode).toHaveBeenCalledWith(false);
     });
 
     it('locks story-gated solo finales to their recovered day and explains the one-event plan', () => {

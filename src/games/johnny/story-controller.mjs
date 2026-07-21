@@ -190,6 +190,10 @@ const createIslandState = (
     const raft = hasAll(finalScene.flags, F.NORAFT) ? 0 : storyDay <= 2 ? 1 : storyDay <= 5 ? storyDay - 1 : 5;
     return Object.freeze({
         island: hasAll(finalScene.flags, F.ISLAND),
+        // The host always composes Johnny's persistent island with the primary
+        // island layout. TTM scenes may load ISLAND2.SCR for their own drawing;
+        // that child-local background id must not move the host-owned island.
+        islandLayoutId: 1,
         lowTide,
         night: date.getHours() < 6 || date.getHours() >= 18,
         raft,

@@ -41,7 +41,8 @@ export const drawBackground = (state, context, policy) => {
         if (bgCanvas) context.drawImage(bgCanvas, 0, 0);
     }
 
-    const layout = profile?.layouts?.[state.backgroundId];
+    const layoutId = state.titleState?.islandLayoutId ?? state.backgroundId;
+    const layout = profile?.layouts?.[layoutId];
     if (layout && state.titleState?.island !== false) {
         const animation = policy.backgroundState(state.titleState?.presentationKey || state);
         const posX = layout.x + (state.titleState?.x || 0);

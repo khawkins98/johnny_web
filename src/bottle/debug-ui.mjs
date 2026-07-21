@@ -120,7 +120,8 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyRow.style.gap = '8px';
     storyRow.style.alignItems = 'center';
     const storyDayLabel = document.createElement('span');
-    storyDayLabel.innerText = 'Story Day:';
+    storyDayLabel.innerText = 'Story Chapter:';
+    storyDayLabel.title = 'The original 11-day story counter; it gates special finales and advances the raft.';
     storyRow.appendChild(storyDayLabel);
 
     const sceneContext = document.createElement('div');
@@ -245,11 +246,11 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         if (metadata.fixedDay) {
             storyDaySelect.value = String(metadata.fixedDay);
             storyDaySelect.disabled = true;
-            storyDayLabel.innerText = 'Story Day (fixed):';
+            storyDayLabel.innerText = 'Story Chapter (fixed):';
         } else {
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
-            storyDayLabel.innerText = 'Story Day:';
+            storyDayLabel.innerText = 'Story Chapter:';
         }
 
         if (metadata.action === 'solo-finale') {
@@ -371,6 +372,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         populateScenes();
         syncSelectedSceneContext();
         renderSequenceStatus();
+        syncNightCheckbox();
     };
 
     const traceBtn = document.createElement('button');
@@ -406,7 +408,13 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         __DEBUG__.setNightMode(e.target.checked);
     });
 
+    const syncNightCheckbox = () => {
+        const state = __DEBUG__.getState();
+        if (state) timeCheckbox.checked = state.titleState?.night ?? state.isNightMode === true;
+    };
+
     timeLabel.prepend(timeCheckbox);
+    timeLabel.title = 'Override day/night for the currently playing sequence.';
     timeRow.appendChild(timeLabel);
     container.appendChild(timeRow);
 

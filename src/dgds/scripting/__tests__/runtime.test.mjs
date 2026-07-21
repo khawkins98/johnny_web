@@ -204,4 +204,29 @@ describe('DgdsRuntime', () => {
             }),
         ).toThrow('ADS scene 99 does not exist');
     });
+
+    it('keeps the host-owned title state in sync with the night-mode control', () => {
+        const oceans = ['day-0', 'day-1', 'day-2', 'night'];
+        const runtime = createRuntime({
+            type: 'ADS',
+            game: { background: { oceans: ['O0', 'O1', 'O2', 'NIGHT'] } },
+            titleState: Object.freeze({ island: true, night: false }),
+            bkgOcean: oceans,
+            data: { name: 'test', resources: [], scenes: [] },
+        });
+        runtime.state.scenes.push({
+            state: {
+                titleState: runtime.state.titleState,
+                bkgOcean: oceans,
+                bkgScreen: oceans[0],
+            },
+        });
+
+        runtime.setNightMode(true);
+
+        expect(runtime.state.titleState.night).toBe(true);
+        expect(runtime.state.bkgScreen).toBe('night');
+        expect(runtime.state.scenes[0].state.titleState.night).toBe(true);
+        expect(runtime.state.scenes[0].state.bkgScreen).toBe('night');
+    });
 });

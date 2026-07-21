@@ -365,10 +365,17 @@ export class DgdsRuntime {
         const state = this.state;
         if (state.type !== 'ADS') return;
         state.isNightMode = isNight;
+        // A Johnny host selection owns day/night in titleState. Keep that
+        // presentation contract in sync with the legacy runtime control so
+        // drawBackground does not immediately override the selected ocean.
+        if (state.titleState) state.titleState = Object.freeze({ ...state.titleState, night: isNight });
         const oceanIdx = selectOceanIndex(state, isNight);
         if (oceanIdx < 0) return;
         if (state.bkgOcean.length > 0) state.bkgScreen = state.bkgOcean[oceanIdx];
         state.scenes.forEach((scene) => {
+            if (scene.state?.titleState) {
+                scene.state.titleState = Object.freeze({ ...scene.state.titleState, night: isNight });
+            }
             if (scene.state?.bkgOcean?.length > 0) {
                 scene.state.bkgScreen = scene.state.bkgOcean[oceanIdx];
             }
