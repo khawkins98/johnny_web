@@ -57,7 +57,7 @@ When you first open the local dev server, you will be prompted to drag and drop 
 
 The opening screen leaves the original Sierra artwork unobstructed and offers:
 
-- **Classic** — native scale, static clouds and waves, and faithful defaults.
+- **Classic** — native scale, static clouds, rolling original waves, and faithful defaults.
 - **Enhanced** — responsive scaling, moving clouds and waves, plus a small HUD.
 
 In Enhanced mode, use `←`/`→` to change scenes, `↑`/`↓` to change speed, and `F` to enter or leave full screen. Dismiss the status note with its close button; press `H` to hide or restore it. Every option remains individually adjustable in Settings.

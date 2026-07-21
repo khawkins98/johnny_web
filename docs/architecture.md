@@ -138,7 +138,7 @@ ADS condition branches stage scene additions and removals:
 
 The browser has background and foreground canvases. TTM opcodes address neither — the retained-surface presenter applies their operations to per-scene software surfaces.
 
-The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the historical sequence policy and the remaining compatibility gap between flat ambient selection and complete story/walking orchestration.
+The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, and transition process and the one known route-selection approximation.
 
 When retained foreground state changes, `composeTtmFrame()`:
 

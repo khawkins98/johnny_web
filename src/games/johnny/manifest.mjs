@@ -43,17 +43,38 @@ export const johnnyCastaway = defineGamePackage({
             frames: Object.freeze([15, 16, 17]),
         }),
         layers: Object.freeze([
-            Object.freeze({ source: 'bkgRaft', frame: 3, x: 222, y: 268 }),
-            Object.freeze({ source: 'bkgRes', frame: 0, x: 0, y: 280 }),
-            Object.freeze({ source: 'bkgRes', frame: 14, x: 108, y: 280 }),
+            Object.freeze({ source: 'bkgRes', frame: 0, x: 0, y: 279 }),
+            Object.freeze({ source: 'bkgRes', frame: 14, x: 108, y: 279 }),
             Object.freeze({ source: 'bkgRes', frame: 13, x: 154, y: 148 }),
             Object.freeze({ source: 'bkgRes', frame: 12, x: 77, y: 122 }),
         ]),
-        animatedLayers: Object.freeze([
-            Object.freeze({ source: 'bkgRes', frames: Object.freeze([3, 4, 5]), x: -13, y: 305 }),
-            Object.freeze({ source: 'bkgRes', frames: Object.freeze([6, 7, 8, 9]), x: 76, y: 320 }),
-            Object.freeze({ source: 'bkgRes', frames: Object.freeze([10, 11]), x: 230, y: 303 }),
-        ]),
+        raft: Object.freeze({
+            source: 'bkgRaft',
+            high: Object.freeze({ x: 224, y: 266 }),
+            low: Object.freeze({ x: 241, y: 281 }),
+        }),
+        tides: Object.freeze({
+            high: Object.freeze({
+                staticLayers: Object.freeze([]),
+                waves: Object.freeze([
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([3, 4, 5]), x: -18, y: 306 }),
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([6, 7, 8]), x: 76, y: 319 }),
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([9, 10, 11]), x: 230, y: 303 }),
+                ]),
+            }),
+            low: Object.freeze({
+                staticLayers: Object.freeze([
+                    Object.freeze({ source: 'bkgRes', frame: 1, x: -39, y: 303 }),
+                    Object.freeze({ source: 'bkgRes', frame: 2, x: -138, y: 328 }),
+                ]),
+                waves: Object.freeze([
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([30, 31, 32]), x: -55, y: 323 }),
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([33, 34, 35]), x: 79, y: 356 }),
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([36, 37, 38]), x: 270, y: 323 }),
+                    Object.freeze({ source: 'bkgRes', frames: Object.freeze([39, 40, 41]), x: -159, y: 340 }),
+                ]),
+            }),
+        }),
         settings: Object.freeze({
             clouds: 'jc-clouds',
             waves: 'jc-waves',

@@ -47,7 +47,7 @@ describe('settings UI', () => {
         expect(setting('experience').value).toBe('classic');
         expect(setting('scale').value).toBe('native');
         expect(setting('clouds').value).toBe('off');
-        expect(setting('waves').value).toBe('off');
+        expect(setting('waves').value).toBe('on');
     });
 
     it('offers full screen and a footer close action', () => {

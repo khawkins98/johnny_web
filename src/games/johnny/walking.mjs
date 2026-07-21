@@ -1,0 +1,141 @@
+import { buildSpriteCanvas } from '../../dgds/graphics.mjs';
+
+const DATA_OFFSET = 0x188ea;
+const DATA_ROWS = 480;
+const BOOKMARKS = [
+    [-1, 68, 38, -1, 0, 17],
+    [109, -1, 133, -1, -1, -1],
+    [163, 196, -1, 211, 224, 245],
+    [-1, -1, 278, -1, 289, 302],
+    [332, -1, 356, 381, -1, 394],
+    [423, -1, 443, 457, 463, -1],
+];
+const TURNS = [91, 145, 260, 314, 405, 471];
+const START_HEADINGS = [
+    [-1, 6, 6, -1, 5, 5],
+    [3, -1, 5, -1, -1, -1],
+    [2, 1, -1, 3, 2, 2],
+    [-1, -1, 7, -1, 2, 1],
+    [1, -1, 7, 6, -1, 7],
+    [2, -1, 6, 5, 3, -1],
+];
+const END_HEADINGS = [
+    [-1, 7, 5, -1, 5, 5],
+    [3, -1, 5, -1, -1, -1],
+    [2, 1, -1, 4, 3, 3],
+    [-1, -1, 7, -1, 2, 1],
+    [1, -1, 6, 6, -1, 7],
+    [2, -1, 6, 5, 3, -1],
+];
+
+/** Decode the original host's compact walking table without persisting a dump. */
+export const decodeJohnnyWalkData = (archiveBuffer) => {
+    if (!(archiveBuffer instanceof ArrayBuffer) || archiveBuffer.byteLength < DATA_OFFSET + DATA_ROWS * 6) {
+        throw new TypeError('Johnny walking requires the original SCRANTIC.SCR archive');
+    }
+    const view = new DataView(archiveBuffer, DATA_OFFSET, DATA_ROWS * 6);
+    return Array.from({ length: DATA_ROWS }, (_, index) => {
+        const flagsAndFrame = view.getUint16(index * 6, true);
+        return Object.freeze({
+            flipX: Boolean(flagsAndFrame & 0x8000),
+            frame: (flagsAndFrame & 0x7fff) - 1,
+            x: view.getUint16(index * 6 + 2, true),
+            y: view.getUint16(index * 6 + 4, true),
+        });
+    });
+};
+
+const shortestPath = (from, to) => {
+    if (from === to) return [from];
+    const queue = [[from]];
+    const visited = new Set([from]);
+    while (queue.length) {
+        const path = queue.shift();
+        const current = path.at(-1);
+        for (let next = 0; next < BOOKMARKS.length; next++) {
+            if (BOOKMARKS[current][next] < 0 || visited.has(next)) continue;
+            const candidate = [...path, next];
+            if (next === to) return candidate;
+            visited.add(next);
+            queue.push(candidate);
+        }
+    }
+    return [];
+};
+
+const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false) => {
+    let heading = fromHeading;
+    let difference = (toHeading - heading) & 7;
+    const increment = difference === 0 ? 0 : difference < 4 ? 1 : -1;
+    while (heading !== toHeading) {
+        heading = (heading + increment + 8) & 7;
+        frames.push(data[TURNS[spot] + heading + (waiting ? 9 : 0)]);
+    }
+};
+
+export const planJohnnyWalkFrames = (walk, data) => {
+    const path = shortestPath(walk.fromSpot, walk.toSpot);
+    if (!path.length || walk.fromHeading == null || walk.toHeading == null) return [];
+    const frames = [];
+    let heading = walk.fromHeading;
+    for (let index = 0; index < path.length - 1; index++) {
+        const from = path[index];
+        const to = path[index + 1];
+        appendTurn(frames, data, from, heading, START_HEADINGS[from][to]);
+        for (let row = BOOKMARKS[from][to]; data[row]?.frame >= 0; row++) frames.push(data[row]);
+        heading = END_HEADINGS[from][to];
+    }
+    appendTurn(frames, data, walk.toSpot, heading, walk.toHeading, true);
+    frames.push(data[TURNS[walk.toSpot] + 9 + walk.toHeading]);
+    return frames.filter(Boolean);
+};
+
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/** Play the executable-owned walk between two ADS scenes. */
+export const runJohnnyWalk = async ({
+    walk,
+    titleState,
+    archiveBuffer,
+    resourceProvider,
+    context,
+    wait = delay,
+}) => {
+    if (!walk) return;
+    const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer));
+    const sprites = resourceProvider.resolve('JOHNWALK.BMP');
+    const background = resourceProvider.resolve('BACKGRND.BMP');
+    const offsetX = titleState?.x || 0;
+    const offsetY = titleState?.y || 0;
+    const behindTree = (walk.fromSpot === 3 && walk.toSpot === 4) || (walk.fromSpot === 4 && walk.toSpot === 3);
+
+    for (let index = 0; index < frames.length; index++) {
+        const frame = frames[index];
+        const image = sprites?.images?.[frame.frame];
+        const sprite = image && buildSpriteCanvas(image);
+        context.clearRect(0, 0, 640, 480);
+        if (sprite) {
+            context.save();
+            if (frame.flipX) {
+                context.translate(frame.x + offsetX + image.width, frame.y + offsetY);
+                context.scale(-1, 1);
+                context.drawImage(sprite, 0, 0);
+            } else {
+                context.drawImage(sprite, frame.x + offsetX, frame.y + offsetY);
+            }
+            context.restore();
+        }
+        if (behindTree) {
+            for (const [frameIndex, x, y] of [
+                [13, 442, 148],
+                [12, 365, 122],
+            ]) {
+                const image = background?.images?.[frameIndex];
+                const sprite = image && buildSpriteCanvas(image);
+                if (sprite) context.drawImage(sprite, x + offsetX, y + offsetY);
+            }
+        }
+        await wait(index === frames.length - 1 ? 800 : 60);
+    }
+    context.clearRect(0, 0, 640, 480);
+};

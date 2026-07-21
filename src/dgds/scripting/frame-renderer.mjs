@@ -18,7 +18,8 @@ export const drawBackground = (state, context, policy) => {
     const profile = state.game?.background;
     const now = policy.now();
 
-    // Draw background / ocean / night
+    // Draw the ocean selected by the title host. DGDS still owns loading the
+    // decoded SCR resources; Johnny owns whether this sequence is day/night.
     let backgroundScreen = state.bkgScreen;
     if (
         profile?.settings?.time &&
@@ -26,8 +27,10 @@ export const drawBackground = (state, context, policy) => {
         state.bkgOcean.length > 0
     ) {
         const hour = policy.currentHour();
-        const isNight = hour < 6 || hour >= 18;
-        backgroundScreen = isNight
+        backgroundScreen =
+            hour < 6 || hour >= 18 ? state.bkgOcean[state.bkgOcean.length - 1] : state.bkgOcean[state.dayOceanIndex ?? 0];
+    } else if (state.titleState?.night != null && state.bkgOcean.length > 0) {
+        backgroundScreen = state.titleState.night
             ? state.bkgOcean[state.bkgOcean.length - 1]
             : state.bkgOcean[state.dayOceanIndex ?? 0];
     }
@@ -38,11 +41,12 @@ export const drawBackground = (state, context, policy) => {
     }
 
     const layout = profile?.layouts?.[state.backgroundId];
-    if (layout) {
+    if (layout && state.titleState?.island !== false) {
         const animation = policy.backgroundState(state);
-        const posX = layout.x;
+        const posX = layout.x + (state.titleState?.x || 0);
+        const posY = state.titleState?.y || 0;
         const cloudsOn = policy.setting(profile.settings.clouds, 'off') === 'on';
-        const wavesOn = policy.setting(profile.settings.waves, 'off') === 'on';
+        const wavesOn = policy.setting(profile.settings.waves, 'on') === 'on';
 
         if (cloudsOn) {
             if (!animation.cloudElapsed) {
@@ -57,34 +61,66 @@ export const drawBackground = (state, context, policy) => {
             }
         }
 
-        if (wavesOn) {
-            if (!animation.waveElapsed) {
-                animation.waveElapsed = now + 250;
-                animation.waveFrame = 0;
-            }
-            if (now > animation.waveElapsed) {
-                animation.waveElapsed = now + 250;
-                animation.waveFrame++;
-            }
-        } else {
-            animation.waveFrame = 0;
-        }
-
-        const blit = (source, frame, dx, dy) => {
+        const blit = (source, frame, dx, dy, flipX = false) => {
             const image = state[source]?.images?.[frame];
             const canvas = image && buildSpriteCanvas(image);
             if (canvas) {
-                context.drawImage(canvas, 0, 0, image.width, image.height, dx, dy, image.width, image.height);
+                if (flipX && context.save) {
+                    context.save();
+                    context.translate(dx + image.width, dy);
+                    context.scale(-1, 1);
+                    context.drawImage(canvas, 0, 0);
+                    context.restore();
+                } else {
+                    context.drawImage(canvas, 0, 0, image.width, image.height, dx, dy, image.width, image.height);
+                }
             }
         };
 
-        blit(profile.cloud.source, state.cloudIdx, animation.cloudX, animation.cloudY);
+        if (state.titleState?.clouds) {
+            const drift = cloudsOn ? animation.cloudX - (state.cloudX || 0) : 0;
+            for (const cloud of state.titleState.clouds) {
+                blit(profile.cloud.source, cloud.frame, cloud.x + drift, cloud.y, cloud.flipX);
+            }
+        } else {
+            blit(profile.cloud.source, state.cloudIdx, animation.cloudX, animation.cloudY);
+        }
+
+        const tideName = state.titleState?.lowTide ? 'low' : 'high';
+        const tide = profile.tides?.[tideName];
+        for (const layer of tide?.staticLayers || []) {
+            blit(layer.source, layer.frame, posX + layer.x, posY + layer.y);
+        }
         for (const layer of profile.layers) {
-            blit(layer.source, layer.frame, posX + layer.x, layer.y);
+            blit(layer.source, layer.frame, posX + layer.x, posY + layer.y);
         }
-        const waveFrame = animation.waveFrame || 0;
-        for (const layer of profile.animatedLayers) {
-            blit(layer.source, layer.frames[waveFrame % layer.frames.length], posX + layer.x, layer.y);
+
+        if (profile.raft && (state.titleState?.raft ?? 4) > 0) {
+            const raft = profile.raft[tideName];
+            blit(profile.raft.source, (state.titleState?.raft ?? 4) - 1, posX + raft.x, posY + raft.y);
         }
+
+        const waves = tide?.waves || profile.animatedLayers || [];
+        if (animation.waveTide !== tideName || animation.waveRegions?.length !== waves.length) {
+            animation.waveTide = tideName;
+            animation.waveRegions = Array(waves.length).fill(0);
+            animation.waveRegion = 0;
+            animation.wavePhase = 0;
+            animation.waveElapsed = now + 80;
+        }
+        if (wavesOn && waves.length > 0 && now >= animation.waveElapsed) {
+            while (now >= animation.waveElapsed) {
+                animation.waveRegions[animation.waveRegion] = animation.wavePhase;
+                animation.waveRegion = (animation.waveRegion + 1) % waves.length;
+                if (animation.waveRegion === 0) animation.wavePhase = (animation.wavePhase + 1) % 3;
+                animation.waveElapsed += 80;
+            }
+        } else if (!wavesOn) {
+            animation.waveRegions.fill(0);
+        }
+        waves.forEach((layer, index) => {
+            const frame = layer.frames[animation.waveRegions[index] % layer.frames.length];
+            blit(layer.source, frame, posX + layer.x, posY + layer.y);
+        });
     }
 };

@@ -178,6 +178,13 @@ const clearAdsSceneBatch = (state) => {
 // The overlay is drawn in runScripts so it remains visible for the final frame even after
 // the child scenes are cleared.
 const ADS_FADE_OUT = (state) => {
+    // Johnny's executable treated F010 as an end-of-segment marker and owned
+    // the five sequence wipes itself. Other DGDS hosts retain the existing
+    // interpreter-level alpha fade for compatibility.
+    if (state.hostManagedTransitions) {
+        if (state.lastCommand) clearAdsSceneBatch(state);
+        return;
+    }
     if (state.continue) {
         debugLog('FADE_OUT: starting');
         state.fadingOut = true;

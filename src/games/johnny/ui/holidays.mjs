@@ -53,7 +53,12 @@ export const createHolidayOverlay = ({
 
     let holidayResource;
     return (state, mainContext) => {
-        const theme = storage?.getItem(HOLIDAY_SETTING_KEY) || 'calendar';
+        let theme = 'calendar';
+        try {
+            theme = storage?.getItem(HOLIDAY_SETTING_KEY) || theme;
+        } catch {
+            // Calendar mode remains available when storage is blocked.
+        }
         const holiday =
             theme === 'calendar'
                 ? holidayForDate(now())
@@ -61,15 +66,18 @@ export const createHolidayOverlay = ({
                   ? null
                   : HOLIDAYS.find((candidate) => candidate.name === theme) || null;
         const layout = state.game?.background?.layouts?.[state.backgroundId];
-        if (!holiday || !layout) return false;
+        if (!holiday || !layout || state.titleState?.island === false || state.titleState?.holidayAllowed === false) {
+            return false;
+        }
 
         holidayResource ||= resourceProvider.resolve('HOLIDAY.BMP');
         const image = holidayResource?.images?.[holiday.sprite];
         const sprite = image && buildSpriteCanvas(image);
         if (!sprite) return false;
 
-        const islandOffsetX = layout.x - 288;
-        mainContext.drawImage(sprite, holiday.x + islandOffsetX, holiday.y);
+        const islandOffsetX = layout.x - 288 + (state.titleState?.x || 0);
+        const islandOffsetY = state.titleState?.y || 0;
+        mainContext.drawImage(sprite, holiday.x + islandOffsetX, holiday.y + islandOffsetY);
         return true;
     };
 };

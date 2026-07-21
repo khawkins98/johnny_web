@@ -1025,6 +1025,12 @@ describe('ADS_FADE_OUT handler', () => {
         expect(state.continue).toBe(false);
     });
 
+    it('is only a marker when the title host owns sequence transitions', () => {
+        const state = { continue: true, fadingOut: false, hostManagedTransitions: true, lastCommand: false };
+        entry.callback(state);
+        expect(state).toMatchObject({ continue: true, fadingOut: false });
+    });
+
     it('increments opacity each frame while fading (continue=false)', () => {
         const state = { continue: false, fadingOut: true, fadeOpacity: 0.5, frameDelta: 100 };
         entry.callback(state);

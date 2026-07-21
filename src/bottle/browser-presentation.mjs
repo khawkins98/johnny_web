@@ -21,6 +21,8 @@ export const runBrowserPresentation = async ({
     soundSettingKey,
     createBackgroundDecorator = () => null,
     selectScene = null,
+    runSequenceTransition = null,
+    runInterlude = null,
     debugThemes = null,
 }) => {
     if (!game) throw new TypeError('Bottle browser host requires a game package');
@@ -125,6 +127,16 @@ export const runBrowserPresentation = async ({
             const script = selection.script || game.resources.activity;
             const tagId = selection.tagId ?? null;
 
+            if (selection.walk && runInterlude) {
+                await runInterlude({
+                    ...selection,
+                    archiveBuffer: sndBuf,
+                    resourceProvider,
+                    context,
+                    mainContext,
+                });
+            }
+
             context.clearRect(0, 0, 640, 480);
             mainContext.clearRect(0, 0, 640, 480);
             const data = resourceProvider.resolve(script);
@@ -141,9 +153,18 @@ export const runBrowserPresentation = async ({
                     audioManager,
                     adsSceneTag: tagId,
                     singleAdsScene: tagId !== null,
+                    titleState: selection.titleState ?? null,
+                    hostManagedTransitions: Boolean(selectScene),
                     onComplete: resolve,
                 });
             });
+            if (outcome?.reason === 'completed' && selection.sequenceEnd && runSequenceTransition) {
+                await runSequenceTransition({
+                    type: selection.transition,
+                    context,
+                    mainContext,
+                });
+            }
         } while (outcome?.reason === 'completed' || outcome?.reason === 'script_override');
 
         enhancedUI?.destroy();

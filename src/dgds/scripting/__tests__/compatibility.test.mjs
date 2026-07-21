@@ -80,9 +80,10 @@ describe('deterministic background compatibility', () => {
     });
 
     it('advances clouds and waves from injected time and settings', () => {
+        let now = 1000;
         const policy = createBrowserPresentationPolicy({
             storage: { getItem: (key) => (key === 'jc-clouds' || key === 'jc-waves' ? 'on' : null) },
-            now: () => 1000,
+            now: () => now,
             random: () => 0.5,
         });
         const state = {
@@ -98,12 +99,14 @@ describe('deterministic background compatibility', () => {
         };
 
         drawBackground(state, {}, policy);
+        now = 1401;
+        drawBackground(state, {}, policy);
 
         expect(policy.backgroundState(state)).toMatchObject({
             cloudX: 9,
-            cloudElapsed: 0,
-            waveFrame: 3,
-            waveElapsed: 1250,
+            cloudElapsed: 1721,
+            waveRegions: [1, 1, 0],
+            waveElapsed: 1480,
         });
         expect(state).toMatchObject({
             cloudX: 10,

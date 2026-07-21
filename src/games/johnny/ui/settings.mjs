@@ -535,15 +535,15 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const wavesSelect = document.createElement('select');
     wavesSelect.dataset.setting = 'waves';
     [
-        { val: 'on', text: 'Rolling' },
-        { val: 'off', text: 'Static (Original)' },
+        { val: 'on', text: 'Rolling (Original)' },
+        { val: 'off', text: 'Static' },
     ].forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
         opt.innerText = o.text;
         wavesSelect.appendChild(opt);
     });
-    wavesSelect.value = localStorage.getItem('jc-waves') || 'off';
+    wavesSelect.value = localStorage.getItem('jc-waves') || 'on';
     wavesSelect.onchange = (e) => {
         localStorage.setItem('jc-waves', e.target.value);
         markCustomExperience();
@@ -560,8 +560,8 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const timeSelect = document.createElement('select');
     timeSelect.dataset.setting = 'time';
     [
-        { val: 'original', text: 'Always Day (Original)' },
-        { val: 'local', text: 'Match Local Time' },
+        { val: 'original', text: 'Sequence Clock (Original)' },
+        { val: 'local', text: 'Live Local Clock' },
     ].forEach((o) => {
         const opt = document.createElement('option');
         opt.value = o.val;
@@ -638,7 +638,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         const values =
             mode === 'enhanced'
                 ? { scale: 'freeform', clouds: 'on', waves: 'on', time: 'original' }
-                : { scale: 'native', clouds: 'off', waves: 'off', time: 'original' };
+                : { scale: 'native', clouds: 'off', waves: 'on', time: 'original' };
         experienceSelect.value = mode;
         scaleSelect.value = values.scale;
         cloudsSelect.value = values.clouds;
