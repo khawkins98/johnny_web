@@ -143,14 +143,22 @@ const createClouds = (random) => {
         [192, 57],
         [264, 76],
     ];
-    return Array.from({ length: Math.floor(random() * 6) }, () => {
+    const flipX = random() < 0.5;
+    let count;
+    if (random() >= 0.5) count = 1;
+    else if (random() >= 0.5) count = 0;
+    else if (Math.floor(random() * 4) !== 0) count = 2;
+    else if (Math.floor(random() * 4) !== 0) count = 3;
+    else if (Math.floor(random() * 4) !== 0) count = 4;
+    else count = 5;
+    return Array.from({ length: count }, () => {
         const frame = randomIndex(random, 3);
         const [width, height] = dimensions[frame];
         return Object.freeze({
             frame: frame + 15,
             x: Math.floor(random() * (640 - width)),
-            y: 25 + Math.floor(random() * Math.max(1, 100 - height)),
-            flipX: random() >= 0.5,
+            y: Math.floor(random() * (135 - height)),
+            flipX,
         });
     });
 };
@@ -188,6 +196,8 @@ const createIslandState = (
         x,
         y,
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
+        oceanIndex: randomIndex(random, 3),
+        presentationKey: Object.freeze({}),
         clouds: Object.freeze(createClouds(random)),
         storyDay,
     });

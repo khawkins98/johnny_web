@@ -99,14 +99,14 @@ describe('deterministic background compatibility', () => {
         };
 
         drawBackground(state, {}, policy);
-        now = 1401;
+        now = 1801;
         drawBackground(state, {}, policy);
 
         expect(policy.backgroundState(state)).toMatchObject({
             cloudX: 9,
-            cloudElapsed: 1721,
+            cloudElapsed: 2121,
             waveRegions: [1, 1, 0],
-            waveElapsed: 1480,
+            waveElapsed: 1960,
         });
         expect(state).toMatchObject({
             cloudX: 10,

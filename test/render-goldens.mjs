@@ -16,6 +16,7 @@ import { loadResources } from '../src/dgds/resource.mjs';
 import { createEntryResourceProvider } from '../src/dgds/resource-provider.mjs';
 import { composeTtmFrame, getCompositionRevision } from '../src/dgds/scripting/composition.mjs';
 import { DgdsRuntime } from '../src/dgds/scripting/runtime.mjs';
+import { DGDS_TICK_MS } from '../src/dgds/scripting/timing.mjs';
 import { createSoftwareSurface } from '../src/dgds/scripting/surface.mjs';
 import { createTimingCompatibility } from '../src/dgds/scripting/timing-compatibility.mjs';
 
@@ -118,7 +119,7 @@ const captureGag = ({ archive, data, gag }) => {
     const changes = [];
     let previousRevision = null;
     for (let tick = 1; tick <= 5000; tick++) {
-        const result = runtime.tick(1000 / 60);
+        const result = runtime.tick(DGDS_TICK_MS);
         if (result.presentation.compose) {
             const revision = getCompositionRevision(runtime.state);
             if (revision !== previousRevision) {

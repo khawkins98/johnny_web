@@ -5,7 +5,7 @@ A public reference outlining the execution model, module boundaries, and known c
 **tl;dr**
 
 - johnny_web runs original DGDS resources through an experimental engine called Bottle DGDS.
-- Logical execution runs at a fixed 60 Hz tick, decoupled from browser wall time and presentation logic.
+- Logical execution runs at a fixed 50 Hz tick recovered from the host's 20 ms timer unit, decoupled from browser wall time and presentation logic.
 - Background canvases handle enhancements (like moving clouds) independently of the faithful DGDS software surface.
 
 ## System overview
@@ -105,7 +105,7 @@ TTM raw opcodes encode their integer argument count in the low nibble. A low nib
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or `completed`. `UPDATE` emits an authored frame boundary with the current `SET_DELAY`. The scheduler maps it through the named timing profile and owns the wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
-Each `DgdsRuntime` owns its mutable script, scene, and composition state. The browser scheduler supplies a fixed 60 Hz logical tick. Animation timestamps feed an accumulator. Late frames may execute several ticks, capped at five, and a suspended tab cannot trigger an unbounded replay. `SET_DELAY` and random delays remain integer DGDS ticks. The default `faithful-browser` timing profile preserves them and applies one named compatibility rule — `browser-yield-floor` makes a zero-delay frame visible for one logical tick. Browser wall time does not enter opcode execution.
+Each `DgdsRuntime` owns its mutable script, scene, and composition state. The browser scheduler supplies the recovered fixed 50 Hz logical tick. Animation timestamps feed an accumulator. Late frames may execute several ticks, capped at five, and a suspended tab cannot trigger an unbounded replay. `SET_DELAY` and random delays remain integer DGDS ticks. The default `faithful-browser` timing profile preserves them and applies one named compatibility rule — `browser-yield-floor` makes a zero-delay frame visible for one logical tick. Browser wall time does not enter opcode execution.
 
 The runtime receives randomness and timing compatibility directly; it does not retain storage, wall time, or presentation policy. The browser policy owns enhanced cloud and wave state without writing it into authored scene state. Thus enhancements cannot alter interpreter timers, random choices, or scene state.
 
@@ -138,7 +138,7 @@ ADS condition branches stage scene additions and removals:
 
 The browser has background and foreground canvases. TTM opcodes address neither — the retained-surface presenter applies their operations to per-scene software surfaces.
 
-The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. Debug preview directives are created by that same controller, while anchored debug runs replace its queue and continue through the normal host path. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, transition, and debug process and the one known route-selection approximation.
+The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, a shared presentation identity, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. A title-owned selection presenter keeps the island layer alive across otherwise independent ADS runtimes and walking interludes. Debug preview directives are created by that same controller, while anchored debug runs replace its queue and continue through the normal host path. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, transition, and debug process and the one known route-selection approximation.
 
 When retained foreground state changes, `composeTtmFrame()`:
 

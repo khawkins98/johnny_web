@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { DGDS_TICK_MS, MAX_CATCH_UP_TICKS, createFixedStepClock } from '../timing.mjs';
 
 describe('browser-to-DGDS timing adapter', () => {
+    it('uses the recovered 20 ms host timer unit', () => {
+        expect(DGDS_TICK_MS).toBe(20);
+    });
+
     it('runs one engine tick on the first browser frame', () => {
         const clock = createFixedStepClock();
         expect(clock.consume(100)).toBe(1);

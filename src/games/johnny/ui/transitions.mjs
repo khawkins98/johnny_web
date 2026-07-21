@@ -1,8 +1,10 @@
+import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
+
 const WIDTH = 640;
 const HEIGHT = 480;
 const STEPS = 20;
 
-const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+const nextFrame = () => new Promise((resolve) => setTimeout(resolve, DGDS_TICK_MS));
 
 /**
  * Reproduce the five wipes owned by Johnny's original screensaver host.

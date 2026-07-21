@@ -5,6 +5,7 @@ import { extractArchiveToIndexedDB } from './extractor.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
 import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
+import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -23,6 +24,7 @@ export const runBrowserPresentation = async ({
     selectScene = null,
     runSequenceTransition = null,
     runInterlude = null,
+    createSelectionPresenter = null,
     debugThemes = null,
     debugSequence = null,
 }) => {
@@ -88,7 +90,10 @@ export const runBrowserPresentation = async ({
 
     const resource = res.getResource(game.resources.archive);
     const resourceProvider = createEntryResourceProvider(resource.entries);
+    const presentationPolicy = createBrowserPresentationPolicy();
     const backgroundDecorator = createBackgroundDecorator({ resourceProvider });
+    const selectionPresenter =
+        createSelectionPresenter?.({ resourceProvider, game, presentationPolicy }) || null;
     const introRes = resource.loadEntry(game.resources.intro);
     let audioManager = null;
     let enhancedUI = null;
@@ -128,6 +133,14 @@ export const runBrowserPresentation = async ({
             const script = selection.script || game.resources.activity;
             const tagId = selection.tagId ?? null;
 
+            const presentSelectionBackground = () => {
+                mainContext.clearRect(0, 0, 640, 480);
+                const presentationState = selectionPresenter?.(selection, mainContext);
+                if (presentationState) backgroundDecorator?.(presentationState, mainContext);
+                return Boolean(presentationState);
+            };
+            const hasPersistentBackground = presentSelectionBackground();
+
             if (selection.walk && runInterlude) {
                 await runInterlude({
                     ...selection,
@@ -135,11 +148,13 @@ export const runBrowserPresentation = async ({
                     resourceProvider,
                     context,
                     mainContext,
+                    presentBackground: presentSelectionBackground,
                 });
             }
 
             context.clearRect(0, 0, 640, 480);
-            mainContext.clearRect(0, 0, 640, 480);
+            if (hasPersistentBackground) presentSelectionBackground();
+            else mainContext.clearRect(0, 0, 640, 480);
             const data = resourceProvider.resolve(script);
 
             outcome = await new Promise((resolve) => {
@@ -156,6 +171,7 @@ export const runBrowserPresentation = async ({
                     singleAdsScene: tagId !== null,
                     titleState: selection.titleState ?? null,
                     hostManagedTransitions: Boolean(selectScene),
+                    presentationPolicy,
                     onComplete: resolve,
                 });
             });

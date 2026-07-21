@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { decodeJohnnyWalkData, planJohnnyWalkFrames } from '../walking.mjs';
+import { describe, expect, it, vi } from 'vitest';
+import { decodeJohnnyWalkData, planJohnnyWalkFrames, runJohnnyWalk } from '../walking.mjs';
 
 describe('Johnny host walking', () => {
     it('decodes flip, frame and coordinates directly from SCRANTIC.SCR layout', () => {
@@ -25,5 +25,24 @@ describe('Johnny host walking', () => {
         );
         expect(frames).toContain(data[68]);
         expect(frames.at(-1)).toBe(data[145 + 9 + 7]);
+    });
+
+    it('redraws the persistent island behind every walking frame', async () => {
+        const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
+        const context = { clearRect: vi.fn() };
+        const presentBackground = vi.fn();
+        const wait = vi.fn(() => Promise.resolve());
+        await runJohnnyWalk({
+            walk: { fromSpot: 0, fromHeading: 0, toSpot: 0, toHeading: 0 },
+            titleState: { x: 0, y: 0 },
+            archiveBuffer,
+            resourceProvider: { resolve: () => ({ images: [] }) },
+            context,
+            presentBackground,
+            wait,
+        });
+
+        expect(presentBackground).toHaveBeenCalledOnce();
+        expect(wait).toHaveBeenCalledWith(1600);
     });
 });

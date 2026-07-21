@@ -77,6 +77,8 @@ describe('Johnny host story controller', () => {
 
         expect(selections[0].titleState).toMatchObject({ island: true, night: true, storyDay: 1 });
         expect(selections[1].walk).toMatchObject({ fromSpot: expect.any(Number), toSpot: expect.any(Number) });
+        expect(selections[1].titleState.presentationKey).toBe(selections[0].titleState.presentationKey);
+        expect(selections[1].titleState.oceanIndex).toBe(selections[0].titleState.oceanIndex);
     });
 
     it('previews one contextualized scene without disturbing the planned queue', () => {

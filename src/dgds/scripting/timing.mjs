@@ -5,7 +5,8 @@
  * those values as ticks; only this host-side adapter translates elapsed browser
  * time into a number of ticks to execute.
  */
-export const DGDS_TICK_MS = 1000 / 60;
+// The recovered host advances DGDS delays in 20 ms units (50 logical Hz).
+export const DGDS_TICK_MS = 20;
 export const MAX_CATCH_UP_TICKS = 5;
 
 export const createFixedStepClock = ({ tickMs = DGDS_TICK_MS, maxCatchUpTicks = MAX_CATCH_UP_TICKS } = {}) => {

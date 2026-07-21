@@ -44,9 +44,9 @@ export const johnnyCastaway = defineGamePackage({
         }),
         layers: Object.freeze([
             Object.freeze({ source: 'bkgRes', frame: 0, x: 0, y: 279 }),
-            Object.freeze({ source: 'bkgRes', frame: 14, x: 108, y: 279 }),
             Object.freeze({ source: 'bkgRes', frame: 13, x: 154, y: 148 }),
             Object.freeze({ source: 'bkgRes', frame: 12, x: 77, y: 122 }),
+            Object.freeze({ source: 'bkgRes', frame: 14, x: 108, y: 279 }),
         ]),
         raft: Object.freeze({
             source: 'bkgRaft',

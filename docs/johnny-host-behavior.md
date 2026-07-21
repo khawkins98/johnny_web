@@ -20,6 +20,8 @@ The browser now models this as a Johnny-owned story controller. Its 63-entry cat
 
 The controller persists the 11-day story counter when the local calendar day changes. It also derives low/high tide, island position, raft stage, clouds, day/night, and holiday suppression from the final scene's executable-level flags. This restores the Johnny/Mary/Suzy story-day gates without embedding them in ADS interpretation.
 
+The island presentation is initialized once for that complete sequence and persists while individual ADS runtimes and walking interludes come and go, matching the executable's `adsInitIsland()` lifecycle. Its selected ocean, static cloud layout, wave phase, tide, raft, and holiday layer therefore do not reset or briefly disappear between events. The browser pre-presents that host layer before the first ADS tick and redraws it behind every procedural walking frame.
+
 Walking is likewise host functionality. The scene catalogue supplies start/end spots and headings, and the browser joins them through the island bookmark graph. Sprite/frame/coordinate rows are decoded at runtime from offset `0x188ea` in the user's original `SCRANTIC.SCR`; `JOHNWALK.BMP` remains a normally decoded resource. No extracted walking table is checked in. The public clean-room path finder notes that its choice among possible routes is an approximation of the lost executable algorithm, so the browser deliberately uses a deterministic shortest route while preserving the recovered frame sequences and headings.
 
 Newly reachable animations can still reveal interpreter or composition defects that were hidden when only the first activity tag ran. Those defects belong in DGDS conformance fixes; event eligibility and walking remain in the Johnny host controller/renderer.
@@ -33,7 +35,7 @@ The **Story Day** selector supplies days 1–11 for unrestricted events. A story
 
 ## Island state, tides, and transitions
 
-The island background is composed from `BACKGRND.BMP` under host control. High tide has three wave regions; low tide adds exposed sand and rock sprites plus four differently positioned wave regions. The original host advanced one region every eight ticks through the recovered three-frame groups, rather than advancing all waves together. **Animated Waves → Rolling (Original)** is therefore part of Classic mode; Static is an optional presentation override. Clouds are placed randomly but remain static in Classic mode, with drifting retained as an enhancement.
+The island background is composed from `BACKGRND.BMP` under host control. High tide has three wave regions; low tide adds exposed sand and rock sprites plus four differently positioned wave regions. The recovered host timer uses 20 ms ticks and advances one wave region every eight ticks through the three-frame groups, rather than advancing all waves together. Walking delays (6 ticks and the final 80-tick pause), ADS delays, waves, and wipes now share that same 50 Hz clock. **Animated Waves → Rolling (Original)** is therefore part of Classic mode; Static is an optional presentation override. Clouds use the recovered weighted 0–5 count, a shared wind/flip direction, and size-specific placement bounds; they remain static in Classic mode, with drifting retained as an enhancement.
 
 Raft frame and coordinates follow the persistent story day and tide. Island and all foreground TTM operations receive the same host offset, including saved regions and clips, so variable-position sequences move as a unit.
 
@@ -75,3 +77,4 @@ Holiday selection defaults to **Calendar**, following the browser-visible local 
 - [Johnny Reborn's island renderer](https://github.com/jno6809/jc_reborn/blob/master/island.c) documents the holiday ranges, sprite indices, and placement coordinates used for cross-checking.
 - [Johnny Reborn's walking implementation](https://github.com/jno6809/jc_reborn/blob/master/walk.c) and [walking metadata](https://github.com/jno6809/jc_reborn/blob/master/walk_data.h) document the executable-owned frame table and bookmarks.
 - [Johnny Reborn's transition renderer](https://github.com/jno6809/jc_reborn/blob/master/graphics.c) documents the rotating five-wipe sequence.
+- [Johnny Reborn's event clock](https://github.com/jno6809/jc_reborn/blob/master/events.c) documents the recovered 20 ms timer unit used to interpret authored delays.

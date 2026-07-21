@@ -7,6 +7,7 @@ import { createHolidayOverlay, HOLIDAY_SETTING_KEY, HOLIDAY_THEME_OPTIONS } from
 import { createJohnnyStoryController } from './story-controller.mjs';
 import { runJohnnySequenceTransition } from './ui/transitions.mjs';
 import { runJohnnyWalk } from './walking.mjs';
+import { createJohnnySelectionPresenter } from './island-presenter.mjs';
 
 export const runJohnnyCastaway = () => {
     const story = createJohnnyStoryController();
@@ -20,6 +21,7 @@ export const runJohnnyCastaway = () => {
         selectScene: () => story.next(),
         runSequenceTransition: runJohnnySequenceTransition,
         runInterlude: runJohnnyWalk,
+        createSelectionPresenter: createJohnnySelectionPresenter,
         debugThemes: {
             label: 'Holiday Theme',
             storageKey: HOLIDAY_SETTING_KEY,

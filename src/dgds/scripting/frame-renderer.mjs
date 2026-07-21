@@ -4,6 +4,7 @@
  * Browser background renderer driven by injected game-package metadata.
  */
 import { buildSpriteCanvas } from '../graphics.mjs';
+import { DGDS_TICK_MS } from './timing.mjs';
 
 // ---------------------------------------------------------------------------
 // Background renderer
@@ -32,7 +33,7 @@ export const drawBackground = (state, context, policy) => {
     } else if (state.titleState?.night != null && state.bkgOcean.length > 0) {
         backgroundScreen = state.titleState.night
             ? state.bkgOcean[state.bkgOcean.length - 1]
-            : state.bkgOcean[state.dayOceanIndex ?? 0];
+            : state.bkgOcean[state.titleState.oceanIndex ?? state.dayOceanIndex ?? 0];
     }
     if (backgroundScreen) {
         context.clearRect(0, 0, 640, 480);
@@ -42,7 +43,7 @@ export const drawBackground = (state, context, policy) => {
 
     const layout = profile?.layouts?.[state.backgroundId];
     if (layout && state.titleState?.island !== false) {
-        const animation = policy.backgroundState(state);
+        const animation = policy.backgroundState(state.titleState?.presentationKey || state);
         const posX = layout.x + (state.titleState?.x || 0);
         const posY = state.titleState?.y || 0;
         const cloudsOn = policy.setting(profile.settings.clouds, 'off') === 'on';
@@ -88,16 +89,15 @@ export const drawBackground = (state, context, policy) => {
 
         const tideName = state.titleState?.lowTide ? 'low' : 'high';
         const tide = profile.tides?.[tideName];
-        for (const layer of tide?.staticLayers || []) {
-            blit(layer.source, layer.frame, posX + layer.x, posY + layer.y);
+        if (profile.raft && (state.titleState?.raft ?? 4) > 0) {
+            const raft = profile.raft[tideName];
+            blit(profile.raft.source, (state.titleState?.raft ?? 4) - 1, posX + raft.x, posY + raft.y);
         }
         for (const layer of profile.layers) {
             blit(layer.source, layer.frame, posX + layer.x, posY + layer.y);
         }
-
-        if (profile.raft && (state.titleState?.raft ?? 4) > 0) {
-            const raft = profile.raft[tideName];
-            blit(profile.raft.source, (state.titleState?.raft ?? 4) - 1, posX + raft.x, posY + raft.y);
+        for (const layer of tide?.staticLayers || []) {
+            blit(layer.source, layer.frame, posX + layer.x, posY + layer.y);
         }
 
         const waves = tide?.waves || profile.animatedLayers || [];
@@ -106,14 +106,14 @@ export const drawBackground = (state, context, policy) => {
             animation.waveRegions = Array(waves.length).fill(0);
             animation.waveRegion = 0;
             animation.wavePhase = 0;
-            animation.waveElapsed = now + 80;
+            animation.waveElapsed = now + 8 * DGDS_TICK_MS;
         }
         if (wavesOn && waves.length > 0 && now >= animation.waveElapsed) {
             while (now >= animation.waveElapsed) {
                 animation.waveRegions[animation.waveRegion] = animation.wavePhase;
                 animation.waveRegion = (animation.waveRegion + 1) % waves.length;
                 if (animation.waveRegion === 0) animation.wavePhase = (animation.wavePhase + 1) % 3;
-                animation.waveElapsed += 80;
+                animation.waveElapsed += 8 * DGDS_TICK_MS;
             }
         } else if (!wavesOn) {
             animation.waveRegions.fill(0);

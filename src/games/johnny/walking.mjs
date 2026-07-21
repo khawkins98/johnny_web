@@ -1,4 +1,5 @@
 import { buildSpriteCanvas } from '../../dgds/graphics.mjs';
+import { DGDS_TICK_MS } from '../../dgds/scripting/timing.mjs';
 
 const DATA_OFFSET = 0x188ea;
 const DATA_ROWS = 480;
@@ -99,6 +100,7 @@ export const runJohnnyWalk = async ({
     archiveBuffer,
     resourceProvider,
     context,
+    presentBackground = null,
     wait = delay,
 }) => {
     if (!walk) return;
@@ -114,6 +116,7 @@ export const runJohnnyWalk = async ({
         const image = sprites?.images?.[frame.frame];
         const sprite = image && buildSpriteCanvas(image);
         context.clearRect(0, 0, 640, 480);
+        presentBackground?.();
         if (sprite) {
             context.save();
             if (frame.flipX) {
@@ -135,7 +138,7 @@ export const runJohnnyWalk = async ({
                 if (sprite) context.drawImage(sprite, x + offsetX, y + offsetY);
             }
         }
-        await wait(index === frames.length - 1 ? 800 : 60);
+        await wait((index === frames.length - 1 ? 80 : 6) * DGDS_TICK_MS);
     }
     context.clearRect(0, 0, 640, 480);
 };
