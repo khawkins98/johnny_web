@@ -30,7 +30,29 @@ export const composeTtmFrame = (state) => {
         );
     });
 
-    for (const scene of layers) {
+    const intersects = (left, right) =>
+        Boolean(
+            left &&
+                right &&
+                left.x < right.x + right.width &&
+                left.x + left.width > right.x &&
+                left.y < right.y + right.height &&
+                left.y + left.height > right.y,
+        );
+    // DGDS GET/PUT writes into one shared framebuffer. Keep a finished layer
+    // until something actually paints over it, but do not repaint it forever
+    // after a newer frame has restored the same region to its saved contents.
+    const isRetired = (scene) =>
+        scene.lifecycle === 'completed' &&
+        layers.some(
+            (candidate) =>
+                candidate !== scene &&
+                (candidate.state?.lastFrameSerial || 0) > (scene.state?.lastFrameSerial || 0) &&
+                intersects(scene.state?.surface?.bounds, candidate.state?.lastRestoreRect),
+        );
+    const visibleLayers = layers.filter((scene) => !isRetired(scene));
+
+    for (const scene of visibleLayers) {
         if (scene.state?.surface) {
             state.surface.drawSurface(scene.state.surface);
         }
@@ -46,6 +68,7 @@ export const composeTtmFrame = (state) => {
                 execution: scene.execution?.status || null,
                 paintOrder: scene.paintOrder || null,
                 revision: scene.state?.layerRevision || 0,
+                retired: isRetired(scene),
             })),
             ...(state.trace.pixelHashes ? { pixels: state.surface.fingerprint?.() ?? null } : {}),
         });

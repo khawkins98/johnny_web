@@ -74,7 +74,10 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     titleState: parent.titleState,
     trace: parent.trace,
     getTraceTick: () => parent.tick,
+    frameSequence: parent.frameSequence,
     layerRevision: 0,
+    lastFrameSerial: 0,
+    lastRestoreRect: null,
 
     // Shared/cached DGDS resources
     res: assets.res || [],

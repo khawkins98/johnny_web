@@ -131,7 +131,7 @@ ADS condition branches stage scene additions and removals:
 - `END_SCENE_BRANCH` (`0x1510`) commits staged changes and continues. It does not wait for unrelated scenes.
 - `IF_PLAYED` supplies the authored dependency barrier for its referenced scene.
 - `STOP_SCENE` stages removal.
-- Completed scenes retain their final layer until ADS explicitly stops them.
+- Completed scenes retain their final layer until ADS explicitly stops them or a later GET/PUT frame restore overwrites their occupied region, matching DGDS's shared composition buffer.
 - Looping scenes remain active until stopped.
 
 ## Frame composition

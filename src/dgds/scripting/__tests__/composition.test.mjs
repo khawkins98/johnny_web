@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { composeTtmFrame, getCompositionRevision } from '../composition.mjs';
-import { createRecordingSurface } from '../surface.mjs';
+import { createRecordingSurface, createSoftwareSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
     it('rebuilds the frame from stored areas and active scene layers in order', () => {
@@ -91,5 +91,65 @@ describe('DGDS frame composition', () => {
         expect(getCompositionRevision(state)).toBe(initial);
         state.scenes[0].state.layerRevision++;
         expect(getCompositionRevision(state)).not.toBe(initial);
+    });
+
+    it('retires a completed layer after a newer GET/PUT restore overwrites its pixels', () => {
+        const completedSurface = createSoftwareSurface();
+        completedSurface.fillRect(100, 100, 20, 20, { r: 255, g: 0, b: 0, a: 255 });
+        const replacementSurface = createSoftwareSurface();
+        replacementSurface.fillRect(130, 100, 10, 10, { r: 0, g: 255, b: 0, a: 255 });
+        const state = {
+            surface: createSoftwareSurface(),
+            ttmEnvironments: new Map(),
+            scenes: [
+                {
+                    lifecycle: 'completed',
+                    state: { surface: completedSurface, lastFrameSerial: 7, lastRestoreRect: null },
+                },
+                {
+                    lifecycle: 'running',
+                    state: {
+                        surface: replacementSurface,
+                        lastFrameSerial: 8,
+                        lastRestoreRect: { x: 90, y: 90, width: 80, height: 80 },
+                    },
+                },
+            ],
+        };
+
+        composeTtmFrame(state);
+
+        expect(state.surface.fingerprint()).toEqual({
+            hash: replacementSurface.fingerprint().hash,
+            pixels: 100,
+            bounds: { x: 130, y: 100, width: 10, height: 10 },
+        });
+    });
+
+    it('retains a completed layer when no newer restore has replaced it', () => {
+        const completedSurface = createSoftwareSurface();
+        completedSurface.fillRect(100, 100, 20, 20, { r: 255, g: 0, b: 0, a: 255 });
+        const state = {
+            surface: createSoftwareSurface(),
+            ttmEnvironments: new Map(),
+            scenes: [
+                {
+                    lifecycle: 'completed',
+                    state: { surface: completedSurface, lastFrameSerial: 8, lastRestoreRect: null },
+                },
+                {
+                    lifecycle: 'running',
+                    state: {
+                        surface: createSoftwareSurface(),
+                        lastFrameSerial: 7,
+                        lastRestoreRect: { x: 90, y: 90, width: 80, height: 80 },
+                    },
+                },
+            ],
+        };
+
+        composeTtmFrame(state);
+
+        expect(state.surface.fingerprint().pixels).toBe(400);
     });
 });

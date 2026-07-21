@@ -52,6 +52,8 @@ describe('logical scene frames', () => {
                 tagId: 21,
             },
         ]);
+        expect(state.lastFrameSerial).toBe(1);
+        expect(state.lastRestoreRect).toEqual({ x: 10, y: 20, width: 30, height: 40 });
     });
 
     it('starts with an empty layer when the save slot is unavailable', () => {
@@ -68,5 +70,7 @@ describe('logical scene frames', () => {
 
         expect(surface.commands).toEqual([{ operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } }]);
         expect(state.layerRevision).toBe(5);
+        expect(state.lastFrameSerial).toBe(1);
+        expect(state.lastRestoreRect).toBeNull();
     });
 });

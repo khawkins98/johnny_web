@@ -105,6 +105,7 @@ export class DgdsRuntime {
             tick: 0,
             playbackRate: 1,
             speedRemainder: 0,
+            frameSequence: { current: 0 },
             ttmEnvironments: new Map(),
             reentryNow: 0,
             jumpTo: undefined,

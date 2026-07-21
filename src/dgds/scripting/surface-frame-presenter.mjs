@@ -23,6 +23,11 @@ export const presentSurfaceFrameOperation = (state, operation) => {
         case FrameOperationType.BEGIN_SCENE_FRAME: {
             state.surface.clear();
             const saved = state.save[operation.restoreSlot];
+            state.frameSequence ||= { current: 0 };
+            state.lastFrameSerial = ++state.frameSequence.current;
+            state.lastRestoreRect = saved?.canDraw
+                ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height }
+                : null;
             if (saved?.canDraw) state.surface.replaceRegionFrom(saved.surface, saved);
             break;
         }
