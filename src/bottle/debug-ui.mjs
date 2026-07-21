@@ -104,11 +104,26 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     scriptsRow.style.gap = '8px';
     scriptsRow.style.alignItems = 'center';
 
-    const targetLabel = document.createElement('div');
-    targetLabel.innerText = 'Debug target (not current playback)';
-    targetLabel.style.fontSize = '14px';
-    targetLabel.style.opacity = '0.78';
-    targetLabel.style.textWrap = 'balance';
+    const makeSectionLabel = (text) => {
+        const label = document.createElement('div');
+        label.innerText = text;
+        label.style.fontSize = '14px';
+        label.style.fontWeight = 'bold';
+        label.style.letterSpacing = '0.04em';
+        label.style.textTransform = 'uppercase';
+        label.style.opacity = '0.78';
+        label.style.textWrap = 'balance';
+        return label;
+    };
+
+    const targetLabel = makeSectionLabel('New debug run');
+    targetLabel.dataset.debugSection = 'target';
+
+    const targetHelp = document.createElement('div');
+    targetHelp.innerText = 'Choose what the controls below will start. These fields do not show live playback.';
+    targetHelp.style.fontSize = '14px';
+    targetHelp.style.opacity = '0.78';
+    targetHelp.style.textWrap = 'pretty';
 
     const sceneRow = document.createElement('div');
     sceneRow.style.display = 'flex';
@@ -120,7 +135,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyRow.style.gap = '8px';
     storyRow.style.alignItems = 'center';
     const storyDayLabel = document.createElement('span');
-    storyDayLabel.innerText = 'Story Chapter:';
+    storyDayLabel.innerText = 'Chapter for new sequence:';
     storyDayLabel.title = 'The original 11-day story counter; it gates special finales and advances the raft.';
     storyRow.appendChild(storyDayLabel);
 
@@ -246,22 +261,22 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         if (metadata.fixedDay) {
             storyDaySelect.value = String(metadata.fixedDay);
             storyDaySelect.disabled = true;
-            storyDayLabel.innerText = 'Story Chapter (fixed):';
+            storyDayLabel.innerText = 'Chapter for this scene (fixed):';
         } else {
             storyDaySelect.disabled = false;
             storyDaySelect.value = preferredStoryDay;
-            storyDayLabel.innerText = 'Story Chapter:';
+            storyDayLabel.innerText = 'Chapter for new sequence:';
         }
 
         if (metadata.action === 'solo-finale') {
-            const dayContext = metadata.fixedDay ? `Fixed Day ${metadata.fixedDay}` : 'Uses the selected story day';
-            sceneContext.innerText = `${dayContext} · Start-immediately finale · A faithful plan contains this one event.`;
-            sequenceBtn.innerText = 'Run This Finale (1 Event)';
+            const dayContext = metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}` : 'Uses the chapter selected above';
+            sceneContext.innerText = `New sequence: ${dayContext}. This finale starts immediately and is the only event.`;
+            sequenceBtn.innerText = 'Start This One-Event Finale';
         } else if (metadata.action === 'ending-finale') {
-            sceneContext.innerText = `${metadata.fixedDay ? `Fixed Day ${metadata.fixedDay} · ` : ''}Finale · Compatible island events play first; this selected event ends the sequence.`;
-            sequenceBtn.innerText = 'Run Sequence Ending Here';
+            sceneContext.innerText = `New sequence: ${metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}. ` : ''}Compatible island events play first; the selected scene is the finale.`;
+            sequenceBtn.innerText = 'Start Sequence Ending With This Scene';
         } else {
-            sceneContext.innerText = `${metadata.fixedDay ? `Fixed Day ${metadata.fixedDay} · ` : 'Uses the selected story day · '}This event starts the sequence; compatible events and a finale follow.`;
+            sceneContext.innerText = `New sequence: ${metadata.fixedDay ? `Fixed Chapter ${metadata.fixedDay}. ` : 'Uses the chapter selected above. '}The selected scene plays first; compatible events and a finale follow.`;
             sequenceBtn.innerText = 'Start Sequence With This Scene';
         }
     };
@@ -311,12 +326,27 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
     };
 
-    const previewBtn = makeActionButton(sequenceTools ? 'Preview Once' : 'Jump to Script/Gag', () => {
+    const actionFeedback = document.createElement('div');
+    actionFeedback.dataset.debugStatus = 'action-feedback';
+    actionFeedback.setAttribute('aria-live', 'polite');
+    actionFeedback.style.display = 'none';
+    actionFeedback.style.fontSize = '14px';
+    actionFeedback.style.padding = '7px 9px';
+    actionFeedback.style.borderRadius = '6px';
+    actionFeedback.style.background = 'rgba(244, 228, 200, 0.5)';
+    actionFeedback.style.textWrap = 'pretty';
+
+    const showActionFeedback = (message) => {
+        actionFeedback.innerText = message;
+        actionFeedback.style.display = 'block';
+    };
+
+    const previewBtn = makeActionButton(sequenceTools ? 'Play Selected Scene Only' : 'Jump to Script/Gag', () => {
         if (!sequenceTools) return legacyJump();
         const { script, tagId, storyDay } = selectedScene();
         window.__NEXT_SCRIPT_OVERRIDE__ = sequenceTools.preview(script, tagId, { storyDay });
         stopProcess('script_override');
-        renderSequenceStatus('One-scene preview queued');
+        showActionFeedback('One-scene preview queued. The existing sequence remains saved and resumes afterward.');
     });
 
     const sequenceBtn = makeActionButton('Run Sequence From Here', () => {
@@ -325,13 +355,14 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         window.__NEXT_SCRIPT_OVERRIDE__ = null;
         sequenceTools.planFrom(script, tagId, { storyDay });
         stopProcess('script_override');
-        renderSequenceStatus('Faithful sequence planned');
+        showActionFeedback('New sequence queued. Live playback updates below when it begins.');
     });
     sequenceBtn.style.display = sequenceTools ? 'block' : 'none';
 
     scriptsRow.appendChild(scriptSelect);
     sceneRow.appendChild(sceneSelect);
     container.appendChild(targetLabel);
+    container.appendChild(targetHelp);
     container.appendChild(scriptsRow);
     container.appendChild(sceneRow);
     container.appendChild(storyRow);
@@ -339,6 +370,12 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     actionRow.appendChild(previewBtn);
     actionRow.appendChild(sequenceBtn);
     container.appendChild(actionRow);
+    container.appendChild(actionFeedback);
+
+    const playbackLabel = makeSectionLabel('Live playback');
+    playbackLabel.dataset.debugSection = 'playback';
+    playbackLabel.style.display = sequenceTools ? 'block' : 'none';
+    container.appendChild(playbackLabel);
 
     const sequenceStatus = document.createElement('div');
     sequenceStatus.dataset.debugStatus = 'sequence';
@@ -349,20 +386,21 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     sequenceStatus.style.boxShadow = 'inset 0 0 0 1px rgba(74, 53, 32, 0.16)';
     sequenceStatus.style.fontVariantNumeric = 'tabular-nums';
     sequenceStatus.style.textWrap = 'pretty';
-    const renderSequenceStatus = (prefix = '') => {
+    const renderSequenceStatus = () => {
         if (!sequenceTools) return;
         const status = sequenceTools.status?.();
-        const progress = !status
-            ? ''
-            : status.current === 0
-              ? `Queued · ${status.total} event${status.total === 1 ? '' : 's'}`
-              : `Playing ${status.current}/${status.total}`;
-        const next = status?.next ? ` · Next ${status.next.script} #${status.next.tagId}` : '';
-        const active = status?.active ? ` · Active ${status.active.script} #${status.active.tagId}` : '';
-        const detail = status
-            ? `Day ${status.storyDay} · ${progress}${active} · ${status.remaining} remaining${next} · Final ${status.final.script} #${status.final.tagId}${status.lowTide ? ' · Low tide' : ' · High tide'}`
-            : 'Normal scheduler has not planned a sequence yet.';
-        sequenceStatus.innerText = prefix ? `${prefix}. ${detail}` : detail;
+        if (!status) {
+            sequenceStatus.innerText = 'No sequence is queued yet.';
+            return;
+        }
+        const tide = status.lowTide ? 'Low tide' : 'High tide';
+        if (status.current === 0) {
+            sequenceStatus.innerText = `Queued sequence · Chapter ${status.storyDay} · ${status.total} event${status.total === 1 ? '' : 's'}\nStarts with: ${status.next.script} #${status.next.tagId} · Finale: ${status.final.script} #${status.final.tagId} · ${tide}`;
+            return;
+        }
+        const active = status.active ? `${status.active.script} #${status.active.tagId}` : 'loading';
+        const next = status.next ? ` · Next: ${status.next.script} #${status.next.tagId}` : '';
+        sequenceStatus.innerText = `Playing event ${status.current} of ${status.total} · Chapter ${status.storyDay}\nNow: ${active}${next} · ${status.remaining} event${status.remaining === 1 ? '' : 's'} after this one\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
     };
     container.appendChild(sequenceStatus);
     if (sequenceTools) window.setInterval(() => renderSequenceStatus(), 500);
