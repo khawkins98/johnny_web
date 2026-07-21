@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DgdsRuntime } from '../runtime.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
+import { getSceneState } from '../scene-factory.mjs';
 
 const createSurface = () => ({ clear() {} });
 
@@ -192,6 +193,94 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.currentScene).toBe(1);
         expect(runtime.tick(1000 / 60).completed).toBe(true);
         expect(runtime.state.currentScene).toBe(2);
+    });
+
+    it('finishes a GOTO-looping child when its negative ADS run-count lifetime expires', () => {
+        const ttm = {
+            tags: [{ id: 1, description: 'looping action' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 1, script: [{ opcode: 0x1200, params: [1] }] },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: (name) => (name === 'LOOP.TTM' ? ttm : undefined) },
+            data: {
+                name: 'test',
+                resources: [{ id: 1, name: 'LOOP.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1, description: 'test scene' },
+                        script: [
+                            { opcode: 0x1350, params: [1, 1] },
+                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0x1510, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+        const child = getSceneState(runtime.state, 1, 1, -3, 1);
+        runtime.state.scenes.push(child);
+
+        runtime.tick(20);
+        runtime.tick(20);
+        expect(child.lifecycle).toBe('running');
+        expect(child.state.played).toBe(false);
+
+        runtime.tick(20);
+        expect(child.lifecycle).toBe('completed');
+        expect(child.state.played).toBe(true);
+
+        expect(runtime.tick(20).completed).toBe(true);
+        expect(runtime.state.playedHistory.has('1:1')).toBe(true);
+    });
+
+    it('counts a time-limited child lifetime while its authored frame delay is waiting', () => {
+        const ttm = {
+            tags: [{ id: 1, description: 'slow loop' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                {
+                    tagId: 1,
+                    script: [
+                        { opcode: 0x1020, params: [8] },
+                        { opcode: 0x0ff0, params: [] },
+                        { opcode: 0x1200, params: [1] },
+                    ],
+                },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'test',
+                resources: [{ id: 1, name: 'SLOW.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1, description: 'test scene' },
+                        script: [
+                            { opcode: 0x1350, params: [1, 1] },
+                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0x1510, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+        const child = getSceneState(runtime.state, 1, 1, -3, 1);
+        runtime.state.scenes.push(child);
+
+        runtime.tick(20);
+        expect(child.state.waitTicks).toBe(8);
+        runtime.tick(20);
+        expect(child.state.waitTicks).toBe(7);
+        runtime.tick(20);
+
+        expect(child.lifecycle).toBe('completed');
+        expect(child.state.played).toBe(true);
     });
 
     it('rejects an unknown host-selected ADS tag', () => {

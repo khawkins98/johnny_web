@@ -25,7 +25,7 @@ export const debugLog = (...args) => {
     if (diagnostics.console) console.log(`[DGDS] [${getTimestamp()}]`, ...args);
 };
 
-const sceneLog = (state, action, target = '') => {
+export const sceneLog = (state, action, target = '') => {
     let gagId = state.gagId ?? '?';
     if (state.data && state.data.scenes && state.data.scenes[state.currentScene]) {
         const tId = state.data.scenes[state.currentScene].tagId;
@@ -64,7 +64,7 @@ const verboseLog = (...args) => {
  * Build a human-readable label for a TTM child scene, including the tag
  * description if available: e.g. "4:113(flip pages)" or "4:113".
  */
-const sceneLabel = (scenesRes, sceneIdx, tagId) => {
+export const sceneLabel = (scenesRes, sceneIdx, tagId) => {
     const desc = scenesRes?.[sceneIdx]?.tags?.find((t) => t.id === tagId)?.description;
     return desc ? `${sceneIdx}:${tagId}(${desc})` : `${sceneIdx}:${tagId}`;
 };
@@ -526,7 +526,7 @@ const OR = (state) => {
 // More ADS callbacks that depend on getSceneState
 // ---------------------------------------------------------------------------
 
-const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
+const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
     // Only add if not already running or pending addition
     const inScenes = state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const inAddScenes = state.addScenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
@@ -536,8 +536,8 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
         state.scenesRandom.push({
             sceneIdx,
             tagId,
-            retriesDelay,
-            unk,
+            runCount,
+            proportion,
         });
         return;
     }
@@ -545,8 +545,8 @@ const ADD_SCENE = (state, sceneIdx, tagId, retriesDelay, unk) => {
     state.addScenes.push({
         sceneIdx,
         tagId,
-        retriesDelay,
-        unk,
+        runCount,
+        proportion,
     });
 };
 
@@ -567,7 +567,7 @@ const applySceneChanges = (state) => {
     state.removeScenes = [];
 
     state.addScenes.forEach((s) => {
-        const scene = getSceneState(state, s.sceneIdx, s.tagId, s.retriesDelay, s.unk);
+        const scene = getSceneState(state, s.sceneIdx, s.tagId, s.runCount, s.proportion);
         if (scene !== undefined) {
             if (state.scenes.length === 0) {
                 // Synchronously run the prologue so siblings can clone its loaded assets.
@@ -617,7 +617,7 @@ const RANDOM_END = (state) => {
     const index = Math.floor(state.random() * state.scenesRandom.length);
     const scene = state.scenesRandom[index];
     if (scene !== undefined) {
-        ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.retriesDelay, scene.unk);
+        ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.runCount, scene.proportion);
     }
 };
 

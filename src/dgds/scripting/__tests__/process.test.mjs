@@ -500,15 +500,15 @@ describe('RANDOM_END handler', () => {
             scenes: [],
             addScenes: [],
             scenesRandom: [
-                { sceneIdx: 1, tagId: 10, retriesDelay: 0, unk: 1 },
-                { sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 },
+                { sceneIdx: 1, tagId: 10, runCount: 0, proportion: 1 },
+                { sceneIdx: 2, tagId: 20, runCount: 3, proportion: 4 },
             ],
         };
 
         entry.callback(state);
 
         expect(state.randomize).toBe(false);
-        expect(state.addScenes).toEqual([{ sceneIdx: 2, tagId: 20, retriesDelay: 3, unk: 4 }]);
+        expect(state.addScenes).toEqual([{ sceneIdx: 2, tagId: 20, runCount: 3, proportion: 4 }]);
     });
 });
 
@@ -1102,7 +1102,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
             removeScenes: [{ sceneIdx: 1, tagId: 5 }],
             // addScenes references sceneIdx=1 which is absent from scenesRes
             // → getSceneState early-returns before document.createElement
-            addScenes: [{ sceneIdx: 1, tagId: 7, retriesDelay: 0 }],
+            addScenes: [{ sceneIdx: 1, tagId: 7, runCount: 0, proportion: 1 }],
             scenesRes: {},
         };
         entry.callback(mockState);

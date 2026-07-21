@@ -10,7 +10,7 @@ import { PALETTE } from '../palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
-import { debugLog, runScript } from './script-runner.mjs';
+import { debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 
@@ -240,6 +240,16 @@ export class DgdsRuntime {
     #runTtmController() {
         const rootState = this.state;
         rootState.scenes.forEach((scene) => {
+            if (scene.lifecycle !== 'completed' && Number.isFinite(scene.timeLimitTicks)) {
+                scene.timeLimitTicks--;
+                if (scene.timeLimitTicks <= 0) {
+                    scene.state.played = true;
+                    scene.state.waitTicks = 0;
+                    scene.lifecycle = 'completed';
+                    sceneLog(scene.state, 'TIME_LIMIT', sceneLabel(rootState.scenesRes, scene.sceneIdx, scene.tagId));
+                    return;
+                }
+            }
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
             prepareTtmScene(scene);

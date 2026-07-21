@@ -174,7 +174,7 @@ export const prepareTtmScene = (scene) => {
  * Build the full state object for a newly spawned TTM scene.
  * See module docblock for the complete field-sharing policy.
  */
-export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
+export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
     // scenesRes is indexed by the resource ID declared in the ADS [RESOURCES] block.
     // IDs are 1-based and may be non-sequential, so we look up directly by ID.
     const ttm = state.scenesRes[sceneIdx];
@@ -186,15 +186,18 @@ export const getSceneState = (state, sceneIdx, tagId, retriesDelay, unk) => {
     const scene = ttm.scenes[sequenceOrder];
     // ADS positive run counts include the initial pass. The runtime stores only
     // the number of additional passes remaining after that first execution.
-    const retries = retriesDelay > 0 ? retriesDelay - 1 : 0;
-    const delay = retriesDelay < 0 ? retriesDelay : state.delay;
+    const retries = runCount > 0 ? runCount - 1 : 0;
+    // ADS negative run counts are lifetimes, in DGDS timer ticks, for TTM
+    // sequences that can otherwise GOTO-loop forever. They are not frame delays.
+    const timeLimitTicks = runCount < 0 ? -runCount : null;
 
     const resourceOrder = state.data?.resources?.findIndex((resource) => resource.id === sceneIdx) ?? -1;
     const s = Object.assign(
         {
             sceneIdx,
-            delay,
             retries,
+            timeLimitTicks,
+            proportion,
             lifecycle: 'active',
             // DGDS repaints active TTM sequences in resource/declaration order. ADS
             // start order is scheduling state, not painter state.
