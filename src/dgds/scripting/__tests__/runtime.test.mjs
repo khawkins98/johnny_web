@@ -195,6 +195,55 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.currentScene).toBe(2);
     });
 
+    it('waits for a concluding child added immediately before selected ADS END', () => {
+        const ttm = {
+            tags: [{ id: 1, description: 'conclusion' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                {
+                    tagId: 1,
+                    script: [
+                        { opcode: 0x1020, params: [2] },
+                        { opcode: 0x0ff0, params: [] },
+                        { opcode: 0x0110, params: [] },
+                    ],
+                },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 1,
+            singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'test',
+                resources: [{ id: 1, name: 'END.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1, description: 'test scene' },
+                        script: [
+                            { opcode: 0x1330, params: [1, 1] },
+                            { opcode: 0x2005, params: [1, 1, 0, 1] },
+                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0x1510, params: [] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+
+        expect(runtime.tick(20).completed).toBe(false);
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
+
+        expect(runtime.tick(20).completed).toBe(false);
+        expect(runtime.tick(20).completed).toBe(false);
+        expect(runtime.tick(20).completed).toBe(true);
+        expect(runtime.state.scenes).toEqual([]);
+        expect(runtime.state.playedHistory.has('1:1')).toBe(true);
+    });
+
     it('finishes a GOTO-looping child when its negative ADS run-count lifetime expires', () => {
         const ttm = {
             tags: [{ id: 1, description: 'looping action' }],

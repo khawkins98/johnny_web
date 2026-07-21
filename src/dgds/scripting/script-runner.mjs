@@ -161,7 +161,7 @@ const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {
 const FADE_OUT = (state) => {};
 const FADE_IN = (state) => {};
 
-const clearAdsSceneBatch = (state) => {
+export const clearAdsSceneBatch = (state) => {
     state.scenes.forEach((s) => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
     state.scenes = [];
     state.addScenes = [];
@@ -634,10 +634,10 @@ const END = (state) => {
         state.continue = false;
     }
     if (state.lastCommand) {
-        // Batch-clear all child scenes unconditionally — including GOTO-looping scenes that
-        // never reach played=true. Without this, a looping scene (e.g. "frenzied dance")
-        // would persist into the next ADS gag and ghost over it.
-        clearAdsSceneBatch(state);
+        // A host-selected ADS segment may start its concluding child immediately
+        // before END. The runtime keeps that batch alive until its finite children
+        // complete, then clears any unbounded ambient loops with it.
+        if (!state.singleAdsScene) clearAdsSceneBatch(state);
         state.continue = true;
     }
 };

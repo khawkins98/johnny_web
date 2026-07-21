@@ -10,7 +10,7 @@ import { PALETTE } from '../palette.mjs';
 import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
-import { debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
+import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 
@@ -196,14 +196,25 @@ export class DgdsRuntime {
     #runAdsController() {
         const state = this.state;
         let completed = false;
-        if (
-            state.adsSceneEnd != null &&
-            state.currentScene >= state.adsSceneEnd &&
-            state.scenes.length === 0 &&
-            state.addScenes.length === 0
-        ) {
-            debugLog(`ADS selected scene complete in "${state.data?.name ?? '?'}"`);
-            return true;
+        if (state.adsSceneEnd != null && state.currentScene >= state.adsSceneEnd) {
+            const blockers = state.scenes.filter((scene) => {
+                const done = scene.state.hasTimer ? scene.state.timer === 0 : scene.state.played;
+                const unboundedLoop =
+                    scene.execution?.status === ExecutionStatus.LOOPED &&
+                    scene.retries === 0 &&
+                    !Number.isFinite(scene.timeLimitTicks);
+                return !done && !unboundedLoop;
+            });
+            if (blockers.length === 0 && state.addScenes.length === 0) {
+                clearAdsSceneBatch(state);
+                state.continue = true;
+                debugLog(`ADS selected scene complete in "${state.data?.name ?? '?'}"`);
+                return true;
+            }
+            // Do not enter the next ADS tag while the selected tag's concluding
+            // children are still running. Keep presenting and ticking their TTMs.
+            state.continue = false;
+            return false;
         }
         const scene = state.data.scenes[state.currentScene];
 
@@ -211,6 +222,16 @@ export class DgdsRuntime {
             const previousScene = state.currentScene;
             const execution = runScript(state, scene.script, true);
             completed = execution.status === ExecutionStatus.COMPLETED;
+            if (
+                state.adsSceneEnd != null &&
+                state.currentScene >= state.adsSceneEnd &&
+                (state.scenes.length > 0 || state.addScenes.length > 0)
+            ) {
+                // END has stopped ADS interpretation, but the selected tag's
+                // final child batch still owns the presentation.
+                state.continue = false;
+                completed = false;
+            }
             if (state.currentScene !== previousScene) {
                 const tagInfo = state.data.scenes[state.currentScene]?.tagId;
                 const tagDescription = !tagInfo
