@@ -7,6 +7,7 @@ A public reference outlining the execution model, module boundaries, and known c
 - johnny_web runs original DGDS resources through an experimental engine called Bottle DGDS.
 - Logical execution runs at a fixed 50 Hz tick recovered from the host's 20 ms timer unit, decoupled from browser wall time and presentation logic.
 - Background canvases handle enhancements (like moving clouds) independently of the faithful DGDS software surface.
+- Runtime patches are allowed when they are isolated as host-compatibility adapters, not as changes to authored opcode semantics.
 
 ## System overview
 
@@ -50,6 +51,10 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 | `src/dgds/compression/`                          | DGDS RLE and LZW decoding                                                                            |
 | `src/games/johnny/browser-app.mjs`               | Composes the Bottle browser host with Johnny's package and UI                                        |
 | `src/games/johnny/manifest.mjs`                  | Johnny identity, entry points, aliases, audio, and background metadata                               |
+| `src/games/johnny/story-controller.mjs`          | Host-level sequence planning, scene eligibility, and transition/walk injection                        |
+| `src/games/johnny/walking.mjs`                   | Host-owned walking route decode, interpolation, and path selection                                      |
+| `src/games/johnny/island-presenter.mjs`          | Persistent island layer composition and per-sequence presentation identity                                |
+| `src/games/johnny/ui/transitions.mjs`            | Host-owned sequence-end wipe rendering                                                                |
 | `src/games/johnny/ui/`                           | Johnny-specific settings and Enhanced-mode presentation                                              |
 | `src/dgds/scripting/process.mjs`                 | Browser session wiring and legacy active-session and debug façade                                    |
 | `src/dgds/scripting/runtime.mjs`                 | Instance-owned ADS/TTM coordination and logical presentation directives                              |
@@ -101,6 +106,23 @@ ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load 
 
 TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` divides a TTM stream into a resource prologue and named sequences.
 
+## Fidelity policy and patch surface
+
+The project goal is to keep the DGDS interpreter and scene lifecycle running as faithfully as possible and inject behavior only where the original executable owned it.
+
+Current rule:
+
+- The core runtime (`src/dgds/scripting/`) executes bytecode scheduling, DRAW timing, and scene composition semantics; it should not read wall time, storage, audio availability, or title policy.
+- Corrections that alter host timing should stay in `src/dgds/scripting/timing-compatibility.mjs`.
+- Enhancements and presentation behavior changes should stay in `src/dgds/hosts/*` and `src/games/johnny/*` (clouds/waves/holidays/walking/story policy/transitions).
+- Runtime-facing diagnostics should record these layers separately so we can distinguish faithful execution differences from presentation/policy differences.
+
+When a change is needed to behavior:
+
+1. Ask whether it belongs to the original bytecode model first; if yes, patch the script runtime path.
+2. If it is playback or environment adaptation, place it in host/johnny policy.
+3. If it is an intentional timing compatibility change, add a named patch in timing compatibility and cover it with a test.
+
 ## Logical execution
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or `completed`. `UPDATE` emits an authored frame boundary with the current `SET_DELAY`. The scheduler maps it through the named timing profile and owns the wait. `GOTO` requests a restart or switches to another tagged TTM script.
@@ -151,7 +173,7 @@ The browser presenter then uploads the composed RGBA surface to the foreground c
 
 Removing a scene therefore removes its pixels on the next composition; there is no scene-removal clear heuristic. A scene surface retains its current TTM frame while a logical delay elapses.
 
-GET/PUT operations overwrite RGBA values, including transparent pixels. On a scene layer, `CLEAR_SCREEN` discards the previous frame before restoring the saved region, because the region may not cover a moving sprite. `STORE_AREA` and GET/PUT slots belong to the scripting and composition layer, not the browser.
+GET/PUT operations overwrite RGBA values, including transparent pixels. On a scene layer, `BEGIN_SCENE_FRAME` starts a new frame and discards the previous frame when the slot is not restoreable, then restores the saved region when present. This prevents stale movement trails for sprites whose restore region does not cover the full previous frame. `STORE_AREA` and GET/PUT slots belong to the scripting and composition layer, not the browser.
 
 `frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
 
