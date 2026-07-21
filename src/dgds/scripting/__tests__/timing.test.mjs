@@ -19,14 +19,14 @@ describe('browser-to-DGDS timing adapter', () => {
         expect(clock.consume(DGDS_TICK_MS)).toBe(1);
     });
 
-    it('can execute multiple ticks after a late browser frame', () => {
-        const clock = createFixedStepClock();
+    it('can explicitly execute multiple ticks for non-presenting hosts', () => {
+        const clock = createFixedStepClock({ maxCatchUpTicks: 5 });
         clock.consume(0);
 
         expect(clock.consume(DGDS_TICK_MS * 3)).toBe(3);
     });
 
-    it('bounds catch-up work and discards stale whole ticks', () => {
+    it('coalesces overdue browser ticks so animation and audio cannot burst between paints', () => {
         const clock = createFixedStepClock();
         clock.consume(0);
 

@@ -7,7 +7,10 @@
  */
 // The recovered host advances DGDS delays in 20 ms units (50 logical Hz).
 export const DGDS_TICK_MS = 20;
-export const MAX_CATCH_UP_TICKS = 5;
+// Browser paints cannot occur between several synchronous ticks in one rAF
+// callback. Coalesce overdue timer events instead of replaying them as an
+// invisible animation/audio burst, matching a delayed Windows timer message.
+export const MAX_CATCH_UP_TICKS = 1;
 
 export const createFixedStepClock = ({ tickMs = DGDS_TICK_MS, maxCatchUpTicks = MAX_CATCH_UP_TICKS } = {}) => {
     let previousTimestamp;
