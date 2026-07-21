@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createSessionInfo } from '../session-info.mjs';
+import { applicationInfo, createSessionInfo } from '../session-info.mjs';
 
 describe('diagnostic session information', () => {
     it('describes the application, activation, browser, and display', () => {
@@ -22,5 +22,7 @@ describe('diagnostic session information', () => {
         });
         expect(Number.isNaN(Date.parse(info.enabledAt))).toBe(false);
         expect(typeof info.timezone).toBe('string');
+        expect(info.application).toBe(applicationInfo);
+        expect(applicationInfo.build).toEqual(expect.any(String));
     });
 });

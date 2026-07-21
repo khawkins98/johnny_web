@@ -17,6 +17,7 @@ vi.mock('../../dgds/scripting/process.mjs', () => ({
 }));
 
 import { setupDebugUI } from '../debug-ui.mjs';
+import { diagnostics } from '../../dgds/scripting/diagnostics.mjs';
 
 describe('developer sequence controls', () => {
     let originalConsole;
@@ -27,6 +28,7 @@ describe('developer sequence controls', () => {
         document.body.innerHTML = '';
         localStorage.clear();
         window.__NEXT_SCRIPT_OVERRIDE__ = null;
+        diagnostics.setMode('off');
         originalConsole = { log: console.log, warn: console.warn, error: console.error };
         processMocks.debug.getState.mockReturnValue({
             data: { name: 'ACTIVITY.ADS' },
@@ -96,6 +98,51 @@ describe('developer sequence controls', () => {
         );
         expect(document.querySelector('[data-debug-status="sequence"]').style.fontVariantNumeric).toBe('tabular-nums');
         expect(day.parentElement.querySelector('span').innerText).toBe('Story chapter to simulate');
+    });
+
+    it('shows the trace build identity and left-anchors native resizing', () => {
+        setupDebugUI();
+        const panel = document.querySelector('#debug-menu');
+        vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+            left: 900,
+            top: 10,
+            right: 1338,
+            bottom: 700,
+            width: 438,
+            height: 690,
+            x: 900,
+            y: 10,
+            toJSON: () => ({}),
+        });
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+
+        const build = document.querySelector('[data-debug-status="build"]');
+        expect(build.innerText).toMatch(/^Build (?!undefined$).+/);
+        expect(build.title).toContain(build.innerText.replace('Build ', ''));
+        expect(panel.style.left).toBe('900px');
+        expect(panel.style.right).toBe('auto');
+        expect(panel.style.resize).toBe('both');
+        expect(panel.style.minWidth).toBe('320px');
+    });
+
+    it('restores standard and verbose console controls in the panel', () => {
+        setupDebugUI();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
+        const mode = document.querySelector('[data-debug-control="diagnostics-mode"]');
+
+        expect([...mode.options].map((option) => [option.value, option.innerText])).toEqual([
+            ['on', 'Standard logs'],
+            ['verbose', 'Verbose logs'],
+        ]);
+        expect(mode.value).toBe('on');
+
+        mode.value = 'verbose';
+        mode.dispatchEvent(new Event('change'));
+        expect(diagnostics.mode).toBe('verbose');
+
+        diagnostics.setMode('on');
+        expect(mode.value).toBe('on');
     });
 
     it('reflects and changes the active host-owned night state', () => {

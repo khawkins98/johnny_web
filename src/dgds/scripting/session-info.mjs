@@ -1,6 +1,12 @@
 const appVersion = typeof __BOTTLE_VERSION__ === 'string' ? __BOTTLE_VERSION__ : 'development';
 const buildId = typeof __BOTTLE_BUILD__ === 'string' ? __BOTTLE_BUILD__ : 'unknown';
 
+export const applicationInfo = Object.freeze({
+    name: 'Bottle DGDS',
+    version: appVersion,
+    build: buildId,
+});
+
 export const createSessionInfo = ({ mode, tick = null } = {}) => {
     const browser =
         typeof navigator === 'undefined'
@@ -32,7 +38,7 @@ export const createSessionInfo = ({ mode, tick = null } = {}) => {
         enabledAt: new Date().toISOString(),
         mode,
         tick,
-        application: { name: 'Bottle DGDS', version: appVersion, build: buildId },
+        application: applicationInfo,
         page: typeof location === 'undefined' ? null : location.href,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser,

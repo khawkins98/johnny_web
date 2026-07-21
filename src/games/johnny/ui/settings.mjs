@@ -587,13 +587,14 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     [
         { val: 'off', text: 'Off' },
         { val: 'on', text: 'On' },
+        { val: 'verbose', text: 'Verbose' },
     ].forEach(({ val, text }) => {
         const option = document.createElement('option');
         option.value = val;
         option.innerText = text;
         debugSelect.appendChild(option);
     });
-    debugSelect.value = diagnostics.enabled ? 'on' : 'off';
+    debugSelect.value = diagnostics.mode;
     debugSelect.onchange = (event) => diagnostics.setMode(event.target.value);
     const debugBtn = document.createElement('button');
     debugBtn.innerText = 'Panel (D)';
@@ -621,7 +622,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
             : 'Diagnostics disabled';
     };
     diagnostics.subscribe((current, previous) => {
-        debugSelect.value = current.enabled ? 'on' : 'off';
+        debugSelect.value = current.mode;
         if (current.enabled && !previous.enabled) enabledAt = new Date();
         if (!current.enabled) enabledAt = null;
         renderDebugStatus();

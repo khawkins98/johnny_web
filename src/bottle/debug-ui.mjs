@@ -1,5 +1,6 @@
 import { __DEBUG__, stopProcess } from '../dgds/scripting/process.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
+import { applicationInfo } from '../dgds/scripting/session-info.mjs';
 
 export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     // Stable automation hook for Playwright/headless browser diagnostics.
@@ -24,6 +25,8 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     container.style.flexDirection = 'column';
     container.style.gap = '10px';
     container.style.width = '400px';
+    container.style.minWidth = '320px';
+    container.style.minHeight = '240px';
     container.style.maxHeight = '80vh';
     container.style.resize = 'both';
     container.style.overflow = 'hidden';
@@ -33,7 +36,10 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     let dragStartX, dragStartY, initialX, initialY;
 
     const title = document.createElement('div');
-    title.innerHTML = '⎈ Developer Tools';
+    title.style.display = 'flex';
+    title.style.alignItems = 'baseline';
+    title.style.justifyContent = 'space-between';
+    title.style.gap = '12px';
     title.style.fontFamily = "'Caveat', cursive";
     title.style.fontSize = '24px';
     title.style.fontWeight = 'bold';
@@ -43,6 +49,28 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     title.style.paddingBottom = '5px';
     title.style.cursor = 'move';
     title.style.userSelect = 'none';
+    title.style.textWrap = 'balance';
+
+    const titleText = document.createElement('span');
+    titleText.innerText = '⎈ Developer Tools';
+    const buildBadge = document.createElement('span');
+    buildBadge.dataset.debugStatus = 'build';
+    buildBadge.innerText = `Build ${applicationInfo.build}`;
+    buildBadge.title = `Bottle DGDS ${applicationInfo.version}, build ${applicationInfo.build}`;
+    buildBadge.style.fontFamily = "'VT323', monospace";
+    buildBadge.style.fontSize = '14px';
+    buildBadge.style.fontWeight = 'normal';
+    buildBadge.style.whiteSpace = 'nowrap';
+    buildBadge.style.opacity = '0.72';
+    title.appendChild(titleText);
+    title.appendChild(buildBadge);
+
+    const anchorPanelToLeft = () => {
+        if (container.style.right === 'auto') return;
+        const rect = container.getBoundingClientRect();
+        container.style.left = `${Math.max(10, rect.left)}px`;
+        container.style.right = 'auto';
+    };
 
     title.addEventListener('mousedown', (e) => {
         isDragging = true;
@@ -81,6 +109,10 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
             if (!diagnostics.enabled) diagnostics.setMode('on');
             if (container.style.display === 'none') {
                 container.style.display = 'flex';
+                // Native CSS resize grows from the bottom-right. Convert the
+                // initial right anchor to a stable left coordinate so dragging
+                // horizontally follows the pointer instead of moving opposite it.
+                anchorPanelToLeft();
                 originalPopulateSelect(); // Load actual scenes from engine
             } else {
                 container.style.display = 'none';
@@ -548,6 +580,34 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
     });
     container.appendChild(traceBtn);
+
+    const diagnosticsModeRow = document.createElement('label');
+    diagnosticsModeRow.style.display = 'flex';
+    diagnosticsModeRow.style.flexDirection = 'column';
+    diagnosticsModeRow.style.gap = '3px';
+    const diagnosticsModeLabel = document.createElement('span');
+    diagnosticsModeLabel.innerText = 'Console detail';
+    const diagnosticsModeSelect = document.createElement('select');
+    diagnosticsModeSelect.dataset.debugControl = 'diagnostics-mode';
+    diagnosticsModeSelect.style.cssText = controlStyle;
+    diagnosticsModeSelect.style.minHeight = '40px';
+    for (const [value, label] of [
+        ['on', 'Standard logs'],
+        ['verbose', 'Verbose logs'],
+    ]) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.innerText = label;
+        diagnosticsModeSelect.appendChild(option);
+    }
+    diagnosticsModeSelect.value = diagnostics.verbose ? 'verbose' : 'on';
+    diagnosticsModeSelect.addEventListener('change', () => diagnostics.setMode(diagnosticsModeSelect.value));
+    diagnostics.subscribe((current) => {
+        diagnosticsModeSelect.value = current.verbose ? 'verbose' : 'on';
+    });
+    diagnosticsModeRow.appendChild(diagnosticsModeLabel);
+    diagnosticsModeRow.appendChild(diagnosticsModeSelect);
+    container.appendChild(diagnosticsModeRow);
 
     // Day/Night Toggle
     const timeRow = document.createElement('div');
