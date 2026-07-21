@@ -448,6 +448,18 @@ const handleIfCondition = (state, conditionPassed) => {
 };
 
 const isSceneDone = (s) => (s.state.hasTimer ? s.state.timer === 0 : s.state.played);
+const hasPendingSceneChange = (changes, sceneIdx, tagId) =>
+    (changes || []).some((scene) => scene.sceneIdx === sceneIdx && scene.tagId === tagId);
+
+const isSceneRunning = (state, sceneIdx, tagId) => {
+    // ADS mutates a sequence's run flag immediately. We stage collection
+    // changes until the branch boundary, so conditions later in the same
+    // branch must still observe those pending starts and stops.
+    if (hasPendingSceneChange(state.removeScenes, sceneIdx, tagId)) return false;
+    if (hasPendingSceneChange(state.addScenes, sceneIdx, tagId)) return true;
+    const scene = state.scenes.find((candidate) => candidate.sceneIdx === sceneIdx && candidate.tagId === tagId);
+    return Boolean(scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running'));
+};
 
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
     if (state.orMode && state.orChainPassed) {
@@ -502,9 +514,35 @@ const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
         handleIfCondition(state, true);
         return;
     }
-    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
-    const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    handleIfCondition(state, !isRunning);
+
+    if (
+        hasPendingSceneChange(state.addScenes, sceneIdx, tagId) ||
+        hasPendingSceneChange(state.removeScenes, sceneIdx, tagId)
+    ) {
+        // The original run flag changes at ADD/STOP. Materialize our staged
+        // collection change before waiting so the TTM can advance meanwhile.
+        applySceneChanges(state);
+    }
+
+    const scene = state.scenes.find((candidate) => candidate.sceneIdx === sceneIdx && candidate.tagId === tagId);
+    const running = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
+    if (!running) {
+        handleIfCondition(state, true);
+        return;
+    }
+
+    const unboundedLoop =
+        scene.execution?.status === ExecutionStatus.LOOPED &&
+        scene.retries === 0 &&
+        !Number.isFinite(scene.timeLimitTicks);
+    if (unboundedLoop) {
+        handleIfCondition(state, false);
+        return;
+    }
+
+    // A finite child is a dependency barrier. Stay on this opcode while the
+    // TTM controller advances it, then enter the branch once it has stopped.
+    state.continue = false;
 };
 
 const IF_RUNNING = (state, sceneIdx, tagId) => {
@@ -512,9 +550,7 @@ const IF_RUNNING = (state, sceneIdx, tagId) => {
         handleIfCondition(state, true);
         return;
     }
-    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
-    const isRunning = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    handleIfCondition(state, isRunning);
+    handleIfCondition(state, isSceneRunning(state, sceneIdx, tagId));
 };
 
 const AND = (state) => {};

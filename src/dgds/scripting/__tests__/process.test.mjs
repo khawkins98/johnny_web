@@ -597,16 +597,18 @@ describe('IF_NOT_RUNNING handler', () => {
         jumpTo: undefined,
     });
 
-    it('sets jumpTo to skip block when scene lifecycle is "active"', () => {
+    it('waits when a finite scene lifecycle is "active"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBe(3);
+        expect(state.jumpTo).toBeUndefined();
+        expect(state.continue).toBe(false);
     });
 
-    it('sets jumpTo to skip block when scene lifecycle is "running"', () => {
+    it('waits when a finite scene lifecycle is "running"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBe(3);
+        expect(state.jumpTo).toBeUndefined();
+        expect(state.continue).toBe(false);
     });
 
     it('does not set jumpTo when scene lifecycle is "completed"', () => {
@@ -619,6 +621,22 @@ describe('IF_NOT_RUNNING handler', () => {
         const state = makeState([]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('evaluates an unbounded self-loop as running without waiting forever', () => {
+        const state = makeState([
+            {
+                sceneIdx: 1,
+                tagId: 7,
+                lifecycle: 'running',
+                execution: { status: 'looped' },
+                retries: 0,
+                timeLimitTicks: null,
+            },
+        ]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+        expect(state.continue).toBe(true);
     });
 });
 
@@ -667,6 +685,20 @@ describe('IF_RUNNING handler', () => {
 
     it('sets jumpTo when scene lifecycle is "completed" (no longer running → skip block)', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed' }]);
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBe(3);
+    });
+
+    it('sees a scene queued earlier in the same branch as running', () => {
+        const state = makeState([]);
+        state.addScenes = [{ sceneIdx: 1, tagId: 7 }];
+        entry.callback(state, 1, 7);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
+    it('sees a stop queued earlier in the same branch as not running', () => {
+        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        state.removeScenes = [{ sceneIdx: 1, tagId: 7 }];
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBe(3);
     });

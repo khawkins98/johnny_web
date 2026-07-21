@@ -440,7 +440,13 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         sequenceStatus.innerText = `Chapter ${status.storyDay} · Event ${status.current} of ${status.total}\nCurrent: ${active}\nNext: ${next} · ${status.remaining} remaining\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
     };
     container.appendChild(sequenceStatus);
-    if (sequenceTools) window.setInterval(() => renderSequenceStatus(), 500);
+    if (sequenceTools?.subscribeStatus) {
+        sequenceTools.subscribeStatus(renderSequenceStatus);
+    } else if (sequenceTools) {
+        // Generic hosts may expose only a status snapshot; keep polling as the
+        // compatibility path while title controllers can publish immediately.
+        window.setInterval(() => renderSequenceStatus(), 500);
+    }
 
     // Patch original populateSelect call
     const originalPopulateSelect = () => {

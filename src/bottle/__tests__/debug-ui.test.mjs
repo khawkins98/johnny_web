@@ -136,6 +136,7 @@ describe('developer sequence controls', () => {
     });
 
     it('labels selected controls separately from live playback', () => {
+        let publishStatus;
         const sequenceTools = {
             preview: vi.fn(),
             planFrom: vi.fn(),
@@ -150,6 +151,11 @@ describe('developer sequence controls', () => {
                 final: { script: 'JOHNNY.ADS', tagId: 4 },
                 lowTide: true,
             })),
+            subscribeStatus: vi.fn((listener) => {
+                publishStatus = listener;
+                listener();
+                return vi.fn();
+            }),
         };
         setupDebugUI({ sequenceTools });
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
@@ -167,6 +173,21 @@ describe('developer sequence controls', () => {
         );
         expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
             'Next: MARY.ADS #1 · 5 remaining',
+        );
+
+        sequenceTools.status.mockReturnValue({
+            storyDay: 2,
+            current: 4,
+            total: 8,
+            remaining: 4,
+            active: { script: 'MARY.ADS', tagId: 1 },
+            next: { script: 'VISITOR.ADS', tagId: 3 },
+            final: { script: 'JOHNNY.ADS', tagId: 4 },
+            lowTide: true,
+        });
+        publishStatus();
+        expect(document.querySelector('[data-debug-status="sequence"]').innerText).toContain(
+            'Current: MARY.ADS #1',
         );
     });
 });

@@ -41,6 +41,27 @@ describe('Johnny host story controller', () => {
         expect(controller.describe('STAND.ADS', 1).action).toBe('starting-event');
     });
 
+    it('publishes queued and active status changes to debug consumers immediately', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        const statuses = [];
+        const unsubscribe = controller.subscribeStatus((status) => statuses.push(status));
+
+        expect(statuses).toEqual([null]);
+        const first = controller.next();
+        expect(statuses.at(-1)).toMatchObject({
+            current: 1,
+            active: { script: first.script, tagId: first.tagId },
+        });
+
+        unsubscribe();
+        controller.next();
+        expect(statuses).toHaveLength(3);
+    });
+
     it('plans ordinary scenes followed by one final and rotates five wipes', () => {
         const controller = createJohnnyStoryController({
             random: () => 0,

@@ -332,6 +332,99 @@ describe('DgdsRuntime', () => {
         expect(child.state.played).toBe(true);
     });
 
+    it('repeats a finite TTM body until its negative ADS run-count lifetime expires', () => {
+        const ttm = {
+            tags: [{ id: 1, description: 'finite fire cycle' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                {
+                    tagId: 1,
+                    script: [
+                        { opcode: 0x0ff0, params: [] },
+                        { opcode: 0x0110, params: [] },
+                    ],
+                },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'test',
+                resources: [{ id: 1, name: 'FIRE.TTM' }],
+                scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0x1350, params: [1, 1] }] }],
+            },
+        });
+        const child = getSceneState(runtime.state, 1, 1, -5, 1);
+        runtime.state.scenes.push(child);
+
+        runtime.tick(20);
+        expect(child.lifecycle).toBe('running');
+        expect(child.state.played).toBe(false);
+        runtime.tick(20);
+        expect(child.state.runs).toBe(1);
+
+        runtime.tick(20);
+        expect(child.lifecycle).toBe('running');
+        expect(child.state.played).toBe(false);
+        runtime.tick(20);
+        expect(child.state.runs).toBe(2);
+
+        runtime.tick(20);
+        expect(child.lifecycle).toBe('completed');
+        expect(child.state.played).toBe(true);
+    });
+
+    it('lets IF_NOT_RUNNING wait on a child added earlier in the same ADS branch', () => {
+        const finiteScript = [
+            { opcode: 0x0ff0, params: [] },
+            { opcode: 0x0110, params: [] },
+        ];
+        const ttm = {
+            tags: [
+                { id: 1, description: 'first action' },
+                { id: 2, description: 'dependent action' },
+            ],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 1, script: finiteScript },
+                { tagId: 2, script: finiteScript },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 1,
+            singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'same-branch',
+                resources: [{ id: 1, name: 'ACTION.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1 },
+                        script: [
+                            { opcode: 0x2005, params: [1, 1, 1, 1] },
+                            { opcode: 0x1360, params: [1, 1] },
+                            { opcode: 0x2005, params: [1, 2, 1, 1] },
+                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0x1510, params: [] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+
+        expect(runtime.tick(20).completed).toBe(false);
+        expect(runtime.state.currentScene).toBe(0);
+        expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
+        runtime.tick(20);
+        expect(runtime.state.currentScene).toBe(0);
+        runtime.tick(20);
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.state.scenes.map((scene) => scene.tagId)).toContain(2);
+    });
+
     it('rejects an unknown host-selected ADS tag', () => {
         expect(() =>
             createRuntime({

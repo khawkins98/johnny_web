@@ -303,8 +303,9 @@ export class DgdsRuntime {
                     scene.environment.ready = true;
                 }
                 if (scene.execution.status === ExecutionStatus.COMPLETED) {
-                    if (scene.retries > 0) {
-                        scene.retries--;
+                    const repeatsUntilTimeLimit = Number.isFinite(scene.timeLimitTicks);
+                    if (scene.retries > 0 || repeatsUntilTimeLimit) {
+                        if (scene.retries > 0) scene.retries--;
                         scene.state.played = false;
                         scene.state.reentry = scene.targetStart || 0;
                         scene.state.delay = 0;
@@ -312,7 +313,10 @@ export class DgdsRuntime {
                         scene.state.frameReady = false;
                         scene.state.frameBoundary = null;
                         scene.state.timer = 0;
-                        scene.execution = pendingExecution(scene.state, 'retry');
+                        scene.execution = pendingExecution(
+                            scene.state,
+                            repeatsUntilTimeLimit ? 'time-limited-retry' : 'retry',
+                        );
                     } else {
                         scene.lifecycle = 'completed';
                     }

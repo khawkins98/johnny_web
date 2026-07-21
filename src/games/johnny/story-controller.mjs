@@ -215,6 +215,11 @@ export const createJohnnyStoryController = ({
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
+    const statusListeners = new Set();
+
+    const publishStatus = () => {
+        for (const listener of statusListeners) listener(sequenceStatus);
+    };
 
     const eligible = (storyDay, wanted = 0, unwanted = 0) =>
         JOHNNY_SCENES.filter(
@@ -338,6 +343,7 @@ export const createJohnnyStoryController = ({
             lowTide: islandState.lowTide,
             next: Object.freeze({ script: planned[0].scene.script, tagId: planned[0].scene.tagId }),
         });
+        publishStatus();
         transition = (transition + 1) % 5;
     };
 
@@ -364,6 +370,7 @@ export const createJohnnyStoryController = ({
                     ? Object.freeze({ script: queue[0].script, tagId: queue[0].tagId })
                     : null,
             });
+            publishStatus();
             return selection;
         },
         preview(script, tagId, { storyDay: requestedDay = 1 } = {}) {
@@ -393,6 +400,11 @@ export const createJohnnyStoryController = ({
             return sequenceStatus;
         },
         status: () => sequenceStatus,
+        subscribeStatus(listener) {
+            statusListeners.add(listener);
+            listener(sequenceStatus);
+            return () => statusListeners.delete(listener);
+        },
         describe: describeScene,
         snapshot: () => Object.freeze([...queue]),
     };

@@ -127,7 +127,7 @@ When a change is needed to behavior:
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or `completed`. `UPDATE` emits an authored frame boundary with the current `SET_DELAY`. The scheduler maps it through the named timing profile and owns the wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
-ADS `ADD_SCENE` has a separate execution-lifetime parameter. A positive value is a finite run count; zero allows the child TTM to run normally; a negative value starts a time-limited child for that many DGDS timer ticks. This lifetime is enforced by the runtime even when the child uses `GOTO` and can never complete its own script. It must not be folded into `SET_DELAY`, which controls only the interval between that child's authored frames.
+ADS `ADD_SCENE` has a separate execution-lifetime parameter. A positive value is a finite run count; zero allows the child TTM to run normally; a negative value starts a time-limited child for that many DGDS timer ticks. A time-limited child restarts its TTM body after `END` until the cutoff, just as it continues through a `GOTO` loop; the cutoff, rather than the shape of the TTM body, determines when ADS may advance. It must not be folded into `SET_DELAY`, which controls only the interval between that child's authored frames.
 
 For a host-selected ADS tag, reaching ADS `END` stops interpreting that tag but does not discard finite children it started in its final branch. The runtime continues ticking those children without entering the next ADS tag. Once they complete, it clears the complete child batch—including any unbounded ambient loop—and reports the selected tag complete to the host controller.
 
@@ -159,6 +159,8 @@ ADS condition branches stage scene additions and removals:
 - `STOP_SCENE` stages removal.
 - Completed scenes retain their final layer until ADS explicitly stops them or a later GET/PUT frame restore overwrites their occupied region, matching DGDS's shared composition buffer.
 - Looping scenes remain active until stopped.
+
+The collection mutations are normally staged, but running-state tests later in the same branch observe and materialize pending additions and removals. This mirrors the original engine's immediate sequence run flags: after `ADD_SCENE`, an `IF_NOT_RUNNING` in that branch already sees the child as running even though JavaScript ordinarily commits scene-array changes at the branch boundary. A finite running child holds that condition at its program counter while TTM ticks advance it; an unbounded self-loop remains a false conditional without deadlocking ADS completion.
 
 ## Frame composition
 
