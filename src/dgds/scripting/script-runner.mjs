@@ -563,8 +563,12 @@ const OR = (state) => {
 // ---------------------------------------------------------------------------
 
 const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
-    // Only add if not already running or pending addition
-    const inScenes = state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    // A finished scene may be stopped and restarted in the same authored ADS
+    // branch. Collection changes are staged, so treat a matching pending
+    // removal as absent and queue the replacement for remove-before-add commit.
+    const pendingRemoval = hasPendingSceneChange(state.removeScenes, sceneIdx, tagId);
+    const inScenes =
+        !pendingRemoval && state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const inAddScenes = state.addScenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     if (inScenes || inAddScenes) return;
 
@@ -605,6 +609,9 @@ const applySceneChanges = (state) => {
     state.addScenes.forEach((s) => {
         const scene = getSceneState(state, s.sceneIdx, s.tagId, s.runCount, s.proportion);
         if (scene !== undefined) {
+            // The fresh execution supersedes the completed instance recorded
+            // during the removal phase above.
+            state.playedHistory.delete(`${s.sceneIdx}:${s.tagId}`);
             if (state.scenes.length === 0) {
                 // Synchronously run the prologue so siblings can clone its loaded assets.
                 scene.execution = runScript(scene.state, scene.script || scene.state.script);

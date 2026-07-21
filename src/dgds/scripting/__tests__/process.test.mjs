@@ -1145,6 +1145,55 @@ describe('ADS branch end — remove-before-add ordering', () => {
         // addScenes phase ran but found no TTM data, so nothing added
         expect(mockState.addScenes).toHaveLength(0);
     });
+
+    it('restarts a finished scene removed and re-added by the same branch', () => {
+        const add = ADSDispatch.find((entry) => entry.opcode === 0x2005);
+        const branchEnd = ADSDispatch.find((entry) => entry.opcode === 0x1510);
+        const finished = {
+            sceneIdx: 3,
+            tagId: 44,
+            lifecycle: 'completed',
+            state: { played: true },
+        };
+        const mockState = {
+            continue: true,
+            playedHistory: new Set(),
+            scenes: [finished],
+            removeScenes: [{ sceneIdx: 3, tagId: 44 }],
+            addScenes: [],
+            scenesRandom: [],
+            scenesRes: [
+                undefined,
+                undefined,
+                undefined,
+                {
+                    scenes: [
+                        { tagId: 0, script: [] },
+                        { tagId: 44, script: [{ opcode: 0x0ff0, params: [] }] },
+                    ],
+                },
+            ],
+            data: { scenes: [{ tagId: 7 }], resources: [{ id: 3 }] },
+            currentScene: 0,
+            surfaceFactory: () => ({}),
+            resourceProvider: {},
+            audioOperations: [],
+            frameOperations: [],
+            random: () => 0.5,
+            foregroundColor: {},
+            backgroundColor: {},
+        };
+
+        add.callback(mockState, 3, 44, 0, 1);
+        expect(mockState.addScenes).toEqual([{ sceneIdx: 3, tagId: 44, runCount: 0, proportion: 1 }]);
+
+        branchEnd.callback(mockState);
+
+        expect(mockState.scenes).toHaveLength(1);
+        expect(mockState.scenes[0]).not.toBe(finished);
+        expect(mockState.scenes[0]).toMatchObject({ sceneIdx: 3, tagId: 44, lifecycle: 'active' });
+        expect(mockState.playedHistory.has('3:44')).toBe(false);
+    });
 });
 
 // Scenario B & C: END batch-clear semantics

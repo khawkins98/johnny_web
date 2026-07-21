@@ -139,6 +139,30 @@ const captureGag = ({ archive, data, gag }) => {
     throw new Error(`Gag ${gag} did not complete within 5000 logical ticks`);
 };
 
+const verifyCampfireContinuity = ({ archive }) => {
+    const frames = captureGag({
+        archive,
+        data: archive.loadEntry('BUILDING.ADS'),
+        gag: 7,
+    });
+    const bootRoutineTags = new Set([47, 75, 72, 144, 54, 79]);
+    let fireStarted = false;
+    let checkedFrames = 0;
+
+    for (const frame of frames) {
+        const tags = new Set(frame.l.filter((layer) => layer[0] === 3).map((layer) => layer[1]));
+        if (tags.has(44)) fireStarted = true;
+        if (!fireStarted || ![...bootRoutineTags].some((tag) => tags.has(tag))) continue;
+        checkedFrames++;
+        if (!tags.has(44)) {
+            throw new Error(`campfire layer disappeared during the boot routine at logical tick ${frame.t}`);
+        }
+    }
+
+    if (checkedFrames === 0) throw new Error('campfire continuity check did not reach the boot routine');
+    console.log(`campfire continuity: ${checkedFrames} retained actor frames`);
+};
+
 const readGame = async () => {
     let mapBuffer;
     let archiveBuffer;
@@ -157,6 +181,7 @@ const readGame = async () => {
 
 const main = async () => {
     const game = await readGame();
+    verifyCampfireContinuity(game);
     const captures = new Map();
     for (const gag of new Set(scenarioDefinitions.map((scenario) => scenario.gag))) {
         captures.set(gag, captureGag({ ...game, gag }));

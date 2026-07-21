@@ -162,6 +162,8 @@ ADS condition branches stage scene additions and removals:
 
 The collection mutations are normally staged, but running-state tests later in the same branch observe and materialize pending additions and removals. This mirrors the original engine's immediate sequence run flags: after `ADD_SCENE`, an `IF_NOT_RUNNING` in that branch already sees the child as running even though JavaScript ordinarily commits scene-array changes at the branch boundary. A finite running child holds that condition at its program counter while TTM ticks advance it; an unbounded self-loop remains a false conditional without deadlocking ADS completion.
 
+Branch commit is explicitly remove-before-add. An ADS branch may therefore finish, remove, and re-add the same TTM tag to keep a visual layer alive across a longer actor routine. The replacement is a fresh execution and clears the removed instance's completion history. Johnny's campfire uses this pattern to cycle the very-large-fire layer while Johnny walks to the tree, returns with the boot, and cooks it; rejecting the staged re-add makes the fire disappear until a later actor frame happens to draw it again.
+
 ## Frame composition
 
 The browser has background and foreground canvases. TTM opcodes address neither — the retained-surface presenter applies their operations to per-scene software surfaces.
