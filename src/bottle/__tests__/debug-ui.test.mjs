@@ -26,6 +26,7 @@ describe('developer sequence controls', () => {
         vi.useFakeTimers();
         vi.clearAllMocks();
         document.body.innerHTML = '';
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
         localStorage.clear();
         window.__NEXT_SCRIPT_OVERRIDE__ = null;
         diagnostics.setMode('off');

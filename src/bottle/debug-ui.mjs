@@ -1,10 +1,12 @@
 import { __DEBUG__, stopProcess } from '../dgds/scripting/process.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 import { applicationInfo } from '../dgds/scripting/session-info.mjs';
+import { formatDebugStageHash, parseDebugStageHash } from './debug-stage-link.mjs';
 
 export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     // Stable automation hook for Playwright/headless browser diagnostics.
     window.__DGDS__ = __DEBUG__;
+    const linkedStage = sequenceTools ? parseDebugStageHash(window.location.hash) : null;
     const container = document.createElement('div');
     container.id = 'debug-menu';
     container.style.position = 'fixed';
@@ -238,6 +240,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         opt.innerText = file;
         scriptSelect.appendChild(opt);
     });
+    if (linkedStage && adsFiles.includes(linkedStage.script)) scriptSelect.value = linkedStage.script;
 
     const sceneSelect = document.createElement('select');
     sceneSelect.style.cssText = controlStyle;
@@ -297,7 +300,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         storyDaySelect.appendChild(option);
     }
     try {
-        storyDaySelect.value = localStorage.getItem('jc-debug-story-day') || '1';
+        storyDaySelect.value = String(linkedStage?.storyDay ?? localStorage.getItem('jc-debug-story-day') ?? 1);
     } catch {
         storyDaySelect.value = '1';
     }
@@ -334,6 +337,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     }
     playbackModeRow.appendChild(playbackModeLabel);
     playbackModeRow.appendChild(playbackModeSelect);
+    if (linkedStage) playbackModeSelect.value = linkedStage.mode;
 
     const selectedSceneName = () =>
         sceneSelect.selectedOptions?.[0]?.innerText?.replace(/^\d+:\s*/, '') ||
@@ -485,6 +489,11 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     const startBtn = makeActionButton(sequenceTools ? 'Start Debug Run' : 'Jump to Script/Gag', () => {
         if (!sequenceTools) return legacyJump();
         const { script, tagId, storyDay } = selectedScene();
+        window.history.replaceState(
+            null,
+            '',
+            formatDebugStageHash({ script, tagId, storyDay, mode: playbackModeSelect.value }),
+        );
         if (sequenceTools.startRun) {
             sequenceTools.startRun({ mode: playbackModeSelect.value, script, tagId, storyDay });
             showActionFeedback(
@@ -505,6 +514,14 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         stopProcess('script_override');
     });
 
+    const copyStageBtn = makeActionButton('Copy Stage Link', async () => {
+        const { script, tagId, storyDay } = selectedScene();
+        const hash = formatDebugStageHash({ script, tagId, storyDay, mode: playbackModeSelect.value });
+        window.history.replaceState(null, '', hash);
+        await navigator.clipboard.writeText(window.location.href);
+        showActionFeedback('Stage link copied.');
+    });
+
     scriptsRow.appendChild(scriptLabel);
     scriptsRow.appendChild(scriptSelect);
     sceneRow.appendChild(sceneLabel);
@@ -518,8 +535,15 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     container.appendChild(playbackModeRow);
     container.appendChild(sceneContext);
     actionRow.appendChild(startBtn);
+    if (sequenceTools) actionRow.appendChild(copyStageBtn);
     container.appendChild(actionRow);
     container.appendChild(actionFeedback);
+
+    if (linkedStage) {
+        followPlaybackCheckbox.checked = false;
+        preferredStoryDay = String(linkedStage.storyDay);
+        sequenceTools.startRun?.(linkedStage);
+    }
 
     const playbackLabel = makeSectionLabel('Now playing — host event');
     playbackLabel.dataset.debugSection = 'playback';
