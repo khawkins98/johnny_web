@@ -26,4 +26,16 @@ describe('diagnostics modes', () => {
             ['on', 'off'],
         ]);
     });
+
+    it('publishes diagnostic events only while tracing is enabled', () => {
+        const controller = createDiagnosticsController(parseDiagnostics(''));
+        const events = [];
+        controller.subscribeEvents((type, data) => events.push({ type, data }));
+
+        controller.record('user-control', { setting: 'clouds', value: 'off' });
+        controller.setMode('on');
+        controller.record('user-control', { setting: 'clouds', value: 'on' });
+
+        expect(events).toEqual([{ type: 'user-control', data: { setting: 'clouds', value: 'on' } }]);
+    });
 });

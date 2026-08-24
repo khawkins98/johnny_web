@@ -22,6 +22,9 @@ let activeRuntime = null;
 let activeScheduler = null;
 let activeFramePresenter = null;
 let activeStop = null;
+let diagnosticTrace = null;
+let diagnosticSession = 0;
+let diagnosticTraceId = null;
 
 const runtimeSessionInfo = () => ({
     ...createSessionInfo({
@@ -31,24 +34,48 @@ const runtimeSessionInfo = () => ({
     engine: activeRuntime?.describe() ?? null,
 });
 
-const beginRuntimeTrace = () => {
-    if (!activeRuntime) return;
-    const recorder = createTraceRecorder({ pixelHashes: true });
-    recorder.startSession(runtimeSessionInfo());
-    activeRuntime.state.trace = recorder;
+const persistDiagnosticTrace = async () => {
+    if (!diagnosticTrace || !import.meta.env.DEV) return null;
+    try {
+        const result = await diagnosticTrace.persist('/__dgds_trace', { traceId: diagnosticTraceId });
+        if (diagnostics.console) console.log(`[DGDS] Flight recorder saved to ${result.path}`);
+        return result;
+    } catch (error) {
+        console.warn('[DGDS] Flight recorder could not be persisted', error);
+        return null;
+    }
 };
+
+const beginDiagnosticTrace = () => {
+    diagnosticSession++;
+    diagnosticTraceId = `dgds-${new Date().toISOString().replaceAll(':', '-')}-${diagnosticSession}`;
+    diagnosticTrace = createTraceRecorder({ pixelHashes: true });
+    diagnosticTrace.startSession({
+        ...runtimeSessionInfo(),
+        diagnosticSession,
+        persistence: import.meta.env.DEV ? 'vite-localhost' : 'manual-download',
+    });
+    if (activeRuntime) activeRuntime.state.trace = diagnosticTrace;
+    return diagnosticTrace;
+};
+
+diagnostics.subscribeEvents((type, data) => {
+    diagnosticTrace?.record(type, { recordedAt: new Date().toISOString(), ...data });
+});
 
 diagnostics.subscribe((current, previous) => {
     const state = activeRuntime?.state;
     if (current.trace && !previous.trace) {
-        beginRuntimeTrace();
+        beginDiagnosticTrace();
     } else if (!current.trace && previous.trace) {
-        state?.trace?.stopSession({
+        diagnosticTrace?.stopSession({
             disabledAt: new Date().toISOString(),
             tick: state?.tick ?? null,
+            droppedEvents: diagnosticTrace?.dropped ?? 0,
         });
+        void persistDiagnosticTrace();
     } else if (current.trace && previous.trace && current.mode !== previous.mode) {
-        state?.trace?.record('diagnostics-mode', {
+        diagnosticTrace?.record('diagnostics-mode', {
             tick: state?.tick ?? null,
             previousMode: previous.mode,
             mode: current.mode,
@@ -104,7 +131,14 @@ export const startProcess = (initialState) => {
     });
     activeFramePresenter = framePresenter;
 
-    if (!runtimeInitialState.trace && diagnostics.trace) beginRuntimeTrace();
+    if (!runtimeInitialState.trace && diagnostics.trace) {
+        if (!diagnosticTrace?.active) beginDiagnosticTrace();
+        runtime.state.trace = diagnosticTrace;
+        diagnosticTrace.record('runtime-start', {
+            recordedAt: new Date().toISOString(),
+            engine: runtime.describe(),
+        });
+    }
     if (diagnostics.console) {
         console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
     }
@@ -116,6 +150,15 @@ export const startProcess = (initialState) => {
         if (finished) return false;
         finished = true;
         scheduler.stop();
+        if (diagnosticTrace && runtime.state.trace === diagnosticTrace) {
+            diagnosticTrace.record('runtime-stop', {
+                recordedAt: new Date().toISOString(),
+                reason,
+                tick: runtime.state.tick,
+                droppedEvents: diagnosticTrace.dropped,
+            });
+            void persistDiagnosticTrace();
+        }
         if (activeScheduler === scheduler) {
             activeScheduler = null;
             activeStop = null;
@@ -177,14 +220,14 @@ export const __DEBUG__ = {
             playbackRate: 1,
         },
     getState: () => activeRuntime?.state ?? null,
-    getTrace: () => activeRuntime?.state.trace?.snapshot() || [],
+    getTrace: () => diagnosticTrace?.snapshot() || [],
     saveTrace: () => {
-        const trace = activeRuntime?.state.trace;
+        const trace = diagnosticTrace;
         if (!trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
         return trace.download();
     },
     persistTrace: () => {
-        const trace = activeRuntime?.state.trace;
+        const trace = diagnosticTrace;
         if (!trace) throw new Error('Diagnostics are disabled; enable them in Settings first');
         return trace.persist();
     },

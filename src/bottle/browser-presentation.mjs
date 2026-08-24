@@ -7,6 +7,7 @@ import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
 import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
+import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -148,6 +149,14 @@ export const runBrowserPresentation = async ({
             debugRuns?.activate(selection);
             const script = selection.script || game.resources.activity;
             const tagId = selection.tagId ?? null;
+            diagnostics.record('host-event', {
+                phase: 'selected',
+                script,
+                tagId,
+                storyDay: selection.titleState?.storyDay ?? null,
+                hasWalk: Boolean(selection.walk),
+                sequenceEnd: Boolean(selection.sequenceEnd),
+            });
 
             const presentSelectionBackground = () => {
                 mainContext.clearRect(0, 0, 640, 480);
@@ -158,6 +167,7 @@ export const runBrowserPresentation = async ({
             const hasPersistentBackground = presentSelectionBackground();
 
             if (selection.walk && runInterlude) {
+                diagnostics.record('host-interlude', { phase: 'start', interlude: 'walk', ...selection.walk });
                 await runInterlude({
                     ...selection,
                     archiveBuffer: sndBuf,
@@ -166,6 +176,11 @@ export const runBrowserPresentation = async ({
                     mainContext,
                     presentBackground: presentSelectionBackground,
                     signal: attempt?.signal ?? null,
+                    record: (type, data) => diagnostics.record(type, data),
+                });
+                diagnostics.record('host-interlude', {
+                    phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
+                    interlude: 'walk',
                 });
             }
 
@@ -197,17 +212,23 @@ export const runBrowserPresentation = async ({
                     onComplete: resolve,
                 });
             });
+            diagnostics.record('host-event', { phase: 'runtime-stop', script, tagId, reason: outcome?.reason });
             if (
                 outcome?.reason === 'completed' &&
                 selection.sequenceEnd &&
                 runSequenceTransition &&
                 !(attempt && debugRuns.interrupted(attempt))
             ) {
+                diagnostics.record('host-interlude', { phase: 'start', interlude: 'transition' });
                 await runSequenceTransition({
                     type: selection.transition,
                     context,
                     mainContext,
                     signal: attempt?.signal ?? null,
+                });
+                diagnostics.record('host-interlude', {
+                    phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
+                    interlude: 'transition',
                 });
             }
             if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: 'script_override' };

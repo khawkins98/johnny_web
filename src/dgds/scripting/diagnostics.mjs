@@ -23,6 +23,7 @@ export const parseDiagnostics = (search = '') => {
 export const createDiagnosticsController = (initial = modeState('off')) => {
     let current = initial;
     const listeners = new Set();
+    const eventListeners = new Set();
     const controller = {
         get mode() {
             return current.mode;
@@ -54,6 +55,13 @@ export const createDiagnosticsController = (initial = modeState('off')) => {
         subscribe(listener) {
             listeners.add(listener);
             return () => listeners.delete(listener);
+        },
+        record(type, data = {}) {
+            if (current.trace) eventListeners.forEach((listener) => listener(type, data));
+        },
+        subscribeEvents(listener) {
+            eventListeners.add(listener);
+            return () => eventListeners.delete(listener);
         },
     };
     return controller;

@@ -6,6 +6,7 @@ export const EXPERIENCE_SETTING_KEY = 'jc-experience';
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
 export function setupSettingsUI({ getAudioManager = () => null, onRestart = () => {} } = {}) {
+    const recordSetting = (setting, value) => diagnostics.record('user-control', { control: 'setting', setting, value });
     // Inject some whimsical CSS
     const style = document.createElement('style');
     style.innerHTML = `
@@ -450,6 +451,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         localStorage.setItem('jc-scale-mode', mode);
         applyScaling(mode);
         markCustomExperience();
+        recordSetting('scale', mode);
     };
     scaleRow.appendChild(scaleLabel);
     scaleRow.appendChild(scaleSelect);
@@ -468,6 +470,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         if (document.fullscreenElement) await document.exitFullscreen?.();
         else await document.documentElement.requestFullscreen?.();
         renderFullscreen();
+        recordSetting('fullscreen', Boolean(document.fullscreenElement));
     };
     document.addEventListener('fullscreenchange', renderFullscreen);
     renderFullscreen();
@@ -497,6 +500,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         const value = event.target.value;
         localStorage.setItem(SOUND_SETTING_KEY, value);
         getAudioManager()?.setEnabled(value === 'on');
+        recordSetting('sound', value);
     };
     audioRow.appendChild(audioLabel);
     audioRow.appendChild(audioSelect);
@@ -522,6 +526,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     cloudsSelect.onchange = (e) => {
         localStorage.setItem('jc-clouds', e.target.value);
         markCustomExperience();
+        recordSetting('clouds', e.target.value);
     };
     cloudsRow.appendChild(cloudsLabel);
     cloudsRow.appendChild(cloudsSelect);
@@ -547,6 +552,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     wavesSelect.onchange = (e) => {
         localStorage.setItem('jc-waves', e.target.value);
         markCustomExperience();
+        recordSetting('waves', e.target.value);
     };
     wavesRow.appendChild(wavesLabel);
     wavesRow.appendChild(wavesSelect);
@@ -572,6 +578,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     timeSelect.onchange = (e) => {
         localStorage.setItem('jc-time', e.target.value);
         markCustomExperience();
+        recordSetting('time', e.target.value);
     };
     timeRow.appendChild(timeLabel);
     timeRow.appendChild(timeSelect);
@@ -595,7 +602,10 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         debugSelect.appendChild(option);
     });
     debugSelect.value = diagnostics.mode;
-    debugSelect.onchange = (event) => diagnostics.setMode(event.target.value);
+    debugSelect.onchange = (event) => {
+        diagnostics.setMode(event.target.value);
+        recordSetting('diagnostics', event.target.value);
+    };
     const debugBtn = document.createElement('button');
     debugBtn.innerText = 'Panel (D)';
     debugBtn.onclick = () => {
@@ -654,6 +664,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     };
     experienceSelect.onchange = (event) => {
         if (event.target.value !== 'custom') applyExperience(event.target.value);
+        recordSetting('experience', event.target.value);
     };
 
     const shortcuts = document.createElement('section');
@@ -705,6 +716,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const footerActions = document.createElement('div');
     footerActions.className = 'settings-footer-actions';
     const restart = () => {
+        diagnostics.record('user-control', { control: 'return-to-title' });
         close();
         onRestart();
     };

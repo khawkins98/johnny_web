@@ -22,13 +22,23 @@ export const downloadJSONLines = (
     return { filename };
 };
 
-export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
+export const createTraceRecorder = ({ pixelHashes = false, maxEvents = 50000 } = {}) => {
     const events = [];
     let sequence = 0;
     let active = true;
+    let dropped = 0;
 
     const append = (type, data = {}) => {
-        events.push({ sequence: sequence++, type, ...data });
+        if (events.length >= maxEvents) {
+            events.shift();
+            dropped++;
+        }
+        const eventData = { ...data };
+        if (Object.hasOwn(eventData, 'type')) {
+            eventData.detailType = eventData.type;
+            delete eventData.type;
+        }
+        events.push({ sequence: sequence++, type, ...eventData });
     };
 
     return {
@@ -36,12 +46,16 @@ export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
         get active() {
             return active;
         },
+        get dropped() {
+            return dropped;
+        },
         record(type, data = {}) {
             if (active) append(type, data);
         },
         startSession(info) {
             events.length = 0;
             sequence = 0;
+            dropped = 0;
             active = true;
             append('session-start', info);
         },
@@ -52,16 +66,20 @@ export const createTraceRecorder = ({ pixelHashes = false } = {}) => {
         clear() {
             events.length = 0;
             sequence = 0;
+            dropped = 0;
         },
         snapshot: () => events.map((event) => ({ ...event })),
         toJSONLines: () => events.map((event) => JSON.stringify(event)).join('\n') + '\n',
         download(options) {
             return downloadJSONLines(this.toJSONLines(), options);
         },
-        async persist(url = '/__dgds_trace') {
+        async persist(url = '/__dgds_trace', { traceId = null } = {}) {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'content-type': 'application/x-ndjson' },
+                headers: {
+                    'content-type': 'application/x-ndjson',
+                    ...(traceId ? { 'x-dgds-trace-id': traceId } : {}),
+                },
                 body: this.toJSONLines(),
             });
             if (!response.ok) throw new Error(`Trace save failed: ${response.status}`);

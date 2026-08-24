@@ -13,29 +13,38 @@ const buildId =
         }
     })();
 
-const dgdsTracePlugin = () => ({
-    name: 'dgds-trace-writer',
-    configureServer(server) {
-        server.middlewares.use('/__dgds_trace', (request, response, next) => {
-            if (request.method !== 'POST') return next();
-            const chunks = [];
-            request.on('data', (chunk) => chunks.push(chunk));
-            request.on('end', async () => {
-                try {
-                    const traceDir = path.resolve(process.cwd(), 'traces');
-                    await mkdir(traceDir, { recursive: true });
-                    const filename = `dgds-${new Date().toISOString().replaceAll(':', '-')}.jsonl`;
-                    await writeFile(path.join(traceDir, filename), Buffer.concat(chunks));
-                    response.setHeader('content-type', 'application/json');
-                    response.end(JSON.stringify({ path: `traces/${filename}` }));
-                } catch (error) {
-                    response.statusCode = 500;
-                    response.end(JSON.stringify({ error: error.message }));
-                }
+const dgdsTracePlugin = () => {
+    let traceSequence = 0;
+    return {
+        name: 'dgds-trace-writer',
+        configureServer(server) {
+            server.middlewares.use('/__dgds_trace', (request, response, next) => {
+                if (request.method !== 'POST') return next();
+                const chunks = [];
+                request.on('data', (chunk) => chunks.push(chunk));
+                request.on('end', async () => {
+                    try {
+                        const traceDir = path.resolve(process.cwd(), 'traces');
+                        await mkdir(traceDir, { recursive: true });
+                        const traceId = request.headers['x-dgds-trace-id'];
+                        const safeTraceId =
+                            typeof traceId === 'string' ? traceId.replaceAll(/[^a-zA-Z0-9_.-]/g, '') : '';
+                        const suffix = String(traceSequence++).padStart(4, '0');
+                        const filename = safeTraceId
+                            ? `${safeTraceId}.jsonl`
+                            : `dgds-${new Date().toISOString().replaceAll(':', '-')}-${suffix}.jsonl`;
+                        await writeFile(path.join(traceDir, filename), Buffer.concat(chunks));
+                        response.setHeader('content-type', 'application/json');
+                        response.end(JSON.stringify({ path: `traces/${filename}` }));
+                    } catch (error) {
+                        response.statusCode = 500;
+                        response.end(JSON.stringify({ error: error.message }));
+                    }
+                });
             });
-        });
-    },
-});
+        },
+    };
+};
 
 export default defineConfig({
     base: process.env.VITE_BASE_PATH ?? '/',

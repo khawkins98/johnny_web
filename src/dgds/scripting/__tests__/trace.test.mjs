@@ -40,6 +40,15 @@ describe('structured DGDS tracing', () => {
         expect(trace.snapshot()[0]).toMatchObject({ sequence: 0, tick: 1 });
     });
 
+    it('does not let payload detail overwrite the structured event type', () => {
+        const trace = createTraceRecorder();
+        trace.record('host-interlude', { type: 'walk', phase: 'start' });
+
+        expect(trace.snapshot()).toEqual([
+            { sequence: 0, type: 'host-interlude', detailType: 'walk', phase: 'start' },
+        ]);
+    });
+
     it('starts with a session header and stops recording when disabled', () => {
         const trace = createTraceRecorder();
         trace.startSession({ enabledAt: '2026-07-18T12:00:00.000Z', mode: 'trace' });
@@ -49,6 +58,45 @@ describe('structured DGDS tracing', () => {
 
         expect(trace.snapshot().map((event) => event.type)).toEqual(['session-start', 'composition', 'session-stop']);
         expect(trace.active).toBe(false);
+    });
+
+    it('keeps a bounded rolling window and reports dropped events', () => {
+        const trace = createTraceRecorder({ maxEvents: 2 });
+        trace.record('first');
+        trace.record('second');
+        trace.record('third');
+
+        expect(trace.snapshot().map((event) => event.type)).toEqual(['second', 'third']);
+        expect(trace.dropped).toBe(1);
+    });
+
+    it('persists JSONL to the localhost trace endpoint', async () => {
+        const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ path: 'traces/example.jsonl' }) }));
+        vi.stubGlobal('fetch', fetch);
+        const trace = createTraceRecorder();
+        trace.record('browser-presentation', { tick: 1 });
+
+        await expect(trace.persist()).resolves.toEqual({ path: 'traces/example.jsonl' });
+        expect(fetch).toHaveBeenCalledWith('/__dgds_trace', {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-ndjson' },
+            body: '{"sequence":0,"type":"browser-presentation","tick":1}\n',
+        });
+        vi.unstubAllGlobals();
+    });
+
+    it('supplies a stable trace id when overwriting a localhost session snapshot', async () => {
+        const fetch = vi.fn(async () => ({ ok: true, json: async () => ({ path: 'traces/session.jsonl' }) }));
+        vi.stubGlobal('fetch', fetch);
+        const trace = createTraceRecorder();
+
+        await trace.persist('/__dgds_trace', { traceId: 'session-7' });
+
+        expect(fetch.mock.calls[0][1].headers).toEqual({
+            'content-type': 'application/x-ndjson',
+            'x-dgds-trace-id': 'session-7',
+        });
+        vi.unstubAllGlobals();
     });
 
     it('downloads JSONL with a timestamped filename', () => {

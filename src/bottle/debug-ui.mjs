@@ -450,7 +450,10 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         button.addEventListener('pointerup', release);
         button.addEventListener('pointercancel', release);
         button.addEventListener('pointerleave', release);
-        button.addEventListener('click', action);
+        button.addEventListener('click', () => {
+            diagnostics.record('user-control', { control: 'debug-action', action: label });
+            action();
+        });
         return button;
     };
 
@@ -576,6 +579,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     traceBtn.style.cssText = controlStyle;
     traceBtn.addEventListener('click', async () => {
         try {
+            diagnostics.record('user-control', { control: 'download-trace' });
             const result = await __DEBUG__.saveTrace();
             console.log(`DGDS trace downloaded as ${result.filename}`);
         } catch (error) {
