@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { decodeJohnnyWalkData, planJohnnyWalkFrames, runJohnnyWalk } from '../walking.mjs';
+import {
+    decodeJohnnyWalkData,
+    planJohnnyWalkFrames,
+    runJohnnyWalk,
+    selectJohnnyWalkPath,
+} from '../walking.mjs';
 
 describe('Johnny host walking', () => {
     it('decodes flip, frame and coordinates directly from SCRANTIC.SCR layout', () => {
@@ -22,9 +27,30 @@ describe('Johnny host walking', () => {
         const frames = planJohnnyWalkFrames(
             { fromSpot: 0, fromHeading: 6, toSpot: 1, toHeading: 7 },
             data,
+            () => 0,
         );
         expect(frames).toContain(data[68]);
         expect(frames.at(-1)).toBe(data[145 + 9 + 7]);
+    });
+
+    it('selects among non-repeating routes instead of always taking the shortest path', () => {
+        const first = selectJohnnyWalkPath(0, 3, () => 0);
+        const last = selectJohnnyWalkPath(0, 3, () => 0.999999);
+
+        expect(first[0]).toBe(0);
+        expect(first.at(-1)).toBe(3);
+        expect(new Set(first).size).toBe(first.length);
+        expect(last[0]).toBe(0);
+        expect(last.at(-1)).toBe(3);
+        expect(new Set(last).size).toBe(last.length);
+        expect(last).not.toEqual(first);
+    });
+
+    it('handles same, invalid, and extreme random path selections deterministically', () => {
+        expect(selectJohnnyWalkPath(2, 2, () => 0.5)).toEqual([2]);
+        expect(selectJohnnyWalkPath(-1, 2, () => 0.5)).toEqual([]);
+        expect(selectJohnnyWalkPath(0, 1, () => 1).at(-1)).toBe(1);
+        expect(selectJohnnyWalkPath(0, 1, () => -1).at(-1)).toBe(1);
     });
 
     it('redraws the persistent island behind every walking frame', async () => {
@@ -44,6 +70,7 @@ describe('Johnny host walking', () => {
 
         expect(presentBackground).toHaveBeenCalledOnce();
         expect(wait).toHaveBeenCalledWith(1600, { signal: null });
+        expect(context.clearRect).toHaveBeenCalledOnce();
     });
 
     it('clears and stops before later frames when its host attempt is aborted', async () => {

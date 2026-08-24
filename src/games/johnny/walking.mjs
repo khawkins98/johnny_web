@@ -46,22 +46,28 @@ export const decodeJohnnyWalkData = (archiveBuffer) => {
     });
 };
 
-const shortestPath = (from, to) => {
-    if (from === to) return [from];
-    const queue = [[from]];
-    const visited = new Set([from]);
-    while (queue.length) {
-        const path = queue.shift();
-        const current = path.at(-1);
-        for (let next = 0; next < BOOKMARKS.length; next++) {
-            if (BOOKMARKS[current][next] < 0 || visited.has(next)) continue;
-            const candidate = [...path, next];
-            if (next === to) return candidate;
-            visited.add(next);
-            queue.push(candidate);
-        }
+const enumerateSimplePaths = (from, to, path, visited, paths) => {
+    if (from === to) {
+        paths.push(path);
+        return;
     }
-    return [];
+    for (let next = 0; next < BOOKMARKS.length; next++) {
+        if (BOOKMARKS[from][next] < 0 || visited.has(next)) continue;
+        visited.add(next);
+        enumerateSimplePaths(next, to, [...path, next], visited, paths);
+        visited.delete(next);
+    }
+};
+
+/** Select one non-repeating route through the recovered island bookmark graph. */
+export const selectJohnnyWalkPath = (from, to, random = Math.random) => {
+    if (!Number.isInteger(from) || !Number.isInteger(to) || !BOOKMARKS[from] || !BOOKMARKS[to]) return [];
+    if (from === to) return [from];
+    const paths = [];
+    enumerateSimplePaths(from, to, [from], new Set([from]), paths);
+    if (!paths.length) return [];
+    const choice = Math.min(paths.length - 1, Math.max(0, Math.floor(random() * paths.length)));
+    return paths[choice];
 };
 
 const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false) => {
@@ -74,8 +80,8 @@ const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false)
     }
 };
 
-export const planJohnnyWalkFrames = (walk, data) => {
-    const path = shortestPath(walk.fromSpot, walk.toSpot);
+export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
+    const path = selectJohnnyWalkPath(walk.fromSpot, walk.toSpot, random);
     if (!path.length || walk.fromHeading == null || walk.toHeading == null) return [];
     const frames = [];
     let heading = walk.fromHeading;
@@ -115,9 +121,10 @@ export const runJohnnyWalk = async ({
     presentBackground = null,
     wait = delay,
     signal = null,
+    random = Math.random,
 }) => {
     if (!walk || signal?.aborted) return false;
-    const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer));
+    const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer), random);
     const sprites = resourceProvider.resolve('JOHNWALK.BMP');
     const background = resourceProvider.resolve('BACKGRND.BMP');
     const offsetX = titleState?.x || 0;
@@ -157,6 +164,5 @@ export const runJohnnyWalk = async ({
             return false;
         }
     }
-    context.clearRect(0, 0, 640, 480);
     return true;
 };
