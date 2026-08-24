@@ -11,5 +11,6 @@ dumps
 
 # tooling
 node_modules
+coverage/
 .DS_Store
 server-log.txt

@@ -76,7 +76,7 @@ export const runBrowserPresentation = async ({
             showDataError(game, missing);
             return;
         }
-        
+
         mapBuf = await resMapResp.arrayBuffer();
         arcBuf = await resFileResp.arrayBuffer();
         sndBuf = await resSndResp.arrayBuffer();
@@ -346,7 +346,7 @@ function showDataError(game, missing, detail) {
         const inst = overlay.querySelector('.instruction');
         let buffer;
         let filename = '';
-        
+
         const isSupportedExt = (name) => {
             const low = name.toLowerCase();
             return low.endsWith('.zip') || low.endsWith('.ima') || low.endsWith('.img');
@@ -372,7 +372,7 @@ function showDataError(game, missing, detail) {
             card.dataset.isExtracting = '';
             return;
         }
-        
+
         try {
             await extractArchiveToIndexedDB(buffer, filename, (msg) => {
                 inst.innerHTML = `<strong>Extracting...</strong><br/>${msg}`;
@@ -392,13 +392,13 @@ function showDataError(game, missing, detail) {
 
         const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
         const file = e.dataTransfer.files[0];
-        
+
         await processFile(file, url);
     });
 
     const filePicker = document.getElementById('file-picker');
     const instructionBox = document.getElementById('upload-instruction');
-    
+
     if (instructionBox && filePicker) {
         instructionBox.addEventListener('click', (e) => {
             // Prevent clicking the anchor tag from opening the file picker

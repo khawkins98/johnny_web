@@ -26,7 +26,7 @@ function extractFromFAT12(imaBuffer) {
         const firstByte = ima[entryOffset];
         if (firstByte === 0x00) break; // end of dir
         if (firstByte === 0xE5) continue; // deleted
-        
+
         const attr = ima[entryOffset + 11];
         if (attr & 0x08) continue; // volume label
         if (attr & 0x10) continue; // directory
@@ -41,11 +41,14 @@ function extractFromFAT12(imaBuffer) {
 
         // Start cluster (Little Endian)
         const startCluster = ima[entryOffset + 26] | (ima[entryOffset + 27] << 8);
-        
+
         // File size (Little Endian)
-        const fileSize = ima[entryOffset + 28] | (ima[entryOffset + 29] << 8) | 
-                         (ima[entryOffset + 30] << 16) | (ima[entryOffset + 31] << 24);
-        
+        const fileSize =
+            ima[entryOffset + 28] |
+            (ima[entryOffset + 29] << 8) |
+            (ima[entryOffset + 30] << 16) |
+            (ima[entryOffset + 31] << 24);
+
         if (['RESOURCE.MAP', 'SCRANTIC.SC$', 'RESOURCE.00$'].includes(fullName)) {
             // Files are contiguous on this specific mastered floppy image.
             // A robust FAT12 parser would follow the cluster chain.
@@ -58,7 +61,7 @@ function extractFromFAT12(imaBuffer) {
 
 /**
  * Decompress a TSComp-wrapped PKWARE-implode file.
- * 
+ *
  * TSComp header (magic 65 5D 13 8C):
  *   0–3   magic
  *   4–7   version/flags

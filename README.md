@@ -16,7 +16,7 @@ If you are just looking to run the screensaver on an already-hosted version of t
 
 ## Developer setup
 
-Requirements: Node.js 24+ and pnpm 10. 
+Requirements: Node.js 24+ and pnpm 10.
 
 ```bash
 pnpm install
@@ -130,7 +130,8 @@ That being said, while AI was a great accelerator, **none of this would have bee
 - **The Reverse Engineers:** The folks who did all the foundational work to decode the DGDS engine formats, including [Alexandre Fontoura](https://github.com/xesf/castaway), [Jérémie Guillaume](https://github.com/jno6809/jc_reborn), [Hans Milling](https://github.com/nivs1978/Johnny-Castaway-Open-Source), [Vasco Costa](https://github.com/vcosta/scummvm/tree/master/engines/dgds), and the [ScummVM team](https://github.com/scummvm/scummvm/tree/master/engines/dgds).
 - **The Archivists:** The people who preserved the original floppy disks and uploaded them to the Internet Archive, especially [Greyfalken](https://archive.org/details/@greyfalken).
 
-**Further Reading & History**  
+**Further Reading & History**
+
 If you want to learn more about the history of the screensaver, check out this [great YouTube video](https://www.youtube.com/watch?v=E5lxiTJGqHw), its page on the [Sierra Chest](https://sierrachest.com/index.php?a=games&id=255&title=johnny-castaway&fld=general), and [Jeff Tunnell's blog](https://jefftunnell.com/johnny-castaway-common-questions/) for excellent context on its original creation. You can also run the original 1992 version in DOSBox directly on the [Internet Archive](https://archive.org/details/johnny-castaway-screensaver).
 
 See [NOTICE](NOTICE) for full IP attribution, original project credits, and special thanks.

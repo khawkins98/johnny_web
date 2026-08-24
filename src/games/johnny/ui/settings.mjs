@@ -747,7 +747,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     window.addEventListener('keydown', (e) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (isTyping(e.target) && e.key !== 'Escape') return;
-        
+
         if (e.key === 'Tab' && overlay.style.display === 'flex') {
             const focusable = Array.from(modal.querySelectorAll('button, select, [href], input, textarea, [tabindex]:not([tabindex="-1"])'));
             if (focusable.length > 0) {
