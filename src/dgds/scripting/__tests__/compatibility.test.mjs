@@ -104,6 +104,7 @@ describe('deterministic background compatibility', () => {
 
         expect(policy.backgroundState(state)).toMatchObject({
             cloudX: 9,
+            cloudOriginX: 10,
             cloudElapsed: 2121,
             waveRegions: [1, 1, 0],
             waveElapsed: 1960,
@@ -114,6 +115,34 @@ describe('deterministic background compatibility', () => {
             waveFrame: 2,
             waveElapsed: 900,
         });
+    });
+
+    it('keeps persistent cloud drift independent of each ADS runtime random origin', () => {
+        let now = 1000;
+        const presentationKey = {};
+        const policy = createBrowserPresentationPolicy({
+            storage: { getItem: (key) => (key === 'jc-clouds' ? 'on' : null) },
+            now: () => now,
+            random: () => 0,
+        });
+        const makeState = (cloudX) => ({
+            game: johnnyCastaway,
+            backgroundId: 1,
+            bkgScreen: null,
+            bkgOcean: [],
+            bkgRes: null,
+            cloudElapsed: 900,
+            cloudX,
+            titleState: { presentationKey, island: true, islandLayoutId: 1, clouds: [] },
+        });
+
+        const first = drawBackground(makeState(100), {}, policy);
+        now = 1001;
+        const second = drawBackground(makeState(500), {}, policy);
+
+        expect(first.cloudDrift).toBe(0);
+        expect(second.cloudDrift).toBe(-1);
+        expect(policy.backgroundState(presentationKey)).toMatchObject({ cloudOriginX: 0, cloudX: -1 });
     });
 
     it('selects deterministic authored day and night oceans', () => {

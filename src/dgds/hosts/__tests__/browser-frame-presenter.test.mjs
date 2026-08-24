@@ -77,6 +77,45 @@ describe('browser frame presenter', () => {
         expect(mainContext.clearRect).not.toHaveBeenCalled();
     });
 
+    it('retains the uploaded foreground across controller-only ticks', () => {
+        const context = createContext();
+        const presenter = createBrowserFramePresenter({
+            context,
+            mainContext: createContext(),
+            presentationPolicy,
+        });
+        const state = createState();
+
+        presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: true });
+        presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: false });
+
+        expect(context.clearRect).toHaveBeenCalledOnce();
+        expect(context.putImageData).toHaveBeenCalledOnce();
+    });
+
+    it('preserves an interlude frame until the new runtime has visible pixels', () => {
+        const context = createContext();
+        const state = createState();
+        state.surface.bounds = null;
+        state.scenes = [{ sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { layerRevision: 0 } }];
+        const presenter = createBrowserFramePresenter({
+            context,
+            mainContext: createContext(),
+            presentationPolicy,
+            preserveInitialForeground: true,
+        });
+
+        presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: true });
+        expect(context.clearRect).not.toHaveBeenCalled();
+        expect(context.putImageData).not.toHaveBeenCalled();
+
+        state.surface.bounds = { x: 1, y: 1, width: 1, height: 1 };
+        state.scenes[0].state.layerRevision = 1;
+        presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: true });
+        expect(context.clearRect).toHaveBeenCalledOnce();
+        expect(context.putImageData).toHaveBeenCalledOnce();
+    });
+
     it('reuses an unchanged retained composition', () => {
         const context = createContext();
         const mainContext = createContext();

@@ -18,6 +18,13 @@ export const drawBackground = (state, context, policy) => {
     if (!policy) throw new TypeError('Background renderer requires a presentation policy');
     const profile = state.game?.background;
     const now = policy.now();
+    const presentation = {
+        layoutId: null,
+        cloudsOn: false,
+        cloudCount: 0,
+        cloudDrift: 0,
+        cloudX: null,
+    };
 
     // Draw the ocean selected by the title host. DGDS still owns loading the
     // decoded SCR resources; Johnny owns whether this sequence is day/night.
@@ -42,12 +49,14 @@ export const drawBackground = (state, context, policy) => {
     }
 
     const layoutId = state.titleState?.islandLayoutId ?? state.backgroundId;
+    presentation.layoutId = layoutId ?? null;
     const layout = profile?.layouts?.[layoutId];
     if (layout && state.titleState?.island !== false) {
         const animation = policy.backgroundState(state.titleState?.presentationKey || state);
         const posX = layout.x + (state.titleState?.x || 0);
         const posY = state.titleState?.y || 0;
         const cloudsOn = policy.setting(profile.settings.clouds, 'off') === 'on';
+        presentation.cloudsOn = cloudsOn;
         const wavesOn = policy.setting(profile.settings.waves, 'on') === 'on';
 
         if (cloudsOn) {
@@ -80,11 +89,16 @@ export const drawBackground = (state, context, policy) => {
         };
 
         if (state.titleState?.clouds) {
-            const drift = cloudsOn ? animation.cloudX - (state.cloudX || 0) : 0;
+            const drift = cloudsOn ? animation.cloudX - animation.cloudOriginX : 0;
+            presentation.cloudCount = state.titleState.clouds.length;
+            presentation.cloudDrift = drift;
+            presentation.cloudX = animation.cloudX;
             for (const cloud of state.titleState.clouds) {
                 blit(profile.cloud.source, cloud.frame, cloud.x + drift, cloud.y, cloud.flipX);
             }
         } else {
+            presentation.cloudCount = state.cloudIdx == null ? 0 : 1;
+            presentation.cloudX = animation.cloudX;
             blit(profile.cloud.source, state.cloudIdx, animation.cloudX, animation.cloudY);
         }
 
@@ -124,4 +138,5 @@ export const drawBackground = (state, context, policy) => {
             blit(layer.source, frame, posX + layer.x, posY + layer.y);
         });
     }
+    return presentation;
 };

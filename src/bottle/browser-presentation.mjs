@@ -175,7 +175,6 @@ export const runBrowserPresentation = async ({
                 continue;
             }
 
-            context.clearRect(0, 0, 640, 480);
             if (hasPersistentBackground) presentSelectionBackground();
             else mainContext.clearRect(0, 0, 640, 480);
             const data = resourceProvider.resolve(script);

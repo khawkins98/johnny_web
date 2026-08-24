@@ -122,6 +122,7 @@ export const runJohnnyWalk = async ({
     wait = delay,
     signal = null,
     random = Math.random,
+    record = null,
 }) => {
     if (!walk || signal?.aborted) return false;
     const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer), random);
@@ -134,10 +135,23 @@ export const runJohnnyWalk = async ({
     for (let index = 0; index < frames.length; index++) {
         const frame = frames[index];
         const image = sprites?.images?.[frame.frame];
-        const sprite = image && buildSpriteCanvas(image);
-        context.clearRect(0, 0, 640, 480);
-        presentBackground?.();
-        if (sprite) {
+        const hasVisiblePixels = Boolean(image?.pixels?.some((pixel) => pixel.a > 0));
+        const sprite = hasVisiblePixels ? buildSpriteCanvas(image) : null;
+        const visible = Boolean(sprite);
+        record?.('walk-frame', {
+            index,
+            frame: frame.frame,
+            x: frame.x + offsetX,
+            y: frame.y + offsetY,
+            flipX: frame.flipX,
+            visible,
+        });
+        // Retain the preceding Johnny frame if the recovered table points at
+        // an absent or fully transparent sprite. Clearing first would turn a
+        // single bad authored/decode frame into a visible blink.
+        if (visible) {
+            context.clearRect(0, 0, 640, 480);
+            presentBackground?.();
             context.save();
             if (frame.flipX) {
                 context.translate(frame.x + offsetX + image.width, frame.y + offsetY);
@@ -148,7 +162,7 @@ export const runJohnnyWalk = async ({
             }
             context.restore();
         }
-        if (behindTree) {
+        if (visible && behindTree) {
             for (const [frameIndex, x, y] of [
                 [13, 442, 148],
                 [12, 365, 122],

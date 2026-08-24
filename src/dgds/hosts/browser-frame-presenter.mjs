@@ -7,6 +7,7 @@ export const createBrowserFramePresenter = ({
     mainContext,
     presentationPolicy,
     backgroundDecorator = null,
+    preserveInitialForeground = false,
 }) => {
     if (!context || !mainContext || !presentationPolicy) {
         throw new TypeError('Browser frame presenter requires contexts and a presentation policy');
@@ -21,10 +22,12 @@ export const createBrowserFramePresenter = ({
     const presentBackground = (state) => {
         mainContext.clearRect(0, 0, 640, 480);
         const source = backgroundState(state);
-        drawBackground(source, mainContext, presentationPolicy);
+        const presentation = drawBackground(source, mainContext, presentationPolicy);
         backgroundDecorator?.(source, mainContext);
+        return presentation;
     };
     let foregroundImage = null;
+    let hasPresentedForeground = false;
     const presentForeground = (surface) => {
         if (!surface?.pixels || typeof context.putImageData !== 'function') return;
         if (!foregroundImage || foregroundImage.width !== surface.width || foregroundImage.height !== surface.height) {
@@ -35,23 +38,55 @@ export const createBrowserFramePresenter = ({
     };
 
     const present = (state, directive) => {
-        if (directive.clearForeground && !directive.compose) clear();
+        const cleared = Boolean(directive.clearForeground && !directive.compose);
+        if (cleared) clear();
         if (directive.backgroundOnly) {
-            drawBackground(state, mainContext, presentationPolicy);
+            const background = drawBackground(state, mainContext, presentationPolicy);
             backgroundDecorator?.(state, mainContext);
+            state.trace?.record('browser-background', { tick: state.tick ?? null, ...background });
         }
-        if (!directive.compose) return;
+        if (!directive.compose) {
+            state.trace?.record('browser-presentation', {
+                tick: state.tick ?? null,
+                compose: false,
+                clearedForeground: cleared,
+                backgroundOnly: Boolean(directive.backgroundOnly),
+                uploadedForeground: false,
+            });
+            return;
+        }
 
         const compositionRevision = getCompositionRevision(state);
         const fading = state.fadingOut || state.fadingIn;
         const changed = compositionRevision !== lastCompositionRevision;
+        let retainedExternalForeground = false;
         if (changed || fading) {
-            context.clearRect(0, 0, 640, 480);
             composeTtmFrame(state);
-            presentForeground(state.surface);
+            retainedExternalForeground =
+                preserveInitialForeground && !hasPresentedForeground && state.surface.bounds == null && !fading;
+            if (!retainedExternalForeground) {
+                context.clearRect(0, 0, 640, 480);
+                presentForeground(state.surface);
+                hasPresentedForeground = true;
+            }
             lastCompositionRevision = compositionRevision;
         }
-        presentBackground(state);
+        const background = presentBackground(state);
+
+        state.trace?.record('browser-presentation', {
+            tick: state.tick ?? null,
+            compose: true,
+            clearedForeground: cleared,
+            backgroundOnly: false,
+            uploadedForeground: (changed || fading) && !retainedExternalForeground,
+            reusedForeground: (!changed && !fading) || retainedExternalForeground,
+            retainedExternalForeground,
+            compositionRevision,
+            pixels: state.trace.pixelHashes ? (state.surface.fingerprint?.() ?? null) : undefined,
+            fading,
+            cloudCount: state.titleState?.clouds?.length ?? (state.cloudIdx == null ? 0 : 1),
+            background,
+        });
 
         if (fading) {
             context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;

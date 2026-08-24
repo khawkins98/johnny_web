@@ -18,6 +18,7 @@ export const createBrowserPresentationPolicy = ({
                 state = {
                     cloudElapsed: source.cloudElapsed || 0,
                     cloudX: source.cloudX || 0,
+                    cloudOriginX: source.cloudX || 0,
                     cloudY: source.cloudY || 0,
                     waveElapsed: source.waveElapsed || 0,
                     waveFrame: source.waveFrame || 0,

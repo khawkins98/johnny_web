@@ -100,6 +100,7 @@ export const startProcess = (initialState) => {
         mainContext,
         presentationPolicy,
         backgroundDecorator,
+        preserveInitialForeground: Boolean(runtimeInitialState.hostManagedTransitions),
     });
     activeFramePresenter = framePresenter;
 

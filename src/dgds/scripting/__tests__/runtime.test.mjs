@@ -57,6 +57,61 @@ describe('DgdsRuntime', () => {
         expect(runtime.state).not.toHaveProperty('entries');
     });
 
+    it('runs an ADS RUN_SCRIPT target inline before continuing the selected scene', () => {
+        const ttm = {
+            name: 'INIT.TTM',
+            tags: [{ id: 42, description: 'initializer' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 42, script: [{ opcode: 0x0ff0, params: [] }] },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 1,
+            singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'subroutine-test',
+                resources: [{ id: 1, name: 'INIT.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1 },
+                        script: [
+                            { opcode: 0xf200, params: [14] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                    {
+                        tagId: { id: 14 },
+                        script: [
+                            { opcode: 0x2005, params: [1, 42, 0, 1] },
+                            { opcode: 0x1510, params: [] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+
+        runtime.tick(20);
+
+        expect(runtime.state.scenes).toEqual([expect.objectContaining({ sceneIdx: 1, tagId: 42 })]);
+    });
+
+    it('rejects recursive ADS RUN_SCRIPT chains', () => {
+        expect(() =>
+            createRuntime({
+                type: 'ADS',
+                data: {
+                    name: 'recursive',
+                    resources: [],
+                    scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0xf200, params: [1] }] }],
+                },
+            }),
+        ).toThrow('Recursive ADS RUN_SCRIPT chain');
+    });
+
     it('advances only when the host supplies a logical tick', () => {
         const runtime = createRuntime();
 
@@ -167,7 +222,7 @@ describe('DgdsRuntime', () => {
         expect(runtime.tick(1000 / 60)).toMatchObject({
             completed: true,
             presentation: {
-                clearForeground: true,
+                clearForeground: false,
                 backgroundOnly: false,
                 compose: true,
             },

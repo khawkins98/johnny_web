@@ -24,7 +24,25 @@ const createStoredSurface = (surfaceFactory) => ({
     revision: 0,
 });
 
+const expandAdsScript = (data, script, stack = []) =>
+    script.flatMap((command) => {
+        if (command.opcode !== 0xf200) return [command];
+        const tagId = command.params[0];
+        if (stack.includes(tagId)) {
+            throw new RangeError(`Recursive ADS RUN_SCRIPT chain: ${[...stack, tagId].join(' -> ')}`);
+        }
+        const target = data.scenes.find((scene) => scene.tagId?.id === tagId);
+        if (!target) throw new RangeError(`ADS RUN_SCRIPT target ${tagId} does not exist in "${data.name}"`);
+        return expandAdsScript(
+            data,
+            target.script.filter((nested) => nested.opcode !== 0xffff),
+            [...stack, tagId],
+        );
+    });
+
 export class DgdsRuntime {
+    #adsScripts = [];
+
     constructor(initialState) {
         if (typeof initialState?.surfaceFactory !== 'function') {
             throw new TypeError('DgdsRuntime requires an injected surfaceFactory');
@@ -120,6 +138,9 @@ export class DgdsRuntime {
         this.state.surface ||= surfaceFactory();
 
         if (this.state.type === 'ADS') {
+            this.#adsScripts = this.state.data.scenes.map((scene) =>
+                expandAdsScript(this.state.data, scene.script, [scene.tagId?.id]),
+            );
             this.#loadAdsResources();
             this.#selectInitialAdsScene();
         }
@@ -221,7 +242,7 @@ export class DgdsRuntime {
 
         if (scene !== undefined) {
             const previousScene = state.currentScene;
-            const execution = runScript(state, scene.script, true);
+            const execution = runScript(state, this.#adsScripts[state.currentScene], true);
             completed = execution.status === ExecutionStatus.COMPLETED;
             if (
                 state.adsSceneEnd != null &&
@@ -344,7 +365,10 @@ export class DgdsRuntime {
             return {
                 completed,
                 presentation: Object.freeze({
-                    clearForeground: true,
+                    // ADS controller-only ticks do not replace the retained
+                    // framebuffer. Clearing here exposes the background until
+                    // the next TTM frame and causes visible actor flashes.
+                    clearForeground: false,
                     backgroundOnly: false,
                     compose,
                 }),

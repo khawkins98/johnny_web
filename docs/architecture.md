@@ -135,6 +135,8 @@ ADS `ADD_SCENE` has a separate execution-lifetime parameter. A positive value is
 
 For a host-selected ADS tag, reaching ADS `END` stops interpreting that tag but does not discard finite children it started in its final branch. The runtime continues ticking those children without entering the next ADS tag. Once they complete, it clears the complete child batch—including any unbounded ambient loop—and reports the selected tag complete to the host controller.
 
+ADS `RUN_SCRIPT` is a synchronous subroutine call to another named ADS segment. The runtime expands those calls with recursion protection while retaining the selected segment as the host-visible execution boundary. This is required by `STAND.ADS`: every ordinary stand segment calls its initializer, which loads `MJ_AMB.BMP` before the chosen ambient sequence draws from it.
+
 Each `DgdsRuntime` owns its mutable script, scene, and composition state. The browser scheduler supplies the recovered fixed 50 Hz logical tick. Animation timestamps feed an accumulator. A late browser frame advances at most one logical tick and discards stale whole ticks, so a delayed paint or suspended tab cannot trigger an animation/audio burst. `SET_DELAY` and random delays remain integer DGDS ticks. The default `faithful-browser` timing profile preserves them and applies one named compatibility rule — `browser-yield-floor` makes a zero-delay frame visible for one logical tick. Browser wall time does not enter opcode execution.
 
 The runtime receives randomness and timing compatibility directly; it does not retain storage, wall time, or presentation policy. The browser policy owns enhanced cloud and wave state without writing it into authored scene state. Thus enhancements cannot alter interpreter timers, random choices, or scene state. The browser clock coalesces overdue timer events to one logical tick per paint: replaying several ticks synchronously would hide intermediate Canvas frames and start their audio operations as a burst, unlike the original message-driven timer.
@@ -183,11 +185,13 @@ When retained foreground state changes, `composeTtmFrame()`:
 
 The browser presenter then uploads the composed RGBA surface to the foreground canvas. It caches the retained-layer revision to avoid recomposing and uploading an unchanged frame.
 
+Across host-managed event boundaries, the browser retains the previous foreground—or the final walking frame—until the next runtime produces a non-empty composition. Initializer-only transparent frames therefore cannot expose the bare background, while an explicit wipe, cancellation, or return to the title still clears immediately.
+
 Removing a scene therefore removes its pixels on the next composition; there is no scene-removal clear heuristic. A scene surface retains its current TTM frame while a logical delay elapses.
 
 GET/PUT operations overwrite RGBA values, including transparent pixels. On a scene layer, `BEGIN_SCENE_FRAME` starts a new frame and discards the previous frame when the slot is not restoreable, then restores the saved region when present. This prevents stale movement trails for sprites whose restore region does not cover the full previous frame. `STORE_AREA` and GET/PUT slots belong to the scripting and composition layer, not the browser.
 
-`frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
+`frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Cloud drift and its origin are owned by the persistent title presentation key, so starting a new ADS runtime cannot introduce a random offset jump. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
 
 ## Host boundaries
 

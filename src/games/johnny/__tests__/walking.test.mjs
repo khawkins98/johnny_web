@@ -55,14 +55,34 @@ describe('Johnny host walking', () => {
 
     it('redraws the persistent island behind every walking frame', async () => {
         const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
-        const context = { clearRect: vi.fn() };
+        new DataView(archiveBuffer).setUint16(0x188ea + 100 * 6, 1, true);
+        const context = {
+            clearRect: vi.fn(),
+            save: vi.fn(),
+            restore: vi.fn(),
+            drawImage: vi.fn(),
+        };
         const presentBackground = vi.fn();
         const wait = vi.fn(() => Promise.resolve());
         await runJohnnyWalk({
             walk: { fromSpot: 0, fromHeading: 0, toSpot: 0, toHeading: 0 },
             titleState: { x: 0, y: 0 },
             archiveBuffer,
-            resourceProvider: { resolve: () => ({ images: [] }) },
+            resourceProvider: {
+                resolve: (name) =>
+                    name === 'JOHNWALK.BMP'
+                        ? {
+                              images: [
+                                  {
+                                      width: 1,
+                                      height: 1,
+                                      pixels: [{ r: 0, g: 0, b: 0, a: 255 }],
+                                      _canvas: {},
+                                  },
+                              ],
+                          }
+                        : { images: [] },
+            },
             context,
             presentBackground,
             wait,
@@ -94,5 +114,28 @@ describe('Johnny host walking', () => {
         expect(completed).toBe(false);
         expect(wait).toHaveBeenCalledOnce();
         expect(context.clearRect).toHaveBeenLastCalledWith(0, 0, 640, 480);
+    });
+
+    it('retains the previous frame when a walking sprite is fully transparent', async () => {
+        const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
+        const view = new DataView(archiveBuffer);
+        view.setUint16(0x188ea + 68 * 6, 1, true);
+        const context = { clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), drawImage: vi.fn() };
+        const record = vi.fn();
+        const transparent = { width: 1, height: 1, pixels: [{ r: 0, g: 0, b: 0, a: 0 }] };
+
+        await runJohnnyWalk({
+            walk: { fromSpot: 0, fromHeading: 6, toSpot: 1, toHeading: 7 },
+            archiveBuffer,
+            resourceProvider: { resolve: (name) => (name === 'JOHNWALK.BMP' ? { images: [transparent] } : null) },
+            context,
+            wait: async () => true,
+            random: () => 0,
+            record,
+        });
+
+        expect(context.clearRect).not.toHaveBeenCalled();
+        expect(context.drawImage).not.toHaveBeenCalled();
+        expect(record).toHaveBeenCalledWith('walk-frame', expect.objectContaining({ visible: false }));
     });
 });
