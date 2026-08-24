@@ -11,14 +11,14 @@ const context = () => ({
 });
 
 describe('Johnny sequence transitions', () => {
-    it.each([0, 1, 2, 3, 4])('draws and clears host wipe %i', async (type) => {
+    it.each([0, 1, 2, 3, 4])('draws host wipe %i and retains its blackout for the next frame', async (type) => {
         const foreground = context();
         const background = context();
         const wait = vi.fn(() => Promise.resolve());
         await runJohnnySequenceTransition({ type, context: foreground, mainContext: background, wait });
 
         expect(wait).toHaveBeenCalledTimes(21);
-        expect(foreground.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
+        expect(foreground.clearRect).not.toHaveBeenCalled();
         expect(background.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(foreground.arc.mock.calls.length + foreground.fillRect.mock.calls.length).toBeGreaterThan(0);
     });

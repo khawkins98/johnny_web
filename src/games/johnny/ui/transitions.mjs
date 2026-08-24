@@ -72,7 +72,10 @@ export const runJohnnySequenceTransition = async ({
         context.clearRect(0, 0, WIDTH, HEIGHT);
         return false;
     }
-    context.clearRect(0, 0, WIDTH, HEIGHT);
+    // Keep the completed blackout on the foreground canvas. The next DGDS
+    // presenter owns its removal when it uploads the first non-empty frame;
+    // clearing here exposes the next background before its actor is ready and
+    // turns an authored sequence boundary into a visible positional jump.
     mainContext.clearRect(0, 0, WIDTH, HEIGHT);
     return true;
 };
