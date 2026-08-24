@@ -1,3 +1,5 @@
+import { sequencePaintIndex } from './ttm-sequence-order.mjs';
+
 /**
  * Faithful DGDS frame composition.
  *
@@ -17,42 +19,15 @@ export const composeTtmFrame = (state) => {
         }
     }
 
-    // The original engine traverses its TTM sequence table in declaration
-    // order on every presentation frame. ADS insertion order only says when a
-    // sequence started; using it as z-order lets later-started cleanup layers
-    // cover siblings that should be painted after them.
-    const layers = [...(state.scenes || [])].sort((left, right) => {
-        const leftOrder = left.paintOrder || {};
-        const rightOrder = right.paintOrder || {};
-        return (
-            (leftOrder.resource ?? 0) - (rightOrder.resource ?? 0) ||
-            (leftOrder.sequence ?? 0) - (rightOrder.sequence ?? 0)
-        );
-    });
+    // DGDS traverses its stable TTM sequence table on every presentation. ADS
+    // can reorder that table explicitly; invocation/start order is not z-order.
+    const layers = [...(state.scenes || [])].sort(
+        (left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right),
+    );
 
-    const intersects = (left, right) =>
-        Boolean(
-            left &&
-                right &&
-                left.x < right.x + right.width &&
-                left.x + left.width > right.x &&
-                left.y < right.y + right.height &&
-                left.y + left.height > right.y,
-        );
-    // DGDS GET/PUT writes into one shared framebuffer. Keep a finished layer
-    // until something actually paints over it, but do not repaint it forever
-    // after a newer frame has restored the same region to its saved contents.
-    const isRetired = (scene) =>
-        scene.lifecycle === 'completed' &&
-        layers.some(
-            (candidate) =>
-                candidate !== scene &&
-                (candidate.state?.lastFrameSerial || 0) > (scene.state?.lastFrameSerial || 0) &&
-                intersects(scene.state?.surface?.bounds, candidate.state?.lastRestoreRect),
-        );
-    const visibleLayers = layers.filter((scene) => !isRetired(scene));
-
-    for (const scene of visibleLayers) {
+    // A completed scene keeps its final pose until ADS reaches the authored
+    // IF_PLAYED/STOP handoff, which removes it atomically with any successor.
+    for (const scene of layers) {
         if (scene.state?.surface) {
             state.surface.drawSurface(scene.state.surface);
         }
@@ -64,11 +39,10 @@ export const composeTtmFrame = (state) => {
             layers: layers.map((scene) => ({
                 sceneIdx: scene.sceneIdx,
                 tagId: scene.tagId,
-                lifecycle: scene.lifecycle,
+                runState: scene.runState,
                 execution: scene.execution?.status || null,
-                paintOrder: scene.paintOrder || null,
+                paintOrder: sequencePaintIndex(state, scene),
                 revision: scene.state?.layerRevision || 0,
-                retired: isRetired(scene),
             })),
             ...(state.trace.pixelHashes ? { pixels: state.surface.fingerprint?.() ?? null } : {}),
         });
@@ -83,13 +57,6 @@ export const getCompositionRevision = (state) =>
             return [saved?.canDraw === true, saved?.revision || 0];
         }),
         scenes: [...(state.scenes || [])]
-            .sort((left, right) => {
-                const leftOrder = left.paintOrder || {};
-                const rightOrder = right.paintOrder || {};
-                return (
-                    (leftOrder.resource ?? 0) - (rightOrder.resource ?? 0) ||
-                    (leftOrder.sequence ?? 0) - (rightOrder.sequence ?? 0)
-                );
-            })
-            .map((scene) => [scene.sceneIdx, scene.tagId, scene.lifecycle, scene.state?.layerRevision || 0]),
+            .sort((left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right))
+            .map((scene) => [scene.sceneIdx, scene.tagId, scene.state?.layerRevision || 0]),
     });

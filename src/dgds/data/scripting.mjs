@@ -55,7 +55,7 @@ export const ADSCommandType = [
     { opcode: 0x3010, paramSize: 0, command: 'RANDOM_START', indent: 1 },
     { opcode: 0x3020, paramSize: 1, command: 'RANDOM_UNKNOWN_0', indent: null },
     { opcode: 0x30ff, paramSize: 0, command: 'RANDOM_END', indent: -1 },
-    { opcode: 0x4000, paramSize: 3, command: 'UNKNOWN_6', indent: null },
+    { opcode: 0x4000, paramSize: 3, command: 'MOVE_SEQUENCE_TO_BACK', indent: null },
     { opcode: 0xf010, paramSize: 1, command: 'FADE_OUT', indent: 0 },
     { opcode: 0xf200, paramSize: 1, command: 'RUN_SCRIPT', indent: 0 },
     { opcode: 0xffff, paramSize: 0, command: 'END' },

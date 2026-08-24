@@ -280,7 +280,7 @@ describe('runScript scene transition', () => {
     it('completed scene (played=true) does not re-run after end-of-script fires', () => {
         // After end-of-script: played=true, reentry reset to 0. If called again (simulating
         // the completed-scene bug), the script would run from scratch and runs would increment.
-        // The fix lives in process.mjs (skip lifecycle=completed), but we verify that a
+        // The runtime's finished run state prevents another execution pass; verify that a
         // state where played=true and reentry=0 WILL re-run if called — confirming the
         // process.mjs guard is the correct place to stop it.
         const mockState = {
@@ -480,7 +480,6 @@ describe('SET_TIMER handler', () => {
         const state = { timer: 0, random: () => 0.5 };
         entry.callback(state, 3, 5);
         expect(state.timer).toBe(4);
-        expect(state.hasTimer).toBe(true);
     });
 
     it('accepts reversed bounds', () => {
@@ -598,21 +597,21 @@ describe('IF_NOT_RUNNING handler', () => {
     });
 
     it('waits when a finite scene lifecycle is "active"', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'starting' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
         expect(state.continue).toBe(false);
     });
 
     it('waits when a finite scene lifecycle is "running"', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'running' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
         expect(state.continue).toBe(false);
     });
 
     it('does not set jumpTo when scene lifecycle is "completed"', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'finished' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
     });
@@ -628,7 +627,7 @@ describe('IF_NOT_RUNNING handler', () => {
             {
                 sceneIdx: 1,
                 tagId: 7,
-                lifecycle: 'running',
+                runState: 'running',
                 execution: { status: 'looped' },
                 retries: 0,
                 timeLimitTicks: null,
@@ -666,13 +665,13 @@ describe('IF_RUNNING handler', () => {
     });
 
     it('does not set jumpTo when scene lifecycle is "active" (execute block)', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'starting' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
     });
 
     it('does not set jumpTo when scene lifecycle is "running" (execute block)', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'running' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBeUndefined();
     });
@@ -684,7 +683,7 @@ describe('IF_RUNNING handler', () => {
     });
 
     it('sets jumpTo when scene lifecycle is "completed" (no longer running → skip block)', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'finished' }]);
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBe(3);
     });
@@ -697,7 +696,7 @@ describe('IF_RUNNING handler', () => {
     });
 
     it('sees a stop queued earlier in the same branch as not running', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'running' }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'running' }]);
         state.removeScenes = [{ sceneIdx: 1, tagId: 7 }];
         entry.callback(state, 1, 7);
         expect(state.jumpTo).toBe(3);
@@ -707,6 +706,17 @@ describe('IF_RUNNING handler', () => {
 // ---------------------------------------------------------------------------
 // IF_PLAYED handler
 // ---------------------------------------------------------------------------
+describe('ADS painter ordering', () => {
+    it('applies opcode 0x4000 to the stable TTM sequence table', () => {
+        const moveBack = ADSDispatch.find((entry) => entry.opcode === 0x4000);
+        const state = { ttmSequenceOrder: ['3:44', '3:47', '3:75'] };
+
+        moveBack.callback(state, 3, 44, 1);
+
+        expect(state.ttmSequenceOrder).toEqual(['3:47', '3:75', '3:44']);
+    });
+});
+
 describe('IF_PLAYED handler', () => {
     const entry = ADSDispatch.find((e) => e.opcode === 0x1350);
     const orEntry = ADSDispatch.find((e) => e.opcode === 0x1430);
@@ -733,14 +743,30 @@ describe('IF_PLAYED handler', () => {
     });
 
     it('blocks (continue=false) when scene is in scenes[] but not yet played', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'active', state: { played: false, timer: 0 } }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'starting', state: { played: false, timer: 0 } }]);
         entry.callback(state, 1, 7);
         expect(state.continue).toBe(false);
         expect(state.jumpTo).toBeUndefined();
     });
 
+    it('does not treat an expired random timer as sequence completion', () => {
+        const state = makeState([
+            {
+                sceneIdx: 1,
+                tagId: 7,
+                runState: 'running',
+                state: { played: false, timer: 0 },
+            },
+        ]);
+
+        entry.callback(state, 1, 7);
+
+        expect(state.continue).toBe(false);
+        expect(state.removeScenes).toEqual([]);
+    });
+
     it('passes (continue=true) when scene is in scenes[] and played=true', () => {
-        const state = makeState([{ sceneIdx: 1, tagId: 7, lifecycle: 'completed', state: { played: true, timer: 0 } }]);
+        const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'finished', state: { played: true, timer: 0 } }]);
         entry.callback(state, 1, 7);
         expect(state.continue).toBe(true);
         expect(state.removeScenes).toEqual([{ sceneIdx: 1, tagId: 7 }]);
@@ -783,7 +809,7 @@ describe('IF_PLAYED handler', () => {
             { opcode: 0x1350, params: [1, 7] }, // 2: IF_PLAYED 1:7 (never added)
         ];
         const state = makeState(
-            [{ sceneIdx: 1, tagId: 8, lifecycle: 'completed', state: { played: true, timer: 0 } }],
+            [{ sceneIdx: 1, tagId: 8, runState: 'finished', state: { played: true, timer: 0 } }],
             [],
             script,
         );
@@ -1006,8 +1032,8 @@ describe('ADS branch-end synchronization', () => {
         const state = {
             continue: false,
             scenes: [
-                { sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { played: false } },
-                { sceneIdx: 1, tagId: 2, lifecycle: 'running', state: { played: false } },
+                { sceneIdx: 1, tagId: 1, runState: 'running', state: { played: false } },
+                { sceneIdx: 1, tagId: 2, runState: 'running', state: { played: false } },
             ],
             removeScenes: [],
             addScenes: [],
@@ -1025,7 +1051,7 @@ describe('ADS branch-end synchronization', () => {
                 {
                     sceneIdx: 5,
                     tagId: 30,
-                    lifecycle: 'running',
+                    runState: 'running',
                     state: { played: false, runs: 1 },
                     execution: executionOutcome(ExecutionStatus.LOOPED, { sceneIdx: 5, tagId: 30 }),
                 },
@@ -1039,7 +1065,7 @@ describe('ADS branch-end synchronization', () => {
         entry.callback(state);
 
         expect(state.continue).toBe(true);
-        expect(state.scenes[0].lifecycle).toBe('running');
+        expect(state.scenes[0].runState).toBe('running');
     });
 });
 
@@ -1130,7 +1156,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
         const mockState = {
             continue: true,
             playedHistory: new Set(),
-            scenes: [{ sceneIdx: 1, tagId: 5, lifecycle: 'running', state: { played: true } }],
+            scenes: [{ sceneIdx: 1, tagId: 5, runState: 'running', state: { played: true } }],
             removeScenes: [{ sceneIdx: 1, tagId: 5 }],
             // addScenes references sceneIdx=1 which is absent from scenesRes
             // → getSceneState early-returns before document.createElement
@@ -1152,7 +1178,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
         const finished = {
             sceneIdx: 3,
             tagId: 44,
-            lifecycle: 'completed',
+            runState: 'finished',
             state: { played: true },
         };
         const mockState = {
@@ -1173,7 +1199,19 @@ describe('ADS branch end — remove-before-add ordering', () => {
                     ],
                 },
             ],
-            data: { scenes: [{ tagId: 7 }], resources: [{ id: 3 }] },
+            data: {
+                scenes: [
+                    {
+                        tagId: 7,
+                        script: [
+                            { opcode: 0x1350, params: [3, 44] },
+                            { opcode: 0x2005, params: [3, 44, 0, 1] },
+                            { opcode: 0xfff0, params: [] },
+                        ],
+                    },
+                ],
+                resources: [{ id: 3 }],
+            },
             currentScene: 0,
             surfaceFactory: () => ({}),
             resourceProvider: {},
@@ -1191,7 +1229,7 @@ describe('ADS branch end — remove-before-add ordering', () => {
                 tagId: 44,
                 runCount: 0,
                 proportion: 1,
-                restartUntilStopped: true,
+                runMode: 'keep-going',
             },
         ]);
 
@@ -1202,8 +1240,8 @@ describe('ADS branch end — remove-before-add ordering', () => {
         expect(mockState.scenes[0]).toMatchObject({
             sceneIdx: 3,
             tagId: 44,
-            lifecycle: 'active',
-            restartUntilStopped: true,
+            runState: 'starting',
+            runMode: 'keep-going',
         });
         expect(mockState.playedHistory.has('3:44')).toBe(false);
     });
@@ -1309,15 +1347,15 @@ describe('ADS WHILE boundaries', () => {
         const state = {
             continue: true,
             scenes: [
-                { sceneIdx: 4, tagId: 5, lifecycle: 'running' },
-                { sceneIdx: 4, tagId: 99, lifecycle: 'running' },
+                { sceneIdx: 4, tagId: 5, runState: 'running' },
+                { sceneIdx: 4, tagId: 99, runState: 'running' },
             ],
         };
 
         entry.callback(state, 4, 5);
         expect(state.continue).toBe(false);
 
-        state.scenes[0].lifecycle = 'completed';
+        state.scenes[0].runState = 'finished';
         entry.callback(state, 4, 5);
         expect(state.continue).toBe(true);
     });

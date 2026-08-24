@@ -5,7 +5,7 @@
  * They are kept as plain functions (not class methods) so tests can call them directly.
  */
 import { PALETTE } from '../palette.mjs';
-import { getSceneState } from './scene-factory.mjs';
+import { getSceneState, isSelfRearmingSequence } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
 import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
@@ -14,6 +14,8 @@ import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { loadScreen } from './background-resources.mjs';
+import { isTtmFinished, isTtmRunning, TtmRunMode } from './ttm-run-state.mjs';
+import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 
 // ---------------------------------------------------------------------------
 // Debug logging
@@ -145,7 +147,6 @@ const SET_TIMER = (state, minimum, maximum) => {
     if (typeof state.random !== 'function') {
         throw new TypeError('TTM runtime requires an injected random source');
     }
-    state.hasTimer = true;
     state.timer = low + Math.floor(state.random() * (high - low + 1));
 };
 
@@ -369,8 +370,7 @@ const LOAD_PALETTE = (state) => {};
 
 const WHILE_RUNNING = (state, sceneIdx, tagId) => {
     const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
-    const running = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    state.continue = !running;
+    state.continue = !isTtmRunning(scene);
 };
 
 /**
@@ -447,7 +447,7 @@ const handleIfCondition = (state, conditionPassed) => {
     state.continue = true;
 };
 
-const isSceneDone = (s) => (s.state.hasTimer ? s.state.timer === 0 : s.state.played);
+const isSceneDone = (scene) => isTtmFinished(scene);
 const hasPendingSceneChange = (changes, sceneIdx, tagId) =>
     (changes || []).some((scene) => scene.sceneIdx === sceneIdx && scene.tagId === tagId);
 
@@ -458,7 +458,7 @@ const isSceneRunning = (state, sceneIdx, tagId) => {
     if (hasPendingSceneChange(state.removeScenes, sceneIdx, tagId)) return false;
     if (hasPendingSceneChange(state.addScenes, sceneIdx, tagId)) return true;
     const scene = state.scenes.find((candidate) => candidate.sceneIdx === sceneIdx && candidate.tagId === tagId);
-    return Boolean(scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running'));
+    return isTtmRunning(scene);
 };
 
 const IF_NOT_PLAYED = (state, sceneIdx, tagId) => {
@@ -525,8 +525,7 @@ const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
     }
 
     const scene = state.scenes.find((candidate) => candidate.sceneIdx === sceneIdx && candidate.tagId === tagId);
-    const running = scene && (scene.lifecycle === 'active' || scene.lifecycle === 'running');
-    if (!running) {
+    if (!isTtmRunning(scene)) {
         handleIfCondition(state, true);
         return;
     }
@@ -567,6 +566,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
     // branch. Collection changes are staged, so treat a matching pending
     // removal as absent and queue the replacement for remove-before-add commit.
     const pendingRemoval = hasPendingSceneChange(state.removeScenes, sceneIdx, tagId);
+    const rearmed = pendingRemoval && runCount === 0 && isSelfRearmingSequence(state, sceneIdx, tagId);
     const inScenes =
         !pendingRemoval && state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const inAddScenes = state.addScenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
@@ -578,7 +578,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
             tagId,
             runCount,
             proportion,
-            ...(pendingRemoval && runCount === 0 ? { restartUntilStopped: true } : {}),
+            ...(rearmed ? { runMode: TtmRunMode.KEEP_GOING } : {}),
         });
         return;
     }
@@ -588,7 +588,7 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
         tagId,
         runCount,
         proportion,
-        ...(pendingRemoval && runCount === 0 ? { restartUntilStopped: true } : {}),
+        ...(rearmed ? { runMode: TtmRunMode.KEEP_GOING } : {}),
     });
 };
 
@@ -611,13 +611,14 @@ const applySceneChanges = (state) => {
     state.addScenes.forEach((s) => {
         const scene = getSceneState(state, s.sceneIdx, s.tagId, s.runCount, s.proportion);
         if (scene !== undefined) {
-            scene.restartUntilStopped = s.restartUntilStopped === true;
+            if (s.runMode) scene.runMode = s.runMode;
             // The fresh execution supersedes the completed instance recorded
             // during the removal phase above.
             state.playedHistory.delete(`${s.sceneIdx}:${s.tagId}`);
-            if (state.scenes.length === 0) {
-                // Synchronously run the prologue so siblings can clone its loaded assets.
+            if (scene.environment?.owner === scene && !scene.environment.ready) {
+                // Every TTM environment initializes independently of unrelated active resources.
                 scene.execution = runScript(scene.state, scene.script || scene.state.script);
+                if (scene.state.reentry >= (scene.prologueLength || 0)) scene.environment.ready = true;
             }
             sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
             state.scenes.push(scene);
@@ -667,7 +668,9 @@ const RANDOM_END = (state) => {
     }
 };
 
-const ADS_UNKNOWN_6 = (state) => {};
+const MOVE_SEQUENCE_TO_BACK = (state, sceneIdx, tagId) => {
+    moveSequenceToBack(state.ttmSequenceOrder, sceneIdx, tagId);
+};
 const RUN_SCRIPT = (state) => {};
 
 const END = (state) => {
@@ -738,7 +741,7 @@ export const TTMDispatch = [
 ];
 
 // ADS-only opcodes. Kept separate from TTMDispatch so that opcodes sharing hex values
-// with TTM entries (0x2010 STOP_SCENE, 0x4000 ADS_UNKNOWN_6, 0xf010 ADS_FADE_OUT) are
+// with TTM entries (0x2010 STOP_SCENE, 0x4000 MOVE_SEQUENCE_TO_BACK, 0xf010 ADS_FADE_OUT) are
 // reachable. runScript() selects the correct table based on state.type.
 export const ADSDispatch = [
     { opcode: 0x1070, callback: WHILE_RUNNING },
@@ -755,7 +758,7 @@ export const ADSDispatch = [
     { opcode: 0x3010, callback: RANDOM_START },
     { opcode: 0x3020, callback: RANDOM_UNKNOWN_0 },
     { opcode: 0x30ff, callback: RANDOM_END },
-    { opcode: 0x4000, callback: ADS_UNKNOWN_6 },
+    { opcode: 0x4000, callback: MOVE_SEQUENCE_TO_BACK },
     { opcode: 0xf010, callback: ADS_FADE_OUT },
     { opcode: 0xf200, callback: RUN_SCRIPT },
     { opcode: 0xffff, callback: END },

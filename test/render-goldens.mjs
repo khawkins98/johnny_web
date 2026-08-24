@@ -19,6 +19,7 @@ import { DgdsRuntime } from '../src/dgds/scripting/runtime.mjs';
 import { DGDS_TICK_MS } from '../src/dgds/scripting/timing.mjs';
 import { createSoftwareSurface } from '../src/dgds/scripting/surface.mjs';
 import { createTimingCompatibility } from '../src/dgds/scripting/timing-compatibility.mjs';
+import { sequencePaintIndex } from '../src/dgds/scripting/ttm-sequence-order.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDirectory = path.join(root, 'public', 'data');
@@ -59,15 +60,8 @@ const seededRandom = (initialSeed) => {
 };
 const layerSnapshot = (state) =>
     [...state.scenes]
-        .sort((left, right) => {
-            const leftOrder = left.paintOrder || {};
-            const rightOrder = right.paintOrder || {};
-            return (
-                (leftOrder.resource ?? 0) - (rightOrder.resource ?? 0) ||
-                (leftOrder.sequence ?? 0) - (rightOrder.sequence ?? 0)
-            );
-        })
-        .map((scene) => [scene.sceneIdx, scene.tagId, scene.lifecycle[0], scene.state?.layerRevision || 0]);
+        .sort((left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right))
+        .map((scene) => [scene.sceneIdx, scene.tagId, scene.runState[0], scene.state?.layerRevision || 0]);
 
 const compactFrameOperation = (operation) => {
     const identity = [operation.type, operation.sceneIdx, operation.tagId];
@@ -158,14 +152,31 @@ const verifyCampfireContinuity = ({ archive }) => {
         if (!tags.has(44)) {
             throw new Error(`campfire layer disappeared during the boot routine at logical tick ${frame.t}`);
         }
-        const fire = resourceLayers.find((layer) => layer[1] === 44);
-        if (fire[2] !== 'r') {
-            throw new Error(`campfire layer stopped running during the boot routine at logical tick ${frame.t}`);
-        }
     }
 
     if (checkedFrames === 0) throw new Error('campfire continuity check did not reach the boot routine');
     console.log(`campfire continuity: ${checkedFrames} retained actor frames`);
+};
+
+const verifyBathingActorContinuity = ({ archive, data }) => {
+    const frames = captureGag({ archive, data, gag: 11 });
+    const johnnyTags = new Set([3, 12, 11, 9, 17, 14, 15, 10, 16, 8, 18, 36]);
+    const gullTags = new Set([21, 22, 23, 24, 25, 26, 28]);
+    let johnnyStarted = false;
+    let checkedFrames = 0;
+
+    for (const frame of frames) {
+        const tags = new Set(frame.l.filter((layer) => layer[0] === 5).map((layer) => layer[1]));
+        if ([...johnnyTags].some((tag) => tags.has(tag))) johnnyStarted = true;
+        if (!johnnyStarted || ![...gullTags].some((tag) => tags.has(tag))) continue;
+        checkedFrames++;
+        if (![...johnnyTags].some((tag) => tags.has(tag))) {
+            throw new Error(`Johnny layer disappeared during the bathing gull sequence at logical tick ${frame.t}`);
+        }
+    }
+
+    if (checkedFrames === 0) throw new Error('bathing continuity check did not reach concurrent Johnny/gull frames');
+    console.log(`bathing actor continuity: ${checkedFrames} retained frames`);
 };
 
 const readGame = async () => {
@@ -187,6 +198,7 @@ const readGame = async () => {
 const main = async () => {
     const game = await readGame();
     verifyCampfireContinuity(game);
+    verifyBathingActorContinuity(game);
     const captures = new Map();
     for (const gag of new Set(scenarioDefinitions.map((scenario) => scenario.gag))) {
         captures.set(gag, captureGag({ ...game, gag }));

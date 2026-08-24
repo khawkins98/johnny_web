@@ -299,6 +299,52 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.playedHistory.has('1:1')).toBe(true);
     });
 
+    it('atomically replaces a completed scene with its triggered successor', () => {
+        const ttm = {
+            tags: [
+                { id: 1, description: 'predecessor' },
+                { id: 2, description: 'successor' },
+            ],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 1, script: [{ opcode: 0x0110, params: [] }] },
+                { tagId: 2, script: [{ opcode: 0x0ff0, params: [] }] },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 1,
+            singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'handoff-test',
+                resources: [{ id: 1, name: 'HANDOFF.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1 },
+                        script: [
+                            { opcode: 0x1350, params: [1, 1] },
+                            { opcode: 0x2005, params: [1, 2, 1, 1] },
+                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0x1510, params: [] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+        const predecessor = getSceneState(runtime.state, 1, 1, 1, 1);
+        predecessor.runState = 'finished';
+        predecessor.state.played = true;
+        runtime.state.scenes.push(predecessor);
+
+        const result = runtime.tick(20);
+
+        expect(result.presentation.compose).toBe(true);
+        expect(runtime.state.playedHistory.has('1:1')).toBe(true);
+        expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([2]);
+    });
+
     it('finishes a GOTO-looping child when its negative ADS run-count lifetime expires', () => {
         const ttm = {
             tags: [{ id: 1, description: 'looping action' }],
@@ -330,11 +376,11 @@ describe('DgdsRuntime', () => {
 
         runtime.tick(20);
         runtime.tick(20);
-        expect(child.lifecycle).toBe('running');
+        expect(child.runState).toBe('running');
         expect(child.state.played).toBe(false);
 
         runtime.tick(20);
-        expect(child.lifecycle).toBe('completed');
+        expect(child.runState).toBe('finished');
         expect(child.state.played).toBe(true);
 
         expect(runtime.tick(20).completed).toBe(true);
@@ -383,7 +429,7 @@ describe('DgdsRuntime', () => {
         expect(child.state.waitTicks).toBe(7);
         runtime.tick(20);
 
-        expect(child.lifecycle).toBe('completed');
+        expect(child.runState).toBe('finished');
         expect(child.state.played).toBe(true);
     });
 
@@ -414,19 +460,19 @@ describe('DgdsRuntime', () => {
         runtime.state.scenes.push(child);
 
         runtime.tick(20);
-        expect(child.lifecycle).toBe('running');
+        expect(child.runState).toBe('running');
         expect(child.state.played).toBe(false);
         runtime.tick(20);
         expect(child.state.runs).toBe(1);
 
         runtime.tick(20);
-        expect(child.lifecycle).toBe('running');
+        expect(child.runState).toBe('running');
         expect(child.state.played).toBe(false);
         runtime.tick(20);
         expect(child.state.runs).toBe(2);
 
         runtime.tick(20);
-        expect(child.lifecycle).toBe('completed');
+        expect(child.runState).toBe('finished');
         expect(child.state.played).toBe(true);
     });
 
@@ -454,12 +500,12 @@ describe('DgdsRuntime', () => {
             },
         });
         const child = getSceneState(runtime.state, 1, 1, 0, 1);
-        child.restartUntilStopped = true;
+        child.runMode = 'keep-going';
         runtime.state.scenes.push(child);
 
         for (let tick = 0; tick < 6; tick++) runtime.tick(20);
 
-        expect(child.lifecycle).toBe('running');
+        expect(child.runState).toBe('running');
         expect(child.state.played).toBe(false);
         expect(child.state.runs).toBeGreaterThan(1);
         expect(child.execution.reason).toBe('restart-until-stopped');

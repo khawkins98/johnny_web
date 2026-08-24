@@ -13,6 +13,8 @@ import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
+import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
+import { sequenceKey } from './ttm-sequence-order.mjs';
 
 const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
@@ -97,7 +99,6 @@ export class DgdsRuntime {
             slot: 0,
             res: [],
             reentry: 0,
-            elapsedTimer: 0,
             delay: 0,
             waitTicks: 0,
             frameReady: false,
@@ -111,7 +112,6 @@ export class DgdsRuntime {
             type: null,
             skip: false,
             randomize: false,
-            purge: false,
             played: false,
             runs: 0,
             lastCommand: false,
@@ -123,8 +123,9 @@ export class DgdsRuntime {
             tick: 0,
             playbackRate: 1,
             speedRemainder: 0,
-            frameSequence: { current: 0 },
             ttmEnvironments: new Map(),
+            ttmSequenceOrder: [],
+            activeAdsScript: null,
             reentryNow: 0,
             jumpTo: undefined,
             fadingOut: false,
@@ -151,7 +152,12 @@ export class DgdsRuntime {
         debugLog(`ADS cycle starting: ${state.data.scenes.length} scenes in "${state.data?.name ?? '?'}"`);
         state.data.resources.forEach((resource) => {
             const decoded = state.resourceProvider.resolve(resource.name);
-            if (decoded !== undefined) state.scenesRes[resource.id] = decoded;
+            if (decoded !== undefined) {
+                state.scenesRes[resource.id] = decoded;
+                for (const sequence of decoded.scenes || []) {
+                    state.ttmSequenceOrder.push(sequenceKey(resource.id, sequence.tagId));
+                }
+            }
         });
         debugLog(
             'scenesRes:',
@@ -188,7 +194,7 @@ export class DgdsRuntime {
             activeScenes: state.scenes.map((scene) => ({
                 sceneIdx: scene.sceneIdx,
                 tagId: scene.tagId,
-                lifecycle: scene.lifecycle,
+                runState: scene.runState,
                 execution: scene.execution?.status || null,
             })),
             timingCompatibility: state.timingCompatibility
@@ -219,9 +225,9 @@ export class DgdsRuntime {
         let completed = false;
         if (state.adsSceneEnd != null && state.currentScene >= state.adsSceneEnd) {
             const blockers = state.scenes.filter((scene) => {
-                const done = scene.state.hasTimer ? scene.state.timer === 0 : scene.state.played;
+                const done = isTtmFinished(scene);
                 const unboundedLoop =
-                    scene.restartUntilStopped === true ||
+                    scene.runMode === TtmRunMode.KEEP_GOING ||
                     (scene.execution?.status === ExecutionStatus.LOOPED &&
                         scene.retries === 0 &&
                         !Number.isFinite(scene.timeLimitTicks));
@@ -242,7 +248,8 @@ export class DgdsRuntime {
 
         if (scene !== undefined) {
             const previousScene = state.currentScene;
-            const execution = runScript(state, this.#adsScripts[state.currentScene], true);
+            state.activeAdsScript = this.#adsScripts[state.currentScene];
+            const execution = runScript(state, state.activeAdsScript, true);
             completed = execution.status === ExecutionStatus.COMPLETED;
             if (
                 state.adsSceneEnd != null &&
@@ -283,12 +290,12 @@ export class DgdsRuntime {
     #runTtmController() {
         const rootState = this.state;
         rootState.scenes.forEach((scene) => {
-            if (scene.lifecycle !== 'completed' && Number.isFinite(scene.timeLimitTicks)) {
+            if (!isTtmFinished(scene) && Number.isFinite(scene.timeLimitTicks)) {
                 scene.timeLimitTicks--;
                 if (scene.timeLimitTicks <= 0) {
                     scene.state.played = true;
                     scene.state.waitTicks = 0;
-                    scene.lifecycle = 'completed';
+                    scene.runState = TtmRunState.FINISHED;
                     sceneLog(scene.state, 'TIME_LIMIT', sceneLabel(rootState.scenesRes, scene.sceneIdx, scene.tagId));
                     return;
                 }
@@ -296,8 +303,8 @@ export class DgdsRuntime {
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
             prepareTtmScene(scene);
-
             if (scene.state.waitTicks > 0) {
+                scene.runState = TtmRunState.WAITING;
                 scene.state.waitTicks--;
                 if (scene.state.waitTicks > 0) {
                     scene.execution = pendingExecution(scene.state, 'compatibility-delay');
@@ -306,8 +313,8 @@ export class DgdsRuntime {
                 scene.state.frameReady = true;
             }
 
-            if (scene.lifecycle !== 'completed') {
-                scene.lifecycle = 'running';
+            if (!isTtmFinished(scene)) {
+                scene.runState = TtmRunState.RUNNING;
                 scene.execution = runScript(scene.state, scene.state.script || scene.script);
                 if (scene.execution.frameBoundary) {
                     const mapped = rootState.timingCompatibility.mapFrameBoundary(scene.execution.frameBoundary, {
@@ -325,8 +332,8 @@ export class DgdsRuntime {
                     scene.environment.ready = true;
                 }
                 if (scene.execution.status === ExecutionStatus.COMPLETED) {
-                    const repeatsUntilTimeLimit = Number.isFinite(scene.timeLimitTicks);
-                    const repeatsUntilStopped = scene.restartUntilStopped === true;
+                    const repeatsUntilTimeLimit = scene.runMode === TtmRunMode.TIME_LIMITED;
+                    const repeatsUntilStopped = scene.runMode === TtmRunMode.KEEP_GOING;
                     if (scene.retries > 0 || repeatsUntilTimeLimit || repeatsUntilStopped) {
                         if (scene.retries > 0) scene.retries--;
                         scene.state.played = false;
@@ -344,8 +351,9 @@ export class DgdsRuntime {
                                   ? 'restart-until-stopped'
                                   : 'retry',
                         );
+                        scene.runState = TtmRunState.RUNNING;
                     } else {
-                        scene.lifecycle = 'completed';
+                        scene.runState = TtmRunState.FINISHED;
                     }
                 }
             }

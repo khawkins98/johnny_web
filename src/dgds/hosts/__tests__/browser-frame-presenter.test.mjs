@@ -97,7 +97,7 @@ describe('browser frame presenter', () => {
         const context = createContext();
         const state = createState();
         state.surface.bounds = null;
-        state.scenes = [{ sceneIdx: 1, tagId: 1, lifecycle: 'running', state: { layerRevision: 0 } }];
+        state.scenes = [{ sceneIdx: 1, tagId: 1, runState: 'running', state: { layerRevision: 0 } }];
         const presenter = createBrowserFramePresenter({
             context,
             mainContext: createContext(),

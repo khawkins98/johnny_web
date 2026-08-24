@@ -10,9 +10,9 @@
  *    after that prologue has finished; a different TTM resource gets a different environment.
  *
  *  FRESH per scene (from initialState):
- *    reentry, played, runs, continue, delay, timer, lastCommand, skip, elapsedTimer.
- *    GET/PUT save[] slots are copied from the environment once setup completes,
- *    then remain private working buffers for concurrent scenes.
+ *    reentry, played, runs, continue, delay, timer, lastCommand, skip.
+ *    GET/PUT save[] slots are copied from the environment after setup and then
+ *    remain private because this renderer uses one retained layer per sequence.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *
  *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
@@ -23,6 +23,8 @@
  * counters) are deliberately not copied into child TTM states.
  */
 import { pendingExecution } from './execution-outcome.mjs';
+import { TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
+import { sequenceKey } from './ttm-sequence-order.mjs';
 
 /**
  * Default runtime fields reset for every new scene execution.
@@ -36,7 +38,6 @@ const initialState = {
     continue: true,
     skip: false,
     backgroundId: 1,
-    elapsedTimer: 0,
     timer: 0,
     delay: 0,
     waitTicks: 0,
@@ -44,6 +45,32 @@ const initialState = {
     frameBoundary: null,
     gotoRestart: false,
     clip: { x: 0, y: 0, width: 640, height: 480 },
+};
+
+/** True when the selected ADS program explicitly re-adds a sequence when it finishes. */
+export const isSelfRearmingSequence = (state, sceneIdx, tagId) => {
+    const script = state.activeAdsScript || state.data?.scenes?.[state.currentScene]?.script || [];
+    for (let index = 0; index < script.length; index++) {
+        const command = script[index];
+        if (command.opcode !== 0x1350 || command.params?.[0] !== sceneIdx || command.params?.[1] !== tagId) {
+            continue;
+        }
+        let depth = 1;
+        for (let body = index + 1; body < script.length && depth > 0; body++) {
+            const nested = script[body];
+            if ([0x1330, 0x1350, 0x1360, 0x1370].includes(nested.opcode)) depth++;
+            if (nested.opcode === 0xfff0) depth--;
+            if (
+                depth > 0 &&
+                nested.opcode === 0x2005 &&
+                nested.params?.[0] === sceneIdx &&
+                nested.params?.[1] === tagId
+            ) {
+                return true;
+            }
+        }
+    }
+    return false;
 };
 
 /**
@@ -74,10 +101,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     titleState: parent.titleState,
     trace: parent.trace,
     getTraceTick: () => parent.tick,
-    frameSequence: parent.frameSequence,
     layerRevision: 0,
-    lastFrameSerial: 0,
-    lastRestoreRect: null,
 
     // Shared/cached DGDS resources
     res: assets.res || [],
@@ -163,7 +187,7 @@ const createTtmEnvironmentAssets = (parent) => {
 export const canRunTtmScene = (scene) =>
     !scene.environment || scene.environment.ready || scene.environment.owner === scene;
 
-/** Detach a runnable sibling's mutable GET/PUT buffers from its resource template. */
+/** Detach a runnable sequence's GET/PUT buffers from its environment template. */
 export const prepareTtmScene = (scene) => {
     if (!scene?.needsPrivateSave || !scene.environment?.ready) return;
     scene.state.save = cloneSaveSlots(scene.environment.assets.save, scene.environment.surfaceFactory);
@@ -190,21 +214,22 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
     // ADS negative run counts are lifetimes, in DGDS timer ticks, for TTM
     // sequences that can otherwise GOTO-loop forever. They are not frame delays.
     const timeLimitTicks = runCount < 0 ? -runCount : null;
+    const runMode =
+        runCount < 0
+            ? TtmRunMode.TIME_LIMITED
+            : runCount > 1
+              ? TtmRunMode.COUNTED
+              : TtmRunMode.ONCE;
 
-    const resourceOrder = state.data?.resources?.findIndex((resource) => resource.id === sceneIdx) ?? -1;
     const s = Object.assign(
         {
             sceneIdx,
             retries,
             timeLimitTicks,
+            runMode,
             proportion,
-            lifecycle: 'active',
-            // DGDS repaints active TTM sequences in resource/declaration order. ADS
-            // start order is scheduling state, not painter state.
-            paintOrder: {
-                resource: resourceOrder < 0 ? sceneIdx : resourceOrder,
-                sequence: sequenceOrder,
-            },
+            runState: TtmRunState.STARTING,
+            sequenceKey: sequenceKey(sceneIdx, tagId),
         },
         scene,
     );
