@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#000000" />
+        <link rel="manifest" href="manifest.json" />
+        <link rel="shortcut icon" href="favicon.ico" />
+        <title>Johnny Castaway</title>
+        <style>
+            body {
+                font-family: sans-serif;
+                background-color: #000;
+                margin: 0;
+                -webkit-font-smoothing: antialiased;
+            }
+            .background {
+                background-color: #000;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                margin-top: -240px;
+                margin-left: -320px;
+                width: 640px;
+                height: 480px;
+            }
+            #start-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 10;
+                pointer-events: none;
+            }
+            #start-overlay.visible {
+                display: block;
+            }
+            #start-actions {
+                position: absolute;
+                top: calc(50% + 254px);
+                left: 50%;
+                transform: translateX(-50%);
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 8px;
+                width: max-content;
+                max-width: calc(100vw - 32px);
+                padding: 8px;
+                box-sizing: border-box;
+                border-radius: 8px;
+                background: #d4c4a8;
+                background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(90, 55, 25, 0.04));
+                box-shadow:
+                    0 10px 24px rgba(0, 0, 0, 0.48),
+                    0 2px 5px rgba(0, 0, 0, 0.28),
+                    inset 0 0 0 2px rgba(139, 90, 43, 0.76),
+                    inset 0 0 14px rgba(139, 90, 43, 0.18);
+                pointer-events: auto;
+            }
+            .start-action {
+                background: #f4e4c8;
+                color: #4a3520;
+                border: 2px solid #8b5a2b;
+                border-radius: 4px;
+                min-width: 170px;
+                min-height: 42px;
+                padding: 7px 20px;
+                font-family: 'VT323', monospace;
+                font-size: 20px;
+                cursor: pointer;
+                letter-spacing: 0.03em;
+                box-shadow:
+                    0 2px 4px rgba(74, 53, 32, 0.18),
+                    inset 0 1px rgba(255, 255, 255, 0.52);
+                transition-property: transform, background-color, box-shadow;
+                transition-duration: 140ms;
+                transition-timing-function: ease-out;
+            }
+            .start-action:hover {
+                background: #fff4dc;
+                box-shadow:
+                    0 3px 7px rgba(74, 53, 32, 0.26),
+                    inset 0 1px rgba(255, 255, 255, 0.64);
+            }
+            .start-action:active {
+                transform: scale(0.96);
+            }
+            .start-action.secondary {
+                background: rgba(244, 228, 200, 0.46);
+            }
+            #start-settings-btn {
+                grid-column: 1 / -1;
+            }
+            #start-help-btn {
+                min-width: 42px;
+                width: 42px;
+                padding: 7px 0;
+                border-radius: 50%;
+                font-family: 'Caveat', cursive;
+                font-size: 24px;
+            }
+            #start-help {
+                display: none;
+                grid-column: 1 / -1;
+                max-width: 390px;
+                padding: 8px 10px 4px;
+                color: #4a3520;
+                font-family: 'VT323', monospace;
+                font-size: 17px;
+                line-height: 1.25;
+                text-align: left;
+            }
+            #start-help.visible {
+                display: block;
+            }
+            #start-help strong {
+                font-weight: normal;
+                color: #2d2116;
+            }
+            .start-action:focus-visible {
+                outline: 3px solid rgba(244, 228, 200, 0.8);
+                outline-offset: 3px;
+            }
+            @media (max-height: 600px) {
+                #start-actions {
+                    top: auto;
+                    bottom: 16px;
+                }
+            }
+            @media (max-width: 420px) {
+                #start-actions {
+                    width: calc(100vw - 24px);
+                }
+                .start-action {
+                    min-width: 0;
+                }
+            }
+            #data-error {
+                display: none;
+                position: fixed;
+                inset: 0;
+                z-index: 10;
+                background: rgba(0, 0, 0, 0.6);
+                overflow-y: auto;
+                color: #4a3520;
+                font-family: 'VT323', monospace;
+                justify-content: center;
+                align-items: center;
+                padding: 24px;
+            }
+            #data-error.visible {
+                display: flex;
+            }
+            #data-error-card {
+                width: 100%;
+                max-width: 560px;
+                border-radius: 8px;
+                padding: 32px 40px;
+                box-sizing: border-box;
+                background: #d4c4a8;
+                background-image: linear-gradient(rgba(255, 255, 255, 0.08), rgba(90, 55, 25, 0.04));
+                box-shadow:
+                    0 10px 24px rgba(0, 0, 0, 0.48),
+                    0 2px 5px rgba(0, 0, 0, 0.28),
+                    inset 0 0 0 2px rgba(139, 90, 43, 0.76),
+                    inset 0 0 14px rgba(139, 90, 43, 0.18);
+                transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+            }
+            #data-error-card.dragover {
+                transform: scale(1.02);
+                filter: brightness(1.1);
+                box-shadow:
+                    0 15px 30px rgba(0, 0, 0, 0.5),
+                    0 4px 10px rgba(0, 0, 0, 0.3),
+                    inset 0 0 0 4px #8b5a2b,
+                    inset 0 0 20px rgba(139, 90, 43, 0.4);
+            }
+            #data-error h2 {
+                margin: 0 0 12px;
+                font-size: 28px;
+                color: #8b5a2b;
+                letter-spacing: 0.02em;
+                font-family: 'VT323', monospace;
+            }
+            #data-error p {
+                margin: 0 0 16px;
+                font-size: 18px;
+                line-height: 1.4;
+                color: #4a3520;
+            }
+            #data-error .detail {
+                margin: 8px 0 16px;
+                font-size: 16px;
+                color: #7a5530;
+                font-style: italic;
+            }
+            #data-error .detail:empty {
+                display: none;
+            }
+            #data-error .instruction {
+                font-size: 18px;
+                color: #4a3520;
+                background: rgba(244, 228, 200, 0.46);
+                border: 2px dashed rgba(139, 90, 43, 0.4);
+                border-radius: 4px;
+                padding: 16px;
+                line-height: 1.5;
+                text-align: center;
+                margin-top: 24px;
+            }
+            #data-error .path {
+                color: #8b5a2b;
+                font-weight: bold;
+            }
+            #data-error a {
+                color: #2b5a8b;
+                text-decoration: underline;
+            }
+        </style>
+    </head>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+
+        <div id="root" class="background">
+            <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
+            <canvas id="canvas" width="640" height="480" style="position: absolute; z-index: 1"></canvas>
+
+            <div id="data-error" role="alert" aria-live="assertive">
+                <div id="data-error-card">
+                    <h2>Ready to cast away?</h2>
+                    <p>
+                        We need the original game files.
+                        Check out the <a href="https://github.com/khawkins98/johnny_web/blob/main/README.md" target="_blank" rel="noopener">README</a>.
+                    </p>
+                    <p class="detail"></p>
+                    <div class="instruction" id="upload-instruction" style="cursor: pointer; transition: background 0.2s, border-color 0.2s;" onmouseover="this.style.background='rgba(244, 228, 200, 0.8)';" onmouseout="this.style.background='rgba(244, 228, 200, 0.46)';">
+                        <strong>Got the original files?</strong><br/>
+                        Add the floppy image ZIP or IMA file. Drag and drop it anywhere!
+                        <input type="file" id="file-picker" accept=".zip,.ima,.img" style="display: none;" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="start-overlay">
+            <div id="start-actions">
+                <button id="start-classic-btn" class="start-action">
+                    <span aria-hidden="true">▶</span> Play Classic
+                </button>
+                <button id="start-enhanced-btn" class="start-action">
+                    <span aria-hidden="true">✦</span> Play Enhanced
+                </button>
+                <button
+                    id="start-help-btn"
+                    class="start-action secondary"
+                    aria-expanded="false"
+                    aria-controls="start-help"
+                    aria-label="What is Enhanced mode?"
+                >
+                    ?
+                </button>
+                <button id="start-settings-btn" class="start-action secondary">
+                    <span aria-hidden="true">⚙</span> Settings
+                </button>
+                <div id="start-help" role="note">
+                    <strong>Enhanced mode</strong> adds responsive scaling, drifting clouds, animated waves, and
+                    keyboard controls. Use <strong>←/→</strong> to change scenes, <strong>↑/↓</strong> to adjust speed,
+                    and <strong>F</strong> for full screen; a small HUD shows the current stage and rate. Press
+                    <strong>H</strong> to hide or restore it.
+                </div>
+            </div>
+        </div>
+
+        <script type="module" src="./src/index.mjs"></script>
+    </body>
+</html>

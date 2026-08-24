@@ -1,7 +1,22 @@
+/**
+ * SCR (background screen) resource parser.
+ *
+ * SCR files contain a single full-screen indexed-color image, packed identically to BMP:
+ * 4-bit nibbles, 2 pixels per byte, decompressed before unpacking.
+ *
+ * PERF: Same per-pixel object allocation concern as bmp.mjs — 307,200 objects for a 640×480
+ * background. Consider Uint8ClampedArray / ImageData for memory efficiency.
+ *
+ * NOTE: The DIM block reports the image dimensions. The top-level SCR header's totalSize and flags
+ * fields appear to be unused / unreliable ("weird values" per BMP comment in sibling file).
+ *
+ * NOTE: PALETTE is currently hardcoded in palette.mjs rather than loaded from the PAL resource,
+ * so palette-swapping backgrounds (e.g. night mode) would require extending the pipeline.
+ */
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 
-import { PALETTE } from '../../scrantic/palette.mjs';
+import { PALETTE } from '../palette.mjs';
 
 export const loadSCRResourceEntry = (entry) => {
     let offset = 0;
@@ -37,12 +52,14 @@ export const loadSCRResourceEntry = (entry) => {
     const data = decompress(compressionType, compressedData, 0, compressedData.byteLength);
 
     const numImages = 1;
-    const images = [{
-        width,
-        height,
-        buffer: [],
-        pixels: []
-    }];
+    const images = [
+        {
+            width,
+            height,
+            buffer: [],
+            pixels: [],
+        },
+    ];
     const image = images[0];
     let dataIndex = 0;
     let pixelIndex = 0;

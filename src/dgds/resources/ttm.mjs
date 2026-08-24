@@ -1,3 +1,17 @@
+/**
+ * TTM (Tiny Templated Movie) resource parser.
+ *
+ * TTM files contain the actual per-frame animation scripts — sequences of opcodes that draw
+ * sprites, play audio, apply palette changes, and control timing via UPDATE delays.
+ *
+ * Key encoding detail: the lower 4 bits of each raw opcode encode the number of 16-bit parameters
+ * that follow (size = rawOpcode & 0x000f). The canonical opcode is the upper 12 bits
+ * (opcode = rawOpcode & 0xfff0). Exception: size === 15 means a null-terminated string follows.
+ * Exception: opcode 0x1110 (SET_SCENE) reads a 16-bit tag ID that locates a named scene boundary.
+ *
+ * Parsed output includes `scripts` (all commands) and `scenes` (commands grouped by tag boundary).
+ * The first scene in scenes[] has tagId 0 and holds the global init/prologue commands.
+ */
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 
@@ -63,7 +77,7 @@ export const loadTTMResourceEntry = (entry) => {
         const description = getString(entry.data, offset + 2);
         tags.push({
             id,
-            description
+            description,
         });
         offset += 2;
         offset += description.length + 1;
@@ -86,7 +100,7 @@ export const loadTTMResourceEntry = (entry) => {
             line: null,
             name: null,
             tag: null,
-            params: []
+            params: [],
         };
         if (opcode === 0x1110 && size === 1) {
             const tagId = data.getUint16(innerOffset, true);
@@ -99,7 +113,7 @@ export const loadTTMResourceEntry = (entry) => {
             }
             scenes.push({
                 tagId: prevTagId,
-                script: sceneScripts
+                script: sceneScripts,
             });
             sceneScripts = []; // reset scene script
             prevTagId = tagId;
@@ -141,8 +155,10 @@ export const loadTTMResourceEntry = (entry) => {
 
     scenes.push({
         tagId: prevTagId,
-        script: sceneScripts
+        script: sceneScripts,
     });
+    // NOTE: The trailing scene after the last SET_SCENE is correctly pushed here.
+    // Contrast with ads.mjs which has no equivalent final push (see BUG note there).
 
     return {
         name: entry.name,

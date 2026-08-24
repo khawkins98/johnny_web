@@ -1,3 +1,14 @@
+/**
+ * ADS (Animation Director Script) resource parser.
+ *
+ * ADS files are the top-level animation sequencers. They contain:
+ *  - RES block: list of TTM resources (by name) used by this script
+ *  - SCR block: the compressed main script (opcode stream)
+ *  - TAG block: named labels that divide the script into scenes
+ *
+ * Parsed output includes `scripts` (all commands in order) and `scenes` (commands grouped by tag).
+ * process.mjs iterates `scenes[]` by index, running each scene's script in turn.
+ */
 import { getString } from '../utils/string.mjs';
 import { decompress } from '../compression.mjs';
 
@@ -40,7 +51,7 @@ export const loadADSResourceEntry = (entry) => {
         const name = getString(entry.data, offset + 2);
         resources.push({
             id,
-            name
+            name,
         });
         offset += 2;
         offset += name.length + 1;
@@ -75,7 +86,7 @@ export const loadADSResourceEntry = (entry) => {
         const description = getString(entry.data, offset + 2);
         tags.push({
             id,
-            description
+            description,
         });
         offset += 2;
         offset += description.length + 1;
@@ -84,6 +95,8 @@ export const loadADSResourceEntry = (entry) => {
     let lineNumber = 1;
     let indent = 0;
     let innerOffset = 0;
+    // NOTE: prevTagId starts at 0. The first scenes.push() will produce a scene with tagId 0,
+    // representing the script block before the first TAG opcode (effectively a global prologue).
     let prevTagId = 0;
     const scripts = [];
     const scenes = [];
@@ -97,7 +110,7 @@ export const loadADSResourceEntry = (entry) => {
             line: '',
             indent: 0,
             tag: null,
-            params: []
+            params: [],
         };
         const c = ADSCommandType.find((ct) => ct.opcode === opcode);
         if (c !== undefined && opcode > 0x100) {
@@ -123,14 +136,16 @@ export const loadADSResourceEntry = (entry) => {
                 command.indent = 0;
                 while (indent) {
                     indent -= 1;
-                    scripts.push({
+                    const endIfCmd = {
                         opcode: 0xfff0,
                         lineNumber,
                         line: 'END_IF',
                         indent,
                         tag: null,
-                        params: []
-                    });
+                        params: [],
+                    };
+                    scripts.push(endIfCmd);
+                    sceneScripts.push(endIfCmd);
                     lineNumber += 1;
                 }
                 indent = 0;
@@ -140,12 +155,29 @@ export const loadADSResourceEntry = (entry) => {
         } else {
             command.tag = tags.find((t) => t.id === command.opcode);
             command.line += `${command.tag.description}`;
+
+            while (indent) {
+                indent -= 1;
+                const endIfCmd = {
+                    opcode: 0xfff0,
+                    lineNumber,
+                    line: 'END_IF',
+                    indent,
+                    tag: null,
+                    params: [],
+                };
+                scripts.push(endIfCmd);
+                sceneScripts.push(endIfCmd);
+                lineNumber += 1;
+            }
+            command.lineNumber = lineNumber;
+
             command.indent = 0;
             indent = 0;
             if (prevTagId) {
                 scenes.push({
                     tagId: prevTagId,
-                    script: sceneScripts
+                    script: sceneScripts,
                 });
             }
             sceneScripts = []; // reset scene script
@@ -154,6 +186,29 @@ export const loadADSResourceEntry = (entry) => {
 
         lineNumber += 1;
         scripts.push(command);
+    }
+
+    while (indent) {
+        indent -= 1;
+        const endIfCmd = {
+            opcode: 0xfff0,
+            lineNumber,
+            line: 'END_IF',
+            indent,
+            tag: null,
+            params: [],
+        };
+        scripts.push(endIfCmd);
+        sceneScripts.push(endIfCmd);
+        lineNumber += 1;
+    }
+
+    // Push the final scene (mirrors what ttm.mjs does after its loop).
+    if (prevTagId && sceneScripts.length > 0) {
+        scenes.push({
+            tagId: prevTagId,
+            script: sceneScripts,
+        });
     }
 
     return {

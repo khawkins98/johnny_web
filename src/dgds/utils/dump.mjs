@@ -4,9 +4,8 @@ import os from 'os';
 
 import { loadResources, loadResourceEntry } from '../resource.mjs';
 import { TTMCommandType, ADSCommandType } from '../data/scripting.mjs';
-import { sampleOffsets } from '../audio.mjs';
 
-export const dumpSamples = (filepath, scrbuffer) => {
+export const dumpSamples = (filepath, scrbuffer, sampleOffsets) => {
     let dumppath = path.join(filepath, 'dump');
     if (!fs.existsSync(dumppath)) {
         fs.mkdirSync(dumppath);
@@ -70,7 +69,11 @@ export const dumpImages = (filepath, resindex) => {
         if (entry.type === 'BMP') {
             const e = loadResourceEntry(entry);
             for (let i = 0; i < e.numImages; i += 1) {
-                fs.writeFileSync(path.join(dumppath, `${e.name}_img_${i}.json`), JSON.stringify(e.images[i], null, 2), 'utf-8');
+                fs.writeFileSync(
+                    path.join(dumppath, `${e.name}_img_${i}.json`),
+                    JSON.stringify(e.images[i], null, 2),
+                    'utf-8',
+                );
                 fs.writeFileSync(path.join(dumppath, `${e.name}_img_${i}.raw`), Buffer.from(e.images[i].buffer));
             }
         }
@@ -93,10 +96,7 @@ export const dumpMovieScripts = (filepath, resindex) => {
             fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `[TAGS]:${os.EOL}`);
             for (let i = 0; i < e.tags.length; i += 1) {
                 const t = e.tags[i];
-                fs.appendFileSync(
-                    path.join(dumppath,
-                        `${e.name}_script.txt`),
-                    `${t.id} ${t.description} ${os.EOL}`);
+                fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${t.id} ${t.description} ${os.EOL}`);
             }
 
             fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${os.EOL}[SCRIPTS]:${os.EOL}`);
@@ -139,22 +139,15 @@ export const dumpADSScripts = (filepath, resindex) => {
             fs.writeFileSync(path.join(dumppath, `${e.name}_script.txt`), '');
             fs.writeFileSync(path.join(dumppath, `${e.name}_script.raw`), Buffer.from(entry.buffer));
 
-
             fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `[RESOURCES]: ${os.EOL}`);
             for (let i = 0; i < e.resources.length; i += 1) {
                 const r = e.resources[i];
-                fs.appendFileSync(
-                    path.join(dumppath,
-                        `${e.name}_script.txt`),
-                    `${r.id} ${r.name} ${os.EOL}`);
+                fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${r.id} ${r.name} ${os.EOL}`);
             }
             fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${os.EOL}[TAGS]:${os.EOL}`);
             for (let i = 0; i < e.tags.length; i += 1) {
                 const t = e.tags[i];
-                fs.appendFileSync(
-                    path.join(dumppath,
-                        `${e.name}_script.txt`),
-                    `${t.id} ${t.description} ${os.EOL}`);
+                fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${t.id} ${t.description} ${os.EOL}`);
             }
 
             fs.appendFileSync(path.join(dumppath, `${e.name}_script.txt`), `${os.EOL}[SCRIPTS]:${os.EOL}`);

@@ -1,3 +1,5 @@
-import { run } from './scrantic/main.mjs';
+import '@fontsource/vt323';
+import '@fontsource/caveat/700.css';
+import { runJohnnyCastaway } from './games/johnny/browser-app.mjs';
 
-run();
+runJohnnyCastaway();

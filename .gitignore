@@ -1,6 +1,16 @@
-/src/data
+# game data files (user-supplied, proprietary — do not commit)
+/public/data
+
+# build output
 dist
+traces/
+dumps
+
+# Vite dev-server dependency pre-bundle cache
+.vite/
+
+# tooling
 node_modules
-build
+coverage/
+.DS_Store
 server-log.txt
-/data
