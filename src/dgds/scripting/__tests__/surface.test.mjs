@@ -163,3 +163,20 @@ describe('TTM drawing opcode surface contract', () => {
         expect(state.layerRevision).toBe(1);
     });
 });
+
+describe('surface revision counter', () => {
+    it('bumps revision on each mutating op (software surface)', () => {
+        const s = createSoftwareSurface();
+        const r0 = s.revision;
+        s.fillRect(0, 0, 4, 4, 1);
+        expect(s.revision).toBe(r0 + 1);
+        s.clear();
+        expect(s.revision).toBe(r0 + 2);
+    });
+    it('bumps revision on the recording surface too', () => {
+        const s = createRecordingSurface();
+        const r0 = s.revision;
+        s.drawLine(0, 0, 1, 1, 'white');
+        expect(s.revision).toBe(r0 + 1);
+    });
+});
