@@ -431,6 +431,10 @@ export class DgdsRuntime {
         state.fadeOpacity = 0;
         state.surface?.clear();
         if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
+        // The raster was just cleared: purge orphaned save-under snapshots and
+        // deferred restores pinned against the old surface.
+        state.saveUnder = [];
+        state.pendingRestore = [];
         debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         return true;
     }

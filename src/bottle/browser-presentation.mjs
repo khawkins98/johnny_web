@@ -240,10 +240,13 @@ export const runBrowserPresentation = async ({
                     phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
                     interlude: 'transition',
                 });
+            }
+            if (outcome?.reason === 'completed' && selection.sequenceEnd) {
                 // The sequence just ended: the next do-while iteration (if
                 // any) starts a new, unrelated story day via
                 // story-controller's buildSequence(). Give it a fresh raster
-                // so no pixels from this sequence can leak into the next.
+                // so no pixels from this sequence can leak into the next,
+                // whether or not a wipe transition actually ran above.
                 sharedRaster = createSoftwareSurface();
             }
             if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: 'script_override' };

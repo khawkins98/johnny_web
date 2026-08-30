@@ -8,18 +8,22 @@ import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
  * the host-specific clearing and overwrite behavior.
  */
 export const beginSceneFrame = (state, restoreSlot) => {
-    const save = state.save[restoreSlot];
     state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.BEGIN_SCENE_FRAME,
         restoreSlot,
     });
 
-    if (save?.canDraw) {
+    // SAVE_IMAGE_REGION no longer populates state.save[restoreSlot].canDraw; the
+    // restore bookkeeping lives in the global save-under registry instead, so
+    // derive the trace from state.savedRects, which surface-frame-presenter.mjs
+    // keeps in sync with what was actually restored onto this slot.
+    const savedRect = state.savedRects?.[restoreSlot];
+    if (savedRect) {
         traceEvent(state, 'scene-frame-begin', {
             restoreSlot,
             restored: true,
-            rect: { x: save.x, y: save.y, width: save.width, height: save.height },
+            rect: savedRect,
             revision: state.layerRevision,
         });
     } else {

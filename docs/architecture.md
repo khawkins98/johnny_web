@@ -248,8 +248,6 @@ to clear it. The per-scene design's retained-final-layer rule and per-tick clear
 above. `sequencePaintIndex` is retained as a name, but it now indexes into the mutable
 `ttmSequenceOrder` execution-order list rather than a static declaration order.
 
-`frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Cloud drift and its origin are owned by the persistent title presentation key, so starting a new ADS runtime cannot introduce a random offset jump. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
-
 ## Host boundaries
 
 | Engine need                                  | Injected/browser implementation                                                        |

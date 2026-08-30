@@ -174,12 +174,17 @@ export const clearAdsSceneBatch = (state) => {
         state.saveBkg[0].canDraw = false;
     }
     // The raster was just cleared. Prune every environment's stored background so
-    // stale pixels never carry into an unrelated sequence; a scene that owns a
-    // persistent background re-emits STORE_AREA on its next frame, re-baking it
-    // onto the cleared raster.
+    // stale pixels never carry into an unrelated sequence; after the clear, a
+    // scene redraws its own content by executing its script, so no explicit
+    // background re-bake is needed at this boundary.
     for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
         pruneEnvironmentBackground(state, sceneIdx);
     }
+    // The raster is gone: any full-canvas save-under snapshots and deferred
+    // restores pinned against it are now orphaned. Purge the registry so it
+    // cannot pin stale pixels beyond this boundary.
+    state.saveUnder = [];
+    state.pendingRestore = [];
 };
 
 // ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent
