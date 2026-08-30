@@ -3,6 +3,8 @@ import { DgdsRuntime } from '../runtime.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
 import { getSceneState } from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
+import { moveSequenceToBack } from '../ttm-sequence-order.mjs';
+import { TtmRunMode } from '../ttm-run-state.mjs';
 
 const createSurface = () => ({ clear() {} });
 
@@ -603,5 +605,61 @@ describe('DgdsRuntime', () => {
         const runtime = createRuntime({ surface: injected });
 
         expect(runtime.state.surface).toBe(injected);
+    });
+
+    it('draws scenes in mutable ttmSequenceOrder so MOVE_SEQUENCE_TO_BACK re-layers', () => {
+        // Two TTM sequences (campfire "1:3" and actor "1:21") both draw an
+        // identifiable rect into the ONE shared raster every tick, forever
+        // (KEEP_GOING), so #runTtmController's live paint order is what
+        // decides which one lands on top each time.
+        const ttm = {
+            tags: [
+                { id: 3, description: 'campfire' },
+                { id: 21, description: 'actor' },
+            ],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 3, script: [{ opcode: 0xa100, params: [10, 10, 5, 5] }] },
+                { tagId: 21, script: [{ opcode: 0xa100, params: [50, 50, 5, 5] }] },
+            ],
+        };
+        const surface = createRecordingSurface();
+        const runtime = createRuntime({
+            type: 'ADS',
+            singleAdsScene: true,
+            surface,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'zorder-test',
+                resources: [{ id: 1, name: 'SCENES.TTM' }],
+                scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0xffff, params: [] }] }],
+            },
+        });
+
+        // Default paint order comes straight from resource declaration order.
+        expect(runtime.state.ttmSequenceOrder).toEqual(['1:0', '1:3', '1:21']);
+
+        const campfire = getSceneState(runtime.state, 1, 3, 0, 1);
+        const actor = getSceneState(runtime.state, 1, 21, 0, 1);
+        campfire.runMode = TtmRunMode.KEEP_GOING;
+        actor.runMode = TtmRunMode.KEEP_GOING;
+        runtime.state.scenes.push(campfire, actor);
+
+        const drawnRectX = (surfaceRecording) =>
+            surfaceRecording.commands.filter((command) => command.operation === 'fillRect').map((command) => command.x);
+
+        runtime.tick(20);
+        // Default order [1:3, 1:21] => actor (x=50) paints last, on top.
+        expect(drawnRectX(surface)).toEqual([10, 50]);
+
+        // Mutate the SAME array the runtime reads from every tick.
+        const order = runtime.state.ttmSequenceOrder;
+        moveSequenceToBack(order, 1, 3);
+        expect(order).toEqual(['1:0', '1:21', '1:3']);
+
+        surface.commands.length = 0;
+        runtime.tick(20);
+        // Live order now paints the campfire (x=10) last, on top of the actor.
+        expect(drawnRectX(surface)).toEqual([50, 10]);
     });
 });
