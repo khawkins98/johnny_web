@@ -4,6 +4,7 @@ import { loadFile } from './idb.mjs';
 import { extractArchiveToIndexedDB } from './extractor.mjs';
 import { createAudioManager } from '../dgds/audio.mjs';
 import { startProcess, stopProcess } from '../dgds/scripting/process.mjs';
+import { createSoftwareSurface } from '../dgds/scripting/surface.mjs';
 import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
@@ -140,6 +141,11 @@ export const runBrowserPresentation = async ({
         enhancedUI?.destroy();
         enhancedUI = start.experience === 'enhanced' ? setupEnhancedUI() : null;
 
+        // One host-owned raster per sequence, persisting across the per-event
+        // DgdsRuntime instances created below (faithful to the original's
+        // once-allocated buffer). Recreated each time a new sequence begins.
+        const sharedRaster = createSoftwareSurface();
+
         let outcome;
         do {
             const attempt = debugRuns?.beginAttempt() ?? null;
@@ -209,6 +215,7 @@ export const runBrowserPresentation = async ({
                     titleState: selection.titleState ?? null,
                     hostManagedTransitions: Boolean(selectScene),
                     presentationPolicy,
+                    surface: sharedRaster,
                     onComplete: resolve,
                 });
             });

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DgdsRuntime } from '../runtime.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
 import { getSceneState } from '../scene-factory.mjs';
+import { createRecordingSurface } from '../surface.mjs';
 
 const createSurface = () => ({ clear() {} });
 
@@ -595,5 +596,12 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.bkgScreen).toBe('night');
         expect(runtime.state.scenes[0].state.titleState.night).toBe(true);
         expect(runtime.state.scenes[0].state.bkgScreen).toBe('night');
+    });
+
+    it('uses an injected host-owned surface instead of allocating one', () => {
+        const injected = createRecordingSurface();
+        const runtime = createRuntime({ surface: injected });
+
+        expect(runtime.state.surface).toBe(injected);
     });
 });
