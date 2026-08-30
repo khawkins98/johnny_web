@@ -22,9 +22,7 @@ RESOURCE.MAP + RESOURCE.001
        ADS controller ── starts/stops ──► TTM sequences
                                               │ frame operations
                                               ▼
-                                  per-scene software surfaces
-                                              │
-                                  software foreground compositor
+                              one shared, host-owned software raster
                                               │ RGBA upload
                                               ▼
                                       foreground canvas
@@ -65,13 +63,14 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 | `src/dgds/scripting/script-runner.mjs`           | Opcode callbacks, dispatch tables, interpreter                                                       |
 | `src/dgds/scripting/audio-operation.mjs`         | Host-neutral audio operation contract                                                                |
 | `src/dgds/scripting/frame-operation.mjs`         | Host-neutral drawing operation contract                                                              |
-| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to retained logical surfaces                                                |
+| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to the one shared raster, routing GET/PUT through the global save-under registry |
 | `src/dgds/scripting/background-resources.mjs`    | Loads background assets described by an injected game package                                        |
 | `src/dgds/scripting/execution-outcome.mjs`       | Interpreter and scheduler outcome contract                                                           |
 | `src/dgds/scripting/frame-timing.mjs`            | Faithful authored frame-boundary values                                                              |
 | `src/dgds/scripting/scene-factory.mjs`           | TTM environments and per-scene runtime state                                                         |
-| `src/dgds/scripting/scene-frame.mjs`             | Logical frame reset and GET/PUT restoration                                                          |
-| `src/dgds/scripting/composition.mjs`             | Rebuilds the foreground composition from stored areas and scene layers                               |
+| `src/dgds/scripting/scene-frame.mjs`             | Emits `BEGIN_SCENE_FRAME`; the frame op restores the save-under region, never the whole raster        |
+| `src/dgds/scripting/composition.mjs`             | Trace-only seam; raster revision tracking (no per-tick clear/recompose)                              |
+| `src/dgds/scripting/save-under.mjs`              | Global content-addressed (rect-keyed) LIFO save-under registry and deferred restore queue            |
 | `src/dgds/scripting/surface.mjs`                 | Deterministic RGBA software surface plus recording adapter                                           |
 | `src/dgds/scripting/timing.mjs`                  | Browser timestamp to bounded DGDS tick conversion                                                    |
 | `src/dgds/scripting/timing-compatibility.mjs`    | Named authored-to-host timing mappings                                                               |
@@ -145,7 +144,7 @@ The runtime receives randomness and timing compatibility directly; it does not r
 
 Drawing opcodes similarly emit logical frame operations. Primitive drawing, sprites, saved regions, GET/PUT frame starts, and script-requested clears do not call Canvas. The retained-surface presenter consumes each operation synchronously into deterministic RGBA pixels so a later opcode in the same script observes the faithful GET/PUT result. `DgdsRuntime.tick()` also returns the emitted operations for conformance tests and alternate hosts.
 
-The tick result also directs the host to clear the foreground, update a background, and request composition of retained layers. The engine's `composeTtmFrame()` owns foreground layer ordering and RGBA composition. The browser presenter uploads that result and owns the separate background Canvas, enhanced backgrounds, and fades. Runtime state retains no Canvas context or completion callback.
+The tick result also directs the host to update a background and upload the current state of the one shared raster; there is no per-tick surface clear and no per-tick recomposition step (see [Frame composition](#frame-composition)). The browser presenter uploads the raster and owns the separate background Canvas, enhanced backgrounds, and fades. Runtime state retains no Canvas context or completion callback.
 
 The application injects the Johnny game package into the runtime. `LOAD_SCREEN`, `LOAD_IMAGE`, ocean selection, and the browser background renderer obtain file names, aliases, layouts, sprite layers, and enhancement-setting keys from that package. Generic DGDS modules contain no Johnny resource names or layout indices. Runtime session diagnostics include the injected game ID and version label.
 
@@ -155,7 +154,7 @@ The interpreter and runtime never inspect raw archive entries or invoke parser d
 
 A TTM resource owns one environment containing its decoded image slots, background assets, palette-related values, stored areas, and initial GET/PUT templates. Environments are keyed by ADS resource ID.
 
-The first requested scene for a resource owns its prologue. Siblings wait until that setup completes, then share decoded assets. Each scene gets fresh execution state, a transparent logical surface, and private working GET/PUT buffers copied from the environment template. Concurrent scenes therefore cannot overwrite one another's saved regions.
+The first requested scene for a resource owns its prologue. Siblings wait until that setup completes, then share decoded assets. Each scene gets fresh execution state, but all scenes in a sequence draw into the same shared, host-owned raster (see [Frame composition](#frame-composition)); there is no per-scene surface. Sprite save-under (GET/PUT) is likewise global: a single content-addressed registry keyed by the saved rectangle (`src/dgds/scripting/save-under.mjs`), so overlapping saves from different scenes never collide by construction — the rect is the key, not a scene-owned slot index.
 
 ADS condition branches stage scene additions and removals:
 
@@ -163,7 +162,7 @@ ADS condition branches stage scene additions and removals:
 - `END_SCENE_BRANCH` (`0x1510`) commits staged changes and continues. It does not wait for unrelated scenes.
 - `IF_PLAYED` supplies the authored dependency barrier for its referenced scene.
 - `STOP_SCENE` stages removal.
-- Completed scenes retain their final layer until ADS explicitly stops them or a later GET/PUT frame restore overwrites their occupied region, matching DGDS's shared composition buffer.
+- Stopping a scene clears nothing by itself: its last-drawn pixels persist on the shared raster (overwrite is the clear) until a neighbor's draw, a save-under restore, or a background re-bake overwrites that region — matching DGDS's shared composition buffer. There is no retained-final-layer heuristic; the port previously emulated self-cleaning per-scene surfaces this way, and that heuristic has been removed now that the raster is genuinely shared.
 - Looping scenes remain active until stopped.
 
 The collection mutations are normally staged, but running-state tests later in the same branch observe and materialize pending additions and removals. This mirrors the original engine's immediate sequence run flags: after `ADD_SCENE`, an `IF_NOT_RUNNING` in that branch already sees the child as running even though JavaScript ordinarily commits scene-array changes at the branch boundary. A finite running child holds that condition at its program counter while TTM ticks advance it; an unbounded self-loop remains a false conditional without deadlocking ADS completion.
@@ -172,24 +171,82 @@ Branch commit is explicitly remove-before-add. An ADS branch may therefore finis
 
 ## Frame composition
 
-The browser has background and foreground canvases. TTM opcodes address neither — the retained-surface presenter applies their operations to per-scene software surfaces.
+This section describes the shared-raster model that shipped as Track A of the rendering
+refidelity refactor (`docs/scrantic-re-findings.md` Part A, the reverse-engineering spec
+this implements). It replaces an earlier per-scene-surface design; see the historical note
+at the end of this section for what changed and why.
+
+The browser has background and foreground canvases. TTM opcodes address neither directly —
+they emit frame operations that the surface-frame presenter (`src/dgds/scripting/surface-frame-presenter.mjs`)
+applies to **one persistent, host-owned raster** (`state.surface`), shared by every scene in
+the sequence. `browser-presentation.mjs` allocates that raster once per sequence (story day)
+and injects it into each per-event `DgdsRuntime` created for that sequence, so it persists
+across ADS runtimes within the sequence exactly as the original engine's once-allocated
+buffer did. A new raster is created only at a sequence boundary.
 
 The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, a shared presentation identity, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. A title-owned selection presenter keeps the island layer alive across otherwise independent ADS runtimes and walking interludes. Debug preview directives are created by that same controller, while anchored debug runs replace its queue and continue through the normal host path. One host-attempt cancellation token spans the captured selection's walk, ADS runtime, audio, and sequence-end wipe, so a new debug run atomically invalidates every part of the old selection rather than only stopping DGDS. The coordinator also overlays the browser's active one-scene preview on the paused story-controller status; the debug UI follows that host status by default while leaving nested TTM stage reporting to the runtime diagnostics. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, transition, and debug process and the one known route-selection approximation.
 
-When retained foreground state changes, `composeTtmFrame()`:
+**Overwrite is the clear.** The raster is never cleared per tick, and stopping a TTM scene
+clears nothing by itself. A scene's pixels sit on the shared raster until they are erased by
+(a) a neighbor's draw, (b) a save-under restore, or (c) a background re-bake. `composeTtmFrame()`
+(`src/dgds/scripting/composition.mjs`) is kept only as a host-contract seam and trace point —
+it performs no clearing, no per-scene painting, and no recomposition. `getCompositionRevision()`
+returns `state.surface.revision`, which the shared raster bumps on `clear()` and
+`replaceRegionFrom()`; the browser presenter compares that revision to decide whether to
+upload, without recomposing anything.
 
-1. clears the process composition surface;
-2. paints stored areas;
-3. paints active and retained scene surfaces in TTM resource/declaration order;
-4. optionally records a structured composition event and pixel fingerprint.
+**Z-order is execution order.** Every tick, `#runTtmController()` sorts the active scenes by
+the mutable `ttmSequenceOrder` (`src/dgds/scripting/ttm-sequence-order.mjs`) before ticking
+and drawing them, so later-painted scenes draw over earlier ones on the shared raster. This
+list is mutated by `MOVE_SEQUENCE_TO_BACK` (`moveSequenceToBack`), which removes and
+re-appends a scene's key, so that opcode actually re-layers the scene instead of only
+recording a paint-order hint.
 
-The browser presenter then uploads the composed RGBA surface to the foreground canvas. It caches the retained-layer revision to avoid recomposing and uploading an unchanged frame.
+**Sprite save-under (GET/PUT) is a single global registry**, not per-scene slots:
+`src/dgds/scripting/save-under.mjs` keys entries by the saved rectangle (`x:y:width:height`)
+on a LIFO stack. `SAVE_IMAGE_REGION` snapshots the region into that registry and records an
+index→rect pointer on the scene; `BEGIN_SCENE_FRAME` looks up that pointer and calls
+`restoreSaveUnder`, which restores only the saved region — never the whole raster — then
+pops the entry. Because the rect itself is the key, concurrent scenes saving different (or
+even coincidentally identical) regions never collide by construction; there is no per-scene
+slot isolation to defend. A one-tick-deferred secondary restore path
+(`queueDeferredRestore`/`flushDeferredRestores`, run at the start of `tick()`) is wired to
+match the original's age-0/age-1 restore timing but is currently unexercised by Johnny's
+scripts — it stays a no-op path unless a real secondary save is observed.
 
-Across host-managed event boundaries, the browser retains the previous foreground—or the final walking frame—until the next runtime produces a non-empty composition. Initializer-only transparent frames therefore cannot expose the bare background, while an explicit wipe, cancellation, or return to the title still clears immediately.
+**Backgrounds are re-baked at the ADS-tag boundary, not per frame.** `clearAdsSceneBatch`
+(`src/dgds/scripting/script-runner.mjs`) clears the shared raster and prunes every TTM
+environment's stored-background `canDraw` flag; a scene that owns a persistent background
+re-emits `STORE_AREA` on its next frame to re-bake it onto the freshly cleared raster.
+`jumpToScene` prunes the same way on the old environment map before discarding it, so a
+persistent background cannot survive a debug jump onto the raster.
 
-Removing a scene therefore removes its pixels on the next composition; there is no scene-removal clear heuristic. A scene surface retains its current TTM frame while a logical delay elapses.
+The campfire branch-rearm (re-adding a completed zero-run-count TTM tag from the same ADS
+branch to keep an ambient layer animating) remains ordinary ADS scheduling, unchanged by
+this refactor — see the branch-commit discussion above.
 
-GET/PUT operations overwrite RGBA values, including transparent pixels. On a scene layer, `BEGIN_SCENE_FRAME` starts a new frame and discards the previous frame when the slot is not restoreable, then restores the saved region when present. This prevents stale movement trails for sprites whose restore region does not cover the full previous frame. `STORE_AREA` and GET/PUT slots belong to the scripting and composition layer, not the browser.
+Across host-managed event boundaries, the browser presenter retains the previous
+foreground — or the final walking frame — until the next runtime produces a non-empty
+frame. Initializer-only transparent frames therefore cannot expose the bare background,
+while an explicit wipe, cancellation, or return to the title still clears immediately. This
+cross-event retention and fade behavior in the presenter is unchanged by this refactor.
+
+`frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Cloud drift and its origin are owned by the persistent title presentation key, so starting a new ADS runtime cannot introduce a random offset jump. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
+
+### Historical note: superseded per-scene-surface design
+
+An earlier port design gave each scene its own transparent software surface and private
+working GET/PUT slots, then recomposited them every tick in TTM resource/declaration order,
+with a "retained-final-layer" rule to keep a completed scene's last frame visible and a
+`BEGIN_SCENE_FRAME` full-surface clear-or-restore to erase it. Reverse-engineering the
+original 16-bit executable (`docs/scrantic-re-findings.md` Part A) found that design does not
+match the source material: the original uses exactly one shared raster with no per-scene
+isolation, so a scene's own draw is never the only thing that can erase it, and a stopped
+scene relies on a *different* scene's draw (or a save-under restore, or a background re-bake)
+to clear it. The per-scene design's retained-final-layer rule and per-tick clear/recompose in
+`BEGIN_SCENE_FRAME` have been removed and replaced with the shared-raster model described
+above. `sequencePaintIndex` is retained as a name, but it now indexes into the mutable
+`ttmSequenceOrder` execution-order list rather than a static declaration order.
 
 `frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Cloud drift and its origin are owned by the persistent title presentation key, so starting a new ADS runtime cannot introduce a random offset jump. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
 
