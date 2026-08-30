@@ -249,7 +249,12 @@ const SAVE_REGION = (state, x, y, width, height) => {};
 // The browser presenter currently applies the final composition atomically.
 const WIPE_RIGHT_TO_LEFT = () => {};
 
+// Primitive draws bump the frame serial too, so a frame whose only change is a
+// primitive (no sprite / BEGIN_SCENE_FRAME) still triggers a recomposite under the
+// immediate-mode content signature. (No shipped scene has a primitive-only frame,
+// but this keeps the invariant free of that assumption.)
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.DRAW_LINE,
         x1,
@@ -261,6 +266,7 @@ const DRAW_LINE = (state, x1, y1, x2, y2) => {
 };
 
 const DRAW_RECT = (state, x, y, width, height) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.FILL_RECT,
         x,
@@ -272,6 +278,7 @@ const DRAW_RECT = (state, x, y, width, height) => {
 };
 
 const DRAW_BUBBLE = (state, x, y, width, height) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = width / 2;

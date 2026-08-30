@@ -62,11 +62,11 @@ describe('DGDS frame composition', () => {
 
         // A finished scene drops out of the signature (so it will vanish next compose).
         scene.runState = 'finished';
-        expect(getCompositionRevision(state)).toBe('@4,0'); // no active scenes, just the offset
+        expect(getCompositionRevision(state)).toBe('#@4,0'); // no active scenes, just the offset
     });
 
     it('getCompositionRevision is a stable signature even with no scenes or raster', () => {
-        expect(getCompositionRevision({})).toBe('@0,0');
+        expect(getCompositionRevision({})).toBe('#@0,0');
     });
 
     it('bakes only the named environment background onto the shared raster', () => {

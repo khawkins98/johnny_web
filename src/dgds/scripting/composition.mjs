@@ -15,6 +15,14 @@ export const composeTtmFrame = (state) => {
     const surface = state.surface;
     if (!surface) return;
     surface.clear();
+    // Stored-area background plates (STORE_AREA / COPY_ZONE_TO_BG) are the original's
+    // eb0 plate: a scene bakes a region (e.g. a built sandcastle) that must persist
+    // under the actors even after the storing scene finishes, until the ADS-tag
+    // boundary prunes it (canDraw). Draw them first, beneath the actors.
+    for (const environment of state.ttmEnvironments?.values?.() || []) {
+        const stored = environment?.assets?.saveBkg?.[0];
+        if (stored?.canDraw) surface.drawSurface(stored.surface);
+    }
     const ordered = [...(state.scenes || [])].sort(
         (left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right),
     );
@@ -50,8 +58,15 @@ export const getCompositionRevision = (state) => {
         if (isTtmFinished(scene)) continue;
         signature += `${scene.sceneIdx}:${scene.tagId}:${scene.state?.layerRevision || 0}|`;
     }
+    // A STORE_AREA plate change (a scene baking new background) must also recompose,
+    // even if no actor frame advanced this tick.
+    let plates = '';
+    for (const environment of state.ttmEnvironments?.values?.() || []) {
+        const stored = environment?.assets?.saveBkg?.[0];
+        if (stored?.canDraw) plates += `${stored.revision || 0},`;
+    }
     const offset = state.titleState?.sceneOffset;
-    return `${signature}@${offset?.x || 0},${offset?.y || 0}`;
+    return `${signature}#${plates}@${offset?.x || 0},${offset?.y || 0}`;
 };
 
 /** Draws only the named environment's stored background onto the shared raster. */
