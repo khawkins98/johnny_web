@@ -141,10 +141,13 @@ export const runBrowserPresentation = async ({
         enhancedUI?.destroy();
         enhancedUI = start.experience === 'enhanced' ? setupEnhancedUI() : null;
 
-        // One host-owned raster per sequence, persisting across the per-event
-        // DgdsRuntime instances created below (faithful to the original's
-        // once-allocated buffer). Recreated each time a new sequence begins.
-        const sharedRaster = createSoftwareSurface();
+        // One host-owned raster per sequence (story day), persisting across
+        // the per-event DgdsRuntime instances created below (faithful to the
+        // original's once-allocated buffer). Recreated below whenever a
+        // sequence boundary is crossed, so each story day gets its own
+        // raster instead of sharing one across an entire title-to-title
+        // session.
+        let sharedRaster = createSoftwareSurface();
 
         let outcome;
         do {
@@ -237,6 +240,11 @@ export const runBrowserPresentation = async ({
                     phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
                     interlude: 'transition',
                 });
+                // The sequence just ended: the next do-while iteration (if
+                // any) starts a new, unrelated story day via
+                // story-controller's buildSequence(). Give it a fresh raster
+                // so no pixels from this sequence can leak into the next.
+                sharedRaster = createSoftwareSurface();
             }
             if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: 'script_override' };
             debugRuns?.endAttempt(attempt);
