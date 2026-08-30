@@ -113,8 +113,11 @@ describe('browser frame presenter', () => {
         expect(context.clearRect).not.toHaveBeenCalled();
         expect(context.putImageData).not.toHaveBeenCalled();
 
+        // The new runtime advances its first frame (layerRevision bump -> the
+        // composition signature changes) and now has visible pixels (bounds set).
+        // The interlude is released and the fresh foreground is uploaded.
         state.surface.bounds = { x: 1, y: 1, width: 1, height: 1 };
-        state.surface.revision = 1;
+        state.scenes[0].state.layerRevision = 1;
         presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: true });
         expect(context.clearRect).toHaveBeenCalledOnce();
         expect(context.putImageData).toHaveBeenCalledOnce();

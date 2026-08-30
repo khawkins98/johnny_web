@@ -8,18 +8,25 @@ import {
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
-    it('composeTtmFrame no longer clears or redraws layers (scenes draw into the shared raster)', () => {
+    it('clears the raster then replays each ACTIVE scene frame in z-order; finished scenes vanish', () => {
         const surface = createRecordingSurface();
+        const fill = (x) => ({ type: 'fill-rect', x, y: 10, width: 5, height: 5, color: 'white' });
         const state = {
             surface,
-            ttmEnvironments: new Map([[1, { assets: { saveBkg: [{ canDraw: true, surface: createRecordingSurface() }] } }]]),
-            scenes: [{ state: { surface: createRecordingSurface() } }],
+            scenes: [
+                // active scene draws at x=10; finished scene (skipped) would draw at x=50
+                { sceneIdx: 1, tagId: 2, runState: 'running', state: { surface, frameOps: [fill(10)] } },
+                { sceneIdx: 1, tagId: 3, runState: 'finished', state: { surface, frameOps: [fill(50)] } },
+            ],
         };
 
         composeTtmFrame(state);
 
-        // Trace-only seam: it must not touch the raster.
-        expect(surface.commands).toEqual([]);
+        // Immediate mode: whole-raster clear FIRST, then replay active scenes only.
+        expect(surface.commands[0].operation).toBe('clear');
+        expect(surface.commands.filter((command) => command.operation === 'fillRect')).toEqual([
+            { operation: 'fillRect', x: 10, y: 10, width: 5, height: 5, color: 'white' },
+        ]);
     });
 
     it('records a composition trace event only when tracing is active', () => {
@@ -35,20 +42,31 @@ describe('DGDS frame composition', () => {
         expect(events).toEqual([{ type: 'composition', payload: { tick: 7 } }]);
     });
 
-    it('getCompositionRevision tracks the shared raster revision', () => {
+    it('getCompositionRevision is a content signature that changes only when the composed frame changes', () => {
         const surface = createRecordingSurface();
-        const state = { surface };
-        const initial = getCompositionRevision(state);
+        const scene = { sceneIdx: 1, tagId: 2, runState: 'running', state: { layerRevision: 5 } };
+        const state = { surface, scenes: [scene], titleState: { sceneOffset: { x: 0, y: 0 } } };
 
+        const initial = getCompositionRevision(state);
+        // Stable across ticks when nothing changed (a held frame is not recomposed).
         expect(getCompositionRevision(state)).toBe(initial);
-        // Any mutator bumps the raster revision (Task 1 counter).
-        surface.fillRect(0, 0, 10, 10, 'white');
-        expect(getCompositionRevision(state)).not.toBe(initial);
-        expect(getCompositionRevision(state)).toBe(surface.revision);
+
+        // A new logical frame (layerRevision bump) changes the signature.
+        scene.state.layerRevision = 6;
+        const advanced = getCompositionRevision(state);
+        expect(advanced).not.toBe(initial);
+
+        // Shifting the island offset changes the signature.
+        state.titleState.sceneOffset = { x: 4, y: 0 };
+        expect(getCompositionRevision(state)).not.toBe(advanced);
+
+        // A finished scene drops out of the signature (so it will vanish next compose).
+        scene.runState = 'finished';
+        expect(getCompositionRevision(state)).toBe('@4,0'); // no active scenes, just the offset
     });
 
-    it('getCompositionRevision is 0 when there is no raster', () => {
-        expect(getCompositionRevision({})).toBe(0);
+    it('getCompositionRevision is a stable signature even with no scenes or raster', () => {
+        expect(getCompositionRevision({})).toBe('@0,0');
     });
 
     it('bakes only the named environment background onto the shared raster', () => {

@@ -125,36 +125,25 @@ describe('TTM drawing opcode surface contract', () => {
         ]);
     });
 
-    it('captures a GET region into the global registry and PUT restores that region only', () => {
+    it('SAVE_IMAGE_REGION records a slot->rect pointer without snapshotting; BEGIN starts a fresh frame', () => {
         const surface = createRecordingSurface();
         const state = withPresenter({ surface, save: [{ canDraw: false }], saveIndex: 0 });
         state.root = state;
 
-        // GET: SAVE_IMAGE_REGION snapshots the region into the global rect-keyed
-        // registry (via surface.snapshotRegion -> copyRegionTo) and records an
-        // index->rect pointer on the scene.
+        // GET: the shipped engine's RAM save-under is dormant -- erasure is the
+        // per-tick clear+replay -- so SAVE_IMAGE_REGION only records the slot->rect
+        // pointer and never snapshots the raster.
         opcode(0x4210)(state, 10, 20, 30, 40);
 
-        expect(surface.commands[0]).toMatchObject({
-            operation: 'copyRegionTo',
-            rect: { x: 10, y: 20, width: 30, height: 40 },
-        });
+        expect(surface.commands).toEqual([]);
         expect(state.savedRects[0]).toMatchObject({ x: 10, y: 20, width: 30, height: 40 });
-        expect(state.saveUnder).toHaveLength(1);
-        const snapshot = state.saveUnder[0].surface;
 
-        // PUT: BEGIN_SCENE_FRAME restores ONLY the saved region — no full clear —
-        // and consumes the registry entry (LIFO save-under).
+        // PUT/BEGIN_SCENE_FRAME: a frame boundary resets this scene's recorded frame;
+        // it does not restore or clear the raster.
         opcode(0xa600)(state, 0);
 
-        expect(surface.commands.slice(1)).toEqual([
-            {
-                operation: 'replaceRegionFrom',
-                source: snapshot,
-                rect: { x: 10, y: 20, width: 30, height: 40 },
-            },
-        ]);
-        expect(state.saveUnder).toEqual([]);
+        expect(surface.commands).toEqual([]);
+        expect(state.frameOps).toEqual([]);
     });
 
     it('leaves the raster untouched when GET/PUT has no saved region', () => {

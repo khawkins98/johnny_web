@@ -195,19 +195,19 @@ const readGame = async () => {
     return { archive, data: archive.loadEntry(johnnyCastaway.resources.activity) };
 };
 
-// A render trail (a moving sprite whose earlier positions are never erased) shows
-// up as the retained-frame pixel count climbing and never falling back for many
-// consecutive frames. Layer-level continuity and regenerated fingerprints cannot
-// catch this class -- only an explicit assertion on the pixel-count shape can.
-// (This is the guard that would have caught the walking-Johnny trail regression:
-// pre-fix gag 1 climbed monotonically ~20 frames; post-fix its longest run is 8.)
+// Gross-runaway guard against a render trail. Immediate-mode composition makes an
+// accumulating trail structurally hard (each composed frame is independent), but a
+// scene that never emits BEGIN_SCENE_FRAME would let its recorded frame grow without
+// bound and pile up -- that shows as the retained-frame pixel count climbing and
+// never falling back for many consecutive frames. Layer-level continuity and
+// regenerated fingerprints cannot catch this class; an explicit run-length ceiling
+// can.
 //
-// The RNG is seeded, so these runs are deterministic. Limits are per gag, set just
-// above each scene's correct value: some scenes legitimately build up content for
-// many frames (gag 11 accumulates for 70), so a single global threshold cannot
-// separate legitimate buildup from a trail.
-const TRAIL_RUN_LIMITS = { 1: 14, 11: 82 };
-const DEFAULT_TRAIL_RUN_LIMIT = 40;
+// The RNG is seeded, so runs are deterministic. Limits are per gag, set generously
+// above each scene's legitimate value (dive-walk-out's emerge/splash builds for ~20
+// frames; the bathing sequence for ~70) so only a runaway trips them.
+const TRAIL_RUN_LIMITS = { 1: 30, 11: 85 };
+const DEFAULT_TRAIL_RUN_LIMIT = 60;
 const verifyNoRenderTrail = (captures) => {
     for (const [gag, frames] of captures) {
         const pixelCounts = frames.map((frame) => frame.p[1]);

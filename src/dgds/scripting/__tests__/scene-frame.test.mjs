@@ -5,18 +5,14 @@ import { createTraceRecorder } from '../trace.mjs';
 import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
 describe('logical scene frames', () => {
-    it('restores the slot save-under region from the global registry (no full clear)', () => {
+    it('starts a fresh frame: resets the scene draw list + emits boundary/trace, never touches the raster', () => {
         const surface = createRecordingSurface();
-        const savedSurface = createRecordingSurface();
         const trace = createTraceRecorder();
-        const rect = { x: 10, y: 20, width: 30, height: 40 };
-        const key = `${rect.x}:${rect.y}:${rect.width}:${rect.height}`;
         const state = {
             surface,
-            // per-scene index→rect pointer + global rect-keyed registry live on root
-            savedRects: [rect],
-            saveUnder: [{ key, ...rect, surface: savedSurface }],
-            save: [{ canDraw: true, x: 10, y: 20, width: 30, height: 40, surface: savedSurface }],
+            savedRects: [{ x: 10, y: 20, width: 30, height: 40 }],
+            // A leftover recorded frame from the previous logical frame.
+            frameOps: [{ type: 'fill-rect', x: 0, y: 0, width: 1, height: 1 }],
             trace,
             sceneIdx: 5,
             tagId: 21,
@@ -27,16 +23,11 @@ describe('logical scene frames', () => {
 
         beginSceneFrame(state, 0);
 
-        // Persistent shared raster: restore only the saved region, never clear all.
-        expect(surface.commands).toEqual([
-            {
-                operation: 'replaceRegionFrom',
-                source: savedSurface,
-                rect: { x: 10, y: 20, width: 30, height: 40 },
-            },
-        ]);
-        // The restore consumes the registry entry (LIFO save-under).
-        expect(state.saveUnder).toEqual([]);
+        // Immediate mode: a frame boundary no longer clears or restores the raster --
+        // erasure is the per-tick clear+replay in composeTtmFrame.
+        expect(surface.commands).toEqual([]);
+        // It resets this scene's recorded frame so the new frame's draws replace the old.
+        expect(state.frameOps).toEqual([]);
         expect(trace.snapshot()[0]).toMatchObject({
             type: 'scene-frame-begin',
             sceneIdx: 5,
