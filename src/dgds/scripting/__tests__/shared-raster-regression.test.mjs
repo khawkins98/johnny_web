@@ -3,6 +3,8 @@ import { DgdsRuntime } from '../runtime.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
 import { getSceneState } from '../scene-factory.mjs';
 import { createSoftwareSurface } from '../surface.mjs';
+import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
+import { FrameOperationType } from '../frame-operation.mjs';
 import { PALETTE } from '../../palette.mjs';
 
 // These tests drive the REAL #runTtmController + presenter opcode chain
@@ -123,5 +125,53 @@ describe('shared raster regression coverage', () => {
         // untouched pixels elsewhere are still blank so the assertion above is
         // actually meaningful and not trivially true of every pixel.
         expect(pixelAt(runtime.state.surface, 300, 300)).toMatchObject({ a: 0 });
+    });
+});
+
+describe('clear-and-redraw scenes leave no trail on the shared raster', () => {
+    // Many original TTM scenes (e.g. Johnny walking) animate a MOVING sprite by
+    // emitting BEGIN_SCENE_FRAME + a fresh draw every frame WITHOUT per-frame
+    // save-under. The old per-scene-surface model erased the previous frame via
+    // an unconditional surface.clear() inside BEGIN_SCENE_FRAME. On the shared
+    // raster that clear was dropped; without it the moving sprite's earlier
+    // positions are never erased and pile up into a trail. BEGIN_SCENE_FRAME must
+    // instead clear the scene's OWN previous-frame footprint (revealing the
+    // separate background canvas) -- scoped to this scene, never the whole raster.
+    const begin = { type: FrameOperationType.BEGIN_SCENE_FRAME, restoreSlot: 0 };
+    const fillAt = (x) => ({ type: FrameOperationType.FILL_RECT, x, y: 100, width: 10, height: 10, color: 12 });
+    const alphaAt = (surface, x, y = 105) => surface.pixels[(y * surface.width + x) * 4 + 3];
+
+    it('erases the previous frame footprint when the next frame begins', () => {
+        const surface = createSoftwareSurface();
+        // Per-scene execution state as the presenter sees it; the registry lives
+        // on state.root, and this scene never saves, so restore is a no-op.
+        const state = { surface, root: { saveUnder: [] }, savedRects: [] };
+
+        presentSurfaceFrameOperation(state, begin); // frame 1: nothing drawn yet
+        presentSurfaceFrameOperation(state, fillAt(100));
+        expect(alphaAt(surface, 105)).not.toBe(0); // sprite present at x~105
+
+        presentSurfaceFrameOperation(state, begin); // frame 2: must erase frame 1's footprint
+        expect(alphaAt(surface, 105)).toBe(0); // previous position cleared -> background shows
+
+        presentSurfaceFrameOperation(state, fillAt(200)); // sprite moved right
+        expect(alphaAt(surface, 205)).not.toBe(0); // new position drawn
+        expect(alphaAt(surface, 105)).toBe(0); // NO trail left behind at the old position
+    });
+
+    it('does not accumulate pixels across many moving frames', () => {
+        const surface = createSoftwareSurface();
+        const state = { surface, root: { saveUnder: [] }, savedRects: [] };
+        for (let x = 0; x <= 300; x += 20) {
+            presentSurfaceFrameOperation(state, begin);
+            presentSurfaceFrameOperation(state, fillAt(x));
+        }
+        // After walking left-to-right, only the LAST frame's 10x10 footprint
+        // should be lit. A trail would light every stop along the way.
+        const litColumns = [];
+        for (let x = 0; x <= 320; x += 20) {
+            if (alphaAt(surface, x + 5) !== 0) litColumns.push(x);
+        }
+        expect(litColumns).toEqual([300]);
     });
 });

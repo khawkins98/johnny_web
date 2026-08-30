@@ -10,6 +10,25 @@ const setSavedRect = (saved, rect) => {
     saved.revision = (saved.revision || 0) + 1;
 };
 
+// Union of two axis-aligned rects (either may be null).
+const unionRect = (a, b) => {
+    if (!a) return b ? { ...b } : null;
+    if (!b) return { ...a };
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    const right = Math.max(a.x + a.width, b.x + b.width);
+    const bottom = Math.max(a.y + a.height, b.y + b.height);
+    return { x, y, width: right - x, height: bottom - y };
+};
+
+// Accumulate this scene's per-frame drawn footprint (already offset-shifted) so
+// the NEXT BEGIN_SCENE_FRAME can erase it. This reproduces the old per-scene
+// surface.clear() that erased a moving/clear-and-redraw sprite each frame, but
+// scoped to only this scene's own region on the shared raster.
+const noteFootprint = (state, rect) => {
+    if (rect && rect.width > 0 && rect.height > 0) state.frameFootprint = unionRect(state.frameFootprint, rect);
+};
+
 /** Apply a logical frame operation to the current retained surface model. */
 export const presentSurfaceFrameOperation = (state, operation) => {
     const offset = state.titleState?.sceneOffset || { x: 0, y: 0 };
@@ -22,9 +41,16 @@ export const presentSurfaceFrameOperation = (state, operation) => {
             break;
 
         case FrameOperationType.BEGIN_SCENE_FRAME: {
-            // Persistent shared raster: a new logical frame erases only the previous
-            // sprite by restoring its save-under REGION from the global registry,
-            // never the whole surface. Overwrite is the clear.
+            // A new logical frame. First erase this scene's OWN previous-frame
+            // footprint (to transparent, revealing the separate background canvas):
+            // this reproduces the retired per-scene surface.clear() that erased a
+            // moving/clear-and-redraw sprite each frame, but scoped to just this
+            // scene's region so it never touches the background or other scenes.
+            // Then restore any save-under region for scenes that use GET/PUT.
+            if (state.frameFootprint) {
+                state.surface.clear(state.frameFootprint);
+                state.frameFootprint = null;
+            }
             const rect = state.savedRects?.[operation.restoreSlot];
             if (rect) restoreSaveUnder(state.root ?? state, rect);
             break;
@@ -50,16 +76,34 @@ export const presentSurfaceFrameOperation = (state, operation) => {
             break;
         }
 
-        case FrameOperationType.DRAW_LINE:
-            state.surface.drawLine(x(operation.x1), y(operation.y1), x(operation.x2), y(operation.y2), operation.color);
+        case FrameOperationType.DRAW_LINE: {
+            const x1 = x(operation.x1);
+            const y1 = y(operation.y1);
+            const x2 = x(operation.x2);
+            const y2 = y(operation.y2);
+            state.surface.drawLine(x1, y1, x2, y2, operation.color);
+            noteFootprint(state, {
+                x: Math.min(x1, x2),
+                y: Math.min(y1, y2),
+                width: Math.abs(x2 - x1) + 1,
+                height: Math.abs(y2 - y1) + 1,
+            });
             break;
+        }
 
         case FrameOperationType.FILL_RECT:
             state.surface.fillRect(x(operation.x), y(operation.y), operation.width, operation.height, operation.color);
+            noteFootprint(state, { x: x(operation.x), y: y(operation.y), width: operation.width, height: operation.height });
             break;
 
         case FrameOperationType.FILL_CIRCLE:
             state.surface.fillCircle(x(operation.x), y(operation.y), operation.radius, operation.color);
+            noteFootprint(state, {
+                x: x(operation.x) - operation.radius,
+                y: y(operation.y) - operation.radius,
+                width: operation.radius * 2 + 1,
+                height: operation.radius * 2 + 1,
+            });
             break;
 
         case FrameOperationType.DRAW_SPRITE: {
@@ -69,6 +113,7 @@ export const presentSurfaceFrameOperation = (state, operation) => {
                 clip: operation.clip ? rect(operation.clip) : operation.clip,
                 flipX: operation.flipX,
             });
+            noteFootprint(state, { x: x(operation.x), y: y(operation.y), width: image.width, height: image.height });
             break;
         }
 
