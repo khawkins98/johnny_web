@@ -1,4 +1,5 @@
 import { FrameOperationType } from './frame-operation.mjs';
+import { registerSaveUnder, restoreSaveUnder } from './save-under.mjs';
 
 const setSavedRect = (saved, rect) => {
     saved.canDraw = true;
@@ -21,9 +22,11 @@ export const presentSurfaceFrameOperation = (state, operation) => {
             break;
 
         case FrameOperationType.BEGIN_SCENE_FRAME: {
-            state.surface.clear();
-            const saved = state.save[operation.restoreSlot];
-            if (saved?.canDraw) state.surface.replaceRegionFrom(saved.surface, saved);
+            // Persistent shared raster: a new logical frame erases only the previous
+            // sprite by restoring its save-under REGION from the global registry,
+            // never the whole surface. Overwrite is the clear.
+            const rect = state.savedRects?.[operation.restoreSlot];
+            if (rect) restoreSaveUnder(state.root ?? state, rect);
             break;
         }
 
@@ -37,11 +40,13 @@ export const presentSurfaceFrameOperation = (state, operation) => {
         }
 
         case FrameOperationType.SAVE_IMAGE_REGION: {
-            const saved = state.save[operation.slot];
-            if (!saved) break;
+            // Sprite save-under: snapshot the region into the ONE global rect-keyed
+            // registry (pixels live there, keyed by rect, never per-scene), and record
+            // an index→rect pointer on the scene so a later BEGIN_SCENE_FRAME can
+            // resolve which rect to restore for this saveIndex.
             const shifted = rect(operation.rect);
-            setSavedRect(saved, shifted);
-            state.surface.copyRegionTo(saved.surface, shifted);
+            registerSaveUnder(state.root ?? state, shifted);
+            (state.savedRects ||= [])[operation.slot] = shifted;
             break;
         }
 

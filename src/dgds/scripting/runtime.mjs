@@ -7,14 +7,16 @@
  * deterministic retained pixels preserve synchronous DGDS GET/PUT semantics.
  */
 import { PALETTE } from '../palette.mjs';
-import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
+import { canRunTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
+import { pruneEnvironmentBackground } from './composition.mjs';
+import { flushDeferredRestores } from './save-under.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
-import { sequenceKey } from './ttm-sequence-order.mjs';
+import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
 
 const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
@@ -211,6 +213,9 @@ export class DgdsRuntime {
         this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
+        // Land any age-0 deferred save-under restores onto the shared raster
+        // BEFORE this tick's scripts draw over them.
+        flushDeferredRestores(this.state);
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
@@ -289,7 +294,13 @@ export class DgdsRuntime {
 
     #runTtmController() {
         const rootState = this.state;
-        rootState.scenes.forEach((scene) => {
+        // Draw order == z-order. Tick scenes in the MUTABLE TTM paint order so
+        // MOVE_SEQUENCE_TO_BACK re-layers correctly: later-painted scenes draw
+        // over earlier ones on the shared raster.
+        const ordered = [...rootState.scenes].sort(
+            (a, b) => sequencePaintIndex(rootState, a) - sequencePaintIndex(rootState, b),
+        );
+        ordered.forEach((scene) => {
             if (!isTtmFinished(scene) && Number.isFinite(scene.timeLimitTicks)) {
                 scene.timeLimitTicks--;
                 if (scene.timeLimitTicks <= 0) {
@@ -302,7 +313,6 @@ export class DgdsRuntime {
             }
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
-            prepareTtmScene(scene);
             if (scene.state.waitTicks > 0) {
                 scene.runState = TtmRunState.WAITING;
                 scene.state.waitTicks--;
@@ -406,6 +416,9 @@ export class DgdsRuntime {
         state.removeScenes = [];
         state.scenesRandom = [];
         state.playedHistory.clear();
+        // Prune stored backgrounds on the OLD environment map before discarding it,
+        // so a persistent background does not survive the jump onto the raster.
+        for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
         state.ttmEnvironments = new Map();
         state.continue = true;
         state.reentry = 0;

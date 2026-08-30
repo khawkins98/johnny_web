@@ -125,50 +125,51 @@ describe('TTM drawing opcode surface contract', () => {
         ]);
     });
 
-    it('captures and overwrites GET/PUT regions through surfaces', () => {
+    it('captures a GET region into the global registry and PUT restores that region only', () => {
         const surface = createRecordingSurface();
-        const savedSurface = createRecordingSurface();
-        const save = { surface: savedSurface, canDraw: false, x: 0, y: 0, width: 0, height: 0 };
-        const state = withPresenter({ surface, save: [save], saveIndex: 0 });
+        const state = withPresenter({ surface, save: [{ canDraw: false }], saveIndex: 0 });
+        state.root = state;
 
+        // GET: SAVE_IMAGE_REGION snapshots the region into the global rect-keyed
+        // registry (via surface.snapshotRegion -> copyRegionTo) and records an
+        // index->rect pointer on the scene.
         opcode(0x4210)(state, 10, 20, 30, 40);
-        opcode(0xa600)(state, 0);
-        opcode(0xa060)(state, 1, 2, 3, 4);
 
         expect(surface.commands[0]).toMatchObject({
             operation: 'copyRegionTo',
-            target: savedSurface,
             rect: { x: 10, y: 20, width: 30, height: 40 },
         });
+        expect(state.savedRects[0]).toMatchObject({ x: 10, y: 20, width: 30, height: 40 });
+        expect(state.saveUnder).toHaveLength(1);
+        const snapshot = state.saveUnder[0].surface;
+
+        // PUT: BEGIN_SCENE_FRAME restores ONLY the saved region — no full clear —
+        // and consumes the registry entry (LIFO save-under).
+        opcode(0xa600)(state, 0);
+
         expect(surface.commands.slice(1)).toEqual([
             {
-                operation: 'clear',
-                rect: { x: 0, y: 0, width: 640, height: 480 },
-            },
-            {
                 operation: 'replaceRegionFrom',
-                source: savedSurface,
+                source: snapshot,
                 rect: { x: 10, y: 20, width: 30, height: 40 },
             },
         ]);
+        expect(state.saveUnder).toEqual([]);
     });
 
-    it('clears only the scene layer when GET/PUT has no saved region', () => {
+    it('leaves the raster untouched when GET/PUT has no saved region', () => {
         const surface = createRecordingSurface();
         const state = withPresenter({
             surface,
             save: [{ canDraw: false }],
             layerRevision: 0,
         });
+        state.root = state;
 
         opcode(0xa600)(state, 0);
 
-        expect(surface.commands).toEqual([
-            {
-                operation: 'clear',
-                rect: { x: 0, y: 0, width: 640, height: 480 },
-            },
-        ]);
+        // No saved rect for the slot: the persistent shared raster is not cleared.
+        expect(surface.commands).toEqual([]);
         expect(state.layerRevision).toBe(1);
     });
 });

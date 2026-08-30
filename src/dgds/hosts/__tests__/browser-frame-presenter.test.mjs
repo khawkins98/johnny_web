@@ -27,6 +27,9 @@ const createState = () => ({
         clear: vi.fn(),
         width: 2,
         height: 1,
+        // The shared raster's revision drives host uploads now (scenes draw into it
+        // directly; there is no per-tick recompose). Bump it to simulate a draw.
+        revision: 0,
         pixels: new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 0, 0]),
     },
     backgroundId: 0,
@@ -51,7 +54,8 @@ describe('browser frame presenter', () => {
 
         expect(context.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
         expect(mainContext.clearRect).toHaveBeenCalledWith(0, 0, 640, 480);
-        expect(state.surface.clear).toHaveBeenCalledOnce();
+        // composeTtmFrame is now trace-only; the presenter uploads the shared raster
+        // directly rather than recomposing it (so state.surface.clear is not called).
         expect(context.createImageData).toHaveBeenCalledWith(2, 1);
         expect(context.putImageData).toHaveBeenCalledWith(
             expect.objectContaining({ data: state.surface.pixels }),
@@ -110,7 +114,7 @@ describe('browser frame presenter', () => {
         expect(context.putImageData).not.toHaveBeenCalled();
 
         state.surface.bounds = { x: 1, y: 1, width: 1, height: 1 };
-        state.scenes[0].state.layerRevision = 1;
+        state.surface.revision = 1;
         presenter.present(state, { clearForeground: false, backgroundOnly: false, compose: true });
         expect(context.clearRect).toHaveBeenCalledOnce();
         expect(context.putImageData).toHaveBeenCalledOnce();
@@ -130,7 +134,8 @@ describe('browser frame presenter', () => {
         presenter.present(state, directive);
         presenter.present(state, directive);
 
-        expect(state.surface.clear).toHaveBeenCalledOnce();
+        // The raster revision did not change between ticks, so the foreground is
+        // uploaded once and reused on the second tick.
         expect(context.putImageData).toHaveBeenCalledOnce();
         expect(mainContext.clearRect).toHaveBeenCalledTimes(2);
     });

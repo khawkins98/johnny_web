@@ -1,129 +1,67 @@
 import { describe, expect, it } from 'vitest';
-import { composeTtmFrame, getCompositionRevision, bakeEnvironmentBackground, pruneEnvironmentBackground } from '../composition.mjs';
+import {
+    composeTtmFrame,
+    getCompositionRevision,
+    bakeEnvironmentBackground,
+    pruneEnvironmentBackground,
+} from '../composition.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
-    it('rebuilds the frame from stored areas and active scene layers in order', () => {
+    it('composeTtmFrame no longer clears or redraws layers (scenes draw into the shared raster)', () => {
         const surface = createRecordingSurface();
-        const storedSurface = createRecordingSurface();
-        const firstLayer = createRecordingSurface();
-        const secondLayer = createRecordingSurface();
-        const environment = {
-            assets: { saveBkg: [{ canDraw: true, surface: storedSurface }] },
-        };
         const state = {
             surface,
-            ttmEnvironments: new Map([[1, environment]]),
-            scenes: [{ state: { surface: firstLayer } }, { state: { surface: secondLayer } }],
+            ttmEnvironments: new Map([[1, { assets: { saveBkg: [{ canDraw: true, surface: createRecordingSurface() }] } }]]),
+            scenes: [{ state: { surface: createRecordingSurface() } }],
         };
 
         composeTtmFrame(state);
 
-        expect(surface.commands).toEqual([
-            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
-            { operation: 'drawSurface', source: storedSurface, rect: undefined },
-            { operation: 'drawSurface', source: firstLayer, rect: undefined },
-            { operation: 'drawSurface', source: secondLayer, rect: undefined },
-        ]);
+        // Trace-only seam: it must not touch the raster.
+        expect(surface.commands).toEqual([]);
     });
 
-    it('drops a stopped scene from the next composed frame', () => {
+    it('records a composition trace event only when tracing is active', () => {
+        const events = [];
+        const state = {
+            surface: createRecordingSurface(),
+            tick: 7,
+            trace: { active: true, record: (type, payload) => events.push({ type, payload }) },
+        };
+
+        composeTtmFrame(state);
+
+        expect(events).toEqual([{ type: 'composition', payload: { tick: 7 } }]);
+    });
+
+    it('getCompositionRevision tracks the shared raster revision', () => {
         const surface = createRecordingSurface();
-        const stoppedLayer = createRecordingSurface();
-        const state = {
-            surface,
-            ttmEnvironments: new Map(),
-            scenes: [{ state: { surface: stoppedLayer } }],
-        };
-
-        composeTtmFrame(state);
-        state.scenes = [];
-        composeTtmFrame(state);
-
-        expect(surface.commands.slice(-1)).toEqual([
-            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
-        ]);
-    });
-
-    it('paints TTM declaration order instead of ADS start order', () => {
-        const surface = createRecordingSurface();
-        const firstDeclaredLayer = createRecordingSurface();
-        const secondDeclaredLayer = createRecordingSurface();
-        const state = {
-            surface,
-            ttmEnvironments: new Map(),
-            ttmSequenceOrder: ['1:3', '1:21'],
-            scenes: [
-                {
-                    sequenceKey: '1:21',
-                    state: { surface: secondDeclaredLayer },
-                },
-                {
-                    sequenceKey: '1:3',
-                    state: { surface: firstDeclaredLayer },
-                },
-            ],
-        };
-
-        composeTtmFrame(state);
-
-        expect(surface.commands).toEqual([
-            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
-            { operation: 'drawSurface', source: firstDeclaredLayer, rect: undefined },
-            { operation: 'drawSurface', source: secondDeclaredLayer, rect: undefined },
-        ]);
-        expect(state.scenes[0].state.surface).toBe(secondDeclaredLayer);
-    });
-
-    it('changes retained-composition identity only when a layer changes', () => {
-        const state = {
-            ttmEnvironments: new Map(),
-            scenes: [
-                {
-                    sceneIdx: 5,
-                    tagId: 21,
-                    runState: 'running',
-                    state: { layerRevision: 3 },
-                },
-            ],
-        };
+        const state = { surface };
         const initial = getCompositionRevision(state);
 
         expect(getCompositionRevision(state)).toBe(initial);
-        state.scenes[0].state.layerRevision++;
+        // Any mutator bumps the raster revision (Task 1 counter).
+        surface.fillRect(0, 0, 10, 10, 'white');
         expect(getCompositionRevision(state)).not.toBe(initial);
+        expect(getCompositionRevision(state)).toBe(surface.revision);
     });
 
-    it('keeps a completed scene visible until its authored ADS handoff', () => {
-        const completedSurface = createRecordingSurface();
-        const state = {
-            surface: createRecordingSurface(),
-            ttmEnvironments: new Map(),
-            scenes: [
-                {
-                    runState: 'finished',
-                    state: { surface: completedSurface },
-                },
-            ],
-        };
-
-        composeTtmFrame(state);
-
-        expect(state.surface.commands.at(-1)).toEqual({
-            operation: 'drawSurface',
-            source: completedSurface,
-            rect: undefined,
-        });
+    it('getCompositionRevision is 0 when there is no raster', () => {
+        expect(getCompositionRevision({})).toBe(0);
     });
 
     it('bakes only the named environment background onto the shared raster', () => {
         const surface = createRecordingSurface();
         const stored = createRecordingSurface();
         const other = createRecordingSurface();
-        const state = { surface, ttmEnvironments: new Map([
-            [3, { assets: { saveBkg: [{ canDraw: true, surface: stored }] } }],
-            [4, { assets: { saveBkg: [{ canDraw: true, surface: other }] } }],
-        ])};
+        const state = {
+            surface,
+            ttmEnvironments: new Map([
+                [3, { assets: { saveBkg: [{ canDraw: true, surface: stored }] } }],
+                [4, { assets: { saveBkg: [{ canDraw: true, surface: other }] } }],
+            ]),
+        };
         bakeEnvironmentBackground(state, 3);
         expect(surface.commands).toEqual([{ operation: 'drawSurface', source: stored, rect: undefined }]);
     });

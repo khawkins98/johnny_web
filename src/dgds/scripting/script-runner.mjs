@@ -14,6 +14,7 @@ import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { loadScreen } from './background-resources.mjs';
+import { pruneEnvironmentBackground } from './composition.mjs';
 import { isTtmFinished, isTtmRunning, TtmRunMode } from './ttm-run-state.mjs';
 import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 
@@ -171,6 +172,13 @@ export const clearAdsSceneBatch = (state) => {
     emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;
+    }
+    // The raster was just cleared. Prune every environment's stored background so
+    // stale pixels never carry into an unrelated sequence; a scene that owns a
+    // persistent background re-emits STORE_AREA on its next frame, re-baking it
+    // onto the cleared raster.
+    for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
+        pruneEnvironmentBackground(state, sceneIdx);
     }
 };
 
