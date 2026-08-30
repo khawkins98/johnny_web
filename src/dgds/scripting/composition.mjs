@@ -60,3 +60,15 @@ export const getCompositionRevision = (state) =>
             .sort((left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right))
             .map((scene) => [scene.sceneIdx, scene.tagId, scene.state?.layerRevision || 0]),
     });
+
+/** Draws only the named environment's stored background onto the shared raster. */
+export const bakeEnvironmentBackground = (state, sceneIdx) => {
+    const stored = state.ttmEnvironments?.get?.(sceneIdx)?.assets?.saveBkg?.[0];
+    if (stored?.canDraw) state.surface.drawSurface(stored.surface);
+};
+
+/** Clears the environment background canDraw flag. */
+export const pruneEnvironmentBackground = (state, sceneIdx) => {
+    const stored = state.ttmEnvironments?.get?.(sceneIdx)?.assets?.saveBkg?.[0];
+    if (stored) stored.canDraw = false;
+};

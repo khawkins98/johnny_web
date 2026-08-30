@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeTtmFrame, getCompositionRevision } from '../composition.mjs';
+import { composeTtmFrame, getCompositionRevision, bakeEnvironmentBackground, pruneEnvironmentBackground } from '../composition.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
@@ -114,5 +114,24 @@ describe('DGDS frame composition', () => {
             source: completedSurface,
             rect: undefined,
         });
+    });
+
+    it('bakes only the named environment background onto the shared raster', () => {
+        const surface = createRecordingSurface();
+        const stored = createRecordingSurface();
+        const other = createRecordingSurface();
+        const state = { surface, ttmEnvironments: new Map([
+            [3, { assets: { saveBkg: [{ canDraw: true, surface: stored }] } }],
+            [4, { assets: { saveBkg: [{ canDraw: true, surface: other }] } }],
+        ])};
+        bakeEnvironmentBackground(state, 3);
+        expect(surface.commands).toEqual([{ operation: 'drawSurface', source: stored, rect: undefined }]);
+    });
+
+    it('prune clears the environment background canDraw flag', () => {
+        const stored = { canDraw: true, surface: createRecordingSurface() };
+        const state = { ttmEnvironments: new Map([[3, { assets: { saveBkg: [stored] } }]]) };
+        pruneEnvironmentBackground(state, 3);
+        expect(stored.canDraw).toBe(false);
     });
 });
