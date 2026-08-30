@@ -174,4 +174,39 @@ describe('clear-and-redraw scenes leave no trail on the shared raster', () => {
         }
         expect(litColumns).toEqual([300]);
     });
+
+    it('a scene footprint-clear is scoped to its own region, never another scene', () => {
+        const surface = createSoftwareSurface();
+        const root = { saveUnder: [] };
+        const sceneA = { surface, root, savedRects: [] }; // static, far left
+        const sceneB = { surface, root, savedRects: [] }; // moving, far right
+
+        // Tick 1: A@100 (static), B@500.
+        presentSurfaceFrameOperation(sceneA, begin);
+        presentSurfaceFrameOperation(sceneA, fillAt(100));
+        presentSurfaceFrameOperation(sceneB, begin);
+        presentSurfaceFrameOperation(sceneB, fillAt(500));
+
+        // Tick 2: A redraws @100; B begins (clears its OWN 500 footprint) then moves to 520.
+        presentSurfaceFrameOperation(sceneA, begin);
+        presentSurfaceFrameOperation(sceneA, fillAt(100));
+        presentSurfaceFrameOperation(sceneB, begin); // must clear only B's region (~500), not A's (~100)
+        expect(alphaAt(surface, 105)).not.toBe(0); // A untouched by B's clear
+        presentSurfaceFrameOperation(sceneB, fillAt(520));
+
+        expect(alphaAt(surface, 105)).not.toBe(0); // A still lit (non-overlapping region preserved)
+        expect(alphaAt(surface, 505)).toBe(0); // B's previous footprint erased
+        expect(alphaAt(surface, 525)).not.toBe(0); // B's new position drawn
+    });
+
+    // KNOWN LIMITATION (documented, not yet fixed): the original engine erases all
+    // dirty regions post-present (findings A.3) — every erase precedes all of the
+    // next tick's draws. This fix instead clears each scene's footprint mid-tick, in
+    // paint order, at its own BEGIN_SCENE_FRAME. So a later-painted scene can clear a
+    // region an earlier-painted scene just drew into this same tick, leaving a
+    // transient transparent sliver in the overlap until the earlier scene's next
+    // redraw. Mitigated because a moving sprite's new draw re-covers most of its old
+    // footprint; safe for current content. Fix would require a two-phase tick
+    // (all erases, then all draws) or a global post-present erase queue.
+    it.todo('overlapping active scenes: earlier scene survives a later scene BEGIN in the same tick');
 });
