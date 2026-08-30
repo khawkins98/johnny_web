@@ -381,6 +381,12 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             target.replaceRegionFrom(surface, rect);
         },
 
+        snapshotRegion(rect) {
+            const snapshot = createSoftwareSurface({ width, height });
+            surface.copyRegionTo(snapshot, rect);
+            return snapshot;
+        },
+
         get revision() {
             return revision;
         },
@@ -416,6 +422,11 @@ export const createRecordingSurface = () => {
             record('copyRegionTo', { target, rect });
             target.clear();
             target.drawSurface(surface, rect);
+        },
+        snapshotRegion(rect) {
+            const snapshot = createRecordingSurface();
+            surface.copyRegionTo(snapshot, rect);
+            return snapshot;
         },
         get revision() {
             return revision;

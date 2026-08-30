@@ -50,6 +50,15 @@ describe('software DGDS surface', () => {
         expect(pixel(destination, 2, 0)).toEqual([0, 0, 255, 255]);
     });
 
+    it('snapshotRegion captures a region into a same-sized surface at matching coordinates', () => {
+        const source = createSoftwareSurface({ width: 4, height: 2 });
+        source.fillRect(2, 0, 1, 1, { r: 0, g: 0, b: 255, a: 255 });
+
+        const snapshot = source.snapshotRegion({ x: 2, y: 0, width: 1, height: 1 });
+
+        expect(pixel(snapshot, 2, 0)).toEqual([0, 0, 255, 255]);
+    });
+
     it('composes transparent layers without erasing lower pixels', () => {
         const destination = createSoftwareSurface({ width: 3, height: 1 });
         const source = createSoftwareSurface({ width: 3, height: 1 });
