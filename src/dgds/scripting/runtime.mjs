@@ -136,7 +136,6 @@ export class DgdsRuntime {
             ...runtimeInitialState,
         };
 
-        this.state.save = Array.from({ length: 3 }, () => createStoredSurface(surfaceFactory));
         this.state.saveBkg = [createStoredSurface(surfaceFactory)];
         this.state.surface ||= surfaceFactory();
 

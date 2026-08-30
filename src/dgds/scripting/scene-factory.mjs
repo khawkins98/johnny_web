@@ -115,7 +115,6 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     bkgRaft: assets.bkgRaft || null,
     bkgOcean: assets.bkgOcean || [],
     saveBkg: assets.saveBkg,
-    save: assets.save,
 
     // Drawing and world values required by TTM opcodes/background composition
     slot: 0,
@@ -154,7 +153,6 @@ const createTtmEnvironmentAssets = (parent) => {
         bkgRes: null,
         bkgRaft: null,
         bkgOcean: [],
-        save: Array.from({ length: 3 }, () => createSaveSlot(parent.surfaceFactory)),
         saveBkg: [createSaveSlot(parent.surfaceFactory)],
         backgroundId: parent.backgroundId,
         foregroundColor: parent.foregroundColor,

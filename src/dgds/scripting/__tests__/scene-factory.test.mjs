@@ -87,7 +87,6 @@ describe('TTM runtime state boundary', () => {
             game: parent.game,
             res: shared.res,
             bkgOcean: shared.bkgOcean,
-            save: shared.save,
             saveBkg: shared.saveBkg,
         });
         // Every scene draws into the ONE shared raster and links back to its root.
@@ -132,11 +131,15 @@ describe('TTM runtime state boundary', () => {
         expect(b.state.surface).toBe(state.surface);
     });
 
-    it('sibling scenes of one environment share save slots (no per-scene clone)', () => {
+    it('sibling scenes of one environment share environment state, not per-scene clones', () => {
         const state = makeTtmParent();
         const a = getSceneState(state, 1, 3, 0, 100);
         const b = getSceneState(state, 1, 21, 0, 100);
-        expect(a.state.save).toBe(b.state.save);
+        // Sprite save-under now lives in the ONE global rect-keyed registry on the
+        // root; siblings reach it via the same root and share the environment's
+        // background-store slots. There are no per-scene sprite-save clones.
+        expect(a.state.root).toBe(b.state.root);
+        expect(a.state.saveBkg).toBe(b.state.saveBkg);
     });
 
     it('shares assets within one TTM resource but isolates different resources', () => {
@@ -189,11 +192,12 @@ describe('TTM runtime state boundary', () => {
         const concurrentSibling = getSceneState(parent, 1, 12, 3, 0);
         const timeLimitedSibling = getSceneState(parent, 1, 12, -180, 1);
 
-        // Siblings of one environment share resources AND save slots. Sprite
-        // save-under lives in the global rect-keyed registry, not per-scene slots.
+        // Siblings of one environment share resources AND the environment's
+        // background-store slots. Sprite save-under lives in the global rect-keyed
+        // registry (on the root), not per-scene slots.
         expect(sibling.state.res).toBe(first.state.res);
-        expect(sibling.state.save).toBe(first.state.save);
-        expect(concurrentSibling.state.save).toBe(first.state.save);
+        expect(sibling.state.saveBkg).toBe(first.state.saveBkg);
+        expect(concurrentSibling.state.saveBkg).toBe(first.state.saveBkg);
         // Both children draw into the one shared raster.
         expect(sibling.state.surface).toBe(parent.surface);
         expect(concurrentSibling.state.surface).toBe(parent.surface);
@@ -207,6 +211,6 @@ describe('TTM runtime state boundary', () => {
         // A different TTM resource gets an isolated environment.
         expect(otherResource.environment).not.toBe(first.environment);
         expect(otherResource.state.res).not.toBe(first.state.res);
-        expect(otherResource.state.save).not.toBe(first.state.save);
+        expect(otherResource.state.saveBkg).not.toBe(first.state.saveBkg);
     });
 });
