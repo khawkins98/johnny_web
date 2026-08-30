@@ -1,0 +1,68 @@
+name: No AI co-authors
+
+# Rejects commits that credit an AI agent as a co-author or carry AI-tool
+# attribution lines (e.g. "Co-authored-by: Claude ...", "Claude-Session:",
+# "Generated with Claude Code", robot emoji). Commit authorship on this repo
+# is human-attributed only.
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  check-commit-messages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject AI co-author / attribution lines
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          # Determine the range of commits introduced by this event.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE_SHA"
+            HEAD="$PR_HEAD_SHA"
+          else
+            HEAD="$PUSH_AFTER"
+            if [ -n "$PUSH_BEFORE" ] \
+               && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
+               && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+              BASE="$PUSH_BEFORE"
+            else
+              BASE="$(git merge-base origin/main "$HEAD" 2>/dev/null || true)"
+            fi
+          fi
+          RANGE="${BASE:+$BASE..}$HEAD"
+          echo "Checking commits in range: $RANGE"
+
+          # Co-authored-by lines naming an AI agent, plus standalone AI-tool markers.
+          FORBIDDEN='^[[:space:]]*Co-authored-by:.*(claude|anthropic|openai|gpt|copilot|cursor|devin|gemini|codeium|noreply@anthropic)|^[[:space:]]*Claude-Session:|Generated with .*(Claude|Copilot|Cursor|Codeium)|🤖'
+
+          fail=0
+          for commit in $(git rev-list "$RANGE"); do
+            msg="$(git log -1 --format=%B "$commit")"
+            if printf '%s\n' "$msg" | grep -qiE "$FORBIDDEN"; then
+              subject="$(git log -1 --format='%h %s' "$commit")"
+              echo "::error::Forbidden AI co-author / attribution line in commit $subject"
+              printf '%s\n' "$msg" | grep -inE "$FORBIDDEN" | sed 's/^/    /'
+              fail=1
+            fi
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Remove the AI co-author / attribution lines from the offending commit messages."
+            echo "  git rebase -i <base>   # reword, or"
+            echo "  git filter-branch --msg-filter \"sed -e '/^Co-authored-by: Claude/d' -e '/^Claude-Session: /d'\" <base>..HEAD"
+            exit 1
+          fi
+          echo "OK: no AI co-author or attribution lines found."
