@@ -195,6 +195,39 @@ const readGame = async () => {
     return { archive, data: archive.loadEntry(johnnyCastaway.resources.activity) };
 };
 
+// A render trail (a moving sprite whose earlier positions are never erased) shows
+// up as the retained-frame pixel count climbing and never falling back for many
+// consecutive frames. Layer-level continuity and regenerated fingerprints cannot
+// catch this class -- only an explicit assertion on the pixel-count shape can.
+// (This is the guard that would have caught the walking-Johnny trail regression:
+// pre-fix gag 1 climbed monotonically ~20 frames; post-fix its longest run is 8.)
+//
+// The RNG is seeded, so these runs are deterministic. Limits are per gag, set just
+// above each scene's correct value: some scenes legitimately build up content for
+// many frames (gag 11 accumulates for 70), so a single global threshold cannot
+// separate legitimate buildup from a trail.
+const TRAIL_RUN_LIMITS = { 1: 14, 11: 82 };
+const DEFAULT_TRAIL_RUN_LIMIT = 40;
+const verifyNoRenderTrail = (captures) => {
+    for (const [gag, frames] of captures) {
+        const pixelCounts = frames.map((frame) => frame.p[1]);
+        let run = 1;
+        let longestRun = 1;
+        for (let index = 1; index < pixelCounts.length; index++) {
+            run = pixelCounts[index] >= pixelCounts[index - 1] ? run + 1 : 1;
+            longestRun = Math.max(longestRun, run);
+        }
+        const limit = TRAIL_RUN_LIMITS[gag] ?? DEFAULT_TRAIL_RUN_LIMIT;
+        if (longestRun > limit) {
+            throw new Error(
+                `gag ${gag}: retained-frame pixel count is non-decreasing for ${longestRun} consecutive ` +
+                    `frames (limit ${limit}) -- a moving sprite is likely leaving a render trail`,
+            );
+        }
+        console.log(`gag ${gag}: longest non-decreasing pixel-count run ${longestRun} (limit ${limit})`);
+    }
+};
+
 const main = async () => {
     const game = await readGame();
     verifyCampfireContinuity(game);
@@ -203,6 +236,7 @@ const main = async () => {
     for (const gag of new Set(scenarioDefinitions.map((scenario) => scenario.gag))) {
         captures.set(gag, captureGag({ ...game, gag }));
     }
+    verifyNoRenderTrail(captures);
 
     const scenarios = Object.fromEntries(
         scenarioDefinitions.map((definition) => {
