@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    composeTtmFrame,
-    getCompositionRevision,
-    bakeEnvironmentBackground,
-    pruneEnvironmentBackground,
-} from '../composition.mjs';
+import { composeTtmFrame, getCompositionRevision, pruneEnvironmentBackground } from '../composition.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
@@ -69,19 +64,27 @@ describe('DGDS frame composition', () => {
         expect(getCompositionRevision({})).toBe('#@0,0');
     });
 
-    it('bakes only the named environment background onto the shared raster', () => {
+    it('composeTtmFrame draws live STORE_AREA plates under the actors, skips pruned ones', () => {
         const surface = createRecordingSurface();
         const stored = createRecordingSurface();
         const other = createRecordingSurface();
         const state = {
             surface,
+            scenes: [],
             ttmEnvironments: new Map([
                 [3, { assets: { saveBkg: [{ canDraw: true, surface: stored }] } }],
-                [4, { assets: { saveBkg: [{ canDraw: true, surface: other }] } }],
+                [4, { assets: { saveBkg: [{ canDraw: false, surface: other }] } }],
             ]),
         };
-        bakeEnvironmentBackground(state, 3);
-        expect(surface.commands).toEqual([{ operation: 'drawSurface', source: stored, rect: undefined }]);
+        // composeTtmFrame draws every live (canDraw) STORE_AREA plate under the actors
+        // so a stored region (e.g. a built sandcastle) persists after its scene ends;
+        // a pruned (canDraw:false) plate is skipped.
+        composeTtmFrame(state);
+        expect(surface.commands.some((c) => c.operation === 'clear')).toBe(true);
+        // Only the live (canDraw) plate is drawn; the pruned one is skipped.
+        expect(surface.commands.filter((c) => c.operation === 'drawSurface')).toEqual([
+            { operation: 'drawSurface', source: stored, rect: undefined },
+        ]);
     });
 
     it('prune clears the environment background canDraw flag', () => {

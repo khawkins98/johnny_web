@@ -62,14 +62,12 @@ export const presentSurfaceFrameOperation = (state, operation, replay = false) =
             break;
         }
 
-        case FrameOperationType.SAVE_IMAGE_REGION: {
-            // Sprite save-under (DGDS GET). In the shipped engine the RAM save-under
-            // path is dormant; erasure is handled by the per-tick redraw. We keep the
-            // slot→rect record for trace/compat but do not snapshot the raster.
-            const shifted = rect(operation.rect);
-            (state.savedRects ||= [])[operation.slot] = shifted;
+        case FrameOperationType.SAVE_IMAGE_REGION:
+            // Sprite save-under (DGDS GET) has no pixel effect: the shipped engine's
+            // RAM save-under is dormant and erasure is the per-tick clear+replay. The
+            // logical opcode is still emitted for conformance/trace, but the presenter
+            // does nothing with it.
             break;
-        }
 
         case FrameOperationType.DRAW_LINE:
             state.surface.drawLine(x(operation.x1), y(operation.y1), x(operation.x2), y(operation.y2), operation.color);

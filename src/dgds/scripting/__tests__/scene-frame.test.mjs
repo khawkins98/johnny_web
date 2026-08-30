@@ -10,7 +10,6 @@ describe('logical scene frames', () => {
         const trace = createTraceRecorder();
         const state = {
             surface,
-            savedRects: [{ x: 10, y: 20, width: 30, height: 40 }],
             // A leftover recorded frame from the previous logical frame.
             frameOps: [{ type: 'fill-rect', x: 0, y: 0, width: 1, height: 1 }],
             trace,

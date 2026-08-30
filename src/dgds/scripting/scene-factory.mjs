@@ -12,14 +12,13 @@
  *  FRESH per scene (from initialState):
  *    reentry, played, runs, continue, delay, timer, lastCommand, skip.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
- *    GET/PUT save[] slots are SHARED with the environment: sprite save-under pixels
- *    now live in the global rect-keyed registry (save-under.mjs), not per-scene slots,
- *    so siblings need no private clone.
+ *    There are no per-scene sprite save-under slots: the renderer is immediate-mode, so
+ *    a moving/stopped sprite is handled by the per-tick clear+replay, not by GET/PUT.
  *
  *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
  *    audioOperations, frameOperations, the frame presenter, resource provider, scenesRes,
  *    random, and the ONE shared presentation raster (state.surface). Every scene draws
- *    directly into it; there is no per-scene surface and no per-tick recompose.
+ *    into it; composeTtmFrame clears the raster and redraws every active scene each tick.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -87,10 +86,10 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     sceneIdx,
     tagId,
     gagId: parent.data?.scenes?.[parent.currentScene]?.tagId,
-    // Every scene draws directly into the ONE shared raster owned by the runtime
-    // root. There is no per-scene surface and no per-tick recompose; overwrite is
-    // the clear. `root` links back to the runtime state that owns the global
-    // save-under registry (state.saveUnder / state.pendingRestore).
+    // Every scene draws into the ONE shared raster owned by the runtime root.
+    // There is no per-scene surface; the renderer is immediate-mode (composeTtmFrame
+    // clears the raster and redraws every active scene's frame each tick). `root`
+    // links back to the owning runtime state.
     surface: parent.surface,
     root: parent,
     allScenes: parent.scenes,

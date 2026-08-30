@@ -50,15 +50,6 @@ describe('software DGDS surface', () => {
         expect(pixel(destination, 2, 0)).toEqual([0, 0, 255, 255]);
     });
 
-    it('snapshotRegion captures a region into a same-sized surface at matching coordinates', () => {
-        const source = createSoftwareSurface({ width: 4, height: 2 });
-        source.fillRect(2, 0, 1, 1, { r: 0, g: 0, b: 255, a: 255 });
-
-        const snapshot = source.snapshotRegion({ x: 2, y: 0, width: 1, height: 1 });
-
-        expect(pixel(snapshot, 2, 0)).toEqual([0, 0, 255, 255]);
-    });
-
     it('composes transparent layers without erasing lower pixels', () => {
         const destination = createSoftwareSurface({ width: 3, height: 1 });
         const source = createSoftwareSurface({ width: 3, height: 1 });
@@ -125,18 +116,16 @@ describe('TTM drawing opcode surface contract', () => {
         ]);
     });
 
-    it('SAVE_IMAGE_REGION records a slot->rect pointer without snapshotting; BEGIN starts a fresh frame', () => {
+    it('SAVE_IMAGE_REGION is a no-op on the raster; BEGIN starts a fresh frame', () => {
         const surface = createRecordingSurface();
         const state = withPresenter({ surface, save: [{ canDraw: false }], saveIndex: 0 });
         state.root = state;
 
         // GET: the shipped engine's RAM save-under is dormant -- erasure is the
-        // per-tick clear+replay -- so SAVE_IMAGE_REGION only records the slot->rect
-        // pointer and never snapshots the raster.
+        // per-tick clear+replay -- so SAVE_IMAGE_REGION has no pixel effect.
         opcode(0x4210)(state, 10, 20, 30, 40);
 
         expect(surface.commands).toEqual([]);
-        expect(state.savedRects[0]).toMatchObject({ x: 10, y: 20, width: 30, height: 40 });
 
         // PUT/BEGIN_SCENE_FRAME: a frame boundary resets this scene's recorded frame;
         // it does not restore or clear the raster.

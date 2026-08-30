@@ -180,11 +180,6 @@ export const clearAdsSceneBatch = (state) => {
     for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
         pruneEnvironmentBackground(state, sceneIdx);
     }
-    // The raster is gone: any full-canvas save-under snapshots and deferred
-    // restores pinned against it are now orphaned. Purge the registry so it
-    // cannot pin stale pixels beyond this boundary.
-    state.saveUnder = [];
-    state.pendingRestore = [];
 };
 
 // ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent

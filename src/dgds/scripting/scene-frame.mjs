@@ -13,24 +13,8 @@ export const beginSceneFrame = (state, restoreSlot) => {
         type: FrameOperationType.BEGIN_SCENE_FRAME,
         restoreSlot,
     });
-
-    // SAVE_IMAGE_REGION no longer populates state.save[restoreSlot].canDraw; the
-    // restore bookkeeping lives in the global save-under registry instead, so
-    // derive the trace from state.savedRects, which surface-frame-presenter.mjs
-    // keeps in sync with what was actually restored onto this slot.
-    const savedRect = state.savedRects?.[restoreSlot];
-    if (savedRect) {
-        traceEvent(state, 'scene-frame-begin', {
-            restoreSlot,
-            restored: true,
-            rect: savedRect,
-            revision: state.layerRevision,
-        });
-    } else {
-        traceEvent(state, 'scene-frame-begin', {
-            restoreSlot,
-            restored: false,
-            revision: state.layerRevision,
-        });
-    }
+    // Immediate mode: a frame boundary only starts a new logical frame (the presenter
+    // resets this scene's recorded draws); it neither clears nor restores the raster,
+    // so there is no "restored region" to report.
+    traceEvent(state, 'scene-frame-begin', { restoreSlot, revision: state.layerRevision });
 };

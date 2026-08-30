@@ -13,7 +13,6 @@ import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
-import { flushDeferredRestores } from './save-under.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
@@ -212,9 +211,6 @@ export class DgdsRuntime {
         this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
-        // Land any age-0 deferred save-under restores onto the shared raster
-        // BEFORE this tick's scripts draw over them.
-        flushDeferredRestores(this.state);
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
@@ -430,10 +426,6 @@ export class DgdsRuntime {
         state.fadeOpacity = 0;
         state.surface?.clear();
         if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
-        // The raster was just cleared: purge orphaned save-under snapshots and
-        // deferred restores pinned against the old surface.
-        state.saveUnder = [];
-        state.pendingRestore = [];
         debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         return true;
     }
