@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
     decodeJohnnyWalkData,
     johnnyPoseFrame,
+    occludedByTrunk,
     pickWalkSegment,
     planJohnnyWalkFrames,
     runJohnnyPose,
@@ -264,5 +265,18 @@ describe('Johnny host walking', () => {
         expect(context.clearRect).not.toHaveBeenCalled();
         expect(context.drawImage).not.toHaveBeenCalled();
         expect(record).toHaveBeenCalledWith('pose-frame', expect.objectContaining({ visible: false }));
+    });
+
+    // Palm-trunk occlusion is position/depth-based (the original's generic per-frame
+    // re-blit), not a D-to-E spot hardcode, so it covers any route past the tree.
+    it('occludes a sprite overlapping the trunk with feet above the base', () => {
+        // trunk AABB is island-relative x[443,465) y[148,293); base at y=293.
+        expect(occludedByTrunk(450, 200, 20, 40)).toBe(true); // over the trunk, feet at 240
+    });
+    it('does not occlude a sprite clear of the trunk box', () => {
+        expect(occludedByTrunk(100, 200, 20, 40)).toBe(false); // left of the trunk entirely
+    });
+    it('does not occlude a sprite whose feet are below the trunk base (in front, closer)', () => {
+        expect(occludedByTrunk(450, 260, 20, 40)).toBe(false); // feet at 300 >= 293
     });
 });
