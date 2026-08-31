@@ -612,7 +612,12 @@ const applySceneChanges = (state) => {
             removed = true;
         }
         if (!removed) {
-            console.error(`FAILED TO REMOVE SCENE ${s.sceneIdx}:${s.tagId}! Not found in state.scenes!`);
+            // Stopping a scene that is already inactive is a legitimate ADS pattern: a
+            // sibling branch already stopped it, or it was never added this cycle. The
+            // original engine removes by content-addressed display-list node, so an
+            // absent node is a silent no-op -- not an error. Keep it as a gated
+            // diagnostic for scene-lifecycle debugging rather than console noise.
+            verboseLog(`STOP_SCENE ${s.sceneIdx}:${s.tagId}: already inactive (no-op)`);
         }
     });
     state.removeScenes = [];
