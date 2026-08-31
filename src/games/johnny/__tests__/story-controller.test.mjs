@@ -11,8 +11,8 @@ const memoryStorage = (initial = {}) => {
 };
 
 describe('Johnny host story controller', () => {
-    it('carries the executable-owned 63-scene catalogue', () => {
-        expect(JOHNNY_SCENES).toHaveLength(63);
+    it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
+        expect(JOHNNY_SCENES).toHaveLength(79);
         expect(new Set(JOHNNY_SCENES.map(({ script }) => script))).toEqual(
             new Set([
                 'ACTIVITY.ADS',
@@ -25,6 +25,8 @@ describe('Johnny host story controller', () => {
                 'SUZY.ADS',
                 'VISITOR.ADS',
                 'WALKSTUF.ADS',
+                // Pure-pose "stand at spot" fillers (binary adsId 0xFF).
+                'POSE',
             ]),
         );
     });
@@ -72,7 +74,11 @@ describe('Johnny host story controller', () => {
         const firstSequence = [];
         do firstSequence.push(controller.next());
         while (!firstSequence.at(-1).sequenceEnd);
-        expect(firstSequence).toHaveLength(7);
+        // Length is the 300-unit spatial walk-span budget (intermediates fill until the
+        // budget/slot cap), not the old fixed 6 + rand(14). Deterministic under the seeded
+        // rng: the faithful ending selection (10%-gated keyframe else weight-roulette)
+        // picks the finale, whose width is spent first, then intermediates fill the budget.
+        expect(firstSequence).toHaveLength(12);
         expect(firstSequence.slice(0, -1).every(({ sequenceEnd }) => !sequenceEnd)).toBe(true);
         expect(firstSequence.at(-1).transition).toBe(0);
 
@@ -86,16 +92,102 @@ describe('Johnny host story controller', () => {
         expect(transitions).toEqual([0, 1, 2, 3, 4, 0]);
     });
 
-    it('advances the persistent 11-day story only when the calendar day changes', () => {
-        const storage = memoryStorage({ 'jc-story-date': '201', 'jc-story-day': '11' });
+    it('final selection is weighted with last-two anti-repeat, not a uniform pick (#2)', () => {
+        let seed = 0x1234;
+        const rng = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
+        const controller = createJohnnyStoryController({
+            random: rng,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12), // fixed date -> constant story day
+        });
+        const finals = [];
+        controller.subscribeStatus((status) => {
+            if (!status?.final) return;
+            const key = `${status.final.script}#${status.final.tagId}`;
+            if (finals.at(-1) !== key) finals.push(key);
+        });
+        for (let i = 0; i < 80; i++) controller.next();
+        // Endings vary (not one finale replayed forever) and no ending repeats within a
+        // window of three (the binary's last-two anti-repeat).
+        expect(new Set(finals).size).toBeGreaterThan(3);
+        for (let i = 2; i < finals.length; i++) {
+            expect(finals[i]).not.toBe(finals[i - 1]);
+            expect(finals[i]).not.toBe(finals[i - 2]);
+        }
+    });
+
+    it('advances the story via the dual counter: the calendar day chases the unlocked target one step per real day', () => {
+        // Recovered from FUN_1018_0ba5: `cur` (jc-story-day) chases `target`
+        // (jc-story-target) by one step whenever the real calendar date changes, and
+        // never advances past the target or without a date change.
+        // Date key is full y/m/d (year included, so a run one calendar year later still
+        // registers as a change). Seed the previous calendar day.
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-20', 'jc-story-day': '3', 'jc-story-target': '6' });
         const controller = createJohnnyStoryController({
             random: () => 0,
             storage,
-            now: () => new Date(2026, 6, 21, 12), // day 202: wraps 11 -> 1
+            now: () => new Date(2026, 6, 21, 12), // a new calendar day
         });
         controller.next();
-        expect(storage.values.get('jc-story-day')).toBe('1');
-        expect(storage.values.get('jc-story-date')).toBe('202');
+        expect(storage.values.get('jc-story-day')).toBe('4'); // chased target by one
+        expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
+    });
+
+    it('does not advance the story day when the calendar date is unchanged', () => {
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-21', 'jc-story-day': '3', 'jc-story-target': '6' });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage,
+            now: () => new Date(2026, 6, 21, 12), // same calendar day as the stored key
+        });
+        controller.next();
+        expect(storage.values.get('jc-story-day')).toBe('3');
+    });
+
+    it('wraps the story back to day 1 after the day-11 finale (target unlocked to 12)', () => {
+        // Binary unlock is uncapped: once target reaches 12, the next calendar tick drives
+        // cur to 12 and the cur>11 branch resets the whole story to day 1. The old
+        // `target < 11` cap made this wrap unreachable, pinning the story on day 11.
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-20', 'jc-story-day': '11', 'jc-story-target': '12' });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage,
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        controller.next();
+        // The calendar wrap (cur 11 -> 12 -> reset 1) is deterministic in updateStoryDay,
+        // independent of which finale the sequence then selects.
+        expect(storage.values.get('jc-story-day')).toBe('1'); // chased to 12, then wrapped
+    });
+
+    it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {
+        const clock = () => new Date(2026, 6, 21, 15, 0);
+        const lowTideFor = (rng) => {
+            const storage = memoryStorage({ 'jc-start-time': '721' });
+            const controller = createJohnnyStoryController({ random: rng, storage, now: clock });
+            controller.next();
+            return controller.status().lowTide;
+        };
+        // Same clock + StartTime -> same tide regardless of the rng stream.
+        expect(lowTideFor(() => 0)).toBe(lowTideFor(() => 0.999));
+        // StartTime (month*100 + day) is captured and persisted on first run.
+        const storage = memoryStorage();
+        createJohnnyStoryController({ random: () => 0, storage, now: clock }).next();
+        expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+    });
+
+    it('sizes a sequence by the 300-unit walk-span budget (bounded, not a fixed count)', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        const sequence = [];
+        do sequence.push(controller.next());
+        while (!sequence.at(-1).sequenceEnd);
+        expect(sequence.length).toBeGreaterThan(1);
+        expect(sequence.length).toBeLessThan(298); // the binary's slot cap
+        expect(sequence.at(-1).sequenceEnd).toBe(true);
     });
 
     it('carries island directives and walk endpoints outside DGDS', () => {
@@ -136,6 +228,8 @@ describe('Johnny host story controller', () => {
 
     it.each([0, 0.999999])('anchors and terminates every catalogue entry at random boundary %f', (randomValue) => {
         for (const anchor of JOHNNY_SCENES) {
+            // POSE fillers have no ADS and are not independently anchorable (Chunk 2).
+            if (anchor.flags & SceneFlags.POSE) continue;
             const controller = createJohnnyStoryController({
                 random: () => randomValue,
                 storage: memoryStorage(),
@@ -159,10 +253,19 @@ describe('Johnny host story controller', () => {
                     (scene) => scene.script === selection.script && scene.tagId === selection.tagId,
                 );
                 if (selection.titleState.lowTide) {
-                    expect(metadata.flags & SceneFlags.LOWTIDE_OK, `${selection.script}#${selection.tagId} at low tide`).toBeTruthy();
+                    // Tide is now a [tideMin, tideMax) window; a scene shown at low tide
+                    // must be eligible for a low phase (tideMin below the 12-phase mark).
+                    expect(metadata.tideMin, `${selection.script}#${selection.tagId} at low tide`).toBeLessThan(12);
                 }
                 if (selection.titleState.x || selection.titleState.y) {
-                    expect(metadata.flags & SceneFlags.VARPOS_OK, `${selection.script}#${selection.tagId} at variable position`).toBeTruthy();
+                    // The island origin randomizes per ISLAND chain (binary: it is
+                    // randomized unconditionally for an island chain; VARPOS only gates
+                    // waves, not position). So a variable position implies an island
+                    // chain, NOT a per-scene VARPOS_OK flag.
+                    expect(
+                        selection.titleState.island,
+                        `${selection.script}#${selection.tagId} at variable position must be an island chain`,
+                    ).toBeTruthy();
                 }
             }
 
@@ -173,5 +276,65 @@ describe('Johnny host story controller', () => {
                 active: { script: selections.at(-1).script, tagId: selections.at(-1).tagId },
             });
         }
+    });
+
+    it('a pose scene selection carries its spot/heading and no ADS script to play', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date('2024-06-15T12:00:00Z'),
+        });
+        // First pose record is A (spot 0) facing NW (heading 3).
+        const selection = controller.preview('POSE', 1);
+        expect(selection.script).toBe('POSE');
+        expect(selection.pose).toEqual({ spot: 0, heading: 3 });
+    });
+
+    it('does not exclude poses from the intermediate pool (only FINAL is masked)', () => {
+        // Poses are ADS-less "stand" fillers and must be selectable as intermediates.
+        const poseCount = JOHNNY_SCENES.filter((s) => (s.flags & SceneFlags.POSE) !== 0).length;
+        expect(poseCount).toBe(14);
+        // None of the 14 poses is flagged FINAL (which is the only intermediate mask).
+        expect(
+            JOHNNY_SCENES.filter(
+                (s) => (s.flags & SceneFlags.POSE) !== 0 && (s.flags & SceneFlags.FINAL) !== 0,
+            ),
+        ).toEqual([]);
+    });
+});
+
+describe('faithful island positioning (phase7)', () => {
+    const clock = () => new Date(2026, 6, 21, 12);
+    const drive = (script, tag) => {
+        const c = createJohnnyStoryController({ random: () => 0, storage: memoryStorage(), now: clock });
+        c.planFrom(script, tag, { storyDay: 1 });
+        const out = [];
+        do out.push(c.next());
+        while (!out.at(-1).sequenceEnd && out.length < 30);
+        return out;
+    };
+
+    it('randomizes the island origin for a non-VARPOS island chain and never pins the fabricated -272', () => {
+        // FISHING#4 is FINAL|ISLAND|LEFT_ISLAND with NO VARPOS_OK -- the exact scene the
+        // old code pinned to a whole-island x=-272 (the visible teleport). The binary
+        // randomizes the origin for every island chain regardless of VARPOS.
+        const selections = drive('FISHING.ADS', 4);
+        const finalSel = selections.at(-1);
+        expect(finalSel.tagId).toBe(4);
+        // titleState.x is the raw island world origin. random()=0 -> the third position
+        // branch -> -114 (in the [-222,-113] random band). The old code pinned this
+        // LEFT_ISLAND-without-VARPOS chain to the fabricated whole-island x=-272.
+        expect(finalSel.titleState.x).toBe(-114);
+        expect(finalSel.titleState.x).toBeGreaterThanOrEqual(-222);
+        expect(finalSel.titleState.x).toBeLessThanOrEqual(-113);
+        // No scene in the chain sits at the fabricated whole-island -272.
+        for (const s of selections) expect(s.titleState.x).not.toBe(-272);
+    });
+
+    it('VARPOS gates waves, not position', () => {
+        // ACTIVITY#1 is FINAL|ISLAND|VARPOS_OK -> waves OFF for the chain.
+        expect(drive('ACTIVITY.ADS', 1).at(-1).titleState.waves).toBe(false);
+        // FISHING#4 is ISLAND without VARPOS -> waves ON.
+        expect(drive('FISHING.ADS', 4).at(-1).titleState.waves).toBe(true);
     });
 });
