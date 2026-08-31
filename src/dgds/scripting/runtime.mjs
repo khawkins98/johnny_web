@@ -16,7 +16,6 @@ import { pruneEnvironmentBackground } from './composition.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
-import { WM_TIMER_MS } from './timing.mjs';
 
 const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
@@ -214,15 +213,17 @@ export class DgdsRuntime {
         this.state.frameDelta = frameDelta;
         // Two-clock timing (faithful to the original): the fine tick above counts
         // down delays/time-limits every call, but animation frames only ADVANCE on
-        // the 50 ms WM_TIMER present. Accumulate elapsed time; a tick is a present
-        // when >= the present period, landing ~every 2.5 ticks (averaging 50 ms).
-        // Start primed so the very first frame shows immediately. The period is
-        // injectable (state.wmTimerMs) so logical unit tests can run per fine tick.
-        const presentPeriodMs = this.state.wmTimerMs ?? WM_TIMER_MS;
-        if (this.state.presentAccumulatorMs === undefined) this.state.presentAccumulatorMs = presentPeriodMs;
-        this.state.presentAccumulatorMs += frameDelta;
-        this.state.isPresentTick = this.state.presentAccumulatorMs >= presentPeriodMs;
-        if (this.state.isPresentTick) this.state.presentAccumulatorMs -= presentPeriodMs;
+        // the 50 ms WM_TIMER present (the #runTtmController gate). The HOST clock
+        // recovery of that ~50 ms cadence lives in the injected timing hook; the
+        // canonical runtime only consumes the result. state.wmTimerMs overrides the
+        // period (logical unit tests run per fine tick).
+        const cadence = this.state.timingCompatibility.advancePresentCadence(
+            this.state.presentAccumulatorMs,
+            frameDelta,
+            this.state.wmTimerMs,
+        );
+        this.state.presentAccumulatorMs = cadence.accumulatorMs;
+        this.state.isPresentTick = cadence.isPresent;
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
