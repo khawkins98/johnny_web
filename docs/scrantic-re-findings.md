@@ -141,6 +141,27 @@ the boot" behavior. **First-class scheduling — must be preserved.**
 
 ---
 
+## Empty frames are background-reveals, not blanks to fix (verified)
+
+A TTM frame that does `BEGIN_SCENE_FRAME` and reaches the next boundary with **no draw
+op** is an *empty frame*. The original does **not** persist the previous sprite through
+it: the frame registers no dirty node (the age-triple registrar `FUN_1050_0a85` runs
+only on the `0xAxxx` draw-op tail) and `BEGIN_SCENE_FRAME` clears nothing (§A/P1.4). The
+previous real frame's own unconditional age-0 `eb0→eb2` erase already restored the island
+background under its rect, and its age-1 present repaints that background on the empty
+tick. So the actor's rect **ages out to the island background within ~1 tick and stays
+background** — for a one-off empty frame and for a *held* empty frame alike (re-running an
+empty frame still emits no draw). True persistence exists only for `COPY_ZONE_TO_BG`
+(0x4204) writes into the `eb0` plate, never for a normal `0xA5xx` sprite.
+
+Consequence for the port: the immediate-mode renderer already reproduces this — an empty
+frame clears the foreground and the separate island-background canvas shows through. The
+handful of single-frame "blanks" a full-gag sweep finds at empty frames (e.g. gag 1's
+gull pausing) are **faithful background-reveals, not bugs**; do not "fix" them by
+retaining the prior frame (that would wrongly keep an actor the original retires).
+
+---
+
 ## Implications for the refactor
 
 The findings split the work into two independent tracks:
