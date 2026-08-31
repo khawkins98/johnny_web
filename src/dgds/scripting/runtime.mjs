@@ -398,17 +398,20 @@ export class DgdsRuntime {
             }
         });
 
-        // Age finished scenes for composeTtmFrame. A scene is stamped finishedAge 0
-        // the tick it finishes (drawn once more so its final frame is still visible
-        // while its successor first paints), then 1+ on each later compose tick (then
-        // dropped). This runs every compose tick, so a finished scene that is never
-        // explicitly stopped still ages out within one tick and can never freeze on
-        // the raster. A revived (retried) scene has its age cleared.
+        // Age finished scenes for composeTtmFrame. `agedOut` is a three-state flag:
+        // `undefined` while running; `false` on the FIRST tick a scene is finished
+        // (composeTtmFrame draws its final frame once more, so it stays visible while
+        // its successor first paints); `true` on every later tick (dropped). Runs
+        // every compose tick, so a finished scene that is never explicitly stopped
+        // still ages out after one tick and can never freeze on the raster. A revived
+        // (retried) scene is reset to `undefined`.
         for (const scene of rootState.scenes) {
-            if (isTtmFinished(scene)) {
-                scene.finishedAge = (scene.finishedAge ?? -1) + 1;
-            } else if (scene.finishedAge !== undefined) {
-                scene.finishedAge = undefined;
+            if (!isTtmFinished(scene)) {
+                scene.agedOut = undefined;
+            } else if (scene.agedOut === undefined) {
+                scene.agedOut = false;
+            } else {
+                scene.agedOut = true;
             }
         }
     }
