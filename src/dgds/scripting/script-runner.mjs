@@ -862,6 +862,23 @@ export const indexAdsChunks = (script) => {
  * semantics the caller relies on. The caller (the finish-dispatch loop in
  * runtime.mjs) commits once, after firing every matching chunk for the tick,
  * by calling the exported `applySceneChanges` itself.
+ *
+ * ISOLATION CAVEATS (authored chunk bodies should not hit these today, but
+ * they are not structurally prevented):
+ *  - IF_NOT_RUNNING inside a chunk body calls `applySceneChanges` itself
+ *    (to un-stage a pending add/remove before checking), which mutates
+ *    `state.scenes` mid-iteration of the finish-dispatch loop's `for..of`
+ *    in runtime.mjs. A chunk body that also relies on the dispatch loop's
+ *    own later iterations seeing the pre-mutation `state.scenes` could
+ *    observe an inconsistent view.
+ *  - `handleIfCondition` (used for a nested AND/OR inside a chunk body)
+ *    reads the RAW `state.data.scenes[state.currentScene].script` indexed
+ *    by `state.reentryNow`, but `state.reentryNow` here is an index into
+ *    the EXPANDED `#adsScripts[idx]` (post `0xf200` inlining) passed in as
+ *    `script`. If inlining ever shifts indices between the raw and
+ *    expanded scripts, a nested conditional inside a chunk body could jump
+ *    to the wrong offset. Low likelihood in practice -- it requires a
+ *    chunk body with its own nested IF/AND/OR -- but not guarded against.
  */
 export const runAdsChunkBody = (state, script, bodyStart) => {
     const savedReentry = state.reentry;

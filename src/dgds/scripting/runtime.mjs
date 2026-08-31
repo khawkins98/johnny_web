@@ -291,6 +291,15 @@ export class DgdsRuntime {
         const script = this.#adsScripts[idx];
         if (!chunkIndex || !script) return;
 
+        // This dispatch runs before `state.activeAdsScript` is (re)assigned for
+        // the tick's linear step (below, in #runAdsController), so a chunk-body
+        // ADD_SCENE's rearm check (isSelfRearmingSequence) would otherwise read
+        // a stale/cold value. Point it at the script we just resolved -- the
+        // same one `idx`/`chunkIndex` above were built against -- for the
+        // duration of the dispatch, then restore.
+        const savedActiveAdsScript = state.activeAdsScript;
+        state.activeAdsScript = script;
+
         let dispatched = false;
         for (const scene of state.scenes) {
             if (!isTtmFinished(scene) || scene.adsChunkFired) continue;
@@ -304,6 +313,7 @@ export class DgdsRuntime {
                 dispatched = true;
             }
         }
+        state.activeAdsScript = savedActiveAdsScript;
         // Commit once, after every matching chunk for this tick has staged its
         // changes -- see the "Deliberately does NOT invoke..." note on
         // runAdsChunkBody for why the mini-executor itself does not commit.
