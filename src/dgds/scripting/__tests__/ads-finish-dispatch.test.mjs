@@ -184,6 +184,34 @@ describe('ADS finish-dispatch (Task 4): softened IF_PLAYED after dispatch', () =
         expect(state.jumpTo).toBeUndefined();
     });
 
+    // SHOULD-FIX 3 regression: a NON-terminal IF_PLAYED (one followed by an
+    // AND/OR, or already inside an OR chain) must NOT be softened by
+    // dispatchedAdsKeys -- softening it would flow the AND/OR chain forward
+    // (e.g. an OR chain advancing to its next term) instead of BLOCKING like
+    // the un-dispatched original, changing the combined trigger's semantics.
+    // Only a TERMINAL IF_PLAYED (no AND/OR following) may be softened.
+    it('still blocks (does not flow into the OR term) when the dispatched key belongs to a non-terminal IF_PLAYED in an OR chain', () => {
+        const orScript = [
+            { opcode: 0x1350, params: [3, 141] }, // 0: IF_PLAYED 3:141
+            { opcode: 0x1430, params: [] }, // 1: OR
+            { opcode: 0x1370, params: [3, 999] }, // 2: IF_RUNNING 3:999
+            { opcode: 0x2005, params: [] }, // 3: body
+            { opcode: 0xfff0, params: [] }, // 4: END_IF
+            { opcode: 0x1510, params: [] }, // 5
+        ];
+        const state = makeState(
+            [{ sceneIdx: 3, tagId: 141, runState: 'running', state: { played: false, timer: 0 } }],
+            new Set(['3:141']),
+            orScript,
+        );
+        entry.callback(state, 3, 141);
+        // Terminal-only softening: nextOpcode here is OR, so the dispatched
+        // key must NOT soften this term -- it falls through to the original
+        // BLOCKING behavior (park, do not advance into the OR's next term).
+        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBeUndefined();
+    });
+
     it('integration: a self-rearming ambient successor no longer permanently blocks the ADS from reaching its own end', () => {
         // IF_PLAYED 3:82 { ADD 3:83 }           -- ordinary barrier, resolved on tick 2
         // IF_PLAYED 3:141 { STOP 3:141; ADD 3:141 (rearm) }  -- self-rearming ambient loop

@@ -513,7 +513,12 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
             state.removeScenes.push({ sceneIdx, tagId });
             state.continue = true;
             handleIfCondition(state, true);
-        } else if (state.dispatchedAdsKeys?.has(`${sceneIdx}:${tagId}`)) {
+        } else if (
+            state.dispatchedAdsKeys?.has(`${sceneIdx}:${tagId}`) &&
+            !state.orMode &&
+            state.data.scenes[state.currentScene].script[state.reentryNow + 1]?.opcode !== 0x1420 &&
+            state.data.scenes[state.currentScene].script[state.reentryNow + 1]?.opcode !== 0x1430
+        ) {
             // The finish-dispatch (runtime.mjs) already fired this (slot,tag)'s
             // handoff chunk off an earlier instance's finish event, independent
             // of this linear PC. A new, still-playing instance now occupying the
@@ -521,6 +526,14 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
             // dispatch owns going forward -- this barrier's one-time job is
             // done, so skip the branch instead of permanently parking the PC on
             // an instance the dispatch will keep servicing on its own.
+            //
+            // Only soften a TERMINAL IF_PLAYED (no AND/OR following, and not
+            // already inside an OR chain): softening mid AND/OR chain would
+            // flow the chain forward with a false-ish "already handled" signal
+            // instead of BLOCKING, changing the chain's combined semantics
+            // (e.g. an OR chain would skip to its next term instead of
+            // waiting). The original blocking behavior is preserved for any
+            // non-terminal position by falling through to the `else` branch.
             state.continue = true;
             handleIfCondition(state, false);
         } else {
