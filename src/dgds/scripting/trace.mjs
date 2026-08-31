@@ -1,8 +1,3 @@
-const sceneIdentity = (state) => ({
-    sceneIdx: state.sceneIdx ?? null,
-    tagId: state.tagId ?? null,
-});
-
 export const traceFilename = (now = new Date()) => `dgds-${now.toISOString()}.jsonl`;
 
 export const downloadJSONLines = (
@@ -86,12 +81,4 @@ export const createTraceRecorder = ({ pixelHashes = false, maxEvents = 50000 } =
             return response.json();
         },
     };
-};
-
-export const traceEvent = (state, type, data = {}) => {
-    state.trace?.record(type, {
-        tick: state.getTraceTick?.() ?? state.tick ?? null,
-        ...sceneIdentity(state),
-        ...data,
-    });
 };

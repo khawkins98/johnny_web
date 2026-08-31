@@ -8,6 +8,7 @@
 import { createSoftwareSurface } from './surface.mjs';
 import { createTraceRecorder } from './trace.mjs';
 import { diagnostics } from './diagnostics.mjs';
+import { setLogging } from './log.mjs';
 import { createSessionInfo } from './session-info.mjs';
 import { createTimingCompatibility } from './timing-compatibility.mjs';
 import { DGDS_TICK_MS } from './timing.mjs';
@@ -89,7 +90,14 @@ diagnostics.subscribe((current, previous) => {
     } else if (current.mode !== previous.mode) {
         console.log(`[DGDS] Diagnostics mode changed: ${previous.mode} → ${current.mode}`);
     }
+
+    // Push the diagnostics flags into the canonical logger so the core can emit
+    // console output without importing the diagnostics/observability layer.
+    setLogging({ console: diagnostics.console, verbose: diagnostics.verbose });
 });
+
+// Seed the canonical logger with the diagnostics flags parsed at load time.
+setLogging({ console: diagnostics.console, verbose: diagnostics.verbose });
 
 export const stopProcess = (reason = 'stopped') => activeStop?.(reason) ?? false;
 

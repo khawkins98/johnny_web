@@ -7,14 +7,15 @@
  * deterministic retained pixels preserve synchronous DGDS GET/PUT semantics.
  */
 import { PALETTE } from '../palette.mjs';
-import { canRunTtmScene, prepareTtmScene } from './scene-factory.mjs';
-import { traceEvent } from './trace.mjs';
+import { canRunTtmScene } from './scene-factory.mjs';
+import { traceEvent } from './trace-event.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
+import { pruneEnvironmentBackground } from './composition.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
-import { sequenceKey } from './ttm-sequence-order.mjs';
+import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
 
 const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
@@ -134,7 +135,6 @@ export class DgdsRuntime {
             ...runtimeInitialState,
         };
 
-        this.state.save = Array.from({ length: 3 }, () => createStoredSurface(surfaceFactory));
         this.state.saveBkg = [createStoredSurface(surfaceFactory)];
         this.state.surface ||= surfaceFactory();
 
@@ -211,6 +211,19 @@ export class DgdsRuntime {
         this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
+        // Two-clock timing (faithful to the original): the fine tick above counts
+        // down delays/time-limits every call, but animation frames only ADVANCE on
+        // the 50 ms WM_TIMER present (the #runTtmController gate). The HOST clock
+        // recovery of that ~50 ms cadence lives in the injected timing hook; the
+        // canonical runtime only consumes the result. state.wmTimerMs overrides the
+        // period (logical unit tests run per fine tick).
+        const cadence = this.state.timingCompatibility.advancePresentCadence(
+            this.state.presentAccumulatorMs,
+            frameDelta,
+            this.state.wmTimerMs,
+        );
+        this.state.presentAccumulatorMs = cadence.accumulatorMs;
+        this.state.isPresentTick = cadence.isPresent;
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
@@ -289,7 +302,13 @@ export class DgdsRuntime {
 
     #runTtmController() {
         const rootState = this.state;
-        rootState.scenes.forEach((scene) => {
+        // Draw order == z-order. Tick scenes in the MUTABLE TTM paint order so
+        // MOVE_SEQUENCE_TO_BACK re-layers correctly: later-painted scenes draw
+        // over earlier ones on the shared raster.
+        const ordered = [...rootState.scenes].sort(
+            (a, b) => sequencePaintIndex(rootState, a) - sequencePaintIndex(rootState, b),
+        );
+        ordered.forEach((scene) => {
             if (!isTtmFinished(scene) && Number.isFinite(scene.timeLimitTicks)) {
                 scene.timeLimitTicks--;
                 if (scene.timeLimitTicks <= 0) {
@@ -300,9 +319,13 @@ export class DgdsRuntime {
                     return;
                 }
             }
+            // SET_TIMER countdown lives on the fine tick like the other countdowns,
+            // NOT behind the 50 ms present gate below (all countdowns run on the 16 ms
+            // heartbeat in the original). It is inert today (trace-only), so this just
+            // keeps it correct if SET_TIMER ever gates execution.
+            if (!isTtmFinished(scene) && scene.state.timer > 0) scene.state.timer--;
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
-            prepareTtmScene(scene);
             if (scene.state.waitTicks > 0) {
                 scene.runState = TtmRunState.WAITING;
                 scene.state.waitTicks--;
@@ -313,7 +336,23 @@ export class DgdsRuntime {
                 scene.state.frameReady = true;
             }
 
+            // Frame advancement is gated to the 50 ms WM_TIMER present. The fine-tick
+            // delay countdown above runs every tick, but once a frame is ready we only
+            // ADVANCE (run the script to emit the next frame) on a present tick;
+            // otherwise hold the current frame untouched -- its recorded execution
+            // state, runState, and frameOps carry over, so ADS sequencing reads a
+            // stable scene and composeTtmFrame keeps drawing the held frame.
+            //
+            // EXCEPTION: a just-added scene draws its FIRST frame on the tick it is
+            // armed, matching the original's arm->draw order within one tick. Without
+            // this, a scene added on a non-present fine tick would stay blank until the
+            // next present tick, so a hand-off shows a background-only frame while the
+            // successor waits to draw (the 2-tick blip). The first frame is a one-time
+            // bootstrap; every later advance is present-gated as normal.
+            if (!rootState.isPresentTick && scene.needsFirstFrame !== true) return;
+
             if (!isTtmFinished(scene)) {
+                scene.needsFirstFrame = false;
                 scene.runState = TtmRunState.RUNNING;
                 scene.execution = runScript(scene.state, scene.state.script || scene.script);
                 if (scene.execution.frameBoundary) {
@@ -357,8 +396,24 @@ export class DgdsRuntime {
                     }
                 }
             }
-            if (scene.state.timer > 0) scene.state.timer--;
         });
+
+        // Age finished scenes for composeTtmFrame. `agedOut` is a three-state flag:
+        // `undefined` while running; `false` on the FIRST tick a scene is finished
+        // (composeTtmFrame draws its final frame once more, so it stays visible while
+        // its successor first paints); `true` on every later tick (dropped). Runs
+        // every compose tick, so a finished scene that is never explicitly stopped
+        // still ages out after one tick and can never freeze on the raster. A revived
+        // (retried) scene is reset to `undefined`.
+        for (const scene of rootState.scenes) {
+            if (!isTtmFinished(scene)) {
+                scene.agedOut = undefined;
+            } else if (scene.agedOut === undefined) {
+                scene.agedOut = false;
+            } else {
+                scene.agedOut = true;
+            }
+        }
     }
 
     #runScripts() {
@@ -406,6 +461,9 @@ export class DgdsRuntime {
         state.removeScenes = [];
         state.scenesRandom = [];
         state.playedHistory.clear();
+        // Prune stored backgrounds on the OLD environment map before discarding it,
+        // so a persistent background does not survive the jump onto the raster.
+        for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
         state.ttmEnvironments = new Map();
         state.continue = true;
         state.reentry = 0;

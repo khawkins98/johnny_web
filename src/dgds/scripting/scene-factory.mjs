@@ -11,13 +11,14 @@
  *
  *  FRESH per scene (from initialState):
  *    reentry, played, runs, continue, delay, timer, lastCommand, skip.
- *    GET/PUT save[] slots are copied from the environment after setup and then
- *    remain private because this renderer uses one retained layer per sequence.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
+ *    There are no per-scene sprite save-under slots: the renderer is immediate-mode, so
+ *    a moving/stopped sprite is handled by the per-tick clear+replay, not by GET/PUT.
  *
  *  SHARED OUTPUTS/HOST INPUTS from the parent ADS state:
  *    audioOperations, frameOperations, the frame presenter, resource provider, scenesRes,
- *    random, and a fresh scene-layer surface.
+ *    random, and the ONE shared presentation raster (state.surface). Every scene draws
+ *    into it; composeTtmFrame clears the raster and redraws every active scene each tick.
  *
  * ADS controller fields (scene queues, condition state, fades, and ADS program
  * counters) are deliberately not copied into child TTM states.
@@ -85,9 +86,12 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     sceneIdx,
     tagId,
     gagId: parent.data?.scenes?.[parent.currentScene]?.tagId,
-    // A TTM sequence retains only its own current frame. The process compositor
-    // rebuilds the shared presentation surface from active layers every tick.
-    surface: parent.surfaceFactory(),
+    // Every scene draws into the ONE shared raster owned by the runtime root.
+    // There is no per-scene surface; the renderer is immediate-mode (composeTtmFrame
+    // clears the raster and redraws every active scene's frame each tick). `root`
+    // links back to the owning runtime state.
+    surface: parent.surface,
+    root: parent,
     allScenes: parent.scenes,
 
     // Host services
@@ -110,7 +114,6 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     bkgRaft: assets.bkgRaft || null,
     bkgOcean: assets.bkgOcean || [],
     saveBkg: assets.saveBkg,
-    save: assets.save,
 
     // Drawing and world values required by TTM opcodes/background composition
     slot: 0,
@@ -137,27 +140,6 @@ const createSaveSlot = (surfaceFactory) => ({
     revision: 0,
 });
 
-const cloneSaveSlots = (slots, surfaceFactory) =>
-    (slots || []).map((source) => {
-        const copy = createSaveSlot(surfaceFactory);
-        if (!source) return copy;
-        copy.x = source.x;
-        copy.y = source.y;
-        copy.width = source.width;
-        copy.height = source.height;
-        copy.canDraw = source.canDraw;
-        copy.revision = source.revision || 0;
-        if (source.canDraw) {
-            copy.surface.drawSurface(source.surface, {
-                x: source.x,
-                y: source.y,
-                width: source.width,
-                height: source.height,
-            });
-        }
-        return copy;
-    });
-
 /** Allocate the mutable resources owned by a single loaded TTM environment. */
 const createTtmEnvironmentAssets = (parent) => {
     if (typeof parent.surfaceFactory !== 'function') {
@@ -170,7 +152,6 @@ const createTtmEnvironmentAssets = (parent) => {
         bkgRes: null,
         bkgRaft: null,
         bkgOcean: [],
-        save: Array.from({ length: 3 }, () => createSaveSlot(parent.surfaceFactory)),
         saveBkg: [createSaveSlot(parent.surfaceFactory)],
         backgroundId: parent.backgroundId,
         foregroundColor: parent.foregroundColor,
@@ -186,13 +167,6 @@ const createTtmEnvironmentAssets = (parent) => {
 
 export const canRunTtmScene = (scene) =>
     !scene.environment || scene.environment.ready || scene.environment.owner === scene;
-
-/** Detach a runnable sequence's GET/PUT buffers from its environment template. */
-export const prepareTtmScene = (scene) => {
-    if (!scene?.needsPrivateSave || !scene.environment?.ready) return;
-    scene.state.save = cloneSaveSlots(scene.environment.assets.save, scene.environment.surfaceFactory);
-    scene.needsPrivateSave = false;
-};
 
 /**
  * Build the full state object for a newly spawned TTM scene.
@@ -256,10 +230,12 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
         };
         state.ttmEnvironments.set(sceneIdx, environment);
     } else {
+        // Siblings of one environment share the same save slots. Sprite save-under
+        // no longer lives in per-scene slots: it goes to the global rect-keyed
+        // registry (save-under.mjs) where different rects never collide, so no
+        // per-scene clone is needed.
         s.state = createTtmRuntimeState(state, environment.assets, sceneIdx, tagId);
-        s.needsPrivateSave = true;
         s.environment = environment;
-        if (environment.ready) prepareTtmScene(s);
     }
     s.environment = environment;
     s.execution = pendingExecution(s.state);

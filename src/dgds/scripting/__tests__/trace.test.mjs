@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTraceRecorder, downloadJSONLines, traceEvent, traceFilename } from '../trace.mjs';
+import { createTraceRecorder, downloadJSONLines, traceFilename } from '../trace.mjs';
+import { traceEvent } from '../trace-event.mjs';
 
 describe('structured DGDS tracing', () => {
     it('records deterministic JSON Lines with engine and scene identity', () => {

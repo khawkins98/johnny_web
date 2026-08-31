@@ -5,43 +5,32 @@ import { createTraceRecorder } from '../trace.mjs';
 import { presentSurfaceFrameOperation } from '../surface-frame-presenter.mjs';
 
 describe('logical scene frames', () => {
-    it('clears the previous frame before restoring a saved region', () => {
+    it('starts a fresh frame: resets the scene draw list + emits boundary/trace, never touches the raster', () => {
         const surface = createRecordingSurface();
-        const savedSurface = createRecordingSurface();
         const trace = createTraceRecorder();
-        const save = {
-            surface: savedSurface,
-            canDraw: true,
-            x: 10,
-            y: 20,
-            width: 30,
-            height: 40,
-        };
         const state = {
             surface,
-            save: [save],
+            // A leftover recorded frame from the previous logical frame.
+            frameOps: [{ type: 'fill-rect', x: 0, y: 0, width: 1, height: 1 }],
             trace,
             sceneIdx: 5,
             tagId: 21,
             frameOperations: [],
             presentFrameOperation: presentSurfaceFrameOperation,
         };
+        state.root = state;
 
         beginSceneFrame(state, 0);
 
-        expect(surface.commands).toEqual([
-            { operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } },
-            {
-                operation: 'replaceRegionFrom',
-                source: savedSurface,
-                rect: { x: 10, y: 20, width: 30, height: 40 },
-            },
-        ]);
+        // Immediate mode: a frame boundary no longer clears or restores the raster --
+        // erasure is the per-tick clear+replay in composeTtmFrame.
+        expect(surface.commands).toEqual([]);
+        // It resets this scene's recorded frame so the new frame's draws replace the old.
+        expect(state.frameOps).toEqual([]);
         expect(trace.snapshot()[0]).toMatchObject({
             type: 'scene-frame-begin',
             sceneIdx: 5,
             tagId: 21,
-            restored: true,
             restoreSlot: 0,
         });
         expect(state.frameOperations).toMatchObject([
@@ -54,7 +43,7 @@ describe('logical scene frames', () => {
         ]);
     });
 
-    it('starts with an empty layer when the save slot is unavailable', () => {
+    it('does nothing to the raster when the slot has no saved region', () => {
         const surface = createRecordingSurface();
         const state = {
             surface,
@@ -63,10 +52,11 @@ describe('logical scene frames', () => {
             frameOperations: [],
             presentFrameOperation: presentSurfaceFrameOperation,
         };
+        state.root = state;
 
         beginSceneFrame(state, 0);
 
-        expect(surface.commands).toEqual([{ operation: 'clear', rect: { x: 0, y: 0, width: 640, height: 480 } }]);
+        expect(surface.commands).toEqual([]);
         expect(state.layerRevision).toBe(5);
     });
 });

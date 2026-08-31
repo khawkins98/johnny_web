@@ -92,6 +92,15 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
         for (let row = BOOKMARKS[from][to]; data[row]?.frame >= 0; row++) frames.push(data[row]);
         heading = END_HEADINGS[from][to];
     }
+    // The original renders Johnny's CURRENT heading standing pose before he turns
+    // in place at the destination (engine FUN_1018_06bf draws the current heading
+    // every tick, then steps toward the target). Seed that pose so a destination
+    // turn whose heading resolves to a hold sentinel (frame -1 -- the pure W/E
+    // facings have no distinct standing sprite) still has a real sprite to show
+    // and hold, instead of an all-invisible sequence that leaves Johnny absent for
+    // the whole interlude. Only when an actual turn happens (heading changes), so a
+    // stationary rest is unaffected.
+    if (heading !== walk.toHeading) frames.push(data[TURNS[walk.toSpot] + 9 + heading]);
     appendTurn(frames, data, walk.toSpot, heading, walk.toHeading, true);
     frames.push(data[TURNS[walk.toSpot] + 9 + walk.toHeading]);
     return frames.filter(Boolean);

@@ -7,6 +7,11 @@
  */
 // The recovered host advances DGDS delays in 20 ms units (50 logical Hz).
 export const DGDS_TICK_MS = 20;
+// The original engine RENDERS on a 50 ms WM_TIMER (SETTIMER ...,0x32): it advances
+// at most one animation frame per sequence per 50 ms, while the finer tick above
+// only counts down delays. TTM frame advancement is gated to this period so
+// zero-/small-delay animations play at their true ~20 fps instead of 50 fps.
+export const WM_TIMER_MS = 50;
 // Browser paints cannot occur between several synchronous ticks in one rAF
 // callback. Coalesce overdue timer events instead of replaying them as an
 // invisible animation/audio burst, matching a delayed Windows timer message.

@@ -14,7 +14,8 @@ import { fileURLToPath } from 'node:url';
 import { johnnyCastaway } from '../src/games/johnny/manifest.mjs';
 import { loadResources } from '../src/dgds/resource.mjs';
 import { createEntryResourceProvider } from '../src/dgds/resource-provider.mjs';
-import { composeTtmFrame, getCompositionRevision } from '../src/dgds/scripting/composition.mjs';
+import { composeTtmFrame } from '../src/dgds/scripting/composition.mjs';
+import { getCompositionRevision } from '../src/dgds/hosts/composition-signature.mjs';
 import { DgdsRuntime } from '../src/dgds/scripting/runtime.mjs';
 import { DGDS_TICK_MS } from '../src/dgds/scripting/timing.mjs';
 import { createSoftwareSurface } from '../src/dgds/scripting/surface.mjs';
@@ -195,6 +196,39 @@ const readGame = async () => {
     return { archive, data: archive.loadEntry(johnnyCastaway.resources.activity) };
 };
 
+// Gross-runaway guard against a render trail. Immediate-mode composition makes an
+// accumulating trail structurally hard (each composed frame is independent), but a
+// scene that never emits BEGIN_SCENE_FRAME would let its recorded frame grow without
+// bound and pile up -- that shows as the retained-frame pixel count climbing and
+// never falling back for many consecutive frames. Layer-level continuity and
+// regenerated fingerprints cannot catch this class; an explicit run-length ceiling
+// can.
+//
+// The RNG is seeded, so runs are deterministic. Limits are per gag, set generously
+// above each scene's legitimate value (dive-walk-out's emerge/splash builds for ~20
+// frames; the bathing sequence for ~70) so only a runaway trips them.
+const TRAIL_RUN_LIMITS = { 1: 30, 11: 85 };
+const DEFAULT_TRAIL_RUN_LIMIT = 60;
+const verifyNoRenderTrail = (captures) => {
+    for (const [gag, frames] of captures) {
+        const pixelCounts = frames.map((frame) => frame.p[1]);
+        let run = 1;
+        let longestRun = 1;
+        for (let index = 1; index < pixelCounts.length; index++) {
+            run = pixelCounts[index] >= pixelCounts[index - 1] ? run + 1 : 1;
+            longestRun = Math.max(longestRun, run);
+        }
+        const limit = TRAIL_RUN_LIMITS[gag] ?? DEFAULT_TRAIL_RUN_LIMIT;
+        if (longestRun > limit) {
+            throw new Error(
+                `gag ${gag}: retained-frame pixel count is non-decreasing for ${longestRun} consecutive ` +
+                    `frames (limit ${limit}) -- a moving sprite is likely leaving a render trail`,
+            );
+        }
+        console.log(`gag ${gag}: longest non-decreasing pixel-count run ${longestRun} (limit ${limit})`);
+    }
+};
+
 const main = async () => {
     const game = await readGame();
     verifyCampfireContinuity(game);
@@ -203,6 +237,7 @@ const main = async () => {
     for (const gag of new Set(scenarioDefinitions.map((scenario) => scenario.gag))) {
         captures.set(gag, captureGag({ ...game, gag }));
     }
+    verifyNoRenderTrail(captures);
 
     const scenarios = Object.fromEntries(
         scenarioDefinitions.map((definition) => {

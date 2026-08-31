@@ -6,26 +6,25 @@
  */
 import { PALETTE } from '../palette.mjs';
 import { getSceneState, isSelfRearmingSequence } from './scene-factory.mjs';
-import { traceEvent } from './trace.mjs';
-import { diagnostics } from './diagnostics.mjs';
+import { traceEvent } from './trace-event.mjs';
+import { debugLog, getTimestamp, isConsoleLogging, verboseLog } from './log.mjs';
 import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
 import { emitPlaySample } from './audio-operation.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { loadScreen } from './background-resources.mjs';
+import { pruneEnvironmentBackground } from './composition.mjs';
 import { isTtmFinished, isTtmRunning, TtmRunMode } from './ttm-run-state.mjs';
 import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 
 // ---------------------------------------------------------------------------
-// Debug logging
+// Debug logging — emitters live in the canonical `log.mjs`; the host decides
+// whether anything prints by pushing flags in via setLogging(). Re-exported
+// here so existing opcode-layer importers keep a stable path.
 // ---------------------------------------------------------------------------
 
-const getTimestamp = () => new Date().toISOString().substring(11, 23);
-
-export const debugLog = (...args) => {
-    if (diagnostics.console) console.log(`[DGDS] [${getTimestamp()}]`, ...args);
-};
+export { debugLog, verboseLog };
 
 export const sceneLog = (state, action, target = '') => {
     let gagId = state.gagId ?? '?';
@@ -42,7 +41,7 @@ export const sceneLog = (state, action, target = '') => {
         runs: state.runs || 0,
         timer: state.timer || 0,
     });
-    if (!diagnostics.console) return;
+    if (!isConsoleLogging()) return;
 
     let timerStr = '';
     let runStr = '';
@@ -56,10 +55,6 @@ export const sceneLog = (state, action, target = '') => {
     const cycStr = cycles ? `(${cycles})` : '';
 
     console.log(`[${getTimestamp()}] ${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
-};
-
-const verboseLog = (...args) => {
-    if (diagnostics.verbose) console.log(`[DGDS:V] [${getTimestamp()}]`, ...args);
 };
 
 /**
@@ -172,6 +167,13 @@ export const clearAdsSceneBatch = (state) => {
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;
     }
+    // The raster was just cleared. Prune every environment's stored background so
+    // stale pixels never carry into an unrelated sequence; after the clear, a
+    // scene redraws its own content by executing its script, so no explicit
+    // background re-bake is needed at this boundary.
+    for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
+        pruneEnvironmentBackground(state, sceneIdx);
+    }
 };
 
 // ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent
@@ -236,7 +238,12 @@ const SAVE_REGION = (state, x, y, width, height) => {};
 // The browser presenter currently applies the final composition atomically.
 const WIPE_RIGHT_TO_LEFT = () => {};
 
+// Primitive draws bump the frame serial too, so a frame whose only change is a
+// primitive (no sprite / BEGIN_SCENE_FRAME) still triggers a recomposite under the
+// immediate-mode content signature. (No shipped scene has a primitive-only frame,
+// but this keeps the invariant free of that assumption.)
 const DRAW_LINE = (state, x1, y1, x2, y2) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.DRAW_LINE,
         x1,
@@ -248,6 +255,7 @@ const DRAW_LINE = (state, x1, y1, x2, y2) => {
 };
 
 const DRAW_RECT = (state, x, y, width, height) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.FILL_RECT,
         x,
@@ -259,6 +267,7 @@ const DRAW_RECT = (state, x, y, width, height) => {
 };
 
 const DRAW_BUBBLE = (state, x, y, width, height) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
     const centerX = width / 2;
     const centerY = height / 2;
     const radius = width / 2;
@@ -603,7 +612,12 @@ const applySceneChanges = (state) => {
             removed = true;
         }
         if (!removed) {
-            console.error(`FAILED TO REMOVE SCENE ${s.sceneIdx}:${s.tagId}! Not found in state.scenes!`);
+            // Stopping a scene that is already inactive is a legitimate ADS pattern: a
+            // sibling branch already stopped it, or it was never added this cycle. The
+            // original engine removes by content-addressed display-list node, so an
+            // absent node is a silent no-op -- not an error. Keep it as a gated
+            // diagnostic for scene-lifecycle debugging rather than console noise.
+            verboseLog(`STOP_SCENE ${s.sceneIdx}:${s.tagId}: already inactive (no-op)`);
         }
     });
     state.removeScenes = [];
@@ -620,6 +634,11 @@ const applySceneChanges = (state) => {
                 scene.execution = runScript(scene.state, scene.script || scene.state.script);
                 if (scene.state.reentry >= (scene.prologueLength || 0)) scene.environment.ready = true;
             }
+            // Draw this scene's first frame on the tick it is added (the original
+            // arms then draws within one tick), even if that tick is not a WM_TIMER
+            // present tick -- so a hand-off successor appears the same tick the
+            // finished predecessor drops, with no background-only frame between.
+            scene.needsFirstFrame = true;
             sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
             state.scenes.push(scene);
         }

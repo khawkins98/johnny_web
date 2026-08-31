@@ -1,4 +1,4 @@
-import { traceEvent } from './trace.mjs';
+import { traceEvent } from './trace-event.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 
 /**
@@ -8,25 +8,13 @@ import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
  * the host-specific clearing and overwrite behavior.
  */
 export const beginSceneFrame = (state, restoreSlot) => {
-    const save = state.save[restoreSlot];
     state.layerRevision = (state.layerRevision || 0) + 1;
     emitFrameOperation(state, {
         type: FrameOperationType.BEGIN_SCENE_FRAME,
         restoreSlot,
     });
-
-    if (save?.canDraw) {
-        traceEvent(state, 'scene-frame-begin', {
-            restoreSlot,
-            restored: true,
-            rect: { x: save.x, y: save.y, width: save.width, height: save.height },
-            revision: state.layerRevision,
-        });
-    } else {
-        traceEvent(state, 'scene-frame-begin', {
-            restoreSlot,
-            restored: false,
-            revision: state.layerRevision,
-        });
-    }
+    // Immediate mode: a frame boundary only starts a new logical frame (the presenter
+    // resets this scene's recorded draws); it neither clears nor restores the raster,
+    // so there is no "restored region" to report.
+    traceEvent(state, 'scene-frame-begin', { restoreSlot, revision: state.layerRevision });
 };

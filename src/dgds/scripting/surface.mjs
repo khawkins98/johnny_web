@@ -56,6 +56,8 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
     const pixels = new Uint8ClampedArray(width * height * 4);
     const extent = fullSurface(width, height);
     let occupiedBounds = null;
+    let revision = 0;
+    const touch = () => { revision += 1; };
 
     const pixelOffset = (x, y) => (y * width + x) * 4;
     const markPixel = (x, y) => {
@@ -136,6 +138,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
         clear(rect) {
             const area = intersectRect(normalizeRect(rect, width, height), extent);
             if (area.width === 0 || area.height === 0) return;
+            touch();
             if (area.x === 0 && area.y === 0 && area.width === width && area.height === height) {
                 pixels.fill(0);
                 occupiedBounds = null;
@@ -181,13 +184,15 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                     drawnBottom = Math.max(drawnBottom, destinationY);
                 }
             }
-            if (drawnRight >= drawnLeft)
+            if (drawnRight >= drawnLeft) {
                 occupiedBounds = mergeBounds(occupiedBounds, {
                     x: drawnLeft,
                     y: drawnTop,
                     width: drawnRight - drawnLeft + 1,
                     height: drawnBottom - drawnTop + 1,
                 });
+                touch();
+            }
         },
 
         drawLine(x1, y1, x2, y2, color = 'white') {
@@ -201,10 +206,14 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             const dy = -Math.abs(endY - y);
             const sy = y < endY ? 1 : -1;
             let error = dx + dy;
+            let drew = false;
             while (true) {
                 if (x >= 0 && x < width && y >= 0 && y < height) {
                     blendPixel(pixelOffset(x, y), rgba);
-                    if (rgba[3] !== 0) markPixel(x, y);
+                    if (rgba[3] !== 0) {
+                        markPixel(x, y);
+                        drew = true;
+                    }
                 }
                 if (x === endX && y === endY) break;
                 const doubled = error * 2;
@@ -217,6 +226,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                     y += sy;
                 }
             }
+            if (drew) touch();
         },
 
         fillRect(x, y, rectangleWidth, rectangleHeight, color) {
@@ -229,6 +239,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             }
             if (rgba[3] !== 0 && area.width && area.height) {
                 occupiedBounds = mergeBounds(occupiedBounds, area);
+                touch();
             }
         },
 
@@ -262,13 +273,15 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                     }
                 }
             }
-            if (drawnRight >= drawnLeft)
+            if (drawnRight >= drawnLeft) {
                 occupiedBounds = mergeBounds(occupiedBounds, {
                     x: drawnLeft,
                     y: drawnTop,
                     width: drawnRight - drawnLeft + 1,
                     height: drawnBottom - drawnTop + 1,
                 });
+                touch();
+            }
         },
 
         drawSurface(source, rect) {
@@ -296,7 +309,10 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                     drewPixel = true;
                 }
             }
-            if (drewPixel) occupiedBounds = mergeBounds(occupiedBounds, area);
+            if (drewPixel) {
+                occupiedBounds = mergeBounds(occupiedBounds, area);
+                touch();
+            }
         },
 
         replaceRegionFrom(source, rect) {
@@ -326,6 +342,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                 }
             }
             recalculateBounds(mergeBounds(previousBounds, area));
+            touch();
         },
 
         fingerprint() {
@@ -363,6 +380,11 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             target.clear();
             target.replaceRegionFrom(surface, rect);
         },
+
+
+        get revision() {
+            return revision;
+        },
     };
 
     return surface;
@@ -370,7 +392,12 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
 
 export const createRecordingSurface = () => {
     const commands = [];
-    const record = (operation, args) => commands.push({ operation, ...args });
+    let revision = 0;
+    const touch = () => { revision += 1; };
+    const record = (operation, args) => {
+        commands.push({ operation, ...args });
+        touch();
+    };
 
     const surface = {
         commands,
@@ -390,6 +417,9 @@ export const createRecordingSurface = () => {
             record('copyRegionTo', { target, rect });
             target.clear();
             target.drawSurface(surface, rect);
+        },
+        get revision() {
+            return revision;
         },
     };
 

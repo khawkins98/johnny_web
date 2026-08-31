@@ -27,13 +27,16 @@ describe('browser presentation policy', () => {
 });
 
 describe('frame timing compatibility', () => {
-    it('preserves authored delays and floors zero-delay presentation', () => {
+    it('rescales the authored 16ms-unit delay to 20ms fine ticks, floored to one', () => {
         const timing = createTimingCompatibility();
 
+        // round(9 * 16 / 20) = round(7.2) = 7 fine ticks.
         expect(timing.mapFrameBoundary(createFrameBoundary(9))).toMatchObject({
             authoredDelayTicks: 9,
-            runtimeDelayTicks: 9,
+            runtimeDelayTicks: 7,
         });
+        // A zero-delay frame still floors to one fine tick so the countdown arms
+        // frameReady; the 50ms WM_TIMER present gate provides the real minimum.
         expect(timing.mapFrameBoundary(createFrameBoundary(0))).toMatchObject({
             authoredDelayTicks: 0,
             runtimeDelayTicks: 1,

@@ -116,50 +116,55 @@ describe('TTM drawing opcode surface contract', () => {
         ]);
     });
 
-    it('captures and overwrites GET/PUT regions through surfaces', () => {
+    it('SAVE_IMAGE_REGION is a no-op on the raster; BEGIN starts a fresh frame', () => {
         const surface = createRecordingSurface();
-        const savedSurface = createRecordingSurface();
-        const save = { surface: savedSurface, canDraw: false, x: 0, y: 0, width: 0, height: 0 };
-        const state = withPresenter({ surface, save: [save], saveIndex: 0 });
+        const state = withPresenter({ surface, save: [{ canDraw: false }], saveIndex: 0 });
+        state.root = state;
 
+        // GET: the shipped engine's RAM save-under is dormant -- erasure is the
+        // per-tick clear+replay -- so SAVE_IMAGE_REGION has no pixel effect.
         opcode(0x4210)(state, 10, 20, 30, 40);
-        opcode(0xa600)(state, 0);
-        opcode(0xa060)(state, 1, 2, 3, 4);
 
-        expect(surface.commands[0]).toMatchObject({
-            operation: 'copyRegionTo',
-            target: savedSurface,
-            rect: { x: 10, y: 20, width: 30, height: 40 },
-        });
-        expect(surface.commands.slice(1)).toEqual([
-            {
-                operation: 'clear',
-                rect: { x: 0, y: 0, width: 640, height: 480 },
-            },
-            {
-                operation: 'replaceRegionFrom',
-                source: savedSurface,
-                rect: { x: 10, y: 20, width: 30, height: 40 },
-            },
-        ]);
+        expect(surface.commands).toEqual([]);
+
+        // PUT/BEGIN_SCENE_FRAME: a frame boundary resets this scene's recorded frame;
+        // it does not restore or clear the raster.
+        opcode(0xa600)(state, 0);
+
+        expect(surface.commands).toEqual([]);
+        expect(state.frameOps).toEqual([]);
     });
 
-    it('clears only the scene layer when GET/PUT has no saved region', () => {
+    it('leaves the raster untouched when GET/PUT has no saved region', () => {
         const surface = createRecordingSurface();
         const state = withPresenter({
             surface,
             save: [{ canDraw: false }],
             layerRevision: 0,
         });
+        state.root = state;
 
         opcode(0xa600)(state, 0);
 
-        expect(surface.commands).toEqual([
-            {
-                operation: 'clear',
-                rect: { x: 0, y: 0, width: 640, height: 480 },
-            },
-        ]);
+        // No saved rect for the slot: the persistent shared raster is not cleared.
+        expect(surface.commands).toEqual([]);
         expect(state.layerRevision).toBe(1);
+    });
+});
+
+describe('surface revision counter', () => {
+    it('bumps revision on each mutating op (software surface)', () => {
+        const s = createSoftwareSurface();
+        const r0 = s.revision;
+        s.fillRect(0, 0, 4, 4, 1);
+        expect(s.revision).toBe(r0 + 1);
+        s.clear();
+        expect(s.revision).toBe(r0 + 2);
+    });
+    it('bumps revision on the recording surface too', () => {
+        const s = createRecordingSurface();
+        const r0 = s.revision;
+        s.drawLine(0, 0, 1, 1, 'white');
+        expect(s.revision).toBe(r0 + 1);
     });
 });

@@ -33,6 +33,33 @@ describe('Johnny host walking', () => {
         expect(frames.at(-1)).toBe(data[145 + 9 + 7]);
     });
 
+    it('shows the current standing pose through a same-spot turn to a hold-sentinel heading', () => {
+        // A stationary turn (fromSpot === toSpot) whose destination heading has a
+        // "hold" sentinel sprite (frame -1, e.g. the pure W/E facings in the real
+        // table) must not resolve to an all-invisible sequence: the original draws
+        // Johnny's CURRENT heading standing pose before turning, so there is always
+        // a visible sprite to hold. Regression: Johnny vanished for the interlude.
+        const TURNS_SPOT_3 = 314;
+        const data = Array.from({ length: 480 }, () => ({ flipX: false, frame: -1, x: 0, y: 0 }));
+        // Standing pose facing heading 1 (SW) is a real sprite; heading 2 (W) is a
+        // hold sentinel -- exactly the recovered table's shape for spot C.
+        data[TURNS_SPOT_3 + 9 + 1] = { flipX: false, frame: 16, x: 5, y: 6 };
+        data[TURNS_SPOT_3 + 9 + 2] = { flipX: true, frame: -1, x: 5, y: 6 };
+
+        const frames = planJohnnyWalkFrames(
+            { fromSpot: 3, fromHeading: 1, toSpot: 3, toHeading: 2 },
+            data,
+            () => 0,
+        );
+
+        expect(frames.length).toBeGreaterThan(0);
+        // At least one planned frame is a real, drawable sprite (not a -1 hold).
+        expect(frames.some((frame) => frame.frame >= 0)).toBe(true);
+        // The first planned frame is the current-heading standing pose, so the
+        // retain-on-invisible path always has a sprite to hold.
+        expect(frames[0].frame).toBeGreaterThanOrEqual(0);
+    });
+
     it('selects among non-repeating routes instead of always taking the shortest path', () => {
         const first = selectJohnnyWalkPath(0, 3, () => 0);
         const last = selectJohnnyWalkPath(0, 3, () => 0.999999);
