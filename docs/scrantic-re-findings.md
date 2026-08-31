@@ -118,7 +118,7 @@ executable catalogue at `1068:1756` has **79 records**. Ranked defects:
 | 4 | **6 wrong headings** (ACTIVITY7, BUILDING3, JOHNNY2, MISCGAG1, STAND10, WALKSTUF3) | Johnny faces/turns the wrong way at scene seams | **Yes — directly** |
 | 5 | Intermediate count "6–19 random" | A **300-unit island walk-span budget** (`FUN_1018_08b9(tide, 300)`), subtracting each scene's `width` byte, tide/width-gated, weighted idle repeats | Pacing |
 | 6 | Day advance = `day++` per calendar day | **Dual `SCRANTIC.INI` counter**: `Introduction` (target day, advances only when a keyframe scene plays) + `NumDays` (calendar counter chasing it). Raft `clamp(day-1,1,5)` and the story-day gate **do** match | Behavioral |
-| 7 | Walk graph flattened to `BOOKMARKS[from][next]` | Original is **3-D** `walkMatrix[prev][cur][next]` (prev-node dependent) | Behavioral |
+| 7 | Walk graph flattened to `BOOKMARKS[from][next]` | A **precomputed route table** `route[from][to]` → weighted walk-segment lists (not a `[prev][cur][next]` matrix — see §B.6.4) | Behavioral |
 
 Minor: the `Clouds` INI key is mislabeled "Waves" in the port's mapping; the finale is a
 10%-gated keyframe else an ordinary `flagsB & 4` ending.
@@ -131,6 +131,40 @@ re-arms the segment (`FUN_1048_1758`/`_17a0` write the target into `seg+0x292/+0
 then `FUN_1048_1925`); `FUN_1048_1acb` auto-resets finished segments (state 3/4) to
 running. This is exactly the "keep the zero-run-count fire animating while Johnny fetches
 the boot" behavior. **First-class scheduling — must be preserved.**
+
+### B.6 Recovered selection/movement algorithms (all implemented in Track B)
+
+Exact ground truth for defects #1/#5/#6/#7. The catalogue is 79 records at file `0x19556`, 17-byte
+stride, terminated by `word@0 == 0`; fields: `+2` weight, `+3/+4` start spot/heading, `+5/+6`
+end spot/heading, `+7` width, `+8/+9` tide window `[min,max)`, `+0xa` story day, `+0xb` flagsB,
+`+0xf` adsId (`0xFF` = pure pose), `+0x10` adsTag. Spots 1-based (1=A…6=G); headings
+`0=S,1=SW,2=W,3=NW,4=N,5=NE,6=E,7=SE`.
+
+**B.6.1 Tide phase (`FUN_1018_0540` + `FUN_1018_0c48`)** — time-of-day, half-hour resolution, not random:
+`hphase(x) = (⌊x/50⌋ + ⌊(x%100)/30⌋ + 14) % 16`;
+`tidePhase = ( hphase(hour*100 + (minute<30?0:30)) − hphase(StartTime) + 16 ) % 16`, where
+`StartTime` = persisted `month*100 + day` of the story start. Scene eligibility uses the
+`[tideMin,tideMax)` window; low-tide *render* at `tidePhase ≥ 12`.
+
+**B.6.2 Dual-counter day advance (`FUN_1018_0ba5`)** — `target` (unlocked keyframe day) + `cur`
+(calendar). Per real-date change: `if (cur<target) cur++; if (cur>11||cur<2){target=1;cur=1;}`.
+`target++` only when a new sequence ran **and** a day-locked keyframe actually played **and**
+`target ≤ cur`. Range 1..11; selection uses `cur`.
+
+**B.6.3 300-unit walk-span budget (`FUN_1018_08b9(tide,300)`)** — place the ending first, then fill
+`while (budget != 0 && slot < 298)`: a candidate needs its `[tideMin,tideMax)` window satisfied and
+`width/2 < budget`, chosen by weight-roulette (`weight` = byte `+2`); `flagsB & 0x08` idle scenes
+repeat 1..6× via buckets `{10,20,30,20,10,10}`; each placement subtracts `width`.
+
+**B.6.4 Walk path-finding — precomputed route table (`FUN_1018_0094`, `FUN_1018_03ac/03ea`)**
+(supersedes the earlier "3-D matrix" guess). Route matrix at file `0x18894`, row stride `0x0c`
+(6 words), 1-based `route[from][to]` = a near pointer (0 = no route) to a **route-descriptor list**:
+segments marked by `-spot`, then `(segId, weight%)` pairs summing 100, terminated by `-7`. At the
+current spot, roulette-pick a `(segId,weight)`; segment attributes come from the 34-entry table at
+file `0x180de` (`+0` startHeading, `+1` endHeading, `+2` endSpot), and its animation frames from the
+walk table row `(FUN_1018_03ea(segId) − 0xaea)/6`. Chain segments until `endSpot == dest`, rotating
+heading one step/frame (opposite = random shortest). Parsed data (30 routes + 34 segments) is
+hardcoded static in `walking.mjs` (`WALK_ROUTES`/`WALK_SEGMENTS`).
 
 ### Open items (not yet ground-truthed)
 
