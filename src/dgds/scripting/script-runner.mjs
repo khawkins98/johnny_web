@@ -163,6 +163,12 @@ export const clearAdsSceneBatch = (state) => {
     state.addScenes = [];
     state.removeScenes = [];
     state.scenesRandom = [];
+    // A (slot,tag) key dispatched in this ADS scene must not leak into the
+    // NEXT ADS scene: dispatchedAdsKeys only means "this chunk already fired
+    // off an earlier instance's finish" WITHIN the scene it fired in. Without
+    // clearing here, a genuine barrier IF_PLAYED keyed to the same (slot,tag)
+    // in a later scene would be wrongly softened (skip instead of wait).
+    state.dispatchedAdsKeys?.clear();
     emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;

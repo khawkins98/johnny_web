@@ -354,3 +354,93 @@ describe('ADS finish-dispatch (BLOCKER 1): concluding-children hold uses the hel
         expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 99)).toBe(false);
     });
 });
+
+// SHOULD-FIX 2 regression: `dispatchedAdsKeys` must not leak across ADS scene
+// (gag) boundaries. A (slot,tag) key dispatched (finish-observed) in an
+// earlier gag must not soften a GENUINE, freshly-added instance of that same
+// (slot,tag) barriered by a later gag's linear IF_PLAYED -- that barrier must
+// still BLOCK (wait for the new instance), not skip.
+describe('ADS finish-dispatch (SHOULD-FIX 2): dispatchedAdsKeys does not leak across ADS scene boundaries', () => {
+    const buildTtm = () => ({
+        tags: [
+            { id: 0, description: 'root' },
+            { id: 50, description: 'reused tag: finishes fast' },
+            { id: 60, description: 'gag1 successor' },
+        ],
+        scenes: [
+            { tagId: 0, script: [] },
+            { tagId: 50, script: [{ opcode: 0x0110, params: [] }] },
+            { tagId: 60, script: [{ opcode: 0x0110, params: [] }] },
+        ],
+    });
+
+    // gag0 (index 0): adds 3:50, waits for it to finish via the classic
+    // WHILE_RUNNING barrier (NOT a chunk-dispatch), then ends. Ending a
+    // non-selected (singleAdsScene:false) gag calls clearAdsSceneBatch,
+    // which must clear dispatchedAdsKeys along with scenes/addScenes.
+    const gag0Script = () => [
+        { opcode: 0x2005, params: [3, 50, 1, 1] }, // 0: ADD 3:50
+        { opcode: 0x1510, params: [] }, // 1: commit
+        { opcode: 0x1070, params: [3, 50] }, // 2: WHILE_RUNNING 3:50 -- parks until finished
+        { opcode: 0xffff, params: [] }, // 3: END -> clearAdsSceneBatch (multi-scene mode)
+    ];
+
+    // gag1 (index 1): adds a FRESH 3:50 instance (same slot:tag as gag0's),
+    // then a genuine linear IF_PLAYED barrier on it. This must BLOCK -- the
+    // fresh instance has not finished -- regardless of gag0 having dispatched
+    // that same key earlier.
+    const gag1Script = () => [
+        { opcode: 0x2005, params: [3, 50, 1, 1] }, // 0: ADD 3:50 (fresh instance)
+        { opcode: 0x1510, params: [] }, // 1: commit
+        { opcode: 0x1350, params: [3, 50] }, // 2: IF_PLAYED 3:50
+        { opcode: 0x2005, params: [3, 60, 1, 1] }, // 3: ADD 3:60 (successor)
+        { opcode: 0xfff0, params: [] }, // 4: END_IF
+        { opcode: 0x1510, params: [] }, // 5: END_SCENE_BRANCH
+        { opcode: 0xffff, params: [] }, // 6: END
+    ];
+
+    it('a genuine barrier keyed to a tag dispatched in an earlier scene still blocks', () => {
+        const ttm = buildTtm();
+        const runtime = createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: () => ttm },
+            singleAdsScene: false,
+            data: {
+                name: 'multi-scene-dispatch-leak-test',
+                resources: [{ id: 3, name: 'LEAK.TTM' }],
+                scenes: [
+                    { tagId: { id: 5 }, script: gag0Script() }, // gag0, index 0
+                    { tagId: { id: 6 }, script: gag1Script() }, // gag1, index 1
+                ],
+            },
+        });
+
+        // Tick 1: gag0 adds 3:50 and parks at WHILE_RUNNING; the TTM
+        // controller then finishes 3:50's trivial single-op script the same
+        // tick.
+        runtime.tick(20);
+        expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 50)).toBe(true);
+
+        // Tick 2: the finish-dispatch observes 3:50 as finished and adds
+        // "3:50" to dispatchedAdsKeys (regardless of any matching chunk --
+        // gag0 has no IF_PLAYED chunk for it). WHILE_RUNNING then unblocks,
+        // and gag0 reaches its own END, which clears the scene batch
+        // (including, with the fix, dispatchedAdsKeys) and advances to gag1.
+        runtime.tick(20);
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 50)).toBe(false);
+
+        // Tick 3: gag1 adds a FRESH 3:50 and hits its own IF_PLAYED barrier
+        // on it, evaluated the SAME tick, immediately after the ADD -- before
+        // the TTM controller has run even once for the fresh instance, so it
+        // is genuinely still "starting" (not done). Under the bug, the
+        // leaked "3:50" key in dispatchedAdsKeys wrongly softens this
+        // barrier (skip instead of wait), so 3:60 appears immediately even
+        // though the fresh 3:50 instance has not finished. Fixed, the
+        // barrier genuinely blocks: the successor is not staged this tick.
+        runtime.tick(20);
+        expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 50)).toBe(true);
+        expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 60)).toBe(false);
+        expect(runtime.state.addScenes.some((s) => s.sceneIdx === 3 && s.tagId === 60)).toBe(false);
+    });
+});
