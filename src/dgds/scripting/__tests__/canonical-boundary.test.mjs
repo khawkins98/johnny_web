@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CANONICAL_FILES, OVERRIDE_MODULES } from '../overrides-index.mjs';
 
 // Structural guard for the canonical / override boundary.
 //
@@ -10,39 +11,23 @@ import { fileURLToPath } from 'node:url';
 // override/host layer. Keeping this a test (not just a doc convention) is what makes
 // the boundary structural -- a new cross-boundary import fails CI immediately.
 //
-// NOTE: process.mjs is the host SESSION LOOP, currently mislocated under scripting/.
-// It is NOT canonical (it wires hosts) and is deliberately excluded here; a later
-// increment should move it to a host/session location.
+// The canonical list and the override module set both come from overrides-index.mjs
+// (the OVERRIDES index), so the boundary guard and its documented rationale share one
+// source of truth and cannot drift. NOTE: process.mjs is the host SESSION LOOP,
+// currently mislocated under scripting/; it is an override (see the index), so a
+// canonical module importing it fails here.
 const scriptingDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const CANONICAL_FILES = [
-    'runtime.mjs',
-    'script-runner.mjs',
-    'scene-frame.mjs',
-    'scene-factory.mjs',
-    'composition.mjs',
-    'surface.mjs',
-    'surface-frame-presenter.mjs',
-    'frame-operation.mjs',
-    'frame-timing.mjs',
-    'ttm-run-state.mjs',
-    'ttm-sequence-order.mjs',
-    'execution-outcome.mjs',
-    'timing.mjs',
-    'background-resources.mjs',
-    'trace-event.mjs',
-    'log.mjs',
-];
-
-// The override/host layer the canonical path must not import: anything under hosts/
-// or games/, plus the override modules that currently live in scripting/ (diagnostics
-// + trace = observability; frame-renderer = enhancement rendering; process = host
-// session loop; timing-compatibility is INJECTED, never imported -- listed so a
-// future direct import is caught too).
+// A canonical module must not import anything under hosts/ or games/, nor any override
+// module named in the OVERRIDES index (timing-compatibility is INJECTED, never
+// imported -- listing it here catches a future direct import too). The `.mjs`-anchored
+// match means `trace.mjs` never matches the canonical `trace-event.mjs`.
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const overrideModulePattern = new RegExp(`(^|/)(${OVERRIDE_MODULES.map(escapeRegExp).join('|')})$`);
 const isBoundaryImport = (specifier) =>
     /(^|\/)hosts\//.test(specifier) ||
     /(^|\/)games\//.test(specifier) ||
-    /(^|\/)(trace|diagnostics|frame-renderer|process|timing-compatibility)\.mjs$/.test(specifier);
+    overrideModulePattern.test(specifier);
 
 // Allow-list of boundary imports that are permitted for now. Empty: the diagnostics
 // leaks that used to live here have been evicted -- the core now EMITS trace events
