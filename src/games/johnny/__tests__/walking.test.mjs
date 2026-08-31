@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
     decodeJohnnyWalkData,
     johnnyPoseFrame,
+    occludeBehindTrunk,
     occludedByTrunk,
     pickWalkSegment,
     planJohnnyWalkFrames,
@@ -269,8 +270,9 @@ describe('Johnny host walking', () => {
 
     // Palm-trunk occlusion is position/depth-based (the original's generic per-frame
     // re-blit), not a D-to-E spot hardcode, so it covers any route past the tree.
+    // Trunk AABB (island-relative): x in [443,465), y in [148,293); base at y=293.
+    // The binary's overlap (FUN_1010_1a88) is MIN-edge INCLUSIVE; the base gate is strict.
     it('occludes a sprite overlapping the trunk with feet above the base', () => {
-        // trunk AABB is island-relative x[443,465) y[148,293); base at y=293.
         expect(occludedByTrunk(450, 200, 20, 40)).toBe(true); // over the trunk, feet at 240
     });
     it('does not occlude a sprite clear of the trunk box', () => {
@@ -278,5 +280,31 @@ describe('Johnny host walking', () => {
     });
     it('does not occlude a sprite whose feet are below the trunk base (in front, closer)', () => {
         expect(occludedByTrunk(450, 260, 20, 40)).toBe(false); // feet at 300 >= 293
+    });
+    // Boundaries (each is exactly where a wrong inclusivity/strictness would flip):
+    it('base gate is strict: feet exactly at the base do NOT occlude', () => {
+        expect(occludedByTrunk(450, 253, 20, 40)).toBe(false); // feetY === 293
+    });
+    it('min x-edge is inclusive: right edge exactly at the trunk left occludes', () => {
+        expect(occludedByTrunk(423, 200, 20, 40)).toBe(true); // x+width === 443
+    });
+    it('max x-edge is exclusive: left edge exactly at the trunk right does not occlude', () => {
+        expect(occludedByTrunk(465, 200, 20, 40)).toBe(false); // x === 465 (443+22)
+    });
+    it('min y-edge is inclusive: feet exactly at the trunk top occlude', () => {
+        expect(occludedByTrunk(450, 108, 20, 40)).toBe(true); // feetY === 148
+    });
+    // The redraw must be origin-tracked at the trunk's island coords (443,148), not a
+    // fixed 442 -- guard the actual draw call, not just the gate.
+    it('redraws the trunk at island-origin (443,148)+offset for an occluded sprite', () => {
+        const context = { drawImage: vi.fn() };
+        const trunkSprite = { marker: 'trunk' };
+        occludeBehindTrunk(context, trunkSprite, { x: 450, y: 200 }, { width: 20, height: 40 }, 100, 50);
+        expect(context.drawImage).toHaveBeenCalledWith(trunkSprite, 543, 198); // 443+100, 148+50
+    });
+    it('does not redraw the trunk when the sprite is clear of it', () => {
+        const context = { drawImage: vi.fn() };
+        occludeBehindTrunk(context, { marker: 'trunk' }, { x: 100, y: 200 }, { width: 20, height: 40 }, 0, 0);
+        expect(context.drawImage).not.toHaveBeenCalled();
     });
 });

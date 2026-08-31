@@ -11,23 +11,44 @@ const DATA_ROWS = 488;
 // Palm-trunk occluder (BACKGRND sprite #13), island-relative box from the binary
 // (FUN_1010_1551 / bake coords): a sprite standing in front of the trunk (feet above
 // baseY=293=0x125) whose box overlaps this AABB is re-covered by the trunk that frame.
+// The occlusion TEST box is 22 wide; the trunk BITMAP is 24 wide, but it's baked into
+// the island background, so redrawing the full sprite paints identical pixels -- do
+// not "correct" width to 24.
 const TREE_TRUNK = { index: 13, x: 443, y: 148, width: 22, height: 145, baseY: 293 };
 
 /**
  * True when a sprite at island-relative (x,y) of size (width,height) is occluded by
  * the palm trunk this frame: its box overlaps the trunk AABB and its feet sit above
  * the trunk base. Position/depth based (like the original's FUN_1010_1551), so it
- * covers any walk route past the tree, not a specific spot pair.
+ * covers any walk route past the tree, not a specific spot pair. The binary's overlap
+ * (FUN_1010_1a88) treats the MIN edges as inclusive (disjoint iff `x+w < x0`), so the
+ * min-edge comparisons are `>=`; the base gate stays strict (`feetY < baseY`).
  */
 export const occludedByTrunk = (x, y, width, height) => {
     const feetY = y + height;
     return (
         feetY < TREE_TRUNK.baseY &&
         x < TREE_TRUNK.x + TREE_TRUNK.width &&
-        x + width > TREE_TRUNK.x &&
+        x + width >= TREE_TRUNK.x &&
         y < TREE_TRUNK.y + TREE_TRUNK.height &&
-        feetY > TREE_TRUNK.y
+        feetY >= TREE_TRUNK.y
     );
+};
+
+/** Build the palm-trunk occluder sprite once (or null if the resource is absent). */
+const buildTrunkSprite = (background) => {
+    const trunk = background?.images?.[TREE_TRUNK.index];
+    return trunk ? buildSpriteCanvas(trunk) : null;
+};
+
+/**
+ * Redraw the palm trunk over a just-drawn sprite when it is behind the tree. The
+ * original occludes EVERY engine-drawn sprite this way (FUN_1010_1551) -- walking and
+ * standing/pose alike -- so both play paths share this.
+ */
+export const occludeBehindTrunk = (context, trunkSprite, frame, image, offsetX, offsetY) => {
+    if (!trunkSprite || !occludedByTrunk(frame.x, frame.y, image.width, image.height)) return;
+    context.drawImage(trunkSprite, TREE_TRUNK.x + offsetX, TREE_TRUNK.y + offsetY);
 };
 
 // Turn/standing sprite-row base per spot (0-based A,B,C,D,E,G). Each spot has 8 turn
@@ -223,6 +244,7 @@ export const runJohnnyWalk = async ({
     const background = resourceProvider.resolve('BACKGRND.BMP');
     const offsetX = titleState?.x || 0;
     const offsetY = titleState?.y || 0;
+    const trunkSprite = buildTrunkSprite(background);
 
     for (let index = 0; index < frames.length; index++) {
         const frame = frames[index];
@@ -254,17 +276,10 @@ export const runJohnnyWalk = async ({
             }
             context.restore();
         }
-        // Palm-trunk occlusion (faithful to the original's generic per-frame
-        // foreground re-blit, FUN_1010_1551): after drawing Johnny, redraw ONLY the
-        // trunk (BACKGRND #13) over him when his box overlaps the trunk AABB and his
-        // feet sit above the trunk base (y < 293). Island-relative, so it covers every
-        // route past the tree -- not just the old D<->E hardcode -- and the crown/base
-        // (#12/#14) are never redrawn over a walker.
-        if (visible && occludedByTrunk(frame.x, frame.y, image.width, image.height)) {
-            const trunk = background?.images?.[TREE_TRUNK.index];
-            const trunkSprite = trunk && buildSpriteCanvas(trunk);
-            if (trunkSprite) context.drawImage(trunkSprite, TREE_TRUNK.x + offsetX, TREE_TRUNK.y + offsetY);
-        }
+        // Palm-trunk occlusion (the original's generic per-frame foreground re-blit,
+        // FUN_1010_1551): after drawing Johnny, redraw the trunk over him when he is
+        // behind the tree. Position/depth based -- covers every route past the tree.
+        if (visible) occludeBehindTrunk(context, trunkSprite, frame, image, offsetX, offsetY);
         const completed = await wait((index === frames.length - 1 ? 80 : 6) * DGDS_TICK_MS, { signal });
         if (signal?.aborted || completed === false) {
             context.clearRect(0, 0, 640, 480);
@@ -306,8 +321,10 @@ export const runJohnnyPose = async ({
     const data = decodeJohnnyWalkData(archiveBuffer);
     const frame = johnnyPoseFrame(data, pose.spot, pose.heading);
     const sprites = resourceProvider.resolve('JOHNWALK.BMP');
+    const background = resourceProvider.resolve('BACKGRND.BMP');
     const offsetX = titleState?.x || 0;
     const offsetY = titleState?.y || 0;
+    const trunkSprite = buildTrunkSprite(background);
     const image = frame && frame.frame >= 0 ? sprites?.images?.[frame.frame] : null;
     const hasVisiblePixels = Boolean(image?.pixels?.some((pixel) => pixel.a > 0));
     const sprite = hasVisiblePixels ? buildSpriteCanvas(image) : null;
@@ -333,6 +350,8 @@ export const runJohnnyPose = async ({
             context.drawImage(sprite, frame.x + offsetX, frame.y + offsetY);
         }
         context.restore();
+        // The original occludes standing poses behind the trunk too, not just walks.
+        occludeBehindTrunk(context, trunkSprite, frame, image, offsetX, offsetY);
     }
     const completed = await wait(idleTicks * DGDS_TICK_MS, { signal });
     if (signal?.aborted || completed === false) {
