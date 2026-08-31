@@ -141,7 +141,10 @@ export const JOHNNY_SCENES = Object.freeze([
     scene(POSE, 1, G, SW, G, SW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
     scene(POSE, 1, G, S, G, S, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
     scene(POSE, 1, G, SE, G, SE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
-    scene('JOHNNY.ADS', 2, E, SW, G, NE, 2, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    // Binary flagsB=0x3 (intermediate/first-intermediate, no 0x4 ending bit) -- the day-2
+    // keyframe plays as an intermediate, NOT a finale (matches JOHNNY#3, same 0x3 class).
+    // The old table mis-flagged it FINAL; day 2's finale comes from the general ending pool.
+    scene('JOHNNY.ADS', 2, E, SW, G, NE, 2, F.ISLAND | F.VARPOS_OK),
     scene('SUZY.ADS', 1, null, null, null, null, 3, F.FINAL | F.FIRST),
     scene('JOHNNY.ADS', 3, E, SW, G, NE, 6, F.ISLAND | F.VARPOS_OK),
     scene('SUZY.ADS', 2, null, null, null, null, 9, F.FINAL | F.FIRST, 12, 16),
@@ -196,9 +199,6 @@ const tidePhaseFor = (date, startTime) => {
 };
 const inTideWindow = (candidate, tidePhase) =>
     tidePhase == null || (candidate.tideMin <= tidePhase && tidePhase < candidate.tideMax);
-const dayOfYear = (date) =>
-    Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
-
 // The story StartTime reference (month*100 + day), captured on first run and persisted.
 const getStartTime = (storage, date) => {
     let stored;
@@ -207,7 +207,12 @@ const getStartTime = (storage, date) => {
     } catch {
         // Storage may be unavailable (privacy mode); fall back to today's date.
     }
-    if (stored) return Number(stored);
+    // Guard a corrupted stored value: a NaN StartTime would poison tidePhase (NaN),
+    // empty the eligible set, and crash the picker. Fall back to recomputing from today.
+    if (stored) {
+        const parsed = Number(stored);
+        if (Number.isFinite(parsed)) return parsed;
+    }
     const startTime = (date.getMonth() + 1) * 100 + date.getDate();
     try {
         storage?.setItem('jc-start-time', String(startTime));
@@ -222,7 +227,9 @@ const getStartTime = (storage, date) => {
 // one step per real-calendar-day change. A keyframe scene actually playing unlocks the
 // next day (target++). The JS port previously collapsed this to a single day++/clamp.
 const updateStoryDay = (storage, date) => {
-    const currentDate = String(dayOfYear(date));
+    // Full y/m/d key: the binary compares day+month+year, so a run exactly one calendar
+    // year later must still register as a date change (a bare day-of-year would not).
+    const currentDate = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     let storedDate;
     let target;
     let cur;
@@ -252,12 +259,16 @@ const updateStoryDay = (storage, date) => {
 };
 
 // Unlock the next keyframe day: only when a day-locked keyframe scene actually plays
-// AND the calendar has caught up (target <= cur). Advances `target` by one (max 11).
+// AND the calendar has caught up (target <= cur). The binary's unlock is unconditional
+// (`DAT_2d9b + 1`): target reaches 12, the next calendar tick drives `cur` to 12, and
+// `updateStoryDay`'s `cur > 11` branch then wraps the whole story back to day 1. Capping
+// target at 11 (the old code) made that wrap dead code and pinned the story on the day-11
+// finale forever -- so there is intentionally no cap here.
 const unlockKeyframeDay = (storage) => {
     try {
         const target = Number(storage?.getItem('jc-story-target')) || 1;
         const cur = Number(storage?.getItem('jc-story-day')) || 1;
-        if (target <= cur && target < 11) storage?.setItem('jc-story-target', String(target + 1));
+        if (target <= cur) storage?.setItem('jc-story-target', String(target + 1));
     } catch {
         // Persistence is optional.
     }

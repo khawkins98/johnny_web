@@ -47,6 +47,7 @@ export const decodeJohnnyCatalogue = (archiveBuffer) => {
                 tideMin: dv.getUint8(off + 0x08),
                 tideMax: dv.getUint8(off + 0x09),
                 day: dv.getUint8(off + 0x0a),
+                flagsB: dv.getUint16(off + 0x0b, true),
                 adsId,
                 adsTag: dv.getUint8(off + 0x10),
                 script: pose ? 'POSE' : ADS_NAMES[adsId],

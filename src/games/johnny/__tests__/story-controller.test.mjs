@@ -95,26 +95,43 @@ describe('Johnny host story controller', () => {
         // Recovered from FUN_1018_0ba5: `cur` (jc-story-day) chases `target`
         // (jc-story-target) by one step whenever the real calendar date changes, and
         // never advances past the target or without a date change.
-        const storage = memoryStorage({ 'jc-story-date': '201', 'jc-story-day': '3', 'jc-story-target': '6' });
+        // Date key is full y/m/d (year included, so a run one calendar year later still
+        // registers as a change). Seed the previous calendar day.
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-20', 'jc-story-day': '3', 'jc-story-target': '6' });
         const controller = createJohnnyStoryController({
             random: () => 0,
             storage,
-            now: () => new Date(2026, 6, 21, 12), // day-of-year 202: a new calendar day
+            now: () => new Date(2026, 6, 21, 12), // a new calendar day
         });
         controller.next();
         expect(storage.values.get('jc-story-day')).toBe('4'); // chased target by one
-        expect(storage.values.get('jc-story-date')).toBe('202');
+        expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
     });
 
     it('does not advance the story day when the calendar date is unchanged', () => {
-        const storage = memoryStorage({ 'jc-story-date': '202', 'jc-story-day': '3', 'jc-story-target': '6' });
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-21', 'jc-story-day': '3', 'jc-story-target': '6' });
         const controller = createJohnnyStoryController({
             random: () => 0,
             storage,
-            now: () => new Date(2026, 6, 21, 12), // still day-of-year 202
+            now: () => new Date(2026, 6, 21, 12), // same calendar day as the stored key
         });
         controller.next();
         expect(storage.values.get('jc-story-day')).toBe('3');
+    });
+
+    it('wraps the story back to day 1 after the day-11 finale (target unlocked to 12)', () => {
+        // Binary unlock is uncapped: once target reaches 12, the next calendar tick drives
+        // cur to 12 and the cur>11 branch resets the whole story to day 1. The old
+        // `target < 11` cap made this wrap unreachable, pinning the story on day 11.
+        const storage = memoryStorage({ 'jc-story-date': '2026-6-20', 'jc-story-day': '11', 'jc-story-target': '12' });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage,
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        controller.next();
+        expect(storage.values.get('jc-story-day')).toBe('1'); // chased to 12, then wrapped
+        expect(storage.values.get('jc-story-target')).toBe('1');
     });
 
     it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {
