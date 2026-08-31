@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { JOHNNY_SCENES, SceneFlags } from '../story-controller.mjs';
@@ -10,17 +10,24 @@ import { decodeJohnnyCatalogue } from './catalogue-decoder.mjs';
 // unambiguous fields (script/tag, spots, headings, day, tide window, pose). The
 // selection FLAGS (FINAL/FIRST/ISLAND/...) are a derived abstraction, not a bit-copy
 // of the binary flagsB, so they are validated by behavior tests, not here.
-const dataDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/data');
-const archive = readFileSync(path.join(dataDir, 'SCRANTIC.SCR'));
-const decoded = decodeJohnnyCatalogue(
-    archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength),
-);
+//
+// SCRANTIC.SCR is the proprietary, gitignored game archive — present locally, absent
+// in CI. This oracle therefore validates during local development and SKIPS in CI,
+// exactly like the golden render harness. Keep JOHNNY_SCENES correct by running the
+// full suite locally (with the data extracted) before pushing catalogue changes.
+const archivePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../public/data', 'SCRANTIC.SCR');
+const hasData = existsSync(archivePath);
+const decoded = hasData
+    ? decodeJohnnyCatalogue(
+          ((b) => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength))(readFileSync(archivePath)),
+      )
+    : [];
 
 const isPose = (s) => (s.flags & SceneFlags.POSE) !== 0;
 // Match key: non-pose scenes by script+tag; poses (all binary adsTag 1) by position.
 const key = (s) => (s.script === 'POSE' || s.pose || isPose(s) ? `POSE@${s.startSpot},${s.startHeading}` : `${s.script}#${s.tagId ?? s.adsTag}`);
 
-describe('catalogue matches the binary 79-record table', () => {
+describe.skipIf(!hasData)('catalogue matches the binary 79-record table', () => {
     it('decodes exactly 79 real records from SCRANTIC.SCR', () => {
         expect(decoded).toHaveLength(79);
     });
