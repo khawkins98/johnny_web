@@ -4,12 +4,17 @@ export const SceneFlags = Object.freeze({
     ISLAND: 0x04,
     LEFT_ISLAND: 0x08,
     VARPOS_OK: 0x10,
-    LOWTIDE_OK: 0x20,
     NORAFT: 0x40,
     HOLIDAY_NOK: 0x80,
+    // POSE: a pure-engine "stand at spot facing heading" filler (binary adsId 0xFF,
+    // no ADS). Rendered from the walk sprite sheet; see Chunk 2. The tide window
+    // ([tideMin, tideMax)) replaces the old boolean LOWTIDE_OK from the binary.
+    POSE: 0x100,
 });
 
 const F = SceneFlags;
+// Pure-pose records have no ADS file; this sentinel marks their `script`.
+const POSE = 'POSE';
 const A = 0;
 const B = 1;
 const C = 2;
@@ -25,8 +30,10 @@ const NE = 5;
 const EAST = 6;
 const SE = 7;
 
-const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags) =>
-    Object.freeze({ script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags });
+// A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
+// [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide).
+const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) =>
+    Object.freeze({ script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin, tideMax });
 
 /**
  * Host catalogue reconstructed from the original executable behavior and
@@ -34,83 +41,100 @@ const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day,
  * RESOURCE.001; it determines which authored scene the host asks DGDS to run.
  */
 export const JOHNNY_SCENES = Object.freeze([
-    scene('ACTIVITY.ADS', 1, E, SE, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('ACTIVITY.ADS', 12, D, SW, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('ACTIVITY.ADS', 11, null, null, null, null, 0, F.ISLAND | F.FINAL | F.FIRST | F.VARPOS_OK),
-    scene('ACTIVITY.ADS', 10, D, SW, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('ACTIVITY.ADS', 4, E, SE, E, SE, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('ACTIVITY.ADS', 5, E, SW, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('ACTIVITY.ADS', 6, D, SW, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('ACTIVITY.ADS', 7, D, SW, G, SW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('ACTIVITY.ADS', 8, null, null, D, SE, 0, F.ISLAND | F.FIRST | F.VARPOS_OK),
-    scene('ACTIVITY.ADS', 9, E, EAST, null, null, 0, F.ISLAND | F.FINAL | F.LOWTIDE_OK),
-
-    scene('BUILDING.ADS', 1, G, W, A, W, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('BUILDING.ADS', 4, A, EAST, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('BUILDING.ADS', 3, A, EAST, C, SE, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('BUILDING.ADS', 2, G, W, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('BUILDING.ADS', 5, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('BUILDING.ADS', 7, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('BUILDING.ADS', 6, A, EAST, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-
-    scene('FISHING.ADS', 1, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 2, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 3, D, W, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 4, E, EAST, null, null, 0, F.ISLAND | F.FINAL | F.LEFT_ISLAND | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 5, E, EAST, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('FISHING.ADS', 6, D, W, null, null, 0, F.ISLAND | F.FINAL | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 7, E, EAST, E, W, 0, F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('FISHING.ADS', 8, E, EAST, E, W, 0, F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-
-    scene('JOHNNY.ADS', 1, null, null, null, null, 11, F.FINAL | F.FIRST),
-    scene('JOHNNY.ADS', 2, E, SW, G, S, 2, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('JOHNNY.ADS', 3, E, SW, G, NE, 6, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('JOHNNY.ADS', 4, E, SW, G, NE, 0, F.ISLAND | F.VARPOS_OK),
-    scene('JOHNNY.ADS', 5, E, SW, G, NE, 0, F.ISLAND | F.VARPOS_OK),
-    scene('JOHNNY.ADS', 6, null, null, null, null, 10, F.FINAL | F.FIRST),
-
-    scene('MARY.ADS', 1, E, SW, null, null, 5, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('MARY.ADS', 3, G, SW, null, null, 4, F.ISLAND | F.FINAL | F.FIRST | F.VARPOS_OK),
-    scene('MARY.ADS', 2, E, EAST, null, null, 1, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('MARY.ADS', 4, E, EAST, null, null, 7, F.ISLAND | F.FINAL | F.VARPOS_OK),
-    scene('MARY.ADS', 5, E, NW, null, null, 8, F.ISLAND | F.LEFT_ISLAND | F.FINAL | F.FIRST | F.NORAFT | F.VARPOS_OK),
-
-    scene('MISCGAG.ADS', 1, D, W, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('MISCGAG.ADS', 2, D, W, null, null, 0, F.ISLAND | F.FINAL | F.VARPOS_OK),
-
-    scene('STAND.ADS', 1, A, SW, A, SW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 2, A, W, A, W, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 3, A, NW, A, NW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 4, B, SW, B, SW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 5, B, S, B, S, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 6, B, SE, B, SE, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 7, C, NE, C, NE, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 8, C, EAST, C, EAST, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 9, D, NW, D, NW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 10, D, NE, D, NE, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 11, E, NW, E, NW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 12, G, S, G, S, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 15, A, S, A, S, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('STAND.ADS', 16, C, S, C, S, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-
+    scene('ACTIVITY.ADS', 8, null, null, D, SE, 0, F.FIRST | F.ISLAND | F.VARPOS_OK, 0, 8),
+    scene('BUILDING.ADS', 1, G, W, A, W, 0, F.ISLAND | F.VARPOS_OK),
+    scene('WALKSTUF.ADS', 2, E, EAST, D, SE, 0, F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('BUILDING.ADS', 2, G, W, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('VISITOR.ADS', 4, D, S, D, W, 0, F.ISLAND | F.VARPOS_OK),
+    scene('VISITOR.ADS', 6, D, S, D, SW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('VISITOR.ADS', 7, D, S, D, SW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('VISITOR.ADS', 5, E, SW, null, null, 0, F.FINAL | F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK),
+    scene('MARY.ADS', 2, E, EAST, null, null, 1, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('MARY.ADS', 3, G, SW, null, null, 4, F.FINAL | F.FIRST | F.ISLAND | F.VARPOS_OK, 8, 16),
+    scene('MARY.ADS', 1, E, SW, null, null, 5, F.FINAL | F.ISLAND | F.VARPOS_OK, 12, 16),
+    scene('MARY.ADS', 4, E, EAST, null, null, 7, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('MARY.ADS', 5, null, null, null, null, 8, F.FINAL | F.FIRST | F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK | F.NORAFT),
+    scene('ACTIVITY.ADS', 4, E, SE, E, SE, 0, F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 1, E, SE, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('BUILDING.ADS', 5, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('BUILDING.ADS', 7, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('BUILDING.ADS', 9, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK, 12, 16),
+    scene('BUILDING.ADS', 8, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK, 12, 16),
+    scene('FISHING.ADS', 1, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK),
+    scene('FISHING.ADS', 2, D, W, D, EAST, 0, F.ISLAND | F.VARPOS_OK),
+    scene('FISHING.ADS', 7, E, EAST, E, W, 0, F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK),
+    scene('FISHING.ADS', 8, E, EAST, E, W, 0, F.ISLAND | F.LEFT_ISLAND | F.VARPOS_OK),
+    scene('FISHING.ADS', 3, D, W, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('FISHING.ADS', 6, D, W, null, null, 0, F.FINAL | F.ISLAND),
+    scene('FISHING.ADS', 4, E, EAST, null, null, 0, F.FINAL | F.ISLAND | F.LEFT_ISLAND),
+    scene('FISHING.ADS', 5, E, EAST, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('JOHNNY.ADS', 4, E, SW, G, NE, 0, F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('JOHNNY.ADS', 5, E, SW, G, NE, 0, F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('WALKSTUF.ADS', 3, D, W, E, EAST, 0, F.ISLAND | F.VARPOS_OK),
+    scene('MISCGAG.ADS', 2, D, W, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK, 0, 8),
+    scene('ACTIVITY.ADS', 5, E, SW, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('MISCGAG.ADS', 1, D, EAST, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 7, D, SW, G, S, 0, F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 6, D, SW, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 10, D, SW, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 11, null, null, null, null, 0, F.FINAL | F.FIRST | F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 12, D, SW, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 1, A, SW, A, SW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 2, A, W, A, W, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 3, A, NW, A, NW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 4, B, SW, B, SW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 5, B, S, B, S, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 6, B, SE, B, SE, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 7, C, NE, C, NE, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 8, C, EAST, C, EAST, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 9, D, NW, D, NW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 10, D, SE, D, SE, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 11, E, NW, E, NW, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 12, G, S, G, S, 0, F.ISLAND | F.VARPOS_OK),
+    scene('BUILDING.ADS', 3, A, EAST, C, EAST, 0, F.ISLAND | F.VARPOS_OK),
+    scene('BUILDING.ADS', 4, A, EAST, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK, 0, 12),
+    scene('BUILDING.ADS', 6, A, EAST, null, null, 0, F.FINAL | F.ISLAND | F.VARPOS_OK, 12, 16),
+    scene(POSE, 1, A, NW, A, NW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, A, W, A, W, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, A, SW, A, SW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, B, SW, B, SW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, B, SE, B, SE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, B, S, B, S, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, C, NE, C, NE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, C, EAST, C, EAST, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, C, SE, C, SE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, D, NE, D, NE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, E, NW, E, NW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, G, SW, G, SW, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, G, S, G, S, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene(POSE, 1, G, SE, G, SE, 0, F.ISLAND | F.VARPOS_OK | F.POSE),
+    scene('JOHNNY.ADS', 2, E, SW, G, NE, 2, F.FINAL | F.ISLAND | F.VARPOS_OK),
     scene('SUZY.ADS', 1, null, null, null, null, 3, F.FINAL | F.FIRST),
-    scene('SUZY.ADS', 2, null, null, null, null, 9, F.FINAL | F.FIRST),
-
-    scene('VISITOR.ADS', 1, A, S, A, S, 0, F.ISLAND | F.LOWTIDE_OK),
-    scene('VISITOR.ADS', 3, B, NW, D, null, 0, F.ISLAND | F.FINAL | F.HOLIDAY_NOK),
-    scene('VISITOR.ADS', 4, D, S, D, W, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('VISITOR.ADS', 6, D, S, D, SW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('VISITOR.ADS', 7, D, S, D, SW, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-    scene('VISITOR.ADS', 5, E, SW, null, null, 0, F.ISLAND | F.FINAL | F.LEFT_ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
-
-    scene('WALKSTUF.ADS', 1, A, NE, null, null, 0, F.ISLAND | F.FINAL | F.LOWTIDE_OK),
-    scene('WALKSTUF.ADS', 2, E, EAST, D, SE, 0, F.ISLAND | F.VARPOS_OK),
-    scene('WALKSTUF.ADS', 3, D, W, E, W, 0, F.ISLAND | F.VARPOS_OK | F.LOWTIDE_OK),
+    scene('JOHNNY.ADS', 3, E, SW, G, NE, 6, F.ISLAND | F.VARPOS_OK),
+    scene('SUZY.ADS', 2, null, null, null, null, 9, F.FINAL | F.FIRST, 12, 16),
+    scene('JOHNNY.ADS', 6, null, null, null, null, 10, F.FINAL | F.FIRST, 12, 16),
+    scene('JOHNNY.ADS', 1, null, null, null, null, 11, F.FINAL | F.FIRST, 12, 16),
+    scene('STAND.ADS', 15, A, S, A, S, 0, F.ISLAND | F.VARPOS_OK),
+    scene('STAND.ADS', 16, C, S, C, S, 0, F.ISLAND | F.VARPOS_OK),
+    scene('ACTIVITY.ADS', 9, E, EAST, null, null, 0, F.FINAL | F.ISLAND, 0, 12),
+    scene('VISITOR.ADS', 1, A, S, A, S, 0, F.ISLAND),
+    scene('WALKSTUF.ADS', 1, A, NE, null, null, 0, F.FINAL | F.ISLAND),
+    scene('VISITOR.ADS', 3, B, NE, null, null, 0, F.FINAL | F.ISLAND | F.HOLIDAY_NOK),
 ]);
 
 const randomIndex = (random, length) => Math.min(length - 1, Math.floor(random() * length));
 const pick = (random, values) => values[randomIndex(random, values.length)];
 const hasAll = (flags, required) => (flags & required) === required;
+// Tide runs over 16 phases; a scene is eligible when its [tideMin, tideMax) window
+// contains the current phase. Low tide is the first 12 phases (the binary's low-tide
+// windows end at 12; high-tide variants start at 12). The exact wall-clock -> phase
+// formula is recovered in a later chunk; this provisional mapping is deterministic.
+const TIDE_PHASES = 16;
+const LOW_TIDE_PHASES = 12;
+const tidePhaseFor = (date) =>
+    Math.floor(((date.getHours() * 60 + date.getMinutes()) / 1440) * TIDE_PHASES) % TIDE_PHASES;
+const inTideWindow = (candidate, tidePhase) =>
+    tidePhase == null || (candidate.tideMin <= tidePhase && tidePhase < candidate.tideMax);
 const dayOfYear = (date) =>
     Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
 
@@ -170,7 +194,8 @@ const createIslandState = (
     random,
     { allowLowTide = true, allowVariablePosition = true } = {},
 ) => {
-    const lowTide = allowLowTide && hasAll(finalScene.flags, F.LOWTIDE_OK) && random() >= 0.5;
+    const tidePhase = tidePhaseFor(date);
+    const lowTide = allowLowTide && tidePhase < LOW_TIDE_PHASES;
     let x = 0;
     let y = 0;
     if (allowVariablePosition && hasAll(finalScene.flags, F.VARPOS_OK)) {
@@ -195,6 +220,7 @@ const createIslandState = (
         // that child-local background id must not move the host-owned island.
         islandLayoutId: 1,
         lowTide,
+        tidePhase,
         night: date.getHours() < 6 || date.getHours() >= 18,
         raft,
         x,
@@ -221,12 +247,13 @@ export const createJohnnyStoryController = ({
         for (const listener of statusListeners) listener(sequenceStatus);
     };
 
-    const eligible = (storyDay, wanted = 0, unwanted = 0) =>
+    const eligible = (storyDay, wanted = 0, unwanted = 0, tidePhase = null) =>
         JOHNNY_SCENES.filter(
             (candidate) =>
                 hasAll(candidate.flags, wanted) &&
                 (candidate.flags & unwanted) === 0 &&
-                (candidate.day === 0 || candidate.day === storyDay),
+                (candidate.day === 0 || candidate.day === storyDay) &&
+                inTideWindow(candidate, tidePhase),
         );
 
     const findScene = (script, tagId) =>
@@ -290,7 +317,7 @@ export const createJohnnyStoryController = ({
     const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now() }) => {
         const constraints = anchorScene
             ? {
-                  allowLowTide: hasAll(anchorScene.flags, F.LOWTIDE_OK),
+                  allowLowTide: anchorScene.tideMin < LOW_TIDE_PHASES,
                   allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
             : undefined;
@@ -305,12 +332,14 @@ export const createJohnnyStoryController = ({
 
         if (!hasAll(finalScene.flags, F.FIRST)) {
             let wanted = 0;
-            if (islandState.lowTide) wanted |= F.LOWTIDE_OK;
             if (islandState.x !== 0 || islandState.y !== 0) wanted |= F.VARPOS_OK;
-            let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
+            // POSE records exist in the catalogue but have no render path yet (Chunk 2);
+            // exclude them from selection until then.
+            let unwanted = F.FINAL | F.POSE | (anchorScene ? F.FIRST : 0);
             const count = 6 + Math.floor(random() * 14);
             for (let index = anchorScene ? 1 : 0; index < count; index++) {
-                const next = pick(random, eligible(storyDay, wanted, unwanted));
+                // Tide-window eligibility replaces the old LOWTIDE_OK flag filter.
+                const next = pick(random, eligible(storyDay, wanted, unwanted, islandState.tidePhase));
                 planned.push({ scene: next, walkFrom: previous });
                 previous = next;
                 unwanted |= F.FIRST;
@@ -350,7 +379,7 @@ export const createJohnnyStoryController = ({
     const buildSequence = () => {
         const date = now();
         const storyDay = updateStoryDay(storage, date);
-        const finalScene = pick(random, eligible(storyDay, F.FINAL));
+        const finalScene = pick(random, eligible(storyDay, F.FINAL, 0, tidePhaseFor(date)));
         installPlan(createPlan({ storyDay, finalScene, date }));
     };
 
@@ -379,7 +408,7 @@ export const createJohnnyStoryController = ({
             const storyDay = debugStoryDay(selected, requestedDay);
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
             const islandState = createIslandState(finalScene, storyDay, now(), random, {
-                allowLowTide: hasAll(selected.flags, F.LOWTIDE_OK),
+                allowLowTide: selected.tideMin < LOW_TIDE_PHASES,
                 allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
             });
             return Object.freeze({

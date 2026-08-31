@@ -11,8 +11,8 @@ const memoryStorage = (initial = {}) => {
 };
 
 describe('Johnny host story controller', () => {
-    it('carries the executable-owned 63-scene catalogue', () => {
-        expect(JOHNNY_SCENES).toHaveLength(63);
+    it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
+        expect(JOHNNY_SCENES).toHaveLength(79);
         expect(new Set(JOHNNY_SCENES.map(({ script }) => script))).toEqual(
             new Set([
                 'ACTIVITY.ADS',
@@ -25,6 +25,8 @@ describe('Johnny host story controller', () => {
                 'SUZY.ADS',
                 'VISITOR.ADS',
                 'WALKSTUF.ADS',
+                // Pure-pose "stand at spot" fillers (binary adsId 0xFF).
+                'POSE',
             ]),
         );
     });
@@ -136,6 +138,8 @@ describe('Johnny host story controller', () => {
 
     it.each([0, 0.999999])('anchors and terminates every catalogue entry at random boundary %f', (randomValue) => {
         for (const anchor of JOHNNY_SCENES) {
+            // POSE fillers have no ADS and are not independently anchorable (Chunk 2).
+            if (anchor.flags & SceneFlags.POSE) continue;
             const controller = createJohnnyStoryController({
                 random: () => randomValue,
                 storage: memoryStorage(),
@@ -159,7 +163,9 @@ describe('Johnny host story controller', () => {
                     (scene) => scene.script === selection.script && scene.tagId === selection.tagId,
                 );
                 if (selection.titleState.lowTide) {
-                    expect(metadata.flags & SceneFlags.LOWTIDE_OK, `${selection.script}#${selection.tagId} at low tide`).toBeTruthy();
+                    // Tide is now a [tideMin, tideMax) window; a scene shown at low tide
+                    // must be eligible for a low phase (tideMin below the 12-phase mark).
+                    expect(metadata.tideMin, `${selection.script}#${selection.tagId} at low tide`).toBeLessThan(12);
                 }
                 if (selection.titleState.x || selection.titleState.y) {
                     expect(metadata.flags & SceneFlags.VARPOS_OK, `${selection.script}#${selection.tagId} at variable position`).toBeTruthy();
