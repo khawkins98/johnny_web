@@ -16,6 +16,7 @@ import { pruneEnvironmentBackground } from './composition.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
+import { WM_TIMER_MS } from './timing.mjs';
 
 const createStoredSurface = (surfaceFactory) => ({
     surface: surfaceFactory(),
@@ -211,6 +212,17 @@ export class DgdsRuntime {
         this.state.frameOperations.length = 0;
         this.state.tick++;
         this.state.frameDelta = frameDelta;
+        // Two-clock timing (faithful to the original): the fine tick above counts
+        // down delays/time-limits every call, but animation frames only ADVANCE on
+        // the 50 ms WM_TIMER present. Accumulate elapsed time; a tick is a present
+        // when >= the present period, landing ~every 2.5 ticks (averaging 50 ms).
+        // Start primed so the very first frame shows immediately. The period is
+        // injectable (state.wmTimerMs) so logical unit tests can run per fine tick.
+        const presentPeriodMs = this.state.wmTimerMs ?? WM_TIMER_MS;
+        if (this.state.presentAccumulatorMs === undefined) this.state.presentAccumulatorMs = presentPeriodMs;
+        this.state.presentAccumulatorMs += frameDelta;
+        this.state.isPresentTick = this.state.presentAccumulatorMs >= presentPeriodMs;
+        if (this.state.isPresentTick) this.state.presentAccumulatorMs -= presentPeriodMs;
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
@@ -317,6 +329,14 @@ export class DgdsRuntime {
                 }
                 scene.state.frameReady = true;
             }
+
+            // Frame advancement is gated to the 50 ms WM_TIMER present. The fine-tick
+            // delay countdown above runs every tick, but once a frame is ready we only
+            // ADVANCE (run the script to emit the next frame) on a present tick;
+            // otherwise hold the current frame untouched -- its recorded execution
+            // state, runState, and frameOps carry over, so ADS sequencing reads a
+            // stable scene and composeTtmFrame keeps drawing the held frame.
+            if (!rootState.isPresentTick) return;
 
             if (!isTtmFinished(scene)) {
                 scene.runState = TtmRunState.RUNNING;

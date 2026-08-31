@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DgdsRuntime } from '../runtime.mjs';
 import { createTimingCompatibility } from '../timing-compatibility.mjs';
+import { DGDS_TICK_MS } from '../timing.mjs';
 import { getSceneState } from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 import { moveSequenceToBack } from '../ttm-sequence-order.mjs';
@@ -17,6 +18,12 @@ const createRuntime = (overrides) =>
         timingCompatibility: createTimingCompatibility(),
         surfaceFactory: createSurface,
         resourceProvider: { resolve: () => undefined },
+        // These tests exercise per-tick LOGICAL behaviour (delays, time-limits,
+        // run-counts, ADS sequencing, z-order), not the 50 ms WM_TIMER present
+        // cadence. Run the frame-advance gate per fine tick so each tick advances
+        // a ready frame; the present-cadence itself is covered by its own test and
+        // the golden suite (which use the faithful default period).
+        wmTimerMs: DGDS_TICK_MS,
         ...overrides,
     });
 
@@ -426,10 +433,11 @@ describe('DgdsRuntime', () => {
         const child = getSceneState(runtime.state, 1, 1, -3, 1);
         runtime.state.scenes.push(child);
 
+        // SET_DELAY 8 rescales 16ms->20ms fine ticks: round(8 * 16 / 20) = 6.
         runtime.tick(20);
-        expect(child.state.waitTicks).toBe(8);
+        expect(child.state.waitTicks).toBe(6);
         runtime.tick(20);
-        expect(child.state.waitTicks).toBe(7);
+        expect(child.state.waitTicks).toBe(5);
         runtime.tick(20);
 
         expect(child.runState).toBe('finished');
@@ -661,5 +669,48 @@ describe('DgdsRuntime', () => {
         runtime.tick(20);
         // Live order now paints the campfire (x=10) last, on top of the actor.
         expect(drawnRectX(surface)).toEqual([50, 10]);
+    });
+
+    it('gates frame advancement to the 50ms WM_TIMER present, not every 20ms fine tick', () => {
+        // A zero-delay KEEP_GOING scene that redraws every frame. Faithful to the
+        // original, its frame must advance at most once per 50ms WM_TIMER present
+        // (~every 2.5 fine ticks), not once per 20ms tick (which would be 50 fps).
+        const ttm = {
+            tags: [{ id: 3, description: 'fast loop' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 3, script: [{ opcode: 0xa100, params: [10, 10, 5, 5] }] },
+            ],
+        };
+        const runtime = new DgdsRuntime({
+            type: 'ADS',
+            singleAdsScene: true,
+            random: () => 0,
+            timingCompatibility: createTimingCompatibility(),
+            surfaceFactory: () => createRecordingSurface(),
+            resourceProvider: { resolve: () => ttm },
+            // NOTE: the faithful default present period (WM_TIMER_MS = 50ms) -- no override.
+            data: {
+                name: 'gate',
+                resources: [{ id: 1, name: 'S.TTM' }],
+                scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0xffff, params: [] }] }],
+            },
+        });
+        const scene = getSceneState(runtime.state, 1, 3, 0, 1);
+        scene.runMode = TtmRunMode.KEEP_GOING;
+        runtime.state.scenes.push(scene);
+
+        let advances = 0;
+        let lastRevision = scene.state.layerRevision || 0;
+        for (let tick = 0; tick < 20; tick++) {
+            runtime.tick(DGDS_TICK_MS);
+            const revision = scene.state.layerRevision || 0;
+            if (revision !== lastRevision) advances++;
+            lastRevision = revision;
+        }
+        // 20 fine ticks * 20ms = 400ms of playback. At the 50ms present cadence
+        // that is ~8 frame advances, NOT 20. (Un-gated, this would be ~20.)
+        expect(advances).toBeGreaterThanOrEqual(6);
+        expect(advances).toBeLessThanOrEqual(10);
     });
 });
