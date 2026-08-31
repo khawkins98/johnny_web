@@ -2,32 +2,72 @@ import { buildSpriteCanvas } from '../../dgds/graphics.mjs';
 import { DGDS_TICK_MS } from '../../dgds/scripting/timing.mjs';
 
 const DATA_OFFSET = 0x188ea;
-const DATA_ROWS = 480;
-const BOOKMARKS = [
-    [-1, 68, 38, -1, 0, 17],
-    [109, -1, 133, -1, -1, -1],
-    [163, 196, -1, 211, 224, 245],
-    [-1, -1, 278, -1, 289, 302],
-    [332, -1, 356, 381, -1, 394],
-    [423, -1, 443, 457, 463, -1],
-];
+// 488 rows: the walk table runs through spot G's standing poses at rows 480..487
+// (the earlier 480 truncated them, so spot-G poses/walk destinations were missing);
+// row 488 is the table's terminator.
+const DATA_ROWS = 488;
+
+// Turn/standing sprite-row base per spot (0-based A,B,C,D,E,G). Each spot has 8 turn
+// rows (one per heading) starting here; +9 gives the standing/waiting variant.
 const TURNS = [91, 145, 260, 314, 405, 471];
-const START_HEADINGS = [
-    [-1, 6, 6, -1, 5, 5],
-    [3, -1, 5, -1, -1, -1],
-    [2, 1, -1, 3, 2, 2],
-    [-1, -1, 7, -1, 2, 1],
-    [1, -1, 7, 6, -1, 7],
-    [2, -1, 6, 5, 3, -1],
-];
-const END_HEADINGS = [
-    [-1, 7, 5, -1, 5, 5],
-    [3, -1, 5, -1, -1, -1],
-    [2, 1, -1, 4, 3, 3],
-    [-1, -1, 7, -1, 2, 1],
-    [1, -1, 6, 6, -1, 7],
-    [2, -1, 6, 5, 3, -1],
-];
+
+// Precomputed walk route table, recovered from the original binary (SCRANTIC.SCR):
+// the route matrix at file 0x18894 and the segment table at 0x180de. This REPLACES
+// the port's hand-built BOOKMARKS adjacency graph + runtime path enumeration -- the
+// original does not enumerate paths, it walks this table.
+//
+// WALK_ROUTES keys are "<from><to>" with 1-based spots (1=A..6=G). Each route maps the
+// CURRENT 1-based spot -> a weighted list of [segmentId, weight%] choices (weights sum
+// 100); the engine roulette-picks one segment per spot until it reaches the destination.
+// WALK_SEGMENTS[id]: `sh`/`eh` = start/end heading (0=S,1=SW,2=W,3=NW,4=N,5=NE,6=E,7=SE),
+// `es` = end spot (1-based; 0 = stand/no move), `row` = first row of the segment's walk
+// frames in the decoded walk table.
+const WALK_ROUTES = {
+    '12': { 1: [[1, 13], [1, 12], [2, 25], [4, 25], [4, 25]], 2: [[0, 0]], 3: [[12, 50], [12, 50]], 4: [[18, 100]], 5: [[25, 25], [25, 25], [26, 50]], 6: [[30, 100]] },
+    '13': { 1: [[4, 16], [4, 17], [3, 25], [1, 13], [1, 12], [2, 17]], 2: [[8, 50], [8, 50]], 3: [[0, 0]], 4: [[18, 100]], 5: [[25, 25], [25, 25], [26, 50]], 6: [[30, 100]] },
+    '14': { 1: [[4, 12], [4, 13], [2, 25], [1, 25], [1, 25]], 2: [[8, 50], [8, 50]], 3: [[13, 100]], 4: [[0, 0]], 5: [[25, 50], [25, 50]], 6: [[30, 25], [31, 75]] },
+    '15': { 1: [[4, 16], [4, 17], [3, 34], [2, 33], [1, 25], [1, 25]], 2: [[8, 50], [8, 50]], 3: [[13, 100]], 4: [[19, 100]], 5: [[0, 0]], 6: [[30, 100]] },
+    '16': { 1: [[4, 8], [4, 8], [3, 17], [1, 8], [1, 9], [2, 50]], 2: [[8, 50], [8, 50]], 3: [[15, 100]], 4: [[18, 100]], 5: [[25, 15], [25, 15], [26, 70]], 6: [[0, 0]] },
+    '21': { 1: [[0, 0]], 2: [[8, 50], [7, 25], [7, 25]], 3: [[13, 50], [15, 50]], 4: [[19, 100]], 5: [[23, 50], [23, 50]], 6: [[32, 50], [29, 50]] },
+    '23': { 1: [[1, 50], [1, 50]], 2: [[7, 25], [7, 25], [8, 25], [8, 25]], 3: [[0, 0]], 4: [[18, 100]], 5: [[25, 25], [25, 25], [26, 50]], 6: [[30, 100]] },
+    '24': { 1: [[1, 33], [1, 33], [2, 34]], 2: [[7, 25], [7, 25], [8, 25], [8, 25]], 3: [[13, 100]], 4: [[0, 0]], 5: [[25, 50], [25, 50]], 6: [[31, 100]] },
+    '25': { 1: [[1, 50], [1, 50]], 2: [[7, 25], [7, 25], [8, 25], [8, 25]], 3: [[13, 50], [15, 50]], 4: [[19, 100]], 5: [[0, 0]], 6: [[32, 100]] },
+    '26': { 1: [[1, 25], [1, 25], [2, 50]], 2: [[7, 25], [7, 25], [8, 25], [8, 25]], 3: [[14, 50], [13, 50]], 4: [[20, 100]], 5: [[26, 100]], 6: [[0, 0]] },
+    '31': { 1: [[0, 0]], 2: [[7, 50], [7, 50]], 3: [[12, 12], [12, 13], [11, 25], [13, 25], [15, 25]], 4: [[19, 100]], 5: [[23, 50], [23, 50]], 6: [[32, 25], [29, 75]] },
+    '32': { 1: [[4, 50], [4, 50]], 2: [[0, 0]], 3: [[13, 25], [15, 25], [12, 25], [12, 25]], 4: [[19, 100]], 5: [[23, 50], [23, 50]], 6: [[32, 100]] },
+    '34': { 1: [[1, 50], [1, 50]], 2: [[7, 50], [7, 50]], 3: [[12, 25], [12, 25], [13, 50]], 4: [[0, 0]], 5: [[26, 50], [25, 25], [25, 25]], 6: [[31, 100]] },
+    '35': { 1: [[1, 100]], 2: [[7, 50], [7, 50]], 3: [[11, 17], [12, 16], [12, 17], [13, 50]], 4: [[19, 50], [20, 50]], 5: [[0, 0]], 6: [[32, 100]] },
+    '36': { 1: [[1, 25], [1, 25], [2, 50]], 2: [[7, 50], [7, 50]], 3: [[11, 13], [12, 6], [12, 6], [15, 50], [13, 25]], 4: [[20, 100]], 5: [[26, 100]], 6: [[0, 0]] },
+    '41': { 1: [[0, 0]], 2: [[7, 50], [7, 50]], 3: [[12, 33], [12, 33], [15, 34]], 4: [[18, 20], [20, 40], [19, 40]], 5: [[23, 50], [23, 50]], 6: [[29, 100]] },
+    '42': { 1: [[4, 50], [4, 50]], 2: [[0, 0]], 3: [[12, 50], [12, 50]], 4: [[19, 33], [20, 33], [18, 34]], 5: [[23, 50], [23, 50]], 6: [[29, 100]] },
+    '43': { 1: [[4, 50], [4, 50]], 2: [[8, 50], [8, 50]], 3: [[0, 0]], 4: [[20, 25], [19, 25], [18, 50]], 5: [[23, 50], [23, 50]], 6: [[32, 100]] },
+    '45': { 1: [[1, 50], [1, 50]], 2: [[7, 50], [7, 50]], 3: [[12, 50], [12, 50]], 4: [[18, 25], [19, 50], [20, 25]], 5: [[0, 0]], 6: [[32, 100]] },
+    '46': { 1: [[2, 100]], 2: [[7, 50], [7, 50]], 3: [[12, 50], [12, 50]], 4: [[18, 25], [20, 50], [19, 25]], 5: [[23, 50], [26, 50]], 6: [[0, 0]] },
+    '51': { 1: [[0, 0]], 2: [[7, 50], [7, 50]], 3: [[12, 17], [12, 16], [11, 34], [15, 33]], 4: [[18, 100]], 5: [[25, 25], [25, 25], [23, 25], [23, 25]], 6: [[29, 100]] },
+    '52': { 1: [[4, 50], [4, 50]], 2: [[0, 0]], 3: [[12, 50], [12, 50]], 4: [[18, 100]], 5: [[23, 25], [23, 25], [25, 15], [25, 10], [26, 25]], 6: [[30, 100]] },
+    '53': { 1: [[3, 34], [4, 33], [4, 33]], 2: [[8, 50], [8, 50]], 3: [[0, 0]], 4: [[18, 100]], 5: [[23, 50], [25, 15], [25, 10], [26, 25]], 6: [[31, 100]] },
+    '54': { 1: [[4, 50], [4, 50]], 2: [[8, 50], [8, 50]], 3: [[13, 100]], 4: [[0, 0]], 5: [[23, 13], [23, 12], [25, 25], [25, 25], [26, 25]], 6: [[31, 100]] },
+    '56': { 1: [[2, 100]], 2: [[0, 0]], 3: [[15, 100]], 4: [[19, 50], [18, 50]], 5: [[23, 13], [23, 12], [26, 50], [25, 15], [25, 10]], 6: [[0, 0]] },
+    '61': { 1: [[0, 0]], 2: [[7, 50], [7, 50]], 3: [[12, 17], [12, 17], [11, 33], [13, 33]], 4: [[19, 100]], 5: [[23, 50], [23, 50]], 6: [[30, 25], [32, 25], [29, 50]] },
+    '62': { 1: [[4, 50], [4, 50]], 2: [[0, 0]], 3: [[12, 50], [12, 50]], 4: [[18, 100]], 5: [[23, 50], [23, 50]], 6: [[32, 25], [29, 25], [30, 25], [31, 25]] },
+    '63': { 1: [[3, 50], [4, 25], [4, 25]], 2: [[8, 50], [8, 50]], 3: [[0, 0]], 4: [[18, 100]], 5: [[23, 50], [23, 50]], 6: [[32, 12], [29, 13], [30, 50], [31, 25]] },
+    '64': { 1: [[4, 25], [4, 25], [1, 50]], 2: [[8, 50], [8, 50]], 3: [[13, 100]], 4: [[0, 0]], 5: [[25, 100]], 6: [[29, 25], [31, 50], [32, 25]] },
+    '65': { 1: [[1, 50], [1, 50]], 2: [[0, 0]], 3: [[13, 100]], 4: [[19, 100]], 5: [[0, 0]], 6: [[29, 25], [32, 50], [31, 13], [30, 12]] },
+};
+const WALK_SEGMENTS = {
+    1: { sh: 5, eh: 5, es: 5, row: 0 }, 2: { sh: 6, eh: 5, es: 6, row: 17 }, 3: { sh: 6, eh: 5, es: 3, row: 38 },
+    4: { sh: 6, eh: 7, es: 2, row: 68 }, 5: { sh: 0, eh: 0, es: 0, row: 91 }, 6: { sh: 0, eh: 0, es: 0, row: 100 },
+    7: { sh: 3, eh: 3, es: 1, row: 109 }, 8: { sh: 5, eh: 5, es: 3, row: 133 }, 9: { sh: 0, eh: 0, es: 0, row: 145 },
+    10: { sh: 0, eh: 0, es: 0, row: 154 }, 11: { sh: 2, eh: 2, es: 1, row: 163 }, 12: { sh: 1, eh: 1, es: 2, row: 196 },
+    13: { sh: 3, eh: 4, es: 4, row: 211 }, 14: { sh: 2, eh: 3, es: 5, row: 224 }, 15: { sh: 2, eh: 3, es: 6, row: 245 },
+    16: { sh: 0, eh: 0, es: 0, row: 260 }, 17: { sh: 0, eh: 0, es: 0, row: 269 }, 18: { sh: 7, eh: 7, es: 3, row: 278 },
+    19: { sh: 2, eh: 2, es: 5, row: 289 }, 20: { sh: 1, eh: 1, es: 6, row: 302 }, 21: { sh: 0, eh: 0, es: 0, row: 314 },
+    22: { sh: 0, eh: 0, es: 0, row: 323 }, 23: { sh: 1, eh: 1, es: 1, row: 332 }, 24: { sh: 7, eh: 6, es: 3, row: 356 },
+    25: { sh: 6, eh: 6, es: 4, row: 381 }, 26: { sh: 7, eh: 7, es: 6, row: 394 }, 27: { sh: 0, eh: 0, es: 0, row: 405 },
+    28: { sh: 0, eh: 0, es: 0, row: 414 }, 29: { sh: 2, eh: 2, es: 1, row: 423 }, 30: { sh: 6, eh: 6, es: 3, row: 443 },
+    31: { sh: 5, eh: 5, es: 4, row: 457 }, 32: { sh: 3, eh: 3, es: 5, row: 463 }, 33: { sh: 0, eh: 0, es: 0, row: 471 },
+    34: { sh: 0, eh: 0, es: 0, row: 480 },
+};
 
 /** Decode the original host's compact walking table without persisting a dump. */
 export const decodeJohnnyWalkData = (archiveBuffer) => {
@@ -46,28 +86,17 @@ export const decodeJohnnyWalkData = (archiveBuffer) => {
     });
 };
 
-const enumerateSimplePaths = (from, to, path, visited, paths) => {
-    if (from === to) {
-        paths.push(path);
-        return;
+/**
+ * Roulette-pick a segment id from a spot's weighted [segmentId, weight%] list (weights
+ * sum to 100), matching the original's `rng() % 100` walk over the pairs.
+ */
+export const pickWalkSegment = (choices, random = Math.random) => {
+    let roll = Math.min(99, Math.max(0, Math.floor(random() * 100)));
+    for (const [segmentId, weight] of choices) {
+        if (roll < weight) return segmentId;
+        roll -= weight;
     }
-    for (let next = 0; next < BOOKMARKS.length; next++) {
-        if (BOOKMARKS[from][next] < 0 || visited.has(next)) continue;
-        visited.add(next);
-        enumerateSimplePaths(next, to, [...path, next], visited, paths);
-        visited.delete(next);
-    }
-};
-
-/** Select one non-repeating route through the recovered island bookmark graph. */
-export const selectJohnnyWalkPath = (from, to, random = Math.random) => {
-    if (!Number.isInteger(from) || !Number.isInteger(to) || !BOOKMARKS[from] || !BOOKMARKS[to]) return [];
-    if (from === to) return [from];
-    const paths = [];
-    enumerateSimplePaths(from, to, [from], new Set([from]), paths);
-    if (!paths.length) return [];
-    const choice = Math.min(paths.length - 1, Math.max(0, Math.floor(random() * paths.length)));
-    return paths[choice];
+    return choices[choices.length - 1]?.[0] ?? 0;
 };
 
 const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false) => {
@@ -80,29 +109,48 @@ const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false)
     }
 };
 
+/**
+ * Plan Johnny's walk frames by following the precomputed route table (WALK_ROUTES /
+ * WALK_SEGMENTS), segment by segment, from `fromSpot` to `toSpot`. At each spot the
+ * route's weighted list picks one segment; Johnny turns to face the segment's start
+ * heading, plays its walk-frame rows, and lands at the segment's end spot/heading;
+ * repeat until the destination. This is the original engine's mechanism, replacing the
+ * port's runtime path enumeration over the hand-built BOOKMARKS graph.
+ */
 export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
-    const path = selectJohnnyWalkPath(walk.fromSpot, walk.toSpot, random);
-    if (!path.length || walk.fromHeading == null || walk.toHeading == null) return [];
+    const { fromSpot, toSpot, fromHeading, toHeading } = walk;
+    if (fromHeading == null || toHeading == null) return [];
+    if (!Number.isInteger(fromSpot) || !Number.isInteger(toSpot)) return [];
+    if (fromSpot < 0 || fromSpot > 5 || toSpot < 0 || toSpot > 5) return [];
+
     const frames = [];
-    let heading = walk.fromHeading;
-    for (let index = 0; index < path.length - 1; index++) {
-        const from = path[index];
-        const to = path[index + 1];
-        appendTurn(frames, data, from, heading, START_HEADINGS[from][to]);
-        for (let row = BOOKMARKS[from][to]; data[row]?.frame >= 0; row++) frames.push(data[row]);
-        heading = END_HEADINGS[from][to];
+    let heading = fromHeading;
+    let spot = fromSpot; // 0-based
+
+    if (spot !== toSpot) {
+        const route = WALK_ROUTES[`${fromSpot + 1}${toSpot + 1}`];
+        // guard bounds the walk in case of unexpected route data (the binary's table
+        // always converges, but never spin).
+        for (let guard = 0; route && spot !== toSpot && guard < 16; guard++) {
+            const choices = route[spot + 1];
+            if (!choices || choices.length === 0) break;
+            const segment = WALK_SEGMENTS[pickWalkSegment(choices, random)];
+            if (!segment || segment.es === 0) break;
+            appendTurn(frames, data, spot, heading, segment.sh);
+            for (let row = segment.row; data[row]?.frame >= 0; row++) frames.push(data[row]);
+            heading = segment.eh;
+            spot = segment.es - 1; // 1-based end spot -> 0-based
+        }
     }
-    // The original renders Johnny's CURRENT heading standing pose before he turns
-    // in place at the destination (engine FUN_1018_06bf draws the current heading
-    // every tick, then steps toward the target). Seed that pose so a destination
-    // turn whose heading resolves to a hold sentinel (frame -1 -- the pure W/E
-    // facings have no distinct standing sprite) still has a real sprite to show
-    // and hold, instead of an all-invisible sequence that leaves Johnny absent for
-    // the whole interlude. Only when an actual turn happens (heading changes), so a
-    // stationary rest is unaffected.
-    if (heading !== walk.toHeading) frames.push(data[TURNS[walk.toSpot] + 9 + heading]);
-    appendTurn(frames, data, walk.toSpot, heading, walk.toHeading, true);
-    frames.push(data[TURNS[walk.toSpot] + 9 + walk.toHeading]);
+
+    // Arrived at the destination. Seed the current-heading standing pose before the
+    // final in-place turn so a turn to a W/E "hold-sentinel" facing (frame -1 -- the
+    // pure W/E standing rows have no distinct sprite) still shows a real sprite to
+    // hold, rather than an all-invisible sequence that leaves Johnny absent (the
+    // standing-turn visibility fix). Only when an actual turn happens.
+    if (heading !== toHeading) frames.push(data[TURNS[toSpot] + 9 + heading]);
+    appendTurn(frames, data, toSpot, heading, toHeading, true);
+    frames.push(data[TURNS[toSpot] + 9 + toHeading]);
     return frames.filter(Boolean);
 };
 
