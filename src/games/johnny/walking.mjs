@@ -8,13 +8,16 @@ const DATA_OFFSET = 0x188ea;
 // row 488 is the table's terminator.
 const DATA_ROWS = 488;
 
-// Palm-trunk occluder (BACKGRND sprite #13), island-relative box from the binary
-// (FUN_1010_1551 / bake coords): a sprite standing in front of the trunk (feet above
-// baseY=293=0x125) whose box overlaps this AABB is re-covered by the trunk that frame.
-// The occlusion TEST box is 22 wide; the trunk BITMAP is 24 wide, but it's baked into
-// the island background, so redrawing the full sprite paints identical pixels -- do
-// not "correct" width to 24.
-const TREE_TRUNK = { index: 13, x: 443, y: 148, width: 22, height: 145, baseY: 293 };
+// Palm-trunk occluder (BACKGRND sprite #13). The occluder is redrawn on the FOREGROUND
+// over Johnny, so its position must match where the BACKGROUND paints the trunk -- not
+// the binary's island-relative 443. The port's island layout draws the trunk at
+// `layout[1].x (288) + sprite.x (154) = 442` (manifest.mjs), 1px left of the binary's
+// 443 (the port's island base is 288 vs the binary's 289). Using 442 keeps the occluder
+// exactly on the background trunk; a 1px error here doubles the tree as Johnny passes.
+// The 22-wide TEST box vs the 24-wide trunk BITMAP is intentional (the bitmap is baked
+// into the background; redrawing the full sprite paints identical pixels) -- don't
+// "correct" width to 24.
+const TREE_TRUNK = { index: 13, x: 442, y: 148, width: 22, height: 145, baseY: 293 };
 
 /**
  * True when a sprite at island-relative (x,y) of size (width,height) is occluded by
