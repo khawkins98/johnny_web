@@ -1,5 +1,6 @@
 import { buildSpriteCanvas } from '../../dgds/graphics.mjs';
 import { DGDS_TICK_MS } from '../../dgds/scripting/timing.mjs';
+import { verboseLog } from '../../dgds/scripting/log.mjs';
 
 const DATA_OFFSET = 0x188ea;
 // 488 rows: the walk table runs through spot G's standing poses at rows 480..487
@@ -87,22 +88,28 @@ export const decodeJohnnyWalkData = (archiveBuffer) => {
 };
 
 /**
- * Roulette-pick a segment id from a spot's weighted [segmentId, weight%] list (weights
- * sum to 100), matching the original's `rng() % 100` walk over the pairs.
+ * Roulette-pick a segment id from a spot's weighted [segmentId, weight%] list, matching
+ * the original's `rng() % 100` walk over the pairs. The binary loop
+ * `while (r != w && w <= r) { r -= w; ... }` selects the current pair when `r <= w`, so
+ * the boundary test is `<=`, not `<`. (Most lists sum to 100; a few sum higher -- e.g.
+ * route 1->5 spot A sums 150 -- which is faithful to the binary; the overflow entries
+ * are simply unreachable, in the original too.)
  */
 export const pickWalkSegment = (choices, random = Math.random) => {
     let roll = Math.min(99, Math.max(0, Math.floor(random() * 100)));
     for (const [segmentId, weight] of choices) {
-        if (roll < weight) return segmentId;
+        if (roll <= weight) return segmentId;
         roll -= weight;
     }
     return choices[choices.length - 1]?.[0] ?? 0;
 };
 
-const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false) => {
+const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false, random = Math.random) => {
     let heading = fromHeading;
-    let difference = (toHeading - heading) & 7;
-    const increment = difference === 0 ? 0 : difference < 4 ? 1 : -1;
+    const difference = (toHeading - heading) & 7;
+    // A difference of 4 is an opposite (180deg) facing: the original turns a RANDOM
+    // shortest way ((rng()&1)?-1:+1). Otherwise take the short way (1..3 -> +1, 5..7 -> -1).
+    const increment = difference === 0 ? 0 : difference === 4 ? (random() < 0.5 ? 1 : -1) : difference < 4 ? 1 : -1;
     while (heading !== toHeading) {
         heading = (heading + increment + 8) & 7;
         frames.push(data[TURNS[spot] + heading + (waiting ? 9 : 0)]);
@@ -136,10 +143,17 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
             if (!choices || choices.length === 0) break;
             const segment = WALK_SEGMENTS[pickWalkSegment(choices, random)];
             if (!segment || segment.es === 0) break;
-            appendTurn(frames, data, spot, heading, segment.sh);
+            appendTurn(frames, data, spot, heading, segment.sh, false, random);
             for (let row = segment.row; data[row]?.frame >= 0; row++) frames.push(data[row]);
             heading = segment.eh;
             spot = segment.es - 1; // 1-based end spot -> 0-based
+        }
+        // The binary's route table always converges; if we ever exit the loop without
+        // reaching the destination (guard tripped or missing route data), the code below
+        // stamps the destination pose -- a visible teleport. Surface it as a gated
+        // diagnostic rather than let it pass silently.
+        if (spot !== toSpot) {
+            verboseLog(`walk route ${fromSpot}->${toSpot} did not converge (stuck at spot ${spot})`);
         }
     }
 
@@ -149,7 +163,7 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
     // hold, rather than an all-invisible sequence that leaves Johnny absent (the
     // standing-turn visibility fix). Only when an actual turn happens.
     if (heading !== toHeading) frames.push(data[TURNS[toSpot] + 9 + heading]);
-    appendTurn(frames, data, toSpot, heading, toHeading, true);
+    appendTurn(frames, data, toSpot, heading, toHeading, true, random);
     frames.push(data[TURNS[toSpot] + 9 + toHeading]);
     return frames.filter(Boolean);
 };
