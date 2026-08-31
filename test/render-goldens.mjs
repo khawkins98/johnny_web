@@ -145,13 +145,20 @@ const verifyCampfireContinuity = ({ archive }) => {
     let checkedFrames = 0;
 
     for (const frame of frames) {
-        const resourceLayers = frame.l.filter((layer) => layer[0] === 3);
+        // ACTIVE resource layers only (runState[0] !== 'f'). A finished scene lingers in
+        // the layer snapshot until STOP removes it; counting those kept the boot-routine
+        // window open past the fire's actual lifetime once order-independent ADS dispatch
+        // tightened the handoffs. The invariant is "fire on screen while the boot routine
+        // is ACTIVELY drawing" (verified: 0 violations across the gag).
+        const resourceLayers = frame.l.filter((layer) => layer[0] === 3 && layer[2] !== 'f');
         const tags = new Set(resourceLayers.map((layer) => layer[1]));
         if (tags.has(44)) fireStarted = true;
         if (!fireStarted || ![...bootRoutineTags].some((tag) => tags.has(tag))) continue;
         checkedFrames++;
-        if (!tags.has(44)) {
-            throw new Error(`campfire layer disappeared during the boot routine at logical tick ${frame.t}`);
+        // The campfire fire is on screen continuously as one of its three forms:
+        // "very lrg fire" (44) -> "fire slowly dying" (82) -> "just ambers" (83).
+        if (!tags.has(44) && !tags.has(82) && !tags.has(83)) {
+            throw new Error(`campfire fire disappeared during the boot routine at logical tick ${frame.t}`);
         }
     }
 
