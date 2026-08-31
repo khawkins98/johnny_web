@@ -1,4 +1,4 @@
-import { traceEvent } from './trace.mjs';
+import { traceEvent } from './trace-event.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 
 /**

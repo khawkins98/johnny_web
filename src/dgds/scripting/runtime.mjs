@@ -8,7 +8,7 @@
  */
 import { PALETTE } from '../palette.mjs';
 import { canRunTtmScene } from './scene-factory.mjs';
-import { traceEvent } from './trace.mjs';
+import { traceEvent } from './trace-event.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';

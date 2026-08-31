@@ -30,6 +30,8 @@ const CANONICAL_FILES = [
     'execution-outcome.mjs',
     'timing.mjs',
     'background-resources.mjs',
+    'trace-event.mjs',
+    'log.mjs',
 ];
 
 // The override/host layer the canonical path must not import: anything under hosts/
@@ -42,17 +44,11 @@ const isBoundaryImport = (specifier) =>
     /(^|\/)games\//.test(specifier) ||
     /(^|\/)(trace|diagnostics|frame-renderer|process|timing-compatibility)\.mjs$/.test(specifier);
 
-// Honest allow-list of boundary imports that ALREADY exist. These are the diagnostics
-// leaks the hooks-refactor will evict (the core should EMIT trace events that a
-// listener records, not import the diagnostics modules). The guard passes today but
-// fails on any NEW boundary import, and this list is the greppable record of what
-// remains to evict.
-const ALLOWED_LEAKS = new Set([
-    'runtime.mjs -> ./trace.mjs', // TODO(hooks-refactor): evict diagnostics into a listener hook
-    'script-runner.mjs -> ./trace.mjs', // TODO(hooks-refactor): evict diagnostics into a listener hook
-    'script-runner.mjs -> ./diagnostics.mjs', // TODO(hooks-refactor): evict diagnostics into a listener hook
-    'scene-frame.mjs -> ./trace.mjs', // TODO(hooks-refactor): evict diagnostics into a listener hook
-]);
+// Allow-list of boundary imports that are permitted for now. Empty: the diagnostics
+// leaks that used to live here have been evicted -- the core now EMITS trace events
+// through the canonical trace-event.mjs sink and logs through the canonical log.mjs
+// config the host pushes into, so no canonical module imports the observability layer.
+const ALLOWED_LEAKS = new Set([]);
 
 const importSpecifiers = (source) =>
     [...source.matchAll(/(?:import|export)\b[^'"]*?\bfrom\s*['"]([^'"]+)['"]/g)].map((match) => match[1]);

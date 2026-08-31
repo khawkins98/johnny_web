@@ -6,8 +6,8 @@
  */
 import { PALETTE } from '../palette.mjs';
 import { getSceneState, isSelfRearmingSequence } from './scene-factory.mjs';
-import { traceEvent } from './trace.mjs';
-import { diagnostics } from './diagnostics.mjs';
+import { traceEvent } from './trace-event.mjs';
+import { debugLog, getTimestamp, isConsoleLogging, verboseLog } from './log.mjs';
 import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { beginSceneFrame } from './scene-frame.mjs';
 import { createFrameBoundary } from './frame-timing.mjs';
@@ -19,14 +19,12 @@ import { isTtmFinished, isTtmRunning, TtmRunMode } from './ttm-run-state.mjs';
 import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 
 // ---------------------------------------------------------------------------
-// Debug logging
+// Debug logging — emitters live in the canonical `log.mjs`; the host decides
+// whether anything prints by pushing flags in via setLogging(). Re-exported
+// here so existing opcode-layer importers keep a stable path.
 // ---------------------------------------------------------------------------
 
-const getTimestamp = () => new Date().toISOString().substring(11, 23);
-
-export const debugLog = (...args) => {
-    if (diagnostics.console) console.log(`[DGDS] [${getTimestamp()}]`, ...args);
-};
+export { debugLog, verboseLog };
 
 export const sceneLog = (state, action, target = '') => {
     let gagId = state.gagId ?? '?';
@@ -43,7 +41,7 @@ export const sceneLog = (state, action, target = '') => {
         runs: state.runs || 0,
         timer: state.timer || 0,
     });
-    if (!diagnostics.console) return;
+    if (!isConsoleLogging()) return;
 
     let timerStr = '';
     let runStr = '';
@@ -57,10 +55,6 @@ export const sceneLog = (state, action, target = '') => {
     const cycStr = cycles ? `(${cycles})` : '';
 
     console.log(`[${getTimestamp()}] ${gagStr} | ${actStr} | ${tgtStr} | ${cycStr}`);
-};
-
-const verboseLog = (...args) => {
-    if (diagnostics.verbose) console.log(`[DGDS:V] [${getTimestamp()}]`, ...args);
 };
 
 /**
