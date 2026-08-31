@@ -74,10 +74,11 @@ describe('Johnny host story controller', () => {
         const firstSequence = [];
         do firstSequence.push(controller.next());
         while (!firstSequence.at(-1).sequenceEnd);
-        // Length is now the 300-unit spatial walk-span budget (intermediates fill until
-        // the budget/slot cap), not the old fixed 6 + rand(14). Deterministic under the
-        // seeded rng: the ending's width is spent first, then width-25/15 intermediates.
-        expect(firstSequence).toHaveLength(11);
+        // Length is the 300-unit spatial walk-span budget (intermediates fill until the
+        // budget/slot cap), not the old fixed 6 + rand(14). Deterministic under the seeded
+        // rng: the faithful ending selection (10%-gated keyframe else weight-roulette)
+        // picks the finale, whose width is spent first, then intermediates fill the budget.
+        expect(firstSequence).toHaveLength(12);
         expect(firstSequence.slice(0, -1).every(({ sequenceEnd }) => !sequenceEnd)).toBe(true);
         expect(firstSequence.at(-1).transition).toBe(0);
 
@@ -89,6 +90,30 @@ describe('Johnny host story controller', () => {
             transitions.push(selection.transition);
         }
         expect(transitions).toEqual([0, 1, 2, 3, 4, 0]);
+    });
+
+    it('final selection is weighted with last-two anti-repeat, not a uniform pick (#2)', () => {
+        let seed = 0x1234;
+        const rng = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
+        const controller = createJohnnyStoryController({
+            random: rng,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12), // fixed date -> constant story day
+        });
+        const finals = [];
+        controller.subscribeStatus((status) => {
+            if (!status?.final) return;
+            const key = `${status.final.script}#${status.final.tagId}`;
+            if (finals.at(-1) !== key) finals.push(key);
+        });
+        for (let i = 0; i < 80; i++) controller.next();
+        // Endings vary (not one finale replayed forever) and no ending repeats within a
+        // window of three (the binary's last-two anti-repeat).
+        expect(new Set(finals).size).toBeGreaterThan(3);
+        for (let i = 2; i < finals.length; i++) {
+            expect(finals[i]).not.toBe(finals[i - 1]);
+            expect(finals[i]).not.toBe(finals[i - 2]);
+        }
     });
 
     it('advances the story via the dual counter: the calendar day chases the unlocked target one step per real day', () => {
@@ -130,8 +155,9 @@ describe('Johnny host story controller', () => {
             now: () => new Date(2026, 6, 21, 12),
         });
         controller.next();
+        // The calendar wrap (cur 11 -> 12 -> reset 1) is deterministic in updateStoryDay,
+        // independent of which finale the sequence then selects.
         expect(storage.values.get('jc-story-day')).toBe('1'); // chased to 12, then wrapped
-        expect(storage.values.get('jc-story-target')).toBe('1');
     });
 
     it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {

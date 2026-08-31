@@ -354,6 +354,7 @@ export const createJohnnyStoryController = ({
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
+    const recentFinals = []; // anti-repeat: the last two chosen endings (FUN_1018_08b9)
     const statusListeners = new Set();
 
     const publishStatus = () => {
@@ -368,6 +369,24 @@ export const createJohnnyStoryController = ({
                 (candidate.day === 0 || candidate.day === storyDay) &&
                 inTideWindow(candidate, tidePhase),
         );
+
+    // Faithful ending selection (FUN_1018_08b9 / FUN_1018_0d76, phase6 §3): a 10%-gated
+    // day-locked keyframe first, else a WEIGHT-ROULETTE over ordinary `flagsB & 4`
+    // endings -- excluding first-intermediate (`flagsB & 1` -> F.FIRST) scenes and the
+    // last two chosen endings (anti-repeat). Replaces the old uniform `pick`, which
+    // over-represented keyframes and low-weight endings.
+    const chooseFinalScene = (storyDay, tidePhase) => {
+        const finals = eligible(storyDay, F.FINAL, 0, tidePhase);
+        if (finals.length === 0) return pick(random, JOHNNY_SCENES.filter((s) => hasAll(s.flags, F.FINAL)));
+        if (random() < 0.1) {
+            const keyframe = finals.find((s) => s.day === storyDay && s.day !== 0 && !recentFinals.includes(s));
+            if (keyframe) return keyframe;
+        }
+        let pool = finals.filter((s) => !hasAll(s.flags, F.FIRST) && !recentFinals.includes(s));
+        if (pool.length === 0) pool = finals.filter((s) => !recentFinals.includes(s));
+        if (pool.length === 0) pool = finals;
+        return weightedPick(random, pool);
+    };
 
     const findScene = (script, tagId) =>
         JOHNNY_SCENES.find((candidate) => candidate.script === script && candidate.tagId === Number(tagId));
@@ -531,7 +550,9 @@ export const createJohnnyStoryController = ({
         const date = now();
         const startTime = getStartTime(storage, date);
         const storyDay = updateStoryDay(storage, date);
-        const finalScene = pick(random, eligible(storyDay, F.FINAL, 0, tidePhaseFor(date, startTime)));
+        const finalScene = chooseFinalScene(storyDay, tidePhaseFor(date, startTime));
+        recentFinals.push(finalScene);
+        if (recentFinals.length > 2) recentFinals.shift();
         // A day-locked keyframe scene playing this sequence unlocks the next story day
         // (the dual-counter's second half). The calendar counter then chases it on the
         // next real-date change (see updateStoryDay).
