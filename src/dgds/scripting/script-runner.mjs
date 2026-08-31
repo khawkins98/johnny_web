@@ -786,6 +786,35 @@ export const ADSDispatch = [
 ];
 
 // ---------------------------------------------------------------------------
+// Content-addressed ADS handoff dispatch
+//
+// The linear `runScript` PC is a single-threaded scanner: once it parks on an
+// unsatisfied IF_PLAYED, it cannot evaluate a LATER, already-satisfied
+// IF_PLAYED in the same script this tick (the file-order handoff bug). The
+// index below lets the runtime fire a scene's IF_PLAYED chunk the instant
+// that scene reaches FINISHED, independent of the linear PC's position.
+// ---------------------------------------------------------------------------
+
+/**
+ * Index every IF_PLAYED (0x1350) trigger in an ADS scene's (already-expanded)
+ * script by the `(slot,tag)` it watches, mapping to the index of the opcode
+ * immediately AFTER the IF_PLAYED itself (the start of its body). A single
+ * (slot,tag) may have multiple triggering chunks, so each key maps to an
+ * array of body-start indices, in file order.
+ */
+export const indexAdsChunks = (script) => {
+    const map = new Map();
+    for (let i = 0; i < script.length; i++) {
+        if (script[i].opcode !== 0x1350) continue;
+        const [slot, tag] = script[i].params;
+        const key = `${slot}:${tag}`;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(i + 1);
+    }
+    return map;
+};
+
+// ---------------------------------------------------------------------------
 // Script runner
 // ---------------------------------------------------------------------------
 
