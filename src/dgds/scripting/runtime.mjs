@@ -10,7 +10,16 @@ import { PALETTE } from '../palette.mjs';
 import { canRunTtmScene } from './scene-factory.mjs';
 import { traceEvent } from './trace-event.mjs';
 import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
-import { clearAdsSceneBatch, debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
+import {
+    applySceneChanges,
+    clearAdsSceneBatch,
+    debugLog,
+    indexAdsChunks,
+    runAdsChunkBody,
+    runScript,
+    sceneLabel,
+    sceneLog,
+} from './script-runner.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
@@ -45,6 +54,11 @@ const expandAdsScript = (data, script, stack = []) =>
 
 export class DgdsRuntime {
     #adsScripts = [];
+    // Parallel to #adsScripts: each entry is the indexAdsChunks() map for that
+    // top-level ADS scene's expanded script, `"${slot}:${tag}"` -> [bodyStart].
+    // Used by #dispatchAdsFinishChunks to fire a finished scene's IF_PLAYED
+    // handoff chunk(s) the tick it finishes, independent of the linear PC.
+    #adsChunkIndexes = [];
 
     constructor(initialState) {
         if (typeof initialState?.surfaceFactory !== 'function') {
@@ -117,6 +131,10 @@ export class DgdsRuntime {
             runs: 0,
             lastCommand: false,
             playedHistory: new Set(),
+            // Permanent record of "${slot}:${tag}" keys whose IF_PLAYED handoff
+            // chunk has fired at least once via finish-dispatch (never cleared by
+            // rearm -- see #dispatchAdsFinishChunks / the softened IF_PLAYED).
+            dispatchedAdsKeys: new Set(),
             orMode: false,
             orChainPassed: false,
             frameDelta: 0,
@@ -142,6 +160,7 @@ export class DgdsRuntime {
             this.#adsScripts = this.state.data.scenes.map((scene) =>
                 expandAdsScript(this.state.data, scene.script, [scene.tagId?.id]),
             );
+            this.#adsChunkIndexes = this.#adsScripts.map((script) => indexAdsChunks(script));
             this.#loadAdsResources();
             this.#selectInitialAdsScene();
         }
@@ -233,8 +252,62 @@ export class DgdsRuntime {
         });
     }
 
+    /**
+     * Content-addressed ADS handoff dispatch. For every active scene that just
+     * reached FINISHED (natural end OR time-limit expiry, set by
+     * #runTtmController), fire its matching IF_PLAYED chunk body(s) -- the
+     * SAME tick, regardless of where that IF_PLAYED sits in the linear script
+     * or whether some unrelated earlier barrier still has the linear PC
+     * parked. This is what makes a finished scene's successor appear with
+     * zero gap even when an earlier IF_PLAYED is still blocked.
+     *
+     * Completion authority is untouched: this only stages successor scenes;
+     * `#runAdsController`'s `blockers` check (below) remains the sole decider
+     * of gag completion, so an ambient rearm loop that never truly finishes
+     * (e.g. gag 7's self-rearming 4:24) can dispatch forever without ever
+     * blocking completion.
+     *
+     * Rearm double-fire guard: `scene.adsChunkFired` is a flag on the scene
+     * OBJECT itself, not a (slot,tag) key -- a rearmed/self-rearmed scene gets
+     * a brand-new scene object (see applySceneChanges/getSceneState), so a
+     * genuinely NEW finish always dispatches again, while the SAME finished
+     * object (which may linger in `state.scenes` for several ticks before the
+     * linear IF_PLAYED finally removes it) is never re-fired.
+     */
+    #dispatchAdsFinishChunks() {
+        const state = this.state;
+        if (this.#adsScripts.length === 0) return;
+        // state.currentScene can sit one past the last valid index while ADS
+        // waits on a selected scene's concluding children (the `adsSceneEnd`
+        // wait mode below) -- clamp to the last real scene's index/chunk map,
+        // since that is still the active gag's dispatch context.
+        const idx = Math.min(state.currentScene, this.#adsScripts.length - 1);
+        const chunkIndex = this.#adsChunkIndexes[idx];
+        const script = this.#adsScripts[idx];
+        if (!chunkIndex || !script) return;
+
+        let dispatched = false;
+        for (const scene of state.scenes) {
+            if (!isTtmFinished(scene) || scene.adsChunkFired) continue;
+            scene.adsChunkFired = true;
+            const key = `${scene.sceneIdx}:${scene.tagId}`;
+            state.dispatchedAdsKeys.add(key);
+            const bodyStarts = chunkIndex.get(key);
+            if (!bodyStarts) continue;
+            for (const bodyStart of bodyStarts) {
+                runAdsChunkBody(state, script, bodyStart);
+                dispatched = true;
+            }
+        }
+        // Commit once, after every matching chunk for this tick has staged its
+        // changes -- see the "Deliberately does NOT invoke..." note on
+        // runAdsChunkBody for why the mini-executor itself does not commit.
+        if (dispatched) applySceneChanges(state);
+    }
+
     #runAdsController() {
         const state = this.state;
+        this.#dispatchAdsFinishChunks();
         let completed = false;
         if (state.adsSceneEnd != null && state.currentScene >= state.adsSceneEnd) {
             const blockers = state.scenes.filter((scene) => {
@@ -461,6 +534,7 @@ export class DgdsRuntime {
         state.removeScenes = [];
         state.scenesRandom = [];
         state.playedHistory.clear();
+        state.dispatchedAdsKeys.clear();
         // Prune stored backgrounds on the OLD environment map before discarding it,
         // so a persistent background does not survive the jump onto the raster.
         for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
