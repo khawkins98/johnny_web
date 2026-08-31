@@ -74,7 +74,10 @@ describe('Johnny host story controller', () => {
         const firstSequence = [];
         do firstSequence.push(controller.next());
         while (!firstSequence.at(-1).sequenceEnd);
-        expect(firstSequence).toHaveLength(7);
+        // Length is now the 300-unit spatial walk-span budget (intermediates fill until
+        // the budget/slot cap), not the old fixed 6 + rand(14). Deterministic under the
+        // seeded rng: the ending's width is spent first, then width-25/15 intermediates.
+        expect(firstSequence).toHaveLength(11);
         expect(firstSequence.slice(0, -1).every(({ sequenceEnd }) => !sequenceEnd)).toBe(true);
         expect(firstSequence.at(-1).transition).toBe(0);
 
@@ -88,16 +91,60 @@ describe('Johnny host story controller', () => {
         expect(transitions).toEqual([0, 1, 2, 3, 4, 0]);
     });
 
-    it('advances the persistent 11-day story only when the calendar day changes', () => {
-        const storage = memoryStorage({ 'jc-story-date': '201', 'jc-story-day': '11' });
+    it('advances the story via the dual counter: the calendar day chases the unlocked target one step per real day', () => {
+        // Recovered from FUN_1018_0ba5: `cur` (jc-story-day) chases `target`
+        // (jc-story-target) by one step whenever the real calendar date changes, and
+        // never advances past the target or without a date change.
+        const storage = memoryStorage({ 'jc-story-date': '201', 'jc-story-day': '3', 'jc-story-target': '6' });
         const controller = createJohnnyStoryController({
             random: () => 0,
             storage,
-            now: () => new Date(2026, 6, 21, 12), // day 202: wraps 11 -> 1
+            now: () => new Date(2026, 6, 21, 12), // day-of-year 202: a new calendar day
         });
         controller.next();
-        expect(storage.values.get('jc-story-day')).toBe('1');
+        expect(storage.values.get('jc-story-day')).toBe('4'); // chased target by one
         expect(storage.values.get('jc-story-date')).toBe('202');
+    });
+
+    it('does not advance the story day when the calendar date is unchanged', () => {
+        const storage = memoryStorage({ 'jc-story-date': '202', 'jc-story-day': '3', 'jc-story-target': '6' });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage,
+            now: () => new Date(2026, 6, 21, 12), // still day-of-year 202
+        });
+        controller.next();
+        expect(storage.values.get('jc-story-day')).toBe('3');
+    });
+
+    it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {
+        const clock = () => new Date(2026, 6, 21, 15, 0);
+        const lowTideFor = (rng) => {
+            const storage = memoryStorage({ 'jc-start-time': '721' });
+            const controller = createJohnnyStoryController({ random: rng, storage, now: clock });
+            controller.next();
+            return controller.status().lowTide;
+        };
+        // Same clock + StartTime -> same tide regardless of the rng stream.
+        expect(lowTideFor(() => 0)).toBe(lowTideFor(() => 0.999));
+        // StartTime (month*100 + day) is captured and persisted on first run.
+        const storage = memoryStorage();
+        createJohnnyStoryController({ random: () => 0, storage, now: clock }).next();
+        expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+    });
+
+    it('sizes a sequence by the 300-unit walk-span budget (bounded, not a fixed count)', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+        const sequence = [];
+        do sequence.push(controller.next());
+        while (!sequence.at(-1).sequenceEnd);
+        expect(sequence.length).toBeGreaterThan(1);
+        expect(sequence.length).toBeLessThan(298); // the binary's slot cap
+        expect(sequence.at(-1).sequenceEnd).toBe(true);
     });
 
     it('carries island directives and walk endpoints outside DGDS', () => {

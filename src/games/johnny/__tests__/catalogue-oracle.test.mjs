@@ -49,6 +49,9 @@ describe('catalogue matches the binary 79-record table', () => {
             expect(js.day).toBe(rec.day);
             expect(js.tideMin).toBe(rec.tideMin);
             expect(js.tideMax).toBe(rec.tideMax);
+            // Budget metrics (byte@0x07 width, byte@0x02 weight) must match the binary too.
+            expect(js.width).toBe(rec.width);
+            expect(js.weight).toBe(rec.weight);
         });
     }
 });

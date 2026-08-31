@@ -30,10 +30,43 @@ const NE = 5;
 const EAST = 6;
 const SE = 7;
 
+// Per-scene [width, weight] from the binary record (byte@0x07 walk-span width, byte@0x02
+// selection weight). Width is spent from the 300-unit sequence budget; weight drives the
+// intermediate-picker roulette. Pure poses are uniformly width 5 / weight 1 and repeat.
+const SCENE_METRICS = new Map([
+    ['ACTIVITY#8', [15, 30]], ['ACTIVITY#4', [10, 10]], ['ACTIVITY#1', [10, 10]], ['ACTIVITY#5', [50, 10]],
+    ['ACTIVITY#7', [15, 10]], ['ACTIVITY#6', [25, 10]], ['ACTIVITY#10', [25, 10]], ['ACTIVITY#11', [30, 5]],
+    ['ACTIVITY#12', [25, 10]], ['ACTIVITY#9', [20, 10]],
+    ['BUILDING#1', [25, 10]], ['BUILDING#2', [60, 10]], ['BUILDING#5', [25, 10]], ['BUILDING#7', [10, 10]],
+    ['BUILDING#9', [25, 10]], ['BUILDING#8', [10, 10]], ['BUILDING#3', [60, 10]], ['BUILDING#4', [105, 10]],
+    ['BUILDING#6', [105, 10]],
+    ['WALKSTUF#2', [15, 10]], ['WALKSTUF#3', [60, 10]], ['WALKSTUF#1', [60, 10]],
+    ['VISITOR#4', [15, 10]], ['VISITOR#6', [10, 10]], ['VISITOR#7', [10, 10]], ['VISITOR#5', [60, 10]],
+    ['VISITOR#1', [25, 15]], ['VISITOR#3', [105, 10]],
+    ['MARY#2', [45, 10]], ['MARY#3', [60, 10]], ['MARY#1', [30, 10]], ['MARY#4', [35, 10]], ['MARY#5', [45, 10]],
+    ['FISHING#1', [25, 10]], ['FISHING#2', [25, 10]], ['FISHING#7', [25, 10]], ['FISHING#8', [20, 10]],
+    ['FISHING#3', [15, 10]], ['FISHING#6', [15, 10]], ['FISHING#4', [12, 10]], ['FISHING#5', [10, 10]],
+    ['JOHNNY#4', [30, 15]], ['JOHNNY#5', [30, 15]], ['JOHNNY#2', [30, 10]], ['JOHNNY#3', [15, 10]],
+    ['JOHNNY#6', [15, 10]], ['JOHNNY#1', [20, 10]],
+    ['MISCGAG#2', [20, 10]], ['MISCGAG#1', [15, 10]],
+    ['STAND#1', [15, 1]], ['STAND#2', [15, 1]], ['STAND#3', [15, 1]], ['STAND#4', [15, 1]], ['STAND#5', [15, 1]],
+    ['STAND#6', [15, 1]], ['STAND#7', [15, 1]], ['STAND#8', [15, 1]], ['STAND#9', [15, 1]], ['STAND#10', [15, 1]],
+    ['STAND#11', [15, 1]], ['STAND#12', [15, 1]], ['STAND#15', [15, 10]], ['STAND#16', [15, 10]],
+    ['SUZY#1', [35, 10]], ['SUZY#2', [25, 10]],
+]);
+
 // A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
-// [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide).
-const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) =>
-    Object.freeze({ script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin, tideMax });
+// [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide). `width`/`weight`
+// come from SCENE_METRICS; `repeat` (binary flagsB & 0x08) marks the idle poses that may
+// repeat 1..6x in a sequence.
+const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) => {
+    const isPose = script === POSE;
+    const [width, weight] = isPose ? [5, 1] : SCENE_METRICS.get(`${script.replace('.ADS', '')}#${tagId}`) ?? [15, 10];
+    return Object.freeze({
+        script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
+        tideMin, tideMax, width, weight, repeat: isPose,
+    });
+};
 
 /**
  * Host catalogue reconstructed from the original executable behavior and
@@ -125,40 +158,109 @@ export const JOHNNY_SCENES = Object.freeze([
 const randomIndex = (random, length) => Math.min(length - 1, Math.floor(random() * length));
 const pick = (random, values) => values[randomIndex(random, values.length)];
 const hasAll = (flags, required) => (flags & required) === required;
+
+// Weight-roulette over candidate scenes (binary picker FUN_1018_0d76 sums byte@0x02).
+const weightedPick = (random, candidates) => {
+    const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+    let roll = Math.floor(random() * total);
+    for (const candidate of candidates) {
+        if (roll < candidate.weight) return candidate;
+        roll -= candidate.weight;
+    }
+    return candidates[candidates.length - 1];
+};
+// Repeat count for an idle (flagsB & 0x08) scene: centre-weighted buckets summing 100 -> 1..6.
+const REPEAT_WEIGHTS = [10, 20, 30, 20, 10, 10];
+const repeatCount = (random) => {
+    let roll = Math.floor(random() * 100);
+    for (let bucket = 0; bucket < REPEAT_WEIGHTS.length; bucket++) {
+        if (roll < REPEAT_WEIGHTS[bucket]) return bucket + 1;
+        roll -= REPEAT_WEIGHTS[bucket];
+    }
+    return REPEAT_WEIGHTS.length;
+};
+
 // Tide runs over 16 phases; a scene is eligible when its [tideMin, tideMax) window
-// contains the current phase. Low tide is the first 12 phases (the binary's low-tide
-// windows end at 12; high-tide variants start at 12). The exact wall-clock -> phase
-// formula is recovered in a later chunk; this provisional mapping is deterministic.
+// contains the current phase. Recovered from the original (FUN_1018_0540 / hasher
+// FUN_1018_0c48): the phase is TIME-OF-DAY driven at half-hour resolution, offset by
+// the persisted story StartTime, NOT random.
+//   hphase(x) = (floor(x/50) + floor((x%100)/30) + 14) % 16
+//   tidePhase = (hphase(hour*100 + (min<30?0:30)) - hphase(StartTime) + 16) % 16
+// where StartTime is the (month*100 + day) captured when the story first started.
 const TIDE_PHASES = 16;
-const LOW_TIDE_PHASES = 12;
-const tidePhaseFor = (date) =>
-    Math.floor(((date.getHours() * 60 + date.getMinutes()) / 1440) * TIDE_PHASES) % TIDE_PHASES;
+const LOW_TIDE_PHASES = 12; // render low tide when tidePhase >= 12 (0x0c)
+const hphase = (x) => (Math.floor(x / 50) + Math.floor((x % 100) / 30) + 14) % TIDE_PHASES;
+const tidePhaseFor = (date, startTime) => {
+    const now = date.getHours() * 100 + (date.getMinutes() < 30 ? 0 : 30);
+    return (hphase(now) - hphase(startTime) + TIDE_PHASES) % TIDE_PHASES;
+};
 const inTideWindow = (candidate, tidePhase) =>
     tidePhase == null || (candidate.tideMin <= tidePhase && tidePhase < candidate.tideMax);
 const dayOfYear = (date) =>
     Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
 
+// The story StartTime reference (month*100 + day), captured on first run and persisted.
+const getStartTime = (storage, date) => {
+    let stored;
+    try {
+        stored = storage?.getItem('jc-start-time');
+    } catch {
+        // Storage may be unavailable (privacy mode); fall back to today's date.
+    }
+    if (stored) return Number(stored);
+    const startTime = (date.getMonth() + 1) * 100 + date.getDate();
+    try {
+        storage?.setItem('jc-start-time', String(startTime));
+    } catch {
+        // Persistence is optional.
+    }
+    return startTime;
+};
+
+// Dual-counter day advance, recovered from FUN_1018_0ba5. Two persisted counters:
+// `target` = the unlocked/keyframe day, and `cur` = the calendar day that chases it
+// one step per real-calendar-day change. A keyframe scene actually playing unlocks the
+// next day (target++). The JS port previously collapsed this to a single day++/clamp.
 const updateStoryDay = (storage, date) => {
     const currentDate = String(dayOfYear(date));
     let storedDate;
-    let storedDay;
+    let target;
+    let cur;
     try {
         storedDate = storage?.getItem('jc-story-date');
-        storedDay = storage?.getItem('jc-story-day');
+        target = Number(storage?.getItem('jc-story-target')) || 1;
+        cur = Number(storage?.getItem('jc-story-day')) || 1;
     } catch {
-        // Storage can be unavailable in privacy modes. The story still runs,
-        // but starts at day one for this page session.
+        target = 1;
+        cur = 1;
     }
-    let currentDay = Number(storedDay) || 1;
-    if (storedDate && storedDate !== currentDate) currentDay++;
-    if (currentDay < 1 || currentDay > 11) currentDay = 1;
+    if (storedDate && storedDate !== currentDate) {
+        if (cur < target) cur++; // calendar chases the unlocked target, one step per day
+        if (cur > 11 || cur < 2) {
+            target = 1;
+            cur = 1;
+        } // wrap/clamp to 1..11
+    }
     try {
         storage?.setItem('jc-story-date', currentDate);
-        storage?.setItem('jc-story-day', String(currentDay));
+        storage?.setItem('jc-story-target', String(target));
+        storage?.setItem('jc-story-day', String(cur));
     } catch {
         // Persistence is an optional host service, not an engine requirement.
     }
-    return currentDay;
+    return cur;
+};
+
+// Unlock the next keyframe day: only when a day-locked keyframe scene actually plays
+// AND the calendar has caught up (target <= cur). Advances `target` by one (max 11).
+const unlockKeyframeDay = (storage) => {
+    try {
+        const target = Number(storage?.getItem('jc-story-target')) || 1;
+        const cur = Number(storage?.getItem('jc-story-day')) || 1;
+        if (target <= cur && target < 11) storage?.setItem('jc-story-target', String(target + 1));
+    } catch {
+        // Persistence is optional.
+    }
 };
 
 const createClouds = (random) => {
@@ -192,10 +294,10 @@ const createIslandState = (
     storyDay,
     date,
     random,
-    { allowLowTide = true, allowVariablePosition = true } = {},
+    { allowLowTide = true, allowVariablePosition = true, startTime = 0 } = {},
 ) => {
-    const tidePhase = tidePhaseFor(date);
-    const lowTide = allowLowTide && tidePhase < LOW_TIDE_PHASES;
+    const tidePhase = tidePhaseFor(date, startTime);
+    const lowTide = allowLowTide && tidePhase >= LOW_TIDE_PHASES;
     let x = 0;
     let y = 0;
     if (allowVariablePosition && hasAll(finalScene.flags, F.VARPOS_OK)) {
@@ -320,13 +422,15 @@ export const createJohnnyStoryController = ({
         return pick(random, candidates);
     };
 
-    const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now() }) => {
+    const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now(), startTime }) => {
+        const resolvedStartTime = startTime ?? getStartTime(storage, date);
         const constraints = anchorScene
             ? {
-                  allowLowTide: anchorScene.tideMin < LOW_TIDE_PHASES,
+                  startTime: resolvedStartTime,
+                  allowLowTide: anchorScene.tideMax > LOW_TIDE_PHASES,
                   allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
-            : undefined;
+            : { startTime: resolvedStartTime };
         const islandState = createIslandState(finalScene, storyDay, date, random, constraints);
         const planned = [];
         let previous = null;
@@ -343,12 +447,41 @@ export const createJohnnyStoryController = ({
             // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
             // from the intermediate pool here.
             let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
-            const count = 6 + Math.floor(random() * 14);
-            for (let index = anchorScene ? 1 : 0; index < count; index++) {
-                // Tide-window eligibility replaces the old LOWTIDE_OK flag filter.
-                const next = pick(random, eligible(storyDay, wanted, unwanted, islandState.tidePhase));
-                planned.push({ scene: next, walkFrom: previous });
-                previous = next;
+            // 300-unit spatial walk-span budget (FUN_1018_08b9): the ending's width is
+            // spent first, then intermediates fill until the budget runs out (or the 298
+            // slot cap). Each candidate must fit its tide window (already applied by
+            // eligible) and have width/2 < remaining budget; one is chosen by weight
+            // roulette. An idle (repeat) scene runs 1..6x, centre-weighted, rejecting a
+            // repeat count that would overrun the budget unless it lands exactly on 0.
+            let budget = 300 - finalScene.width - (anchorScene ? anchorScene.width : 0);
+            let slots = anchorScene ? 1 : 0;
+            while (budget > 0 && slots < 298) {
+                const candidates = eligible(storyDay, wanted, unwanted, islandState.tidePhase).filter(
+                    (candidate) => candidate.width / 2 < budget,
+                );
+                if (candidates.length === 0) break;
+                const next = weightedPick(random, candidates);
+                let reps = 1;
+                if (next.repeat) {
+                    reps = repeatCount(random);
+                    // Re-roll a repeat count that would overrun the budget (unless it lands
+                    // exactly on 0), bounded so a degenerate/constant rng still terminates.
+                    for (
+                        let attempt = 0;
+                        attempt < 8 && reps > 1 && next.width * reps > budget && next.width * reps - budget !== 0;
+                        attempt++
+                    ) {
+                        reps = repeatCount(random);
+                    }
+                    // Hard guarantee: never place more repeats than the budget can hold.
+                    reps = Math.min(reps, Math.max(1, Math.floor(budget / next.width)));
+                }
+                for (let placed = 0; placed < reps && slots < 298; placed++) {
+                    planned.push({ scene: next, walkFrom: previous });
+                    previous = next;
+                    budget -= next.width;
+                    slots++;
+                }
                 unwanted |= F.FIRST;
             }
         }
@@ -385,9 +518,14 @@ export const createJohnnyStoryController = ({
 
     const buildSequence = () => {
         const date = now();
+        const startTime = getStartTime(storage, date);
         const storyDay = updateStoryDay(storage, date);
-        const finalScene = pick(random, eligible(storyDay, F.FINAL, 0, tidePhaseFor(date)));
-        installPlan(createPlan({ storyDay, finalScene, date }));
+        const finalScene = pick(random, eligible(storyDay, F.FINAL, 0, tidePhaseFor(date, startTime)));
+        // A day-locked keyframe scene playing this sequence unlocks the next story day
+        // (the dual-counter's second half). The calendar counter then chases it on the
+        // next real-date change (see updateStoryDay).
+        if (finalScene.day !== 0) unlockKeyframeDay(storage);
+        installPlan(createPlan({ storyDay, finalScene, date, startTime }));
     };
 
     const debugStoryDay = (sceneMetadata, requestedDay) =>
@@ -414,8 +552,10 @@ export const createJohnnyStoryController = ({
             if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
             const storyDay = debugStoryDay(selected, requestedDay);
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
-            const islandState = createIslandState(finalScene, storyDay, now(), random, {
-                allowLowTide: selected.tideMin < LOW_TIDE_PHASES,
+            const date = now();
+            const islandState = createIslandState(finalScene, storyDay, date, random, {
+                startTime: getStartTime(storage, date),
+                allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
                 allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
             });
             return Object.freeze({
