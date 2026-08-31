@@ -634,6 +634,11 @@ const applySceneChanges = (state) => {
                 scene.execution = runScript(scene.state, scene.script || scene.state.script);
                 if (scene.state.reentry >= (scene.prologueLength || 0)) scene.environment.ready = true;
             }
+            // Draw this scene's first frame on the tick it is added (the original
+            // arms then draws within one tick), even if that tick is not a WM_TIMER
+            // present tick -- so a hand-off successor appears the same tick the
+            // finished predecessor drops, with no background-only frame between.
+            scene.needsFirstFrame = true;
             sceneLog(state, 'ADD_SCENE', sceneLabel(state.scenesRes, s.sceneIdx, s.tagId));
             state.scenes.push(scene);
         }

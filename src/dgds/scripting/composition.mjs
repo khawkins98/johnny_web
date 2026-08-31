@@ -27,7 +27,14 @@ export const composeTtmFrame = (state) => {
         (left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right),
     );
     for (const scene of ordered) {
-        if (isTtmFinished(scene)) continue;
+        // A finished scene is still drawn for the ONE tick it finishes on
+        // (`finishedAge === 0`, stamped by the runtime) so its final frame stays
+        // visible until its successor first paints -- the original's age-out is one
+        // tick after the last draw, not the same tick. It is dropped once aged
+        // (`finishedAge >= 1`); a finished scene with no `finishedAge` (e.g. a bare
+        // unit-test fixture, or one never run through the tick loop) vanishes at once,
+        // so a never-stopped scene can never freeze on the raster.
+        if (isTtmFinished(scene) && scene.finishedAge !== 0) continue;
         const ops = scene.state?.frameOps;
         if (!ops || ops.length === 0) continue;
         for (const op of ops) presentSurfaceFrameOperation(scene.state, op, true);

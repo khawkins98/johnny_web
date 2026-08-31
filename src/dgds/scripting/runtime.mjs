@@ -342,9 +342,17 @@ export class DgdsRuntime {
             // otherwise hold the current frame untouched -- its recorded execution
             // state, runState, and frameOps carry over, so ADS sequencing reads a
             // stable scene and composeTtmFrame keeps drawing the held frame.
-            if (!rootState.isPresentTick) return;
+            //
+            // EXCEPTION: a just-added scene draws its FIRST frame on the tick it is
+            // armed, matching the original's arm->draw order within one tick. Without
+            // this, a scene added on a non-present fine tick would stay blank until the
+            // next present tick, so a hand-off shows a background-only frame while the
+            // successor waits to draw (the 2-tick blip). The first frame is a one-time
+            // bootstrap; every later advance is present-gated as normal.
+            if (!rootState.isPresentTick && scene.needsFirstFrame !== true) return;
 
             if (!isTtmFinished(scene)) {
+                scene.needsFirstFrame = false;
                 scene.runState = TtmRunState.RUNNING;
                 scene.execution = runScript(scene.state, scene.state.script || scene.script);
                 if (scene.execution.frameBoundary) {
@@ -389,6 +397,20 @@ export class DgdsRuntime {
                 }
             }
         });
+
+        // Age finished scenes for composeTtmFrame. A scene is stamped finishedAge 0
+        // the tick it finishes (drawn once more so its final frame is still visible
+        // while its successor first paints), then 1+ on each later compose tick (then
+        // dropped). This runs every compose tick, so a finished scene that is never
+        // explicitly stopped still ages out within one tick and can never freeze on
+        // the raster. A revived (retried) scene has its age cleared.
+        for (const scene of rootState.scenes) {
+            if (isTtmFinished(scene)) {
+                scene.finishedAge = (scene.finishedAge ?? -1) + 1;
+            } else if (scene.finishedAge !== undefined) {
+                scene.finishedAge = undefined;
+            }
+        }
     }
 
     #runScripts() {

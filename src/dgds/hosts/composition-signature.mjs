@@ -20,7 +20,15 @@ export const getCompositionRevision = (state) => {
     );
     let signature = '';
     for (const scene of ordered) {
-        if (isTtmFinished(scene)) continue;
+        // Mirror composeTtmFrame: a finished scene still contributes its final frame
+        // for the one tick it finishes on (`finishedAge === 0`), then drops out. The
+        // `f` marker distinguishes that final held frame from the live one so the
+        // finish -> age-out transition always changes the signature and recomposes.
+        if (isTtmFinished(scene)) {
+            if (scene.finishedAge !== 0) continue;
+            signature += `${scene.sceneIdx}:${scene.tagId}:${scene.state?.layerRevision || 0}:f|`;
+            continue;
+        }
         signature += `${scene.sceneIdx}:${scene.tagId}:${scene.state?.layerRevision || 0}|`;
     }
     // A STORE_AREA plate change (a scene baking new background) must also recompose,
