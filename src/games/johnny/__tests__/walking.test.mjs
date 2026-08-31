@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
     decodeJohnnyWalkData,
+    johnnyPoseFrame,
     planJohnnyWalkFrames,
+    runJohnnyPose,
     runJohnnyWalk,
     selectJohnnyWalkPath,
 } from '../walking.mjs';
@@ -164,5 +166,62 @@ describe('Johnny host walking', () => {
         expect(context.clearRect).not.toHaveBeenCalled();
         expect(context.drawImage).not.toHaveBeenCalled();
         expect(record).toHaveBeenCalledWith('walk-frame', expect.objectContaining({ visible: false }));
+    });
+
+    it('resolves a pose to the standing sprite row for its spot and heading', () => {
+        // TURNS[spot] + 9 (the waiting/standing block) + heading -- e.g. spot A (0)
+        // facing NW (3) -> row 91 + 9 + 3 = 103.
+        const data = Array.from({ length: 480 }, (_, i) => ({ flipX: false, frame: -1, x: 0, y: 0, row: i }));
+        expect(johnnyPoseFrame(data, 0, 3)).toBe(data[103]);
+        expect(johnnyPoseFrame(data, 5, 0)).toBe(data[471 + 9]); // spot G, heading S
+    });
+
+    it('stands Johnny using the correct standing-sprite index for the pose spot/heading (no ADS)', async () => {
+        // Sprite rasterization needs a real canvas (unavailable headless), so assert
+        // the resolved standing frame INDEX for the spot/heading, not the pixel draw:
+        // spot A (0) facing NW (3) -> walk row 91+9+3=103 -> frame value 6 => index 5.
+        const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
+        const view = new DataView(archiveBuffer);
+        view.setUint16(0x188ea + 103 * 6, 6, true);
+        view.setUint16(0x188ea + 103 * 6 + 2, 480, true); // x
+        view.setUint16(0x188ea + 103 * 6 + 4, 298, true); // y
+        const context = { clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), drawImage: vi.fn() };
+        const record = vi.fn();
+
+        const done = await runJohnnyPose({
+            pose: { spot: 0, heading: 3 },
+            titleState: { x: 0, y: 0 },
+            archiveBuffer,
+            resourceProvider: { resolve: () => ({ images: [] }) },
+            context,
+            wait: async () => true,
+            record,
+        });
+
+        expect(done).toBe(true);
+        expect(record).toHaveBeenCalledWith(
+            'pose-frame',
+            expect.objectContaining({ spot: 0, heading: 3, frame: 5, x: 480, y: 298 }),
+        );
+    });
+
+    it('retains the canvas for a pose whose standing sprite is the hold sentinel (W/E facings)', async () => {
+        // row 103 left at frame -1 (value 0) -> invisible hold sentinel.
+        const archiveBuffer = new ArrayBuffer(0x188ea + 480 * 6);
+        const context = { clearRect: vi.fn(), save: vi.fn(), restore: vi.fn(), drawImage: vi.fn() };
+        const record = vi.fn();
+
+        await runJohnnyPose({
+            pose: { spot: 0, heading: 3 },
+            archiveBuffer,
+            resourceProvider: { resolve: () => ({ images: [] }) },
+            context,
+            wait: async () => true,
+            record,
+        });
+
+        expect(context.clearRect).not.toHaveBeenCalled();
+        expect(context.drawImage).not.toHaveBeenCalled();
+        expect(record).toHaveBeenCalledWith('pose-frame', expect.objectContaining({ visible: false }));
     });
 });

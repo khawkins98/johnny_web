@@ -283,6 +283,12 @@ export const createJohnnyStoryController = ({
         return Object.freeze({
             script: selected.script,
             tagId: selected.tagId,
+            // A pure-pose scene (binary adsId 0xFF) has no ADS; the host stands
+            // Johnny at the spot/heading from the walk sheet instead of playing a
+            // script. Carry the pose so the presentation loop can branch on it.
+            pose: hasAll(selected.flags, F.POSE)
+                ? Object.freeze({ spot: selected.startSpot, heading: selected.startHeading })
+                : null,
             titleState: Object.freeze({ ...islandState, sceneOffset }),
             walk:
                 walkFrom?.endSpot != null && selected.startSpot != null
@@ -333,9 +339,10 @@ export const createJohnnyStoryController = ({
         if (!hasAll(finalScene.flags, F.FIRST)) {
             let wanted = 0;
             if (islandState.x !== 0 || islandState.y !== 0) wanted |= F.VARPOS_OK;
-            // POSE records exist in the catalogue but have no render path yet (Chunk 2);
-            // exclude them from selection until then.
-            let unwanted = F.FINAL | F.POSE | (anchorScene ? F.FIRST : 0);
+            // Poses are ADS-less "stand at spot" fillers, selectable as intermediates
+            // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
+            // from the intermediate pool here.
+            let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
             const count = 6 + Math.floor(random() * 14);
             for (let index = anchorScene ? 1 : 0; index < count; index++) {
                 // Tide-window eligibility replaces the old LOWTIDE_OK flag filter.

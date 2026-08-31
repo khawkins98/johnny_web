@@ -180,4 +180,28 @@ describe('Johnny host story controller', () => {
             });
         }
     });
+
+    it('a pose scene selection carries its spot/heading and no ADS script to play', () => {
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date('2024-06-15T12:00:00Z'),
+        });
+        // First pose record is A (spot 0) facing NW (heading 3).
+        const selection = controller.preview('POSE', 1);
+        expect(selection.script).toBe('POSE');
+        expect(selection.pose).toEqual({ spot: 0, heading: 3 });
+    });
+
+    it('does not exclude poses from the intermediate pool (only FINAL is masked)', () => {
+        // Poses are ADS-less "stand" fillers and must be selectable as intermediates.
+        const poseCount = JOHNNY_SCENES.filter((s) => (s.flags & SceneFlags.POSE) !== 0).length;
+        expect(poseCount).toBe(14);
+        // None of the 14 poses is flagged FINAL (which is the only intermediate mask).
+        expect(
+            JOHNNY_SCENES.filter(
+                (s) => (s.flags & SceneFlags.POSE) !== 0 && (s.flags & SceneFlags.FINAL) !== 0,
+            ),
+        ).toEqual([]);
+    });
 });

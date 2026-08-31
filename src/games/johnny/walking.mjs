@@ -189,3 +189,71 @@ export const runJohnnyWalk = async ({
     }
     return true;
 };
+
+// Idle duration for a pure-pose scene (binary adsId 0xFF): Johnny just stands.
+// The record carries no duration, so this is an authored idle -- tune as needed.
+const POSE_IDLE_TICKS = 150; // ~3s at DGDS_TICK_MS
+
+/** The standing sprite row for a pose at (spot, heading), from the walk sheet. */
+export const johnnyPoseFrame = (data, spot, heading) => data[TURNS[spot] + 9 + heading];
+
+/**
+ * Play a pure-pose scene: Johnny stands at a spot facing a heading for a brief
+ * idle, drawn from the walk sprite sheet with no ADS runtime. Pure engine pose
+ * (binary adsId 0xFF). A pose is normally reached via a walk interlude that has
+ * already left Johnny standing at the spot/heading; for the pure W/E facings
+ * (heading 2/6) the standing row is the -1 "hold" sentinel, so -- exactly as the
+ * walk interlude does -- an invisible frame RETAINS what is already on the canvas
+ * rather than clearing to a blink.
+ */
+export const runJohnnyPose = async ({
+    pose,
+    titleState,
+    archiveBuffer,
+    resourceProvider,
+    context,
+    presentBackground = null,
+    wait = delay,
+    signal = null,
+    record = null,
+    idleTicks = POSE_IDLE_TICKS,
+}) => {
+    if (!pose || signal?.aborted) return false;
+    const data = decodeJohnnyWalkData(archiveBuffer);
+    const frame = johnnyPoseFrame(data, pose.spot, pose.heading);
+    const sprites = resourceProvider.resolve('JOHNWALK.BMP');
+    const offsetX = titleState?.x || 0;
+    const offsetY = titleState?.y || 0;
+    const image = frame && frame.frame >= 0 ? sprites?.images?.[frame.frame] : null;
+    const hasVisiblePixels = Boolean(image?.pixels?.some((pixel) => pixel.a > 0));
+    const sprite = hasVisiblePixels ? buildSpriteCanvas(image) : null;
+    const visible = Boolean(sprite);
+    record?.('pose-frame', {
+        spot: pose.spot,
+        heading: pose.heading,
+        frame: frame?.frame ?? -1,
+        x: (frame?.x ?? 0) + offsetX,
+        y: (frame?.y ?? 0) + offsetY,
+        flipX: Boolean(frame?.flipX),
+        visible,
+    });
+    if (visible) {
+        context.clearRect(0, 0, 640, 480);
+        presentBackground?.();
+        context.save();
+        if (frame.flipX) {
+            context.translate(frame.x + offsetX + image.width, frame.y + offsetY);
+            context.scale(-1, 1);
+            context.drawImage(sprite, 0, 0);
+        } else {
+            context.drawImage(sprite, frame.x + offsetX, frame.y + offsetY);
+        }
+        context.restore();
+    }
+    const completed = await wait(idleTicks * DGDS_TICK_MS, { signal });
+    if (signal?.aborted || completed === false) {
+        context.clearRect(0, 0, 640, 480);
+        return false;
+    }
+    return true;
+};

@@ -27,6 +27,7 @@ export const runBrowserPresentation = async ({
     selectScene = null,
     runSequenceTransition = null,
     runInterlude = null,
+    runPose = null,
     createSelectionPresenter = null,
     debugThemes = null,
     debugSequence = null,
@@ -201,28 +202,47 @@ export const runBrowserPresentation = async ({
 
             if (hasPersistentBackground) presentSelectionBackground();
             else mainContext.clearRect(0, 0, 640, 480);
-            const data = resourceProvider.resolve(script);
 
-            outcome = await new Promise((resolve) => {
-                startProcess({
-                    type: 'ADS',
+            // A pure-pose scene (binary adsId 0xFF) has no ADS runtime: stand Johnny
+            // at the spot/heading from the walk sheet for an idle, then continue.
+            if (selection.pose && runPose) {
+                diagnostics.record('host-event', { phase: 'pose', ...selection.pose });
+                const done = await runPose({
+                    ...selection,
+                    archiveBuffer: sndBuf,
+                    resourceProvider,
                     context,
                     mainContext,
-                    data,
-                    resourceProvider,
-                    backgroundDecorator,
-                    game,
-                    audioManager,
-                    adsSceneTag: tagId,
-                    singleAdsScene: tagId !== null,
-                    titleState: selection.titleState ?? null,
-                    hostManagedTransitions: Boolean(selectScene),
-                    presentationPolicy,
-                    surface: sharedRaster,
-                    onComplete: resolve,
+                    presentBackground: presentSelectionBackground,
+                    signal: attempt?.signal ?? null,
+                    record: (type, data) => diagnostics.record(type, data),
                 });
-            });
-            diagnostics.record('host-event', { phase: 'runtime-stop', script, tagId, reason: outcome?.reason });
+                outcome = { reason: done ? 'completed' : 'aborted' };
+                diagnostics.record('host-event', { phase: 'pose-stop', ...selection.pose, reason: outcome.reason });
+            } else {
+                const data = resourceProvider.resolve(script);
+
+                outcome = await new Promise((resolve) => {
+                    startProcess({
+                        type: 'ADS',
+                        context,
+                        mainContext,
+                        data,
+                        resourceProvider,
+                        backgroundDecorator,
+                        game,
+                        audioManager,
+                        adsSceneTag: tagId,
+                        singleAdsScene: tagId !== null,
+                        titleState: selection.titleState ?? null,
+                        hostManagedTransitions: Boolean(selectScene),
+                        presentationPolicy,
+                        surface: sharedRaster,
+                        onComplete: resolve,
+                    });
+                });
+                diagnostics.record('host-event', { phase: 'runtime-stop', script, tagId, reason: outcome?.reason });
+            }
             if (
                 outcome?.reason === 'completed' &&
                 selection.sequenceEnd &&
