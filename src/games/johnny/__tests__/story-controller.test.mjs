@@ -258,7 +258,14 @@ describe('Johnny host story controller', () => {
                     expect(metadata.tideMin, `${selection.script}#${selection.tagId} at low tide`).toBeLessThan(12);
                 }
                 if (selection.titleState.x || selection.titleState.y) {
-                    expect(metadata.flags & SceneFlags.VARPOS_OK, `${selection.script}#${selection.tagId} at variable position`).toBeTruthy();
+                    // The island origin randomizes per ISLAND chain (binary: it is
+                    // randomized unconditionally for an island chain; VARPOS only gates
+                    // waves, not position). So a variable position implies an island
+                    // chain, NOT a per-scene VARPOS_OK flag.
+                    expect(
+                        selection.titleState.island,
+                        `${selection.script}#${selection.tagId} at variable position must be an island chain`,
+                    ).toBeTruthy();
                 }
             }
 
@@ -293,5 +300,41 @@ describe('Johnny host story controller', () => {
                 (s) => (s.flags & SceneFlags.POSE) !== 0 && (s.flags & SceneFlags.FINAL) !== 0,
             ),
         ).toEqual([]);
+    });
+});
+
+describe('faithful island positioning (phase7)', () => {
+    const clock = () => new Date(2026, 6, 21, 12);
+    const drive = (script, tag) => {
+        const c = createJohnnyStoryController({ random: () => 0, storage: memoryStorage(), now: clock });
+        c.planFrom(script, tag, { storyDay: 1 });
+        const out = [];
+        do out.push(c.next());
+        while (!out.at(-1).sequenceEnd && out.length < 30);
+        return out;
+    };
+
+    it('randomizes the island origin for a non-VARPOS island chain and never pins the fabricated -272', () => {
+        // FISHING#4 is FINAL|ISLAND|LEFT_ISLAND with NO VARPOS_OK -- the exact scene the
+        // old code pinned to a whole-island x=-272 (the visible teleport). The binary
+        // randomizes the origin for every island chain regardless of VARPOS.
+        const selections = drive('FISHING.ADS', 4);
+        const finalSel = selections.at(-1);
+        expect(finalSel.tagId).toBe(4);
+        // titleState.x is the raw island world origin. random()=0 -> the third position
+        // branch -> -114 (in the [-222,-113] random band). The old code pinned this
+        // LEFT_ISLAND-without-VARPOS chain to the fabricated whole-island x=-272.
+        expect(finalSel.titleState.x).toBe(-114);
+        expect(finalSel.titleState.x).toBeGreaterThanOrEqual(-222);
+        expect(finalSel.titleState.x).toBeLessThanOrEqual(-113);
+        // No scene in the chain sits at the fabricated whole-island -272.
+        for (const s of selections) expect(s.titleState.x).not.toBe(-272);
+    });
+
+    it('VARPOS gates waves, not position', () => {
+        // ACTIVITY#1 is FINAL|ISLAND|VARPOS_OK -> waves OFF for the chain.
+        expect(drive('ACTIVITY.ADS', 1).at(-1).titleState.waves).toBe(false);
+        // FISHING#4 is ISLAND without VARPOS -> waves ON.
+        expect(drive('FISHING.ADS', 4).at(-1).titleState.waves).toBe(true);
     });
 });

@@ -311,7 +311,17 @@ const createIslandState = (
     const lowTide = allowLowTide && tidePhase >= LOW_TIDE_PHASES;
     let x = 0;
     let y = 0;
-    if (allowVariablePosition && hasAll(finalScene.flags, F.VARPOS_OK)) {
+    // The island world origin is randomized ONCE per island CHAIN and held fixed for
+    // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136,
+    // dec 5161/5693). It is randomized UNCONDITIONALLY for an island chain -- VARPOS
+    // (flagsB 0x1000) does NOT gate position; it only turns waves off (dec 4314). The
+    // three branches approximate the binary's {layout0, layout1, layout1+holiday}
+    // bands; the base X values (-222, -114) are the binary's layout0/layout1 bases
+    // (67, 168) re-based by -289. LEFT_ISLAND is NOT a whole-island move -- it is the
+    // per-scene FOREGROUND +272 nudge applied in makeSelection (binary flagsB 0x400).
+    // The old fixed whole-island `x = -272` here was fabricated and was the visible
+    // between-chain teleport; removed.
+    if (allowVariablePosition && hasAll(finalScene.flags, F.ISLAND)) {
         if (random() >= 0.5) {
             x = -222 + Math.floor(random() * 109);
             y = -44 + Math.floor(random() * 128);
@@ -322,8 +332,6 @@ const createIslandState = (
             x = -114 + Math.floor(random() * 119);
             y = -73 + Math.floor(random() * 60);
         }
-    } else if (allowVariablePosition && hasAll(finalScene.flags, F.LEFT_ISLAND)) {
-        x = -272;
     }
     const raft = hasAll(finalScene.flags, F.NORAFT) ? 0 : storyDay <= 2 ? 1 : storyDay <= 5 ? storyDay - 1 : 5;
     return Object.freeze({
@@ -338,6 +346,14 @@ const createIslandState = (
         raft,
         x,
         y,
+        // VARPOS (binary flagsB 0x1000) turns the animated ocean waves OFF for the
+        // chain (dec 4314: waves disabled when VARPOS set) -- it never affects
+        // position. Carried here so the datum is ready.
+        // TODO(waves-wiring): thread `waves` into the wave renderer. Waves are
+        // currently gated by a user setting in frame-renderer.mjs
+        // (policy.setting(profile.settings.waves)); per-chain suppression needs a new
+        // path from this flag into that renderer, not wired in this pass.
+        waves: !hasAll(finalScene.flags, F.VARPOS_OK),
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
         oceanIndex: randomIndex(random, 3),
         presentationKey: Object.freeze({}),
