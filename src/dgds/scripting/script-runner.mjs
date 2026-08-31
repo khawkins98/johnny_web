@@ -507,6 +507,16 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
             state.removeScenes.push({ sceneIdx, tagId });
             state.continue = true;
             handleIfCondition(state, true);
+        } else if (state.dispatchedAdsKeys?.has(`${sceneIdx}:${tagId}`)) {
+            // The finish-dispatch (runtime.mjs) already fired this (slot,tag)'s
+            // handoff chunk off an earlier instance's finish event, independent
+            // of this linear PC. A new, still-playing instance now occupying the
+            // slot (e.g. a self-rearming ambient sequence) is a fresh play the
+            // dispatch owns going forward -- this barrier's one-time job is
+            // done, so skip the branch instead of permanently parking the PC on
+            // an instance the dispatch will keep servicing on its own.
+            state.continue = true;
+            handleIfCondition(state, false);
         } else {
             // Still playing -> BLOCK (keep state.continue = false)
         }
