@@ -251,3 +251,106 @@ describe('ADS finish-dispatch (Task 4): softened IF_PLAYED after dispatch', () =
         expect(runtime.state.currentScene).toBe(1);
     });
 });
+
+// BLOCKER 1 regression: during the concluding-children hold of a
+// `singleAdsScene` gag, `state.currentScene` sits at `adsSceneEnd` -- an
+// UNRELATED interior gag's index (k+1), not the last program scene. The
+// finish-dispatch must keep resolving chunks against the gag actually being
+// held (adsSceneEnd - 1), never against whatever gag happens to be next in
+// the program. All of today's other dispatch tests use a single-scene ADS
+// program, where that distinction is invisible (idx is always 0 either way)
+// -- this is why the blocker slipped through review until a 2-scene program
+// was tried.
+describe('ADS finish-dispatch (BLOCKER 1): concluding-children hold uses the held gag, not the next gag', () => {
+    const buildTtm = () => ({
+        tags: [
+            { id: 0, description: 'root' },
+            { id: 20, description: 'keep-alive child (never finishes)' },
+            { id: 30, description: 'target child (finishes mid-hold)' },
+            { id: 99, description: 'foreign scene (gagB-only successor)' },
+        ],
+        scenes: [
+            { tagId: 0, script: [] },
+            // A trivial single-opcode script that completes every run, but a
+            // large runCount (COUNTED run mode, below) retries it hundreds of
+            // times before ever reaching FINISHED -- each retry re-arms via
+            // YIELDED (pendingExecution), never LOOPED/KEEP_GOING, so it stays
+            // a genuine `blockers` entry across the whole 2-tick test instead
+            // of being excluded as an unbounded-loop ambient sequence.
+            { tagId: 20, script: [{ opcode: 0x0110, params: [] }] },
+            { tagId: 30, script: [{ opcode: 0x0110, params: [] }] },
+            { tagId: 99, script: [{ opcode: 0x0110, params: [] }] },
+        ],
+    });
+
+    // gagA (index 0, the SELECTED/held gag): adds both children, then ends
+    // immediately -- no IF_PLAYED for the target child at all, so gagA's own
+    // chunk index has nothing keyed to it.
+    const gagAScript = () => [
+        { opcode: 0x2005, params: [3, 20, 1000, 1] }, // ADD 3:20 (keep-alive, COUNTED x1000)
+        { opcode: 0x2005, params: [3, 30, 1, 1] }, // ADD 3:30 (target child)
+        { opcode: 0x1510, params: [] }, // END_SCENE_BRANCH -- commits the staged ADDs
+        { opcode: 0xffff, params: [] }, // END
+    ];
+
+    // gagB (index 1, an UNRELATED interior gag, never linearly run under
+    // singleAdsScene): its IF_PLAYED happens to watch the SAME (slot,tag) as
+    // gagA's target child. If the dispatch ever resolves against gagB's
+    // chunk index while gagA's hold is in progress, this wrongly fires and
+    // spawns the foreign scene into gagA's concluding frames.
+    const gagBScript = () => [
+        { opcode: 0x1350, params: [3, 30] }, // IF_PLAYED 3:30 (target child)
+        { opcode: 0x2005, params: [3, 99, 1, 1] }, // ADD 3:99 (foreign scene)
+        { opcode: 0xfff0, params: [] }, // END_IF
+        { opcode: 0x1510, params: [] }, // END_SCENE_BRANCH
+        { opcode: 0xffff, params: [] }, // END
+    ];
+
+    const buildRuntime = () => {
+        const ttm = buildTtm();
+        return createRuntime({
+            type: 'ADS',
+            resourceProvider: { resolve: () => ttm },
+            singleAdsScene: true,
+            adsSceneTag: 5,
+            data: {
+                name: 'two-gag-blocker-test',
+                resources: [{ id: 3, name: 'BLOCKER.TTM' }],
+                scenes: [
+                    { tagId: { id: 5 }, script: gagAScript() }, // gagA, index 0
+                    { tagId: { id: 6 }, script: gagBScript() }, // gagB, index 1
+                ],
+            },
+        });
+    };
+
+    it('never spawns gagB\'s foreign scene while gagA\'s concluding children are still finishing', () => {
+        const runtime = buildRuntime();
+
+        // Tick 1: gagA's script runs ADD, ADD, END in one pass -- currentScene
+        // advances to adsSceneEnd (1). Both children are freshly added and
+        // still running, so the hold begins (blockers present).
+        const first = runtime.tick(20);
+        expect(first.completed).toBe(false);
+        expect(runtime.state.currentScene).toBe(1); // adsSceneEnd -- gagB's index
+        expect(runtime.state.adsSceneEnd).toBe(1);
+
+        const target = runtime.state.scenes.find((s) => s.sceneIdx === 3 && s.tagId === 30);
+        expect(target).toBeDefined();
+
+        // Simulate the target child finishing WHILE the hold is in progress
+        // (the keep-alive child is still running, so the hold has not ended).
+        target.runState = 'finished';
+        target.state.played = true;
+
+        // Tick 2: the target child's finish is dispatched this tick. Under
+        // the bug, idx clamps to `#adsScripts.length - 1` (1, gagB), so the
+        // dispatch wrongly uses gagB's chunk index/script and fires gagB's
+        // IF_PLAYED 3:30 chunk, spawning the foreign scene. Fixed, idx clamps
+        // to `adsSceneEnd - 1` (0, gagA), whose chunk index has no entry for
+        // 3:30, so nothing fires.
+        const second = runtime.tick(20);
+        expect(second.completed).toBe(false); // keep-alive child still blocks
+        expect(runtime.state.scenes.some((s) => s.sceneIdx === 3 && s.tagId === 99)).toBe(false);
+    });
+});

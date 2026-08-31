@@ -279,9 +279,14 @@ export class DgdsRuntime {
         if (this.#adsScripts.length === 0) return;
         // state.currentScene can sit one past the last valid index while ADS
         // waits on a selected scene's concluding children (the `adsSceneEnd`
-        // wait mode below) -- clamp to the last real scene's index/chunk map,
-        // since that is still the active gag's dispatch context.
-        const idx = Math.min(state.currentScene, this.#adsScripts.length - 1);
+        // wait mode below) -- clamp to the gag currently being awaited
+        // (adsSceneEnd - 1), NOT the last program scene overall, since during
+        // that hold `currentScene === adsSceneEnd` is an unrelated INTERIOR
+        // gag's index (k+1), not the last scene. Dispatching against the
+        // wrong scene's chunk index/script would spawn a wrong-gag actor
+        // during this gag's concluding-children hold.
+        const ceiling = state.adsSceneEnd != null ? state.adsSceneEnd - 1 : this.#adsScripts.length - 1;
+        const idx = Math.min(state.currentScene, ceiling);
         const chunkIndex = this.#adsChunkIndexes[idx];
         const script = this.#adsScripts[idx];
         if (!chunkIndex || !script) return;
