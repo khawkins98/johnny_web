@@ -1,4 +1,5 @@
-import { composeTtmFrame, getCompositionRevision } from '../scripting/composition.mjs';
+import { composeTtmFrame } from '../scripting/composition.mjs';
+import { getCompositionRevision } from './composition-signature.mjs';
 import { drawBackground } from '../scripting/frame-renderer.mjs';
 
 /** Browser adapter for final composition, backgrounds, fades, and Canvas. */

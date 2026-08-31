@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composeTtmFrame, getCompositionRevision, pruneEnvironmentBackground } from '../composition.mjs';
+import { composeTtmFrame, pruneEnvironmentBackground } from '../composition.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 
 describe('DGDS frame composition', () => {
@@ -35,33 +35,6 @@ describe('DGDS frame composition', () => {
         composeTtmFrame(state);
 
         expect(events).toEqual([{ type: 'composition', payload: { tick: 7 } }]);
-    });
-
-    it('getCompositionRevision is a content signature that changes only when the composed frame changes', () => {
-        const surface = createRecordingSurface();
-        const scene = { sceneIdx: 1, tagId: 2, runState: 'running', state: { layerRevision: 5 } };
-        const state = { surface, scenes: [scene], titleState: { sceneOffset: { x: 0, y: 0 } } };
-
-        const initial = getCompositionRevision(state);
-        // Stable across ticks when nothing changed (a held frame is not recomposed).
-        expect(getCompositionRevision(state)).toBe(initial);
-
-        // A new logical frame (layerRevision bump) changes the signature.
-        scene.state.layerRevision = 6;
-        const advanced = getCompositionRevision(state);
-        expect(advanced).not.toBe(initial);
-
-        // Shifting the island offset changes the signature.
-        state.titleState.sceneOffset = { x: 4, y: 0 };
-        expect(getCompositionRevision(state)).not.toBe(advanced);
-
-        // A finished scene drops out of the signature (so it will vanish next compose).
-        scene.runState = 'finished';
-        expect(getCompositionRevision(state)).toBe('#@4,0'); // no active scenes, just the offset
-    });
-
-    it('getCompositionRevision is a stable signature even with no scenes or raster', () => {
-        expect(getCompositionRevision({})).toBe('#@0,0');
     });
 
     it('composeTtmFrame draws live STORE_AREA plates under the actors, skips pruned ones', () => {
