@@ -655,6 +655,7 @@ const END_SCENE_BRANCH = (state) => {
     applySceneChanges(state);
     state.continue = true;
 };
+export { applySceneChanges };
 
 const END_WHILE = (state) => {
     END_SCENE_BRANCH(state);
@@ -812,6 +813,51 @@ export const indexAdsChunks = (script) => {
         map.get(key).push(i + 1);
     }
     return map;
+};
+
+/**
+ * Execute one ADS IF_PLAYED chunk body in isolation, starting at `bodyStart`
+ * (the index returned by `indexAdsChunks`) and running through opcodes until
+ * the chunk's own END_SCENE_BRANCH (0x1510) is reached. This is a MINI
+ * executor with a purely LOCAL index: it never reads or writes
+ * `state.reentry`/`state.reentryNow`/`state.jumpTo` outside of the scratch
+ * values it needs to drive individual callbacks (e.g. handleIfCondition for a
+ * nested AND/OR inside the chunk), which are restored before returning. This
+ * keeps the linear top-level program counter uncorrupted.
+ *
+ * Deliberately does NOT invoke the real END_SCENE_BRANCH callback for the
+ * terminating 0x1510 -- that callback unconditionally commits AND clears
+ * `state.addScenes`/`state.removeScenes` (applySceneChanges), which would
+ * make a single fired chunk's staged changes invisible to any OTHER chunk
+ * fired the same tick, and would collapse the "stage now, commit once" batch
+ * semantics the caller relies on. The caller (the finish-dispatch loop in
+ * runtime.mjs) commits once, after firing every matching chunk for the tick,
+ * by calling the exported `applySceneChanges` itself.
+ */
+export const runAdsChunkBody = (state, script, bodyStart) => {
+    const savedReentry = state.reentry;
+    const savedReentryNow = state.reentryNow;
+    const savedJumpTo = state.jumpTo;
+    state.jumpTo = undefined;
+
+    for (let j = bodyStart; j < script.length; j++) {
+        const c = script[j];
+        if (c.opcode === 0x1510) break; // chunk terminator; caller commits via applySceneChanges
+
+        const dispatch = ADSDispatch.find((entry) => entry.opcode === c.opcode);
+        if (dispatch) {
+            state.reentryNow = j;
+            dispatch.callback(state, ...c.params);
+        }
+        if (state.jumpTo !== undefined) {
+            j = state.jumpTo - 1; // -1 because the loop will j++ before next iteration
+            state.jumpTo = undefined;
+        }
+    }
+
+    state.reentry = savedReentry;
+    state.reentryNow = savedReentryNow;
+    state.jumpTo = savedJumpTo;
 };
 
 // ---------------------------------------------------------------------------
