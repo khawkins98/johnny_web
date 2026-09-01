@@ -420,6 +420,7 @@ const findMatchingEndIf = (script, ifIndex, stopAtOr = false) => {
  * matching END_IF so a RANDOM block in a LATER sibling branch does not count.
  */
 const chunkBodyHasRandom = (script, ifIndex) => {
+    if (!script) return false;
     const end = findMatchingEndIf(script, ifIndex);
     const limit = end === -1 ? script.length : end;
     for (let i = ifIndex + 1; i < limit; i++) {
@@ -442,7 +443,24 @@ const handleIfCondition = (state, conditionPassed) => {
         state.orChainPassed = true;
     }
 
-    const script = state.data.scenes[state.currentScene].script;
+    // Read the script `state.reentryNow` actually indexes: `state.activeAdsScript`
+    // (#adsScripts[currentScene] in the linear path; the resolved chunk script
+    // during finish-dispatch, set by runtime.mjs #dispatchAdsFinishChunks). NOT
+    // the raw `state.data.scenes[currentScene].script`: during the
+    // concluding-children hold `state.currentScene === state.adsSceneEnd` sits
+    // PAST the last scene, so `state.data.scenes[currentScene]` is undefined and
+    // `.script` throws -- a crash a chunk body's nested/OR-chained IF opcode hits
+    // when the finish-dispatch fires it during that hold. Fall back to the raw
+    // script (guarded) for callers that drive an IF without activeAdsScript set.
+    const script = state.activeAdsScript ?? state.data.scenes[state.currentScene]?.script;
+    if (!script) {
+        // No resolvable script (no active script and currentScene out of range):
+        // cannot evaluate AND/OR follow-up or find a matching END_IF, so treat as
+        // a terminal pass -- never index into `undefined`.
+        state.orChainPassed = false;
+        state.continue = true;
+        return;
+    }
     const nextOpcode = script[state.reentryNow + 1]?.opcode;
 
     if (nextOpcode === 0x1430) {
@@ -537,8 +555,8 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     // IF_PLAYED after a 0xf200 today, but the range scan makes the fragility
     // load-bearing, so bind to the correct script. Fall back to the raw script
     // for callers that drive IF_PLAYED without activeAdsScript set.
-    const script = state.activeAdsScript ?? state.data.scenes[state.currentScene].script;
-    const nextOpcode = script[state.reentryNow + 1]?.opcode;
+    const script = state.activeAdsScript ?? state.data.scenes[state.currentScene]?.script;
+    const nextOpcode = script?.[state.reentryNow + 1]?.opcode;
     const terminal = !state.orMode && nextOpcode !== 0x1420 && nextOpcode !== 0x1430;
     const dispatched = state.dispatchedAdsKeys?.has(key) && terminal;
 

@@ -368,6 +368,50 @@ describe('ADS finish-dispatch: RANDOM handoff chunk fires exactly once (no doubl
     });
 });
 
+// Crash regression: during the concluding-children hold of a `singleAdsScene`
+// gag that is the LAST scene in its ADS, `state.currentScene === adsSceneEnd`
+// sits PAST the scenes array. When the finish-dispatch fires a chunk body that
+// contains a nested/OR-chained IF opcode, IF_PLAYED -> handleIfCondition used
+// to read `state.data.scenes[currentScene].script` -- `undefined` there ->
+// "can't access property script" (the live browser crash). The fix reads the
+// script `reentryNow` actually indexes (`state.activeAdsScript`, which the
+// finish-dispatch sets), never the out-of-range raw scene. Exercised directly
+// through the IF_PLAYED dispatch entry with currentScene out of range and
+// activeAdsScript set -- the exact state the dispatch presents.
+describe('ADS finish-dispatch: IF_PLAYED with currentScene past the scenes array does not crash', () => {
+    const entry = ADSDispatch.find((e) => e.opcode === 0x1350);
+    // The chunk body the dispatch runs (activeAdsScript). reentryNow indexes
+    // THIS, not the raw data.scenes[...].script.
+    const activeAdsScript = [
+        { opcode: 0x1350, params: [3, 30] }, // 0: nested IF_PLAYED 3:30
+        { opcode: 0x2005, params: [3, 99, 1, 1] }, // 1: ADD 3:99
+        { opcode: 0xfff0, params: [] }, // 2: END_IF
+        { opcode: 0x1510, params: [] }, // 3: END_SCENE_BRANCH
+    ];
+
+    const outOfRangeState = () => ({
+        continue: true,
+        scenes: [],
+        playedHistory: new Set(['3:30']), // 3:30 already finished/removed -> "played"
+        removeScenes: [],
+        orMode: false,
+        orChainPassed: false,
+        data: { scenes: [{ script: [] }] }, // length 1
+        currentScene: 1, // PAST the array (== adsSceneEnd during the last-scene hold)
+        reentryNow: 0, // indexes activeAdsScript, not data.scenes[1]
+        jumpTo: undefined,
+        dispatchedAdsKeys: new Set(),
+        activeAdsScript,
+    });
+
+    it('resolves the script from activeAdsScript, not the out-of-range data.scenes[currentScene]', () => {
+        const state = outOfRangeState();
+        // Pre-fix: reads state.data.scenes[1].script -> data.scenes[1] is
+        // undefined -> throws "can't access property script".
+        expect(() => entry.callback(state, 3, 30)).not.toThrow();
+    });
+});
+
 // BLOCKER 1 regression: during the concluding-children hold of a
 // `singleAdsScene` gag, `state.currentScene` sits at `adsSceneEnd` -- an
 // UNRELATED interior gag's index (k+1), not the last program scene. The
