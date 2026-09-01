@@ -55,11 +55,14 @@ export const loadAds = (adsName) => archive().loadEntry(adsName);
  * @param {number} [o.seed]   RNG seed (default 1).
  * @param {number} [o.maxTicks] tick cap (default 5000).
  * @param {(runtime, result, tick) => void} [o.onTick] per-tick observer.
+ * @param {(type: string, data: object) => void} [o.onEvent] observer for canonical
+ *   trace events (attaches an inert recorder to state.trace); use this to consume
+ *   the 'ads-completion-decision' hook etc. without touching production.
  * @returns {{completed:boolean, ticks:number, seen:Set<number>, runtime:DgdsRuntime}}
  *   `seen` = every TTM tagId that was ever active (reachability of terminal tags,
  *   e.g. FISHING 1:39 / ACTIVITY 4:23, is the general "teleport-class" / drain check).
  */
-export const driveGag = ({ adsName, tag, seed = 1, maxTicks = 5000, onTick = null }) => {
+export const driveGag = ({ adsName, tag, seed = 1, maxTicks = 5000, onTick = null, onEvent = null }) => {
     const data = loadAds(adsName);
     const runtime = new DgdsRuntime({
         type: 'ADS',
@@ -72,6 +75,12 @@ export const driveGag = ({ adsName, tag, seed = 1, maxTicks = 5000, onTick = nul
         singleAdsScene: true,
         adsSceneTag: tag,
     });
+    // Minimal inert trace sink: the canonical traceEvent path is a no-op unless
+    // state.trace is set, so this observes the engine's own emitted events (e.g. the
+    // completion-decision hook) without changing behavior.
+    if (onEvent) {
+        runtime.state.trace = { record: (type, eventData) => onEvent(type, eventData) };
+    }
     const seen = new Set();
     let completed = false;
     let ticks = 0;
