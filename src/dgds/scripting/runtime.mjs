@@ -536,7 +536,7 @@ export class DgdsRuntime {
         };
     }
 
-    jumpToScene(tagId) {
+    jumpToScene(tagId, { single = true } = {}) {
         const state = this.state;
         if (state.type !== 'ADS') return false;
         const sceneIndex = state.data.scenes.findIndex((scene) => scene.tagId?.id === tagId);
@@ -544,6 +544,14 @@ export class DgdsRuntime {
 
         traceEvent(state, 'runtime-control', { action: 'jump-to-scene', tagId });
         state.currentScene = sceneIndex;
+        // Default to the browser's single-gag completion path (adsSceneEnd set, so
+        // completion runs through the concluding-children hold + `blockers` check),
+        // NOT the legacy free-run where the linear PC drives to script END. Tests and
+        // probes MUST see the same completion model the browser uses -- the divergence
+        // between the two was the source of a long mis-diagnosis. Interactive debug
+        // scene-stepping opts out (`single: false`) to keep its free-run preview.
+        state.singleAdsScene = single;
+        state.adsSceneEnd = single ? sceneIndex + 1 : null;
         state.scenes = [];
         state.addScenes = [];
         state.removeScenes = [];
@@ -579,7 +587,9 @@ export class DgdsRuntime {
             scenes.findIndex((scene) => scene.tagId.id === currentTag),
         );
         const nextIndex = Math.max(0, Math.min(scenes.length - 1, currentIndex + Math.sign(direction)));
-        this.jumpToScene(scenes[nextIndex]?.tagId.id);
+        // Debug preview keeps the legacy free-run flow (no single-gag hold), so
+        // stepping repeatedly through scenes behaves as before.
+        this.jumpToScene(scenes[nextIndex]?.tagId.id, { single: false });
     }
 
     setNightMode(isNight) {

@@ -108,7 +108,15 @@ const captureGag = ({ archive, data, gag }) => {
         timingCompatibility: createTimingCompatibility(),
         random: seededRandom(0x4a430000 + gag),
     });
-    if (!runtime.jumpToScene(gag)) throw new Error(`Unknown Johnny gag ${gag}`);
+    // Fingerprint capture stays on the legacy free-run path (`single: false`) for
+    // now: the single-gag path replays a gag's full ambient loop, which for some
+    // gags includes long blank/ambient stretches whose per-gag faithfulness has not
+    // been verified -- baking those into stored fingerprints would certify unvetted
+    // behavior. The completion-path migration of the fingerprint harness is a tracked
+    // follow-up (verify each gag's real-path sequence, then switch + regenerate).
+    // NB: `jumpToScene`'s DEFAULT is now the real single-gag path -- the reachability
+    // and all-gags suites (and ad-hoc probes) deliberately use that.
+    if (!runtime.jumpToScene(gag, { single: false })) throw new Error(`Unknown Johnny gag ${gag}`);
 
     const startedAt = runtime.state.currentScene;
     const changes = [];
@@ -212,21 +220,25 @@ const readGame = async () => {
 // can.
 //
 // The RNG is seeded, so runs are deterministic. Limits are per gag, set generously
-// above each scene's legitimate value (dive-walk-out's emerge/splash builds for ~20
+// above each scene's legitimate growth (dive-walk-out's emerge/splash builds for ~20
 // frames; the bathing sequence for ~70) so only a runaway trips them.
-// gag 1 raised 30 -> 45: the OR-chain handoff-index fix lets gag 1 play its full
-// faithful sequence, which includes a single scene (ACTIVITY tag 2) whose sprite
-// legitimately grows for 31 held frames (px 1380->1563, one scene active
-// throughout -- verified NOT an accumulating trail: maxActive==2, single tag).
-const TRAIL_RUN_LIMITS = { 1: 45, 11: 85 };
-const DEFAULT_TRAIL_RUN_LIMIT = 60;
+//
+// The signal is a STRICTLY INCREASING pixel count over many consecutive frames -- a
+// moving sprite that is not being erased adds new pixels every frame. Equal-count
+// frames (a held/static frame) and zero-count frames (a blank stretch, e.g. an
+// off-screen ambient or a scene between draws) are NOT trails and must NOT extend a
+// run: using >= instead of > conflates all three and false-positives on the long
+// blank/held stretches a full-length gag legitimately contains (gag 1 on the real
+// single-gag path has ~50 blank ambient frames that `>=` counted as one "run").
+const TRAIL_RUN_LIMITS = { 11: 85 };
+const DEFAULT_TRAIL_RUN_LIMIT = 45;
 const verifyNoRenderTrail = (captures) => {
     for (const [gag, frames] of captures) {
         const pixelCounts = frames.map((frame) => frame.p[1]);
         let run = 1;
         let longestRun = 1;
         for (let index = 1; index < pixelCounts.length; index++) {
-            run = pixelCounts[index] >= pixelCounts[index - 1] ? run + 1 : 1;
+            run = pixelCounts[index] > pixelCounts[index - 1] ? run + 1 : 1;
             longestRun = Math.max(longestRun, run);
         }
         const limit = TRAIL_RUN_LIMITS[gag] ?? DEFAULT_TRAIL_RUN_LIMIT;
