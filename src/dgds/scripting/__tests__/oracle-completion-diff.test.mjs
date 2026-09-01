@@ -68,7 +68,9 @@ describe.skipIf(!hasData)('oracle: production completion vs binary live-thread d
         { adsName: 'FISHING.ADS', tag: 2 },
     ];
 
-    it('runs the completion oracle over every gag and reports divergence candidates', () => {
+    // Explicit timeout: this drives all 11 gags to completion, ~1.6s serial but up to
+    // ~6s under full-suite parallel CPU contention -- over vitest's 5s default.
+    it('runs the completion oracle over every gag and reports divergence candidates', { timeout: 30000 }, () => {
         const divergences = [];
         const timing = [];
         for (const { adsName, tag } of targets) {

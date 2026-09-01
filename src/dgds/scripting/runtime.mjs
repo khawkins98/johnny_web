@@ -334,6 +334,35 @@ export class DgdsRuntime {
                         !Number.isFinite(scene.timeLimitTicks));
                 return !done && !unboundedLoop;
             });
+            // INERT observability hook (no behavior change): emit the completion
+            // DECISION -- the live-thread set + the `blockers` verdict -- at the
+            // decision point, BEFORE clearAdsSceneBatch empties state.scenes. A
+            // differential faithfulness oracle needs to see WHY the gag completed
+            // (true live-thread drain, per the binary's FUN_1048_0766, vs the port's
+            // KEEP_GOING/unbounded-loop exclusion casting the deciding vote). No-op
+            // unless a trace sink is attached; reads state only, mutates nothing.
+            traceEvent(state, 'ads-completion-decision', {
+                currentScene: state.currentScene,
+                adsSceneEnd: state.adsSceneEnd,
+                willComplete: blockers.length === 0 && state.addScenes.length === 0,
+                pendingAdds: state.addScenes.length,
+                blockers: blockers.map((scene) => `${scene.sceneIdx}:${scene.tagId}`),
+                // Every not-finished scene, with why the blockers filter did/didn't
+                // count it -- the KEEP_GOING/unbounded-loop rows are the port's
+                // divergence from the pure live-thread-drain model.
+                liveThreads: state.scenes
+                    .filter((scene) => !isTtmFinished(scene))
+                    .map((scene) => ({
+                        key: `${scene.sceneIdx}:${scene.tagId}`,
+                        runState: scene.runState ?? null,
+                        runMode: scene.runMode ?? null,
+                        excludedAsUnboundedLoop:
+                            scene.runMode === TtmRunMode.KEEP_GOING ||
+                            (scene.execution?.status === ExecutionStatus.LOOPED &&
+                                scene.retries === 0 &&
+                                !Number.isFinite(scene.timeLimitTicks)),
+                    })),
+            });
             if (blockers.length === 0 && state.addScenes.length === 0) {
                 clearAdsSceneBatch(state);
                 state.continue = true;
