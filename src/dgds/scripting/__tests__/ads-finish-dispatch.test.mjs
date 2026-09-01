@@ -280,6 +280,94 @@ describe('ADS finish-dispatch (Task 4): softened IF_PLAYED after dispatch', () =
     });
 });
 
+// RANDOM double-pick regression: a chunk body containing a 0x3010 RANDOM
+// block is NON-idempotent -- RANDOM_END picks ONE of several staged
+// ADD_SCENEs. The finish-dispatch fires the chunk on the scene's finish; the
+// linear runner then reaches the SAME IF_PLAYED for the now-finished scene.
+// If the linear runner re-runs the RANDOM body it picks a DIFFERENT scene,
+// spawning a concurrent duplicate (the telescope "multiple Johnnies":
+// STAND.ADS #15 chains RANDOM scan blocks with no STOP_SCENE). The body must
+// fire exactly once. (A plain-ADD body double-firing is a harmless no-op --
+// covered by the "double-fire guard" test above -- so the bug is only visible
+// with a RANDOM block AND a random source that yields different picks.)
+describe('ADS finish-dispatch: RANDOM handoff chunk fires exactly once (no double-pick)', () => {
+    const buildTtm = () => ({
+        tags: [
+            { id: 40, description: 'scan that finishes' },
+            { id: 50, description: 'random candidate A' },
+            { id: 51, description: 'random candidate B' },
+            { id: 99, description: 'never-finishing blocker (keeps the ADS scene alive)' },
+        ],
+        scenes: [
+            { tagId: 0, script: [] },
+            { tagId: 40, script: [{ opcode: 0x0110, params: [] }] },
+            { tagId: 50, script: [{ opcode: 0x1200, params: [50] }] }, // self-loop: stays running
+            { tagId: 51, script: [{ opcode: 0x1200, params: [51] }] },
+            { tagId: 99, script: [{ opcode: 0x1200, params: [99] }] },
+        ],
+    });
+
+    // IF_PLAYED 9:40 { RANDOM_START; ADD 9:50; ADD 9:51; RANDOM_END } -- one of
+    // 50/51 chosen. No STOP_SCENE, mirroring STAND.ADS #15's scan chain. The
+    // RANDOM block is FIRST so the linear PC reaches it (the double-fire needs
+    // BOTH the dispatch AND the linear runner to process it); a trailing
+    // IF_PLAYED on a never-finishing 9:99 then parks the PC so the ADS scene
+    // does not run to completion and clear its display list before we inspect.
+    const buildScript = () => [
+        { opcode: 0x1350, params: [9, 40] }, // 0: IF_PLAYED 9:40
+        { opcode: 0x3010, params: [] }, // 1: RANDOM_START
+        { opcode: 0x2005, params: [9, 50, 0, 1] }, // 2: ADD 9:50 (idx 0)
+        { opcode: 0x2005, params: [9, 51, 0, 1] }, // 3: ADD 9:51 (idx 1)
+        { opcode: 0x30ff, params: [] }, // 4: RANDOM_END
+        { opcode: 0xfff0, params: [] }, // 5: END_IF
+        { opcode: 0x1510, params: [] }, // 6: END_SCENE_BRANCH
+        { opcode: 0x1350, params: [9, 99] }, // 7: IF_PLAYED 9:99 -- still running -> BLOCK here
+        { opcode: 0x2005, params: [9, 98, 0, 1] }, // 8: ADD 9:98 (never reached)
+        { opcode: 0xfff0, params: [] }, // 9: END_IF
+        { opcode: 0x1510, params: [] }, // 10: END_SCENE_BRANCH
+        { opcode: 0xffff, params: [] }, // 11: END
+    ];
+
+    it('picks exactly one of the RANDOM candidates when the scene finishes, not one per firing path', () => {
+        const ttm = buildTtm();
+        // Distinct successive values so the dispatch pick (idx 0 -> 50) and any
+        // erroneous second linear pick (idx 1 -> 51) would differ, making a
+        // double-fire observable as BOTH scenes present.
+        const rolls = [0, 0.99, 0.99, 0.99];
+        let r = 0;
+        const runtime = createRuntime({
+            type: 'ADS',
+            random: () => rolls[Math.min(r++, rolls.length - 1)],
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'random-double-pick-test',
+                resources: [{ id: 9, name: 'STAND.TTM' }],
+                scenes: [{ tagId: { id: 15 }, script: buildScript() }],
+            },
+        });
+
+        const scan = getSceneState(runtime.state, 9, 40, 1, 1);
+        scan.runState = 'finished';
+        scan.state.played = true;
+        const blocker = getSceneState(runtime.state, 9, 99, 1, 1);
+        blocker.runState = 'running';
+        runtime.state.scenes.push(scan, blocker);
+
+        runtime.tick(20);
+
+        // Exactly ONE of the RANDOM candidates is live. WITHOUT the fix the
+        // dispatch picks one and the linear re-run picks another, leaving BOTH
+        // (count 2). WITH the fix the linear runner skips the already-fired
+        // RANDOM body, so exactly one remains. (Which one depends on how many
+        // times state.random is consumed before RANDOM_END, which is not
+        // asserted -- only the count, which is the invariant that matters.)
+        const liveCandidates = runtime.state.scenes.filter(
+            (s) => s.sceneIdx === 9 && (s.tagId === 50 || s.tagId === 51),
+        ).length;
+        expect(liveCandidates).toBe(1);
+    });
+});
+
 // BLOCKER 1 regression: during the concluding-children hold of a
 // `singleAdsScene` gag, `state.currentScene` sits at `adsSceneEnd` -- an
 // UNRELATED interior gag's index (k+1), not the last program scene. The

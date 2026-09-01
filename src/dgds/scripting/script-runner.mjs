@@ -410,6 +410,24 @@ const findMatchingEndIf = (script, ifIndex, stopAtOr = false) => {
     return -1;
 };
 
+/**
+ * Does the IF body starting after `ifIndex` contain a RANDOM block
+ * (RANDOM_START 0x3010)? A RANDOM block is the only NON-idempotent ADS chunk
+ * body: RANDOM_END picks ONE of several staged ADD_SCENEs, so re-running it
+ * picks a different scene. IF_PLAYED uses this to decide whether re-running a
+ * body the finish-dispatch already fired is safe (idempotent -> leave it) or
+ * harmful (RANDOM -> skip). Scans only this IF's own body, stopping at its
+ * matching END_IF so a RANDOM block in a LATER sibling branch does not count.
+ */
+const chunkBodyHasRandom = (script, ifIndex) => {
+    const end = findMatchingEndIf(script, ifIndex);
+    const limit = end === -1 ? script.length : end;
+    for (let i = ifIndex + 1; i < limit; i++) {
+        if (script[i].opcode === 0x3010) return true;
+    }
+    return false;
+};
+
 const handleIfCondition = (state, conditionPassed) => {
     const wasOrMode = state.orMode;
     state.orMode = false;
@@ -500,44 +518,63 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
         return;
     }
 
-    if (state.playedHistory.has(`${sceneIdx}:${tagId}`)) {
+    const key = `${sceneIdx}:${tagId}`;
+
+    // The finish-dispatch (runtime.mjs #dispatchAdsFinishChunks) OWNS firing
+    // this (slot,tag)'s handoff chunk on the scene's FINISH event, and it runs
+    // BEFORE this linear runner every tick. `dispatched` = the dispatch has
+    // already fired this key's chunk this ADS scene. Two distinct things follow
+    // from that, both TERMINAL-only (softening a non-terminal IF_PLAYED would
+    // flow an AND/OR chain forward with a false "already handled" signal instead
+    // of BLOCKING, changing the combined trigger's semantics):
+    const script = state.data.scenes[state.currentScene].script;
+    const nextOpcode = script[state.reentryNow + 1]?.opcode;
+    const terminal = !state.orMode && nextOpcode !== 0x1420 && nextOpcode !== 0x1430;
+    const dispatched = state.dispatchedAdsKeys?.has(key) && terminal;
+
+    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const done = scene !== undefined && isSceneDone(scene);
+
+    // (1) STILL-PLAYING dispatched instance: a NEW instance now occupies the
+    // slot (e.g. a self-rearming ambient sequence) that the dispatch owns going
+    // forward. Do NOT park the linear PC on it -- that is the gag-7 failure mode
+    // (scene 4:24 loops running<->waiting forever, blocking the ADS from ever
+    // reaching its own end). Skip the barrier. Applies to ANY body: this is
+    // about not blocking, independent of idempotency.
+    if (dispatched && scene !== undefined && !done) {
+        state.continue = true;
+        handleIfCondition(state, false);
+        return;
+    }
+
+    // (2) FINISHED/PLAYED dispatched instance whose body is a 0x3010 RANDOM
+    // block: the dispatch already ran this NON-idempotent body (RANDOM_END picks
+    // ONE of several staged ADD_SCENEs). Re-running it here picks a DIFFERENT
+    // scene, spawning a concurrent duplicate -- the telescope "multiple
+    // Johnnies" (STAND.ADS #15 chains RANDOM scan blocks with no STOP_SCENE).
+    // Skip re-running it. An idempotent body (plain ADD_SCENE, deduped by
+    // ADD_SCENE's inScenes guard) is harmless to re-run, so it is left exactly
+    // as before -- notably the campfire's rearm chain, which relies on it.
+    if (dispatched && (done || state.playedHistory.has(key)) && chunkBodyHasRandom(script, state.reentryNow)) {
+        if (done) state.removeScenes.push({ sceneIdx, tagId }); // clean up the lingering finished instance
+        state.continue = true;
+        handleIfCondition(state, false);
+        return;
+    }
+
+    if (state.playedHistory.has(key)) {
         state.continue = true;
         handleIfCondition(state, true);
         return;
     }
 
-    const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
-
     if (scene !== undefined) {
-        if (isSceneDone(scene)) {
+        if (done) {
             state.removeScenes.push({ sceneIdx, tagId });
             state.continue = true;
             handleIfCondition(state, true);
-        } else if (
-            state.dispatchedAdsKeys?.has(`${sceneIdx}:${tagId}`) &&
-            !state.orMode &&
-            state.data.scenes[state.currentScene].script[state.reentryNow + 1]?.opcode !== 0x1420 &&
-            state.data.scenes[state.currentScene].script[state.reentryNow + 1]?.opcode !== 0x1430
-        ) {
-            // The finish-dispatch (runtime.mjs) already fired this (slot,tag)'s
-            // handoff chunk off an earlier instance's finish event, independent
-            // of this linear PC. A new, still-playing instance now occupying the
-            // slot (e.g. a self-rearming ambient sequence) is a fresh play the
-            // dispatch owns going forward -- this barrier's one-time job is
-            // done, so skip the branch instead of permanently parking the PC on
-            // an instance the dispatch will keep servicing on its own.
-            //
-            // Only soften a TERMINAL IF_PLAYED (no AND/OR following, and not
-            // already inside an OR chain): softening mid AND/OR chain would
-            // flow the chain forward with a false-ish "already handled" signal
-            // instead of BLOCKING, changing the chain's combined semantics
-            // (e.g. an OR chain would skip to its next term instead of
-            // waiting). The original blocking behavior is preserved for any
-            // non-terminal position by falling through to the `else` branch.
-            state.continue = true;
-            handleIfCondition(state, false);
         } else {
-            // Still playing -> BLOCK (keep state.continue = false)
+            // Still playing and not dispatch-owned -> BLOCK (keep state.continue = false)
         }
         return;
     }
