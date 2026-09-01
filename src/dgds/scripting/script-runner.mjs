@@ -908,6 +908,10 @@ export const indexAdsChunks = (script) => {
         // earlier clause's own i+1 is just the next OR/IF_PLAYED, not the body. (Only
         // merge across OR: an AND (0x1420) chain needs ALL clauses, so a single-tag
         // finish can't satisfy it -- leave an AND-joined clause mapping its own i+1.)
+        // Assumes an OR joins IF_PLAYED clauses only (the `0x1350` check below): the
+        // shipped data has no mixed OR chain (e.g. IF_PLAYED a OR IF_NOT_PLAYED b), so
+        // a non-IF_PLAYED next-clause ends the group and each clause keeps its own body
+        // -- matching pre-index behavior. Revisit this if such a chain is ever authored.
         const clauses = [];
         let j = i;
         for (;;) {
