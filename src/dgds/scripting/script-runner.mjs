@@ -527,7 +527,17 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
     // from that, both TERMINAL-only (softening a non-terminal IF_PLAYED would
     // flow an AND/OR chain forward with a false "already handled" signal instead
     // of BLOCKING, changing the combined trigger's semantics):
-    const script = state.data.scenes[state.currentScene].script;
+    //
+    // Read the EXPANDED script that `state.reentryNow` actually indexes
+    // (`state.activeAdsScript` = #adsScripts[currentScene], post-0xf200
+    // inlining), NOT the raw `state.data.scenes[...].script`. The two diverge
+    // once a scene inlines a RUN_SCRIPT (0xf200) before an IF_PLAYED, which
+    // would make `chunkBodyHasRandom`/`nextOpcode` scan the wrong region (a
+    // false-negative that re-enables the double-pick). No shipping scene has an
+    // IF_PLAYED after a 0xf200 today, but the range scan makes the fragility
+    // load-bearing, so bind to the correct script. Fall back to the raw script
+    // for callers that drive IF_PLAYED without activeAdsScript set.
+    const script = state.activeAdsScript ?? state.data.scenes[state.currentScene].script;
     const nextOpcode = script[state.reentryNow + 1]?.opcode;
     const terminal = !state.orMode && nextOpcode !== 0x1420 && nextOpcode !== 0x1430;
     const dispatched = state.dispatchedAdsKeys?.has(key) && terminal;
