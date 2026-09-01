@@ -208,7 +208,8 @@ export const startProcess = (initialState) => {
 // session and can be removed once UI consumers receive a runtime instance.
 export const __DEBUG__ = {
     jumpToScene: (tagId) => {
-        const jumped = activeRuntime?.jumpToScene(tagId);
+        // Legacy free-run preview for the dev dropdown (not the single-gag path).
+        const jumped = activeRuntime?.jumpToScene(tagId, { single: false });
         if (jumped) activeFramePresenter?.clear();
         return jumped;
     },
