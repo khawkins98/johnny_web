@@ -214,7 +214,11 @@ const readGame = async () => {
 // The RNG is seeded, so runs are deterministic. Limits are per gag, set generously
 // above each scene's legitimate value (dive-walk-out's emerge/splash builds for ~20
 // frames; the bathing sequence for ~70) so only a runaway trips them.
-const TRAIL_RUN_LIMITS = { 1: 30, 11: 85 };
+// gag 1 raised 30 -> 45: the OR-chain handoff-index fix lets gag 1 play its full
+// faithful sequence, which includes a single scene (ACTIVITY tag 2) whose sprite
+// legitimately grows for 31 held frames (px 1380->1563, one scene active
+// throughout -- verified NOT an accumulating trail: maxActive==2, single tag).
+const TRAIL_RUN_LIMITS = { 1: 45, 11: 85 };
 const DEFAULT_TRAIL_RUN_LIMIT = 60;
 const verifyNoRenderTrail = (captures) => {
     for (const [gag, frames] of captures) {

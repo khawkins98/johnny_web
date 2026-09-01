@@ -901,10 +901,30 @@ export const indexAdsChunks = (script) => {
     const map = new Map();
     for (let i = 0; i < script.length; i++) {
         if (script[i].opcode !== 0x1350) continue;
-        const [slot, tag] = script[i].params;
-        const key = `${slot}:${tag}`;
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(i + 1);
+        // Gather the OR-group: consecutive IF_PLAYED clauses joined by OR (0x1430).
+        // An OR-group `IF_PLAYED a OR IF_PLAYED b ... OR IF_PLAYED z  <body>` fires
+        // <body> when ANY clause is satisfied, and <body> is the single opcode after
+        // the LAST clause. Map EVERY clause key to that one shared body-start; each
+        // earlier clause's own i+1 is just the next OR/IF_PLAYED, not the body. (Only
+        // merge across OR: an AND (0x1420) chain needs ALL clauses, so a single-tag
+        // finish can't satisfy it -- leave an AND-joined clause mapping its own i+1.)
+        const clauses = [];
+        let j = i;
+        for (;;) {
+            clauses.push(script[j].params);
+            if (script[j + 1]?.opcode === 0x1430 && script[j + 2]?.opcode === 0x1350) {
+                j += 2;
+            } else {
+                break;
+            }
+        }
+        const body = j + 1;
+        for (const [slot, tag] of clauses) {
+            const key = `${slot}:${tag}`;
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(body);
+        }
+        i = j; // don't re-scan the inner clauses as fresh group starts
     }
     return map;
 };
