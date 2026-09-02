@@ -789,25 +789,24 @@ const RANDOM_END = (state) => {
     const weightOf = (s) => (Number.isFinite(s.proportion) ? s.proportion : 0);
     const total = staged.reduce((sum, s) => sum + weightOf(s), 0);
 
-    let scene;
-    if (total <= 0) {
-        // No positive weights: fall back to uniform so a degenerate block still resolves.
-        scene = staged[Math.floor(state.random() * staged.length)];
-    } else {
-        let roll = Math.floor(state.random() * total);
-        for (const candidate of staged) {
-            roll -= weightOf(candidate);
-            if (roll < 0) {
-                scene = candidate;
-                break;
-            }
-        }
-        if (scene === undefined) scene = staged[staged.length - 1];
-    }
+    // Binary parity (FUN_1048_0cda): total weight 0 -> add NOTHING and consume no rng
+    // draw (it early-returns before the pick). No shipped RANDOM block has total 0, so
+    // this is unreachable on real data, but matching the binary keeps it faithful if
+    // data ever changes -- and avoids a phantom draw/scene the original would not make.
+    if (total <= 0) return;
 
-    if (scene !== undefined) {
-        ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.runCount, scene.proportion);
+    let roll = Math.floor(state.random() * total);
+    let scene;
+    for (const candidate of staged) {
+        roll -= weightOf(candidate);
+        if (roll < 0) {
+            scene = candidate;
+            break;
+        }
     }
+    if (scene === undefined) scene = staged[staged.length - 1];
+
+    ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.runCount, scene.proportion);
 };
 
 const MOVE_SEQUENCE_TO_BACK = (state, sceneIdx, tagId) => {
