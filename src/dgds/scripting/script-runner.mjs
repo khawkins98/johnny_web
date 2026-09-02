@@ -377,6 +377,28 @@ const STOP_SAMPLE = (state) => {};
 
 const LOAD_SCREEN = (state, name) => {
     loadScreen(state, name);
+    // A TTM scene runs on its own cloned state, but the frame presenter draws the
+    // background from the runtime ROOT (falling back to it whenever no active scene
+    // still carries a bkgScreen of its own). A full-screen LOAD_SCREEN performed in
+    // ONE child scene -- e.g. SUZY's SUZBEACH.SCR, which is only loaded in the
+    // "tanning oil" scene -- must therefore be mirrored onto the root, so the loaded
+    // screen stays visible for the sibling scenes that follow it. Without this the
+    // background reverts to black/stale the moment that one scene ends (the city
+    // beach vanishes for the rest of the Suzy sequence).
+    const root = state.root && state.root !== state ? state.root : state;
+    if (root !== state) {
+        root.bkgScreen = state.bkgScreen;
+        root.backgroundId = state.backgroundId;
+    }
+    // On the original engine LOAD_SCREEN repaints the whole framebuffer, wiping any
+    // save-under plate a PREVIOUS scene left standing. The retained-surface
+    // compositor instead keeps those plates alive in ttmEnvironments and would
+    // redraw them opaque over the freshly loaded screen (the lingering MEANWHILE
+    // clock plate drawn over Suzy's beach). Prune them so the new full-screen
+    // background comes up clean.
+    for (const sceneIdx of root.ttmEnvironments?.keys?.() || []) {
+        pruneEnvironmentBackground(root, sceneIdx);
+    }
 };
 
 const LOAD_IMAGE = (state, name) => {
