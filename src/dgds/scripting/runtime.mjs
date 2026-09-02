@@ -135,6 +135,11 @@ export class DgdsRuntime {
             // chunk has fired at least once via finish-dispatch (never cleared by
             // rearm -- see #dispatchAdsFinishChunks / the softened IF_PLAYED).
             dispatchedAdsKeys: new Set(),
+            // One-shot local completion overrides armed by ADS 0x1070
+            // (IF_LASTPLAYED_LOCAL); each "${slot}:${tag}" suppresses that scene's
+            // NEXT global IF_PLAYED handoff exactly once. See WHILE_RUNNING /
+            // #dispatchAdsFinishChunks (crosscheck B1 / phase11 §2).
+            localOverrides: new Set(),
             orMode: false,
             orChainPassed: false,
             frameDelta: 0,
@@ -306,6 +311,11 @@ export class DgdsRuntime {
             scene.adsChunkFired = true;
             const key = `${scene.sceneIdx}:${scene.tagId}`;
             state.dispatchedAdsKeys.add(key);
+            // ADS 0x1070 (IF_LASTPLAYED_LOCAL) armed a ONE-SHOT local override for this
+            // key: pre-empt the GLOBAL IF_PLAYED handoff exactly once, then consume it.
+            // (ACTIVITY tag 7: the final 4:5 finish must NOT re-fire 4:5 -> 4:7, so the
+            // reading loop plays once, not twice -- crosscheck B1 / phase11 §2.)
+            if (state.localOverrides?.delete(key)) continue;
             const bodyStarts = chunkIndex.get(key);
             if (!bodyStarts) continue;
             for (const bodyStart of bodyStarts) {
@@ -587,6 +597,7 @@ export class DgdsRuntime {
         state.scenesRandom = [];
         state.playedHistory.clear();
         state.dispatchedAdsKeys.clear();
+        state.localOverrides?.clear();
         // Prune stored backgrounds on the OLD environment map before discarding it,
         // so a persistent background does not survive the jump onto the raster.
         for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
