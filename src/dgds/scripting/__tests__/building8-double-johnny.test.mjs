@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { driveGag, hasData } from './support/drive-gag.mjs';
+import { isTtmFinished } from '../ttm-run-state.mjs';
 
 // Regression scaffold for the "two Johnnys" at the end of BUILDING.ADS #8 (MJFIRE,
 // sceneIdx 3). See scratchpad specs/render-bugs.md "Bug 2 — ARBITRATION UPDATE".
@@ -25,6 +26,12 @@ import { driveGag, hasData } from './support/drive-gag.mjs';
 // with golden-shift risk. Un-skip and run once that arbitration is done; it should
 // FAIL pre-fix (double cycle) and PASS post-fix (single cycle, no walk/sit overlap).
 
+// SKIPPED still: a one-line skip-if-running flip of 0x1360 makes smokeCycles==1 and
+// removes the drawn overlap here, but it regresses campfire continuity, ACTIVITY-gag
+// completion, and the explicit IF_NOT_RUNNING dependency-barrier tests -- the wait-barrier
+// is a port invention compensating for the binary's re-poll+completion model. A faithful
+// fix is the ADS scheduler re-grounding (ticket Phase 2), not a one-liner. Un-skip when
+// that lands; it should PASS (smokeCycles==1, no DRAWN walk/sit overlap).
 describe.skip('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () => {
     // A range of seeds; several currently produce the double (e.g. 1, 3, 4, 7).
     for (const seed of [1, 2, 3, 4, 5, 7, 11, 42, 99, 123]) {
@@ -38,12 +45,22 @@ describe.skip('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () 
                 seed,
                 maxTicks: 6000,
                 onTick: (rt, _res, tick) => {
-                    const tags = new Set(rt.state.scenes.filter((s) => s.sceneIdx === 3).map((s) => s.tagId));
+                    const s3 = rt.state.scenes.filter((s) => s.sceneIdx === 3);
+                    const tags = new Set(s3.map((s) => s.tagId));
+                    // Smoke-cycle count: rising edge of tag 39 being (re-)added to the list.
                     if (tags.has(39) && !prevFire.has(39)) smokeCycles += 1;
                     prevFire.clear();
                     for (const t of tags) prevFire.add(t);
-                    const walking = tags.has(140);
-                    const sitting = tags.has(143) || tags.has(53);
+                    // "Two Johnnys" = two bodies COMPOSITED at once. A finished scene lingers
+                    // in state.scenes until pruned but composeTtmFrame skips it (isTtmFinished
+                    // && agedOut), so it draws nothing -- only DRAWING scenes count. Using raw
+                    // list membership here would false-positive on a finished walk still parked
+                    // in the list next to the sit-back.
+                    const drawing = new Set(
+                        s3.filter((s) => !isTtmFinished(s) || s.agedOut === false).map((s) => s.tagId),
+                    );
+                    const walking = drawing.has(140);
+                    const sitting = drawing.has(143) || drawing.has(53);
                     if (walking && sitting && overlapTick === null) overlapTick = tick;
                 },
             });
