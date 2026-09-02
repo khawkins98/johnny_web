@@ -411,16 +411,13 @@ const LOAD_PALETTE = (state) => {};
 // ---------------------------------------------------------------------------
 
 // ADS 0x1070 is IF_LASTPLAYED_LOCAL -- the ONLY occurrence in the shipped game is
-// ACTIVITY.ADS tag 7 (the "MUNDANE JOHN READ" gag), where it pairs with 0x1520. Both
-// jc_reborn and the original binary treat it as a ONE-SHOT LOCAL completion override
-// for (sceneIdx,tagId): the next time that scene finishes, its LOCAL handler pre-empts
-// the GLOBAL `IF_PLAYED (slot,tag)` handoff exactly once, then is consumed. In tag 7
-// the final bath 4:5 is armed here so its finish routes to 4:22 -> 4:23 -> END instead
-// of re-entering the global 4:5 -> 4:7 reading cycle. Without this the port replays the
-// whole 4:7/4:8/4:9/4:10 reading loop a SECOND time (crosscheck B1 / phase11 §2). The
-// suppression itself lives in runtime's #dispatchAdsFinishChunks; here we only arm it.
+// ACTIVITY.ADS tag 7 (the "MUNDANE JOHN READ" gag), where it pairs with 0x1520. Under
+// the per-slot re-poll driver this is a plain skip-if-running gate: block while the
+// watched scene runs, fall through once it stops. The old one-shot local-override
+// suppression (armed here, consumed by the now-deleted finish-dispatch) is no longer
+// needed -- the re-poll's present-as-finished model plays ACTIVITY #7's reading loop
+// exactly once on its own (see activity7-oneshot-local.test.mjs).
 const WHILE_RUNNING = (state, sceneIdx, tagId) => {
-    (state.localOverrides ||= new Set()).add(`${sceneIdx}:${tagId}`);
     const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     state.continue = !isTtmRunning(scene);
 };
@@ -961,120 +958,6 @@ export const ADSDispatch = [
     { opcode: 0xfff0, callback: END_IF },
 ];
 
-// ---------------------------------------------------------------------------
-// Content-addressed ADS handoff dispatch
-//
-// The linear `runScript` PC is a single-threaded scanner: once it parks on an
-// unsatisfied IF_PLAYED, it cannot evaluate a LATER, already-satisfied
-// IF_PLAYED in the same script this tick (the file-order handoff bug). The
-// index below lets the runtime fire a scene's IF_PLAYED chunk the instant
-// that scene reaches FINISHED, independent of the linear PC's position.
-// ---------------------------------------------------------------------------
-
-/**
- * Index every IF_PLAYED (0x1350) trigger in an ADS scene's (already-expanded)
- * script by the `(slot,tag)` it watches, mapping to the index of the opcode
- * immediately AFTER the IF_PLAYED itself (the start of its body). A single
- * (slot,tag) may have multiple triggering chunks, so each key maps to an
- * array of body-start indices, in file order.
- */
-export const indexAdsChunks = (script) => {
-    const map = new Map();
-    for (let i = 0; i < script.length; i++) {
-        if (script[i].opcode !== 0x1350) continue;
-        // Gather the OR-group: consecutive IF_PLAYED clauses joined by OR (0x1430).
-        // An OR-group `IF_PLAYED a OR IF_PLAYED b ... OR IF_PLAYED z  <body>` fires
-        // <body> when ANY clause is satisfied, and <body> is the single opcode after
-        // the LAST clause. Map EVERY clause key to that one shared body-start; each
-        // earlier clause's own i+1 is just the next OR/IF_PLAYED, not the body. (Only
-        // merge across OR: an AND (0x1420) chain needs ALL clauses, so a single-tag
-        // finish can't satisfy it -- leave an AND-joined clause mapping its own i+1.)
-        // Assumes an OR joins IF_PLAYED clauses only (the `0x1350` check below): the
-        // shipped data has no mixed OR chain (e.g. IF_PLAYED a OR IF_NOT_PLAYED b), so
-        // a non-IF_PLAYED next-clause ends the group and each clause keeps its own body
-        // -- matching pre-index behavior. Revisit this if such a chain is ever authored.
-        const clauses = [];
-        let j = i;
-        for (;;) {
-            clauses.push(script[j].params);
-            if (script[j + 1]?.opcode === 0x1430 && script[j + 2]?.opcode === 0x1350) {
-                j += 2;
-            } else {
-                break;
-            }
-        }
-        const body = j + 1;
-        for (const [slot, tag] of clauses) {
-            const key = `${slot}:${tag}`;
-            if (!map.has(key)) map.set(key, []);
-            map.get(key).push(body);
-        }
-        i = j; // don't re-scan the inner clauses as fresh group starts
-    }
-    return map;
-};
-
-/**
- * Execute one ADS IF_PLAYED chunk body in isolation, starting at `bodyStart`
- * (the index returned by `indexAdsChunks`) and running through opcodes until
- * the chunk's own END_SCENE_BRANCH (0x1510) is reached. This is a MINI
- * executor with a purely LOCAL index: it never reads or writes
- * `state.reentry`/`state.reentryNow`/`state.jumpTo` outside of the scratch
- * values it needs to drive individual callbacks (e.g. handleIfCondition for a
- * nested AND/OR inside the chunk), which are restored before returning. This
- * keeps the linear top-level program counter uncorrupted.
- *
- * Deliberately does NOT invoke the real END_SCENE_BRANCH callback for the
- * terminating 0x1510 -- that callback unconditionally commits AND clears
- * `state.addScenes`/`state.removeScenes` (applySceneChanges), which would
- * make a single fired chunk's staged changes invisible to any OTHER chunk
- * fired the same tick, and would collapse the "stage now, commit once" batch
- * semantics the caller relies on. The caller (the finish-dispatch loop in
- * runtime.mjs) commits once, after firing every matching chunk for the tick,
- * by calling the exported `applySceneChanges` itself.
- *
- * ISOLATION CAVEATS (authored chunk bodies should not hit these today, but
- * they are not structurally prevented):
- *  - IF_NOT_RUNNING inside a chunk body calls `applySceneChanges` itself
- *    (to un-stage a pending add/remove before checking), which mutates
- *    `state.scenes` mid-iteration of the finish-dispatch loop's `for..of`
- *    in runtime.mjs. A chunk body that also relies on the dispatch loop's
- *    own later iterations seeing the pre-mutation `state.scenes` could
- *    observe an inconsistent view.
- *  - `handleIfCondition` (used for a nested AND/OR inside a chunk body)
- *    reads the RAW `state.data.scenes[state.currentScene].script` indexed
- *    by `state.reentryNow`, but `state.reentryNow` here is an index into
- *    the EXPANDED `#adsScripts[idx]` (post `0xf200` inlining) passed in as
- *    `script`. If inlining ever shifts indices between the raw and
- *    expanded scripts, a nested conditional inside a chunk body could jump
- *    to the wrong offset. Low likelihood in practice -- it requires a
- *    chunk body with its own nested IF/AND/OR -- but not guarded against.
- */
-export const runAdsChunkBody = (state, script, bodyStart) => {
-    const savedReentry = state.reentry;
-    const savedReentryNow = state.reentryNow;
-    const savedJumpTo = state.jumpTo;
-    state.jumpTo = undefined;
-
-    for (let j = bodyStart; j < script.length; j++) {
-        const c = script[j];
-        if (c.opcode === 0x1510) break; // chunk terminator; caller commits via applySceneChanges
-
-        const dispatch = ADSDispatch.find((entry) => entry.opcode === c.opcode);
-        if (dispatch) {
-            state.reentryNow = j;
-            dispatch.callback(state, ...c.params);
-        }
-        if (state.jumpTo !== undefined) {
-            j = state.jumpTo - 1; // -1 because the loop will j++ before next iteration
-            state.jumpTo = undefined;
-        }
-    }
-
-    state.reentry = savedReentry;
-    state.reentryNow = savedReentryNow;
-    state.jumpTo = savedJumpTo;
-};
 
 // ---------------------------------------------------------------------------
 // Script runner

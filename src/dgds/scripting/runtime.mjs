@@ -136,11 +136,6 @@ export class DgdsRuntime {
             // per-slot re-poll driver must not let a predecessor chunk with a
             // permanently-true IF_PLAYED guard resurrect a stopped scene.
             stoppedScenes: new Set(),
-            // One-shot local completion overrides armed by ADS 0x1070
-            // (IF_LASTPLAYED_LOCAL); each "${slot}:${tag}" suppresses that scene's
-            // NEXT global IF_PLAYED handoff exactly once. See WHILE_RUNNING /
-            // #dispatchAdsFinishChunks (crosscheck B1 / phase11 §2).
-            localOverrides: new Set(),
             orMode: false,
             orChainPassed: false,
             frameDelta: 0,
@@ -538,7 +533,6 @@ export class DgdsRuntime {
         state.scenesRandom = [];
         state.playedHistory.clear();
         state.stoppedScenes?.clear();
-        state.localOverrides?.clear();
         // Prune stored backgrounds on the OLD environment map before discarding it,
         // so a persistent background does not survive the jump onto the raster.
         for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
