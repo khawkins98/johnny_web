@@ -775,8 +775,36 @@ const RANDOM_END = (state) => {
     if (typeof state.random !== 'function') {
         throw new TypeError('ADS runtime requires an injected random source');
     }
-    const index = Math.floor(state.random() * state.scenesRandom.length);
-    const scene = state.scenesRandom[index];
+    const staged = state.scenesRandom;
+    if (staged.length === 0) return;
+
+    // Binary FUN_1048_0cda: RANDOM picks a staged ADD_SCENE WEIGHTED by its 4th arg
+    // (`proportion`, extracted by FUN_1048_0c8d) -- sum the weights, draw rng in
+    // [0,total), walk the cumulative weight. jc_reborn does the same (rand()%total).
+    // The port previously picked UNIFORMLY (Math.floor(random()*len)), ignoring the
+    // per-branch weight the parser already stashes (crosscheck B2). e.g. FISHING tag 2
+    // stages {1:38 w=5, 1:21 w=3, 1:22 w=3, 1:23 w=3, 1:15 w=1}: uniform breaks the
+    // ambient via 1:15 at 1/5, weighted at the faithful 1/15. Exactly one rng draw is
+    // consumed either way, preserving draw accounting.
+    const weightOf = (s) => (Number.isFinite(s.proportion) ? s.proportion : 0);
+    const total = staged.reduce((sum, s) => sum + weightOf(s), 0);
+
+    let scene;
+    if (total <= 0) {
+        // No positive weights: fall back to uniform so a degenerate block still resolves.
+        scene = staged[Math.floor(state.random() * staged.length)];
+    } else {
+        let roll = Math.floor(state.random() * total);
+        for (const candidate of staged) {
+            roll -= weightOf(candidate);
+            if (roll < 0) {
+                scene = candidate;
+                break;
+            }
+        }
+        if (scene === undefined) scene = staged[staged.length - 1];
+    }
+
     if (scene !== undefined) {
         ADD_SCENE(state, scene.sceneIdx, scene.tagId, scene.runCount, scene.proportion);
     }
