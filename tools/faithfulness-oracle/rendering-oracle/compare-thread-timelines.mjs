@@ -119,38 +119,62 @@ const main = () => {
     const oursMax = maxConcurrency(oursTicks);
     const alignPct = orig.length ? Math.round((pairs.length / Math.max(orig.length, ours.length)) * 100) : 0;
 
-    let verdict = 'MATCH';
-    if (oursMax > origMax) verdict = 'DIVERGENT'; // our engine draws more concurrent bodies than the original
-    else if (missing.length + extra.length === 0) verdict = 'MATCH';
-    else if (alignPct >= 85 && missing.length + extra.length <= 2) verdict = 'MINOR';
-    else verdict = 'DIVERGENT';
+    // RNG-TOLERANT metric (the primary verdict). Exact state-sequence match is
+    // infeasible: the original capture runs the binary's own RNG stream (whose
+    // mid-run state can't be replayed) while our engine runs its own seed, so
+    // RANDOM opcodes (e.g. the fire-retry's {38,38,40} pick) legitimately take
+    // different branches -> different state SEQUENCES for the SAME faithful gag.
+    // What must match is the ACTOR VOCABULARY (the set of slot:tag that ever
+    // draw), the max concurrency, and reaching drain. An actor OUR engine draws
+    // that the original's vocabulary never contains is a real divergence
+    // candidate (an extra body / wrong actor); the reverse is usually just an
+    // RNG branch the capture didn't happen to hit (needs more captures to cover).
+    const vocab = (ticks) => new Set(ticks.flat());
+    const origVocab = vocab(origTicks);
+    const oursVocab = vocab(oursTicks);
+    const oursOnly = [...oursVocab].filter((k) => !origVocab.has(k)).sort(); // OURS draws, original never did (across this capture)
+    const origOnly = [...origVocab].filter((k) => !oursVocab.has(k)).sort(); // original draws, ours never did
+
+    // maxConcurrency tolerance: +1 absorbs our "agedOut" just-finished frame the
+    // original's rs-in-{1,2,3} filter excludes; >= +2 is a real extra-body flag.
+    const concFlag = oursMax >= origMax + 2;
+
+    let verdict;
+    if (oursOnly.length === 0 && !concFlag) verdict = 'FAITHFUL'; // ours never exceeds the original's actor vocabulary / concurrency
+    else if (concFlag) verdict = 'DIVERGENT'; // draws >=2 more concurrent than the original -> extra body
+    else verdict = 'REVIEW'; // ours draws actors this capture didn't show -- RNG branch OR real; needs a hand look / more captures
 
     const result = {
         verdict,
-        alignPct,
-        origStates: orig.length,
-        oursStates: ours.length,
+        oursOnlyActors: oursOnly, // KEY signal: actors ours draws that the original (this capture) never did
+        origOnlyActors: origOnly, // actors the original drew that ours didn't (often RNG branches we didn't hit)
         origMaxConcurrency: origMax,
         oursMaxConcurrency: oursMax,
-        missingStates: missing.map((s) => s.live), // original visited, ours never did
-        extraStates: extra.map((s) => s.live), // ours visited, original never did
+        concurrencyFlag: concFlag,
+        seqAlignPct: alignPct, // secondary: exact-sequence alignment (RNG-sensitive, informational)
+        origStates: orig.length,
+        oursStates: ours.length,
+        missingStates: missing.map((s) => s.live),
+        extraStates: extra.map((s) => s.live),
     };
 
     if (has('--json')) {
         console.log(JSON.stringify(result));
         return;
     }
-    console.log(`verdict: ${verdict}  (align ${alignPct}%; states orig=${orig.length} ours=${ours.length}; maxConcurrency orig=${origMax} ours=${oursMax})`);
-    if (missing.length) {
-        console.log(`  states in ORIGINAL but not OURS (${missing.length}):`);
-        for (const s of missing.slice(0, 20)) console.log(`    - [${s.live.join(' ')}]`);
+    console.log(`verdict: ${verdict}  (maxConcurrency orig=${origMax} ours=${oursMax}; seq-align ${alignPct}% [RNG-sensitive, informational])`);
+    if (oursOnly.length) {
+        console.log(`  actors OURS draws that the original (this capture) never did (${oursOnly.length}) -- REVIEW (RNG branch this capture missed, or a real extra actor):`);
+        console.log(`    ${oursOnly.join('  ')}`);
+    } else {
+        console.log(`  actor vocabulary: ours ⊆ original ✓ (no actor we draw is absent from the original)`);
     }
-    if (extra.length) {
-        console.log(`  states in OURS but not ORIGINAL (${extra.length}):`);
-        for (const s of extra.slice(0, 20)) console.log(`    + [${s.live.join(' ')}]`);
+    if (origOnly.length) {
+        console.log(`  actors the ORIGINAL drew that ours didn't (${origOnly.length}) -- usually RNG branches our seed didn't hit:`);
+        console.log(`    ${origOnly.join('  ')}`);
     }
-    if (verdict === 'DIVERGENT' && oursMax > origMax) {
-        console.log(`  !! ours draws ${oursMax} concurrent vs original ${origMax} -- possible extra actor/body`);
+    if (concFlag) {
+        console.log(`  !! ours draws ${oursMax} concurrent vs original ${origMax} (>= +2) -- EXTRA BODY candidate`);
     }
 };
 
