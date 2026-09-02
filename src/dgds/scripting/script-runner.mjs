@@ -383,7 +383,17 @@ const LOAD_PALETTE = (state) => {};
 // ADS opcode callbacks
 // ---------------------------------------------------------------------------
 
+// ADS 0x1070 is IF_LASTPLAYED_LOCAL -- the ONLY occurrence in the shipped game is
+// ACTIVITY.ADS tag 7 (the "MUNDANE JOHN READ" gag), where it pairs with 0x1520. Both
+// jc_reborn and the original binary treat it as a ONE-SHOT LOCAL completion override
+// for (sceneIdx,tagId): the next time that scene finishes, its LOCAL handler pre-empts
+// the GLOBAL `IF_PLAYED (slot,tag)` handoff exactly once, then is consumed. In tag 7
+// the final bath 4:5 is armed here so its finish routes to 4:22 -> 4:23 -> END instead
+// of re-entering the global 4:5 -> 4:7 reading cycle. Without this the port replays the
+// whole 4:7/4:8/4:9/4:10 reading loop a SECOND time (crosscheck B1 / phase11 §2). The
+// suppression itself lives in runtime's #dispatchAdsFinishChunks; here we only arm it.
 const WHILE_RUNNING = (state, sceneIdx, tagId) => {
+    (state.localOverrides ||= new Set()).add(`${sceneIdx}:${tagId}`);
     const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     state.continue = !isTtmRunning(scene);
 };
