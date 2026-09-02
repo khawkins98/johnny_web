@@ -1,7 +1,8 @@
 # tools/faithfulness-oracle
 
 Durable record of how we verify this engine against the original 1993 binary, and the
-small tooling to reproduce it. Full write-up: **[METHODOLOGY.md](./METHODOLOGY.md)**.
+small tooling to reproduce it. Full write-up: **[METHODOLOGY.md](./METHODOLOGY.md)**
+(sequencing) and **[RENDERING-ORACLE.md](./RENDERING-ORACLE.md)** (framebuffer / compositing).
 
 The runnable JS oracle lives in the engine itself (committed):
 - `src/dgds/scripting/oracle/completion-model.mjs` — transliterated completion oracle
@@ -17,6 +18,14 @@ traces are large/ephemeral and NOT committed — rebuild from these):
 - `dosbox-x-trace.patch` — patch for `src/cpu/core_normal.cpp` in joncampbell123/dosbox-x;
   logs entries to the four ADS functions (by 24-byte entry signature) to `$DBX_TRACE`.
   Apply, then `./build-debug-macos-sdl2`; run with `-set "cpu core=normal"` (see METHODOLOGY).
+  Now also adds a 5th signature (ADS-file loader `FUN_1018_0c88`) that tags framebuffer dumps
+  with the active ADS scene.
+- `dosbox-x-framebuffer.patch` — patch for `src/hardware/vga_draw.cpp`; dumps the emulated VGA
+  framebuffer as scene-labeled PPMs (reuses the built-in raw-screenshot / DAC path, headless).
+  See RENDERING-ORACLE.md.
+- `rendering-oracle/` — the diff toolchain: `capture-original.sh` (original side),
+  `render-ours.mjs` (our side), `diff-frames.mjs` + `ppm-bbox.mjs` (align + diff),
+  `force-scene-patches.py` (force a rare day-locked keyframe, selection-only).
 - `ne_entry.py` — extract each target function's entry signature (file-unique) from SCRANTIC.SCR.
 - `ne_reloc.py` / `ne_mask.py` — parse the NE relocation table / prove a signature is
   relocation-safe.

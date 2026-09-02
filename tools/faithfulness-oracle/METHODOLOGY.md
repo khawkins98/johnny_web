@@ -3,7 +3,10 @@
 How we verify that this JS reimplementation of the 1993 DGDS "Johnny Castaway" engine
 behaves like the original, and how we caught real faithfulness bugs. The content is
 frozen (the shipped `SCRANTIC.SCR` + `RESOURCE.*`), so "faithful" means: does our engine
-make the same *sequencing* decisions the original does, over the same data. This file +
+make the same *sequencing* decisions the original does, over the same data. (For *rendering*
+faithfulness — transparency / z-order / scene-clearing, which sequencing cannot see — see the
+sibling **[RENDERING-ORACLE.md](./RENDERING-ORACLE.md)**, which captures the original's VGA
+framebuffer and pixel-diffs it against our render.) This file +
 the tooling beside it are the durable record — the working build tree and captured traces
 lived in an ephemeral scratchpad and are not committed (only the small artifacts are).
 

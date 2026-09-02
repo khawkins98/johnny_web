@@ -1,5 +1,5 @@
 diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
-index 26d9f49..964532f 100644
+index 26d9f49..572ac5f 100644
 --- a/src/cpu/core_normal.cpp
 +++ b/src/cpu/core_normal.cpp
 @@ -16,6 +16,7 @@
@@ -10,7 +10,7 @@ index 26d9f49..964532f 100644
  #include "cpu.h"
  #include "lazyflags.h"
  #include "callback.h"
-@@ -171,6 +172,120 @@ Bits CPU_Core_Normal_Run(void) {
+@@ -171,6 +172,171 @@ Bits CPU_Core_Normal_Run(void) {
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -43,6 +43,32 @@ index 26d9f49..964532f 100644
 +			static bool dbx_rng_pending = false;
 +			static uint16_t rng_retcs = 0, rng_retip = 0, rng_i = 0, rng_j = 0, rng_ti = 0, rng_tj = 0;
 +			static unsigned long long rng_entry_icount = 0;
++			/* --- framebuffer oracle: ADS-loader detector ---
++			 * FUN_1018_0c88 (NE seg 4, off 0x0c88) is the ADS-file loader; arg0
++			 * (mov di,[bp+6]) is the ADS id (name table 1068:166e: 0x65 ACTIVITY
++			 * .. 0x6d SUZY .. 0x6f WALKSTUF). When it is entered with the target
++			 * id (env DBX_FB_ADS, default 0x6d=SUZY) we tag + arm a framebuffer
++			 * dump so the capture is labeled with the active ADS scene. Sig is
++			 * reloc-free 26 bytes / file-unique at 16 (ne_entry.py). */
++			static const unsigned char DBX_ADS_SIG[24] =
++				{0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x56,0x57,0x8b,0x7e,0x06,0x3b,0x3e,0x50,0x33,0x74,0x10,0xff,0x36,0x50};
++			/* indexed by (adsId - 0x65); name table 1068:166e */
++			static const char *DBX_ADS_NAMES[11] = {
++				"ACTIVITY","BUILDING","ADS67","FISHING","JOHNNY","MARY","MISCGAG",
++				"STAND","SUZY","VISITOR","WALKSTUF" };
++			extern volatile int dbx_fb_want;   /* frame countdown, defined in vga_draw.cpp */
++			extern char dbx_fb_label[64];
++			static bool dbx_ads_reported = false;
++			static unsigned int dbx_ads_target = 0x100; /* >0xff = disabled; set from env once */
++			static int dbx_ads_burst = 40; /* frames to capture per target load */
++			static bool dbx_ads_target_init = false;
++			if (!dbx_ads_target_init) {
++				dbx_ads_target_init = true;
++				const char *t = getenv("DBX_FB_ADS");
++				if (t && *t) dbx_ads_target = (unsigned int)strtoul(t, NULL, 0);
++				const char *b = getenv("DBX_FB_BURST");
++				if (b && *b) dbx_ads_burst = (int)strtoul(b, NULL, 10);
++			}
 +			if (!dbx_init) {
 +				dbx_init = true;
 +				const char *p = getenv("DBX_TRACE");
@@ -123,6 +149,31 @@ index 26d9f49..964532f 100644
 +							(unsigned)reg_ax, (unsigned)reg_bx);
 +						fflush(dbx_fp);
 +						break;
++					}
++					/* ADS-loader detection (framebuffer oracle scene tagging) */
++					{
++						bool amatch = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_ADS_SIG[k]) { amatch = false; break; }
++						}
++						if (amatch) {
++							const PhysPt ssb = SegPhys(ss);
++							uint16_t adsid = mem_readw(ssb + (uint16_t)(reg_sp + 4)); /* arg0 */
++							if (!dbx_ads_reported) {
++								dbx_ads_reported = true;
++								fprintf(dbx_fp, "#RESOLVE ads-loader seg=4 in_off=0C88 runtime_lin=%08lX\n",
++									(unsigned long)(lin));
++							}
++							fprintf(dbx_fp, "%llu ads-loader id=%04X\n", dbx_icount, (unsigned)adsid);
++							fflush(dbx_fp);
++							/* Tag + arm a framebuffer dump for the target ADS id. */
++							if (dbx_ads_target <= 0xff && (unsigned int)(adsid & 0xff) == dbx_ads_target) {
++								unsigned int id = adsid & 0xff;
++								const char *nm = (id >= 0x65 && id <= 0x6f) ? DBX_ADS_NAMES[id - 0x65] : "ADS";
++								snprintf(dbx_fb_label, sizeof(dbx_fb_label), "%s_id%02X", nm, id);
++								dbx_fb_want = dbx_ads_burst;
++							}
++						}
 +					}
 +				}
 +			}

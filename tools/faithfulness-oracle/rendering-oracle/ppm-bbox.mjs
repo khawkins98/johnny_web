@@ -1,0 +1,3 @@
+import { readFileSync } from 'node:fs';
+const readPPM=(p)=>{const b=readFileSync(p);let o=0;const t=()=>{while([32,10,9,13].includes(b[o]))o++;let s=o;while(![32,10,9,13].includes(b[o]))o++;return b.toString('ascii',s,o)};t();const w=+t(),h=+t();t();o++;return{w,h,d:b.subarray(o)}};
+for(const p of process.argv.slice(2)){const {w,h,d}=readPPM(p);let minX=w,minY=h,maxX=-1,maxY=-1,nz=0;for(let i=0;i<w*h;i++){const r=d[i*3],g=d[i*3+1],bl=d[i*3+2];if(r>8||g>8||bl>8){nz++;const x=i%w,y=(i/w)|0;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}}console.log(p.split('/').pop(),'nz='+nz,maxX>=0?`bbox=${minX},${minY} ${maxX-minX+1}x${maxY-minY+1}`:'blank');}

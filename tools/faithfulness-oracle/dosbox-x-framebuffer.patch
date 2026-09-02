@@ -1,0 +1,97 @@
+diff --git a/src/hardware/vga_draw.cpp b/src/hardware/vga_draw.cpp
+index b8335f6..e24e72d 100644
+--- a/src/hardware/vga_draw.cpp
++++ b/src/hardware/vga_draw.cpp
+@@ -195,6 +195,55 @@ void rawscreenshot::allocpalette2(unsigned int count) {
+ 
+ static rawscreenshot rawshot; // raw image data, translated palette
+ 
++/* --- BEGIN framebuffer oracle (rendering faithfulness) ---
++ * Dumps the EMULATED VGA framebuffer as a scene-labeled PPM by reusing the
++ * built-in raw-screenshot capture (VGA_DrawRawLine reads VGA memory directly +
++ * SetRawImagePalette() copies the DAC), so it is independent of the SDL/GFX
++ * output pipeline and works headless under SDL_VIDEODRIVER=dummy.
++ * Controlled by env: DBX_FB_DIR (output dir; enables the feature),
++ * DBX_FB_EVERY (auto-arm every N frames; 0 = only on explicit request),
++ * DBX_FB_MAX (cap total dumps), DBX_FB_START (skip first N frames).
++ * core_normal.cpp sets dbx_fb_want / dbx_fb_label from the ADS scene trace so
++ * a dump can be tagged with the currently-active ADS scene. See
++ * tools/faithfulness-oracle/RENDERING-ORACLE.md. */
++#include <cstdlib>
++#include <cstdio>
++#include <cstring>
++volatile int  dbx_fb_want = 0;           /* set by ADS hook: countdown of frames to capture */
++char          dbx_fb_label[64] = "frame"; /* scene tag for the filename */
++static unsigned long dbx_fb_frame_ctr = 0;
++static unsigned long dbx_fb_shot_ctr = 0;
++static void dbx_write_ppm(void) {
++	const char *dir = getenv("DBX_FB_DIR");
++	if (dir == NULL || *dir == 0) return;
++	if (rawshot.image == NULL || rawshot.image_palette == NULL) return;
++	if (rawshot.image_bpp != 8) return; /* Johnny runs Win3.1 SVGA 256-color = 8bpp */
++	const unsigned int w = rawshot.image_width, h = rawshot.image_height;
++	if (w == 0 || h == 0) return;
++	char path[1024];
++	/* sanitize label to keep filenames safe */
++	char lab[64]; unsigned li = 0;
++	for (const char *p = dbx_fb_label; *p && li < sizeof(lab)-1; p++)
++		lab[li++] = (*p=='/'||*p==' '||*p==':') ? '_' : *p;
++	lab[li] = 0;
++	snprintf(path, sizeof(path), "%s/fb_%06lu_%s.ppm", dir, dbx_fb_shot_ctr, lab);
++	FILE *fp = fopen(path, "wb");
++	if (fp == NULL) return;
++	fprintf(fp, "P6\n%u %u\n255\n", w, h);
++	const unsigned char *pal = rawshot.image_palette;
++	for (unsigned int y = 0; y < h; y++) {
++		const unsigned char *row = rawshot.image + (size_t)y * rawshot.image_stride;
++		for (unsigned int x = 0; x < w; x++) {
++			unsigned int idx = row[x];
++			unsigned char rgb[3] = { pal[idx*3+0], pal[idx*3+1], pal[idx*3+2] };
++			fwrite(rgb, 1, 3, fp);
++		}
++	}
++	fclose(fp);
++	dbx_fb_shot_ctr++;
++}
++/* --- END framebuffer oracle --- */
++
+ struct debugline_event {
+ 	unsigned int	colorline = 0;
+ 	int		event = -1;
+@@ -5960,6 +6009,15 @@ void WriteARawImage(rawscreenshot &rawimg,rawscreenshot &rawpal,const char *ext)
+ #endif
+ 
+ void WriteRawImage(void) {
++	if (getenv("DBX_FB_DIR") != NULL) {
++		/* framebuffer oracle: emit our own scene-labeled PPM and skip the
++		 * built-in PNG (avoids capture-dir/libpng dependencies headless). */
++		dbx_write_ppm();
++		if (dbx_fb_want > 0) dbx_fb_want--;
++		if (dbx_fb_want <= 0) strcpy(dbx_fb_label, "frame");
++		rawshot.render_y = 0;
++		return;
++	}
+ #if !defined(C_EMSCRIPTEN)
+ #if (C_SSHOT)
+ 	if (rawshot.image != NULL && rawshot.image_palette != NULL && rawshot.image_palette_size > 0)
+@@ -6012,6 +6070,20 @@ static void VGA_VerticalTimer(Bitu /*val*/) {
+ 	}
+ 
+ 	is_vga_rendering_on_demand = vga_render_on_demand;
++	/* framebuffer oracle: auto-arm a raw capture on a cadence or on request */
++	if (getenv("DBX_FB_DIR") != NULL && !rawshot.capturing && VGA_DrawRawLine != NULL) {
++		dbx_fb_frame_ctr++;
++		const char *ev = getenv("DBX_FB_EVERY");
++		const char *mx = getenv("DBX_FB_MAX");
++		const char *st = getenv("DBX_FB_START");
++		unsigned long every = ev ? strtoul(ev, NULL, 10) : 0;
++		unsigned long maxsh = mx ? strtoul(mx, NULL, 10) : 0;
++		unsigned long start = st ? strtoul(st, NULL, 10) : 0;
++		bool cadence = (every != 0 && dbx_fb_frame_ctr >= start && (dbx_fb_frame_ctr % every) == 0);
++		bool cap_ok = (maxsh == 0 || dbx_fb_shot_ctr < maxsh);
++		if ((dbx_fb_want || cadence) && cap_ok)
++			CaptureState |= CAPTURE_RAWIMAGE;
++	}
+ 	if (CaptureState & CAPTURE_RAWIMAGE) {
+ 		if (!rawshot.capturing) {
+ 			if (VGA_DrawRawLine != NULL) {
