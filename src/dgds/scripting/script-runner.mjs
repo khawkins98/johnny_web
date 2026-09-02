@@ -174,12 +174,6 @@ export const clearAdsSceneBatch = (state) => {
     // The explicit-stop revive guard is per-gag; a new gag starts with a clean
     // display list, so a (slot,tag) stopped here must not gate the next gag.
     state.stoppedScenes?.clear();
-    // A (slot,tag) key dispatched in this ADS scene must not leak into the
-    // NEXT ADS scene: dispatchedAdsKeys only means "this chunk already fired
-    // off an earlier instance's finish" WITHIN the scene it fired in. Without
-    // clearing here, a genuine barrier IF_PLAYED keyed to the same (slot,tag)
-    // in a later scene would be wrongly softened (skip instead of wait).
-    state.dispatchedAdsKeys?.clear();
     emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;
@@ -581,57 +575,16 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
 
     const key = `${sceneIdx}:${tagId}`;
 
-    // The finish-dispatch (runtime.mjs #dispatchAdsFinishChunks) OWNS firing
-    // this (slot,tag)'s handoff chunk on the scene's FINISH event, and it runs
-    // BEFORE this linear runner every tick. `dispatched` = the dispatch has
-    // already fired this key's chunk this ADS scene. Two distinct things follow
-    // from that, both TERMINAL-only (softening a non-terminal IF_PLAYED would
-    // flow an AND/OR chain forward with a false "already handled" signal instead
-    // of BLOCKING, changing the combined trigger's semantics):
-    //
-    // Read the EXPANDED script that `state.reentryNow` actually indexes
-    // (`state.activeAdsScript` = #adsScripts[currentScene], post-0xf200
-    // inlining), NOT the raw `state.data.scenes[...].script`. The two diverge
-    // once a scene inlines a RUN_SCRIPT (0xf200) before an IF_PLAYED, which
-    // would make `chunkBodyHasRandom`/`nextOpcode` scan the wrong region (a
-    // false-negative that re-enables the double-pick). No shipping scene has an
-    // IF_PLAYED after a 0xf200 today, but the range scan makes the fragility
-    // load-bearing, so bind to the correct script. Fall back to the raw script
-    // for callers that drive IF_PLAYED without activeAdsScript set.
+    // Bind to the EXPANDED script that `state.reentryNow` actually indexes
+    // (`state.activeAdsScript` = #adsScripts[currentScene], post-0xf200 inlining),
+    // NOT the raw `state.data.scenes[...].script` -- the finished-instance
+    // self-rearm exception below scans this region via chunkBodyHasRandom, so it
+    // must be the region reentryNow points at. Fall back to the raw script for
+    // callers that drive IF_PLAYED without activeAdsScript set.
     const script = state.activeAdsScript ?? state.data.scenes[state.currentScene]?.script;
-    const nextOpcode = script?.[state.reentryNow + 1]?.opcode;
-    const terminal = !state.orMode && nextOpcode !== 0x1420 && nextOpcode !== 0x1430;
-    const dispatched = state.dispatchedAdsKeys?.has(key) && terminal;
 
     const scene = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     const done = scene !== undefined && isSceneDone(scene);
-
-    // (1) STILL-PLAYING dispatched instance: a NEW instance now occupies the
-    // slot (e.g. a self-rearming ambient sequence) that the dispatch owns going
-    // forward. Do NOT park the linear PC on it -- that is the gag-7 failure mode
-    // (scene 4:24 loops running<->waiting forever, blocking the ADS from ever
-    // reaching its own end). Skip the barrier. Applies to ANY body: this is
-    // about not blocking, independent of idempotency.
-    if (dispatched && scene !== undefined && !done) {
-        state.continue = true;
-        handleIfCondition(state, false);
-        return;
-    }
-
-    // (2) FINISHED/PLAYED dispatched instance whose body is a 0x3010 RANDOM
-    // block: the dispatch already ran this NON-idempotent body (RANDOM_END picks
-    // ONE of several staged ADD_SCENEs). Re-running it here picks a DIFFERENT
-    // scene, spawning a concurrent duplicate -- the telescope "multiple
-    // Johnnies" (STAND.ADS #15 chains RANDOM scan blocks with no STOP_SCENE).
-    // Skip re-running it. An idempotent body (plain ADD_SCENE, deduped by
-    // ADD_SCENE's inScenes guard) is harmless to re-run, so it is left exactly
-    // as before -- notably the campfire's rearm chain, which relies on it.
-    if (dispatched && (done || state.playedHistory.has(key)) && chunkBodyHasRandom(script, state.reentryNow)) {
-        if (done) state.removeScenes.push({ sceneIdx, tagId }); // clean up the lingering finished instance
-        state.continue = true;
-        handleIfCondition(state, false);
-        return;
-    }
 
     if (state.playedHistory.has(key)) {
         state.continue = true;
