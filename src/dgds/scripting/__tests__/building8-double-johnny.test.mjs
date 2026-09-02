@@ -32,7 +32,14 @@ import { isTtmFinished } from '../ttm-run-state.mjs';
 // is a port invention compensating for the binary's re-poll+completion model. A faithful
 // fix is the ADS scheduler re-grounding (ticket Phase 2), not a one-liner. Un-skip when
 // that lands; it should PASS (smokeCycles==1, no DRAWN walk/sit overlap).
-describe.skip('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () => {
+// FIXED by the single per-slot re-poll driver + skip-if-running 0x1360 (Task 4 of
+// scratchpad/plans/2026-09-02-ads-per-slot-repoll-collapse.md). The binary evaluates
+// IF_NOT_RUNNING live each tick and re-interprets every active slot's chunk every tick;
+// under that model the fire-retry guard admits the smoke branch exactly once
+// (presence-dedup keeps a re-poll a no-op while 3:39 is live), so the
+// smoke->fire->sit->walk cycle runs ONCE -- no second sit-back re-firing during 3:140's
+// walk, hence no two Johnny bodies. smokeCycles==1, no DRAWN walk/sit overlap, all seeds.
+describe('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () => {
     // A range of seeds; several currently produce the double (e.g. 1, 3, 4, 7).
     for (const seed of [1, 2, 3, 4, 5, 7, 11, 42, 99, 123]) {
         it(`seed ${seed}: walk-to-tree (3:140) never overlaps a sit-back (3:53/3:143)`, () => {

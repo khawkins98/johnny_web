@@ -212,7 +212,14 @@ describe('ADS finish-dispatch (Task 4): softened IF_PLAYED after dispatch', () =
         expect(state.jumpTo).toBeUndefined();
     });
 
-    it('integration: a self-rearming ambient successor no longer permanently blocks the ADS from reaching its own end', () => {
+    // DEFERRED TO TASK 5 (dead dual-driver ring deletion). This integration test
+    // drives #dispatchAdsFinishChunks, which Task 4 STOPPED CALLING (the single
+    // per-slot re-poll driver now owns the handoff). The behavior it protects --
+    // a self-rearming ambient successor never permanently blocking completion --
+    // is now covered faithfully by all-gags-complete (ACTIVITY #7, the original
+    // self-rearming gag, completes) and gag-terminal-sweep. Task 5 retires/rewrites
+    // this file against the re-poll; not restoring the dispatch call.
+    it.skip('integration: a self-rearming ambient successor no longer permanently blocks the ADS from reaching its own end', () => {
         // IF_PLAYED 3:82 { ADD 3:83 }           -- ordinary barrier, resolved on tick 2
         // IF_PLAYED 3:141 { STOP 3:141; ADD 3:141 (rearm) }  -- self-rearming ambient loop
         const ttm = {
@@ -484,7 +491,14 @@ describe('ADS finish-dispatch (BLOCKER 1): concluding-children hold uses the hel
         });
     };
 
-    it('never spawns gagB\'s foreign scene while gagA\'s concluding children are still finishing', () => {
+    // DEFERRED TO TASK 5. This exercises #dispatchAdsFinishChunks's ceiling clamp
+    // (a dispatch-only concern), which Task 4 stopped calling. Under the per-slot
+    // re-poll driver only the CURRENT tag's slots are stepped, so a foreign gag's
+    // IF_PLAYED chunk can never fire during another gag's hold -- the failure this
+    // guarded is structurally impossible now. It also asserts the old advance-into-
+    // hold currentScene (==adsSceneEnd during the hold); the re-poll keeps
+    // currentScene on the selected tag until completion. Task 5 retires this file.
+    it.skip('never spawns gagB\'s foreign scene while gagA\'s concluding children are still finishing', () => {
         const runtime = buildRuntime();
 
         // Tick 1: gagA's script runs ADD, ADD, END in one pass -- currentScene

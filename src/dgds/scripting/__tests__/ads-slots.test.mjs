@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildAdsSlots, stepAdsSlots } from '../ads-slots.mjs';
-import { isTtmRunning, TtmRunState } from '../ttm-run-state.mjs';
+import { isTtmFinished, isTtmRunning, TtmRunState } from '../ttm-run-state.mjs';
 
 // Opcode constants (mirror the ADSDispatch table in script-runner.mjs).
 const IF_PLAYED = 0x1350;
@@ -127,11 +127,15 @@ describe('stepAdsSlots re-poll handoff', () => {
         expect(count(state, 9, 2)).toBe(1);
         expect(count(state, 9, 3)).toBe(0);
 
-        // b finishes -> chunk1 hands off to c exactly once.
+        // b finishes -> chunk1 hands off to c exactly once. b stays PRESENT as a
+        // finished node (the binary keeps the display-list node until an explicit
+        // STOP / gag clear) so a re-poll of any predecessor chunk dedups on its
+        // presence instead of resurrecting it -- IF_PLAYED no longer removes it.
         finish(state, 9, 2);
         stepAdsSlots(state, slots, script);
         expect(count(state, 9, 3)).toBe(1);
-        expect(find(state, 9, 2)).toBeUndefined(); // b was removed on handoff
+        expect(find(state, 9, 2)).toBeDefined(); // b lingers present-as-finished
+        expect(isTtmFinished(find(state, 9, 2))).toBe(true);
 
         // Re-poll: c already present -> NO duplicate add of c on re-poll.
         stepAdsSlots(state, slots, script);

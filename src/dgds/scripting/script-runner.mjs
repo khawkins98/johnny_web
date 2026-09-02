@@ -171,6 +171,9 @@ export const clearAdsSceneBatch = (state) => {
     state.addScenes = [];
     state.removeScenes = [];
     state.scenesRandom = [];
+    // The explicit-stop revive guard is per-gag; a new gag starts with a clean
+    // display list, so a (slot,tag) stopped here must not gate the next gag.
+    state.stoppedScenes?.clear();
     // A (slot,tag) key dispatched in this ADS scene must not leak into the
     // NEXT ADS scene: dispatchedAdsKeys only means "this chunk already fired
     // off an earlier instance's finish" WITHIN the scene it fired in. Without
@@ -638,7 +641,26 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
 
     if (scene !== undefined) {
         if (done) {
-            state.removeScenes.push({ sceneIdx, tagId });
+            // Present + finished: the guard is satisfied. By default LEAVE the
+            // finished instance present (the binary keeps the display-list node
+            // until an explicit STOP or gag clear) so ADD's presence-dedup keeps a
+            // re-poll of this or any predecessor chunk a no-op -- the finished
+            // scene fires its successor exactly once instead of telescoping the
+            // whole cycle a second time each tick under the per-slot re-poll.
+            //
+            // EXCEPTION: a genuine SELF-rearming chunk whose body is a PLAIN ADD
+            // of s:t (IF_PLAYED[s,t] -> MOVE_TO_BACK + ADD 3:44, the campfire
+            // flame) MUST remove the finished instance here so the body's ADD
+            // restarts it -- that is how the flame keeps burning through the boot
+            // routine. But a self-referential ADD inside a RANDOM block (STAND #15
+            // IF_PLAYED[2,29] -> RANDOM{...ADD 2:29...}) is NON-idempotent:
+            // remove+re-run would re-pick and telescope the scan into "multiple
+            // Johnnies" that never drain. Leave THOSE present-as-finished so the
+            // RANDOM body's re-poll dedups. The explicit-stop guard (STOP_SCENE)
+            // still keeps a stopped flame dead.
+            if (isSelfRearmingSequence(state, sceneIdx, tagId) && !chunkBodyHasRandom(script, state.reentryNow)) {
+                state.removeScenes.push({ sceneIdx, tagId });
+            }
             state.continue = true;
             handleIfCondition(state, true);
         } else {
@@ -667,24 +689,14 @@ const IF_NOT_RUNNING = (state, sceneIdx, tagId) => {
         applySceneChanges(state);
     }
 
+    // Skip-if-running (binary 0x1360, evaluated LIVE each tick): if the watched
+    // child is running the guard is FALSE and the body is skipped THIS tick; the
+    // per-slot re-poll driver re-arms the chunk and re-evaluates next tick. There
+    // is NO wait-barrier (the port's old `state.continue=false` park that resumed
+    // the SAME pass) -- that barrier re-fired the smoke branch a second time under
+    // resume, spawning the double-Johnny, and stood in for the missing re-poll.
     const scene = state.scenes.find((candidate) => candidate.sceneIdx === sceneIdx && candidate.tagId === tagId);
-    if (!isTtmRunning(scene)) {
-        handleIfCondition(state, true);
-        return;
-    }
-
-    const unboundedLoop =
-        scene.execution?.status === ExecutionStatus.LOOPED &&
-        scene.retries === 0 &&
-        !Number.isFinite(scene.timeLimitTicks);
-    if (unboundedLoop) {
-        handleIfCondition(state, false);
-        return;
-    }
-
-    // A finite child is a dependency barrier. Stay on this opcode while the
-    // TTM controller advances it, then enter the branch once it has stopped.
-    state.continue = false;
+    handleIfCondition(state, !isTtmRunning(scene));
 };
 
 const IF_RUNNING = (state, sceneIdx, tagId) => {
@@ -736,7 +748,15 @@ const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
 };
 
 const applySceneChanges = (state) => {
+    // Keys removed in THIS batch may be re-added in the SAME batch (a STOP+ADD
+    // restart / self-rearm chunk); only a re-add in a LATER tick of an EXPLICITLY
+    // stopped scene is a revive to block. See STOP_SCENE + the add phase below.
+    const removedThisBatch = new Set();
+    state.stoppedScenes ||= new Set();
     state.removeScenes.forEach((s) => {
+        const key = `${s.sceneIdx}:${s.tagId}`;
+        removedThisBatch.add(key);
+        if (s.stop) state.stoppedScenes.add(key);
         let index;
         let removed = false;
         while ((index = state.scenes.findIndex((sc) => sc.sceneIdx === s.sceneIdx && sc.tagId === s.tagId)) !== -1) {
@@ -757,6 +777,13 @@ const applySceneChanges = (state) => {
     state.removeScenes = [];
 
     state.addScenes.forEach((s) => {
+        const key = `${s.sceneIdx}:${s.tagId}`;
+        // Block a re-poll from resurrecting a scene explicitly stopped on an
+        // earlier tick (its predecessor's IF_PLAYED guard is permanently true).
+        // A same-batch STOP+ADD restart is exempt (removedThisBatch), and any
+        // legitimate fresh add clears the stopped mark.
+        if (state.stoppedScenes?.has(key) && !removedThisBatch.has(key)) return;
+        state.stoppedScenes?.delete(key);
         const scene = getSceneState(state, s.sceneIdx, s.tagId, s.runCount, s.proportion);
         if (scene !== undefined) {
             if (s.runMode) scene.runMode = s.runMode;
@@ -796,10 +823,19 @@ const END_WHILE = (state) => {
 };
 
 const STOP_SCENE = (state, sceneIdx, tagId, retries) => {
+    // `stop: true` marks this as an EXPLICIT stop (0x2010), distinct from the
+    // IF_PLAYED cleanup-removal of a lingering finished instance. Under the
+    // per-slot re-poll driver a predecessor chunk's guard (e.g. slot 9's
+    // IF_PLAYED[3,53]) stays permanently true and would RE-ADD an explicitly
+    // stopped scene (3:143) every tick -- reviving it on top of its successor
+    // (the 3:140 walk), the double-Johnny/overlap. applySceneChanges records the
+    // explicit stop so a later re-poll cannot resurrect it (binary: a stopped
+    // display-list node stays present-as-finished, so its ADD is deduped).
     state.removeScenes.push({
         sceneIdx,
         tagId,
         retries,
+        stop: true,
     });
 };
 

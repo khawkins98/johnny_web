@@ -5,7 +5,7 @@ import { DGDS_TICK_MS } from '../timing.mjs';
 import { getSceneState } from '../scene-factory.mjs';
 import { createRecordingSurface } from '../surface.mjs';
 import { moveSequenceToBack } from '../ttm-sequence-order.mjs';
-import { TtmRunMode } from '../ttm-run-state.mjs';
+import { isTtmFinished, TtmRunMode } from '../ttm-run-state.mjs';
 
 const createSurface = () => ({ clear() {} });
 
@@ -299,7 +299,10 @@ describe('DgdsRuntime', () => {
         });
 
         expect(runtime.tick(20).completed).toBe(false);
-        expect(runtime.state.currentScene).toBe(1);
+        // The per-slot re-poll driver keeps interpreting the SELECTED tag every
+        // tick (currentScene stays on it); it does not advance into a stop-at-END
+        // hold. currentScene only jumps to adsSceneEnd on completion.
+        expect(runtime.state.currentScene).toBe(0);
         expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
 
         expect(runtime.tick(20).completed).toBe(false);
@@ -351,8 +354,17 @@ describe('DgdsRuntime', () => {
         const result = runtime.tick(20);
 
         expect(result.presentation.compose).toBe(true);
-        expect(runtime.state.playedHistory.has('1:1')).toBe(true);
-        expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([2]);
+        // Under the per-slot re-poll driver IF_PLAYED leaves the finished
+        // predecessor PRESENT (present-as-finished, so a re-poll dedups on it)
+        // rather than removing it, and stages the successor. The predecessor
+        // lingers finished (composeTtmFrame ages it out so it stops drawing);
+        // the successor is added and running.
+        const successorScene = runtime.state.scenes.find((scene) => scene.tagId === 2);
+        expect(successorScene).toBeDefined();
+        expect(isTtmFinished(successorScene)).toBe(false);
+        const lingeringPredecessor = runtime.state.scenes.find((scene) => scene.tagId === 1);
+        expect(lingeringPredecessor).toBeDefined();
+        expect(isTtmFinished(lingeringPredecessor)).toBe(true);
     });
 
     it('finishes a GOTO-looping child when its negative ADS run-count lifetime expires', () => {
@@ -522,7 +534,7 @@ describe('DgdsRuntime', () => {
         expect(child.execution.reason).toBe('restart-until-stopped');
     });
 
-    it('lets IF_NOT_RUNNING wait on a child added earlier in the same ADS branch', () => {
+    it('skips (does not park) an IF_NOT_RUNNING guarded add while its child runs, taking it once the child stops', () => {
         const finiteScript = [
             { opcode: 0x0ff0, params: [] },
             { opcode: 0x0110, params: [] },
@@ -562,14 +574,30 @@ describe('DgdsRuntime', () => {
             },
         });
 
+        // Tick 1: ADD 1:1, then IF_NOT_RUNNING 1:1 -- 1:1 is now running, so the
+        // guard FAILS and the guarded ADD 1:2 is SKIPPED this tick (not parked on
+        // a wait-barrier). Only 1:1 is live.
         expect(runtime.tick(20).completed).toBe(false);
         expect(runtime.state.currentScene).toBe(0);
         expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
-        runtime.tick(20);
-        expect(runtime.state.currentScene).toBe(0);
-        runtime.tick(20);
+        expect(runtime.state.scenes.some((scene) => scene.tagId === 2)).toBe(false);
+
+        // The re-poll re-evaluates the guard every tick. Once 1:1 stops running,
+        // the guard passes and 1:2 is added; the gag then drains to completion
+        // (currentScene advances to adsSceneEnd = 1). It must not park forever.
+        let completed = false;
+        let saw2WhileChildRan = false;
+        for (let i = 0; i < 50 && !completed; i++) {
+            const oneRunning = runtime.state.scenes.some(
+                (scene) => scene.tagId === 1 && !isTtmFinished(scene),
+            );
+            const twoPresent = runtime.state.scenes.some((scene) => scene.tagId === 2);
+            if (oneRunning && twoPresent) saw2WhileChildRan = true;
+            completed = runtime.tick(20).completed;
+        }
+        expect(saw2WhileChildRan, '1:2 must not appear while 1:1 is still running').toBe(false);
+        expect(completed).toBe(true);
         expect(runtime.state.currentScene).toBe(1);
-        expect(runtime.state.scenes.map((scene) => scene.tagId)).toContain(2);
     });
 
     it('rejects an unknown host-selected ADS tag', () => {

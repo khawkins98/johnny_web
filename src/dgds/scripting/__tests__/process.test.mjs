@@ -596,18 +596,22 @@ describe('IF_NOT_RUNNING handler', () => {
         jumpTo: undefined,
     });
 
-    it('waits when a finite scene lifecycle is "active"', () => {
+    // Skip-if-running (binary 0x1360): a running child fails the guard, so the
+    // body is SKIPPED this tick (jump past the END_IF, continue=true) -- NOT
+    // parked on a wait-barrier. The per-slot re-poll driver re-evaluates the
+    // guard next tick, taking the branch once the child stops.
+    it('skips the body (does not park) when a finite scene lifecycle is "active"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'starting' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBeUndefined();
-        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBe(3); // past the END_IF at index 2
+        expect(state.continue).toBe(true);
     });
 
-    it('waits when a finite scene lifecycle is "running"', () => {
+    it('skips the body (does not park) when a finite scene lifecycle is "running"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'running' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBeUndefined();
-        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBe(3);
+        expect(state.continue).toBe(true);
     });
 
     it('does not set jumpTo when scene lifecycle is "completed"', () => {
@@ -765,11 +769,15 @@ describe('IF_PLAYED handler', () => {
         expect(state.removeScenes).toEqual([]);
     });
 
-    it('passes (continue=true) when scene is in scenes[] and played=true', () => {
+    it('passes (continue=true) and LEAVES the finished scene present when played=true', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'finished', state: { played: true, timer: 0 } }]);
         entry.callback(state, 1, 7);
         expect(state.continue).toBe(true);
-        expect(state.removeScenes).toEqual([{ sceneIdx: 1, tagId: 7 }]);
+        // Present + finished: the guard passes, but the finished instance is NOT
+        // removed -- the binary keeps the display-list node present-as-finished so
+        // ADD's presence-dedup keeps a re-poll a no-op (no resurrection by a
+        // permanently-true predecessor guard under the per-slot re-poll driver).
+        expect(state.removeScenes).toEqual([]);
     });
 
     it('passes via playedHistory when scene was cleared by END (cross-scene check)', () => {

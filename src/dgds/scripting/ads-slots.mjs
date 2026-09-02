@@ -56,6 +56,14 @@
  */
 import { ADSDispatch, applySceneChanges } from './script-runner.mjs';
 
+// The IF-guard opcodes. Only a guard that blocks on a still-playing scene may
+// PARK a slot (resume on it next tick to re-poll). Any other opcode that clears
+// `state.continue` -- notably ADS_FADE_OUT (0xf010), which the binary treats as
+// an end-of-segment marker rather than the port's pausing alpha-fade -- must NOT
+// strand the slot mid-chunk (that would leave a terminal chunk's STOPs
+// uncommitted and its guard never re-polled); it ends the pass and re-arms.
+const GUARD_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370]);
+
 // End-of-branch marker: the boundary the binary splits chunks on. It is also
 // the opcode whose callback (END_SCENE_BRANCH) commits a chunk's staged scene
 // changes, so a chunk's terminating END_BRANCH doubles as its commit point.
@@ -154,12 +162,18 @@ const stepChunk = (state, slot, script) => {
         }
 
         if (!state.continue) {
-            // Blocked: park here and retry from this opcode next tick. Staged
-            // scene changes (if any) have already been committed by the
-            // blocking callback where the binary would (IF_NOT_RUNNING flushes
-            // a pending add before it waits); nothing else is left dangling
-            // because a guard blocks before its body's ADDs run.
-            slot.ip = i;
+            if (GUARD_OPCODES.has(command.opcode)) {
+                // A guard (IF_PLAYED on a still-playing scene) blocks: park here
+                // and re-poll from this opcode next tick, so RANDOM/ADD opcodes
+                // already passed are not re-run.
+                slot.ip = i;
+                return;
+            }
+            // A non-guard block (ADS_FADE_OUT): the binary's F010 is an
+            // end-of-segment marker, not a pause. End this pass and re-arm so the
+            // chunk's guard re-polls next tick; any changes staged this pass
+            // (e.g. the terminal chunk's STOPs) flush at end of tick.
+            slot.ip = chunkStart;
             return;
         }
     }

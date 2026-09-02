@@ -20,6 +20,7 @@ import {
     sceneLabel,
     sceneLog,
 } from './script-runner.mjs';
+import { buildAdsSlots, stepAdsSlots } from './ads-slots.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
@@ -59,6 +60,13 @@ export class DgdsRuntime {
     // Used by #dispatchAdsFinishChunks to fire a finished scene's IF_PLAYED
     // handoff chunk(s) the tick it finishes, independent of the linear PC.
     #adsChunkIndexes = [];
+    // The binary's per-slot RESUMABLE chunk re-poll driver (ads-slots.mjs). The
+    // slot list carries mutable per-chunk state (resumable ip + flag), so it is
+    // built once per tag on entry and re-stepped every tick. `#adsSlotsScene` is
+    // the currentScene index the cached `#adsSlotsList` was built for; a change
+    // (a jump, or a free-run advance to the next tag) rebuilds fresh slots.
+    #adsSlotsScene = -1;
+    #adsSlotsList = null;
 
     constructor(initialState) {
         if (typeof initialState?.surfaceFactory !== 'function') {
@@ -131,6 +139,10 @@ export class DgdsRuntime {
             runs: 0,
             lastCommand: false,
             playedHistory: new Set(),
+            // Per-gag record of (slot,tag) keys explicitly stopped (0x2010). The
+            // per-slot re-poll driver must not let a predecessor chunk with a
+            // permanently-true IF_PLAYED guard resurrect a stopped scene.
+            stoppedScenes: new Set(),
             // Permanent record of "${slot}:${tag}" keys whose IF_PLAYED handoff
             // chunk has fired at least once via finish-dispatch (never cleared by
             // rearm -- see #dispatchAdsFinishChunks / the softened IF_PLAYED).
@@ -332,96 +344,109 @@ export class DgdsRuntime {
 
     #runAdsController() {
         const state = this.state;
-        this.#dispatchAdsFinishChunks();
-        let completed = false;
-        if (state.adsSceneEnd != null && state.currentScene >= state.adsSceneEnd) {
-            // Binary Model A (phase11-ads-completion-model.md, FUN_1048_0766): a gag is
-            // COMPLETE iff no LIVE TTM thread remains -- every thread finished or stopped.
-            // A live thread (incl. a self-rearming ambient) blocks completion INHERENTLY by
-            // staying in the list; there is no KEEP_GOING/unbounded-loop exclusion (that was
-            // the port's divergence). Completion is now the pure live-thread count.
-            const blockers = state.scenes.filter((scene) => !isTtmFinished(scene));
-            // INERT observability hook (no behavior change): emit the completion
-            // DECISION -- the live-thread set + the `blockers` verdict -- at the
-            // decision point, BEFORE clearAdsSceneBatch empties state.scenes. A
-            // differential faithfulness oracle needs to see WHY the gag completed
-            // (true live-thread drain, per the binary's FUN_1048_0766, vs the port's
-            // KEEP_GOING/unbounded-loop exclusion casting the deciding vote). No-op
-            // unless a trace sink is attached; reads state only, mutates nothing.
-            traceEvent(state, 'ads-completion-decision', {
-                currentScene: state.currentScene,
-                adsSceneEnd: state.adsSceneEnd,
-                willComplete: blockers.length === 0 && state.addScenes.length === 0,
-                pendingAdds: state.addScenes.length,
-                blockers: blockers.map((scene) => `${scene.sceneIdx}:${scene.tagId}`),
-                // Every not-finished scene, with why the blockers filter did/didn't
-                // count it -- the KEEP_GOING/unbounded-loop rows are the port's
-                // divergence from the pure live-thread-drain model.
-                liveThreads: state.scenes
-                    .filter((scene) => !isTtmFinished(scene))
-                    .map((scene) => ({
-                        key: `${scene.sceneIdx}:${scene.tagId}`,
-                        runState: scene.runState ?? null,
-                        runMode: scene.runMode ?? null,
-                        excludedAsUnboundedLoop:
-                            scene.runMode === TtmRunMode.KEEP_GOING ||
-                            (scene.execution?.status === ExecutionStatus.LOOPED &&
-                                scene.retries === 0 &&
-                                !Number.isFinite(scene.timeLimitTicks)),
-                    })),
-            });
-            if (blockers.length === 0 && state.addScenes.length === 0) {
+        const scene = state.data.scenes[state.currentScene];
+
+        if (scene === undefined) {
+            // currentScene walked off the end (a free-run advance past the last
+            // tag, or an empty program). Complete once its final children drain.
+            if (state.scenes.length === 0 && state.addScenes.length === 0) {
+                debugLog('ADS cycle complete');
+                return true;
+            }
+            state.continue = false;
+            return false;
+        }
+
+        // (Re)build this tag's RESUMABLE per-slot chunks the first tick we enter
+        // it. FUN_1048_04fc splits the (expanded) tag bytecode into one thread
+        // per END-branch chunk at load; we do the equivalent per-tag and cache
+        // the mutable slot list (resumable ip + flag) until the tag changes.
+        if (this.#adsSlotsScene !== state.currentScene) {
+            this.#adsSlotsScene = state.currentScene;
+            this.#adsSlotsList = buildAdsSlots(this.#adsScripts[state.currentScene]).slots;
+        }
+        state.activeAdsScript = this.#adsScripts[state.currentScene];
+
+        // The binary's driver (FUN_1048_1acb) re-interprets EVERY active slot's
+        // chunk from its resumable position each tick -- it never stops at END.
+        // This is what keeps a thread live through the fire-retry
+        // (IF_PLAYED[3,142] -> RANDOM; IF_NOT_RUNNING 3:38 AND 3:40 -> ADD smoke):
+        // the chunk re-fires until the fire lights, so completion cannot race the
+        // momentary drain the port's stop-at-END hold + wait-barrier papered over.
+        stepAdsSlots(state, this.#adsSlotsList, state.activeAdsScript);
+
+        // Completion = pure live-thread drain (phase11 Model A / FUN_1048_0766):
+        // COMPLETE iff no LIVE TTM thread remains. Checked AFTER the step so a
+        // chunk that (re)adds its child this tick keeps a thread live. A live
+        // thread (incl. a self-rearming ambient) blocks completion inherently by
+        // staying in the list -- no KEEP_GOING/unbounded-loop exclusion.
+        const blockers = state.scenes.filter((s) => !isTtmFinished(s));
+        // INERT observability hook (no behavior change): emit the completion
+        // decision -- the live-thread set + the verdict -- for the differential
+        // faithfulness oracle. No-op unless a trace sink is attached.
+        traceEvent(state, 'ads-completion-decision', {
+            currentScene: state.currentScene,
+            adsSceneEnd: state.adsSceneEnd,
+            willComplete: blockers.length === 0 && state.addScenes.length === 0,
+            pendingAdds: state.addScenes.length,
+            blockers: blockers.map((s) => `${s.sceneIdx}:${s.tagId}`),
+            liveThreads: state.scenes
+                .filter((s) => !isTtmFinished(s))
+                .map((s) => ({
+                    key: `${s.sceneIdx}:${s.tagId}`,
+                    runState: s.runState ?? null,
+                    runMode: s.runMode ?? null,
+                    excludedAsUnboundedLoop:
+                        s.runMode === TtmRunMode.KEEP_GOING ||
+                        (s.execution?.status === ExecutionStatus.LOOPED &&
+                            s.retries === 0 &&
+                            !Number.isFinite(s.timeLimitTicks)),
+                })),
+        });
+
+        if (blockers.length === 0 && state.addScenes.length === 0) {
+            if (state.singleAdsScene) {
+                // Host-selected single gag: report completion; the host picks the
+                // next gag. Advance currentScene to adsSceneEnd (one past the
+                // selected tag) so describe()/getPresentation report the same
+                // position the old linear driver left on completion.
                 clearAdsSceneBatch(state);
+                if (state.adsSceneEnd != null) state.currentScene = state.adsSceneEnd;
                 state.continue = true;
                 debugLog(`ADS selected scene complete in "${state.data?.name ?? '?'}"`);
                 return true;
             }
-            // Do not enter the next ADS tag while the selected tag's concluding
-            // children are still running. Keep presenting and ticking their TTMs.
+            // Free-run: this gag drained -> advance to the next tag with fresh
+            // slots (the debug/preview cycle the browser scene-stepper drives).
+            clearAdsSceneBatch(state);
+            state.currentScene++;
+            const tagInfo = state.data.scenes[state.currentScene]?.tagId;
+            debugLog(
+                `Scene ${state.currentScene}/${state.data.scenes.length} started (${
+                    !tagInfo ? 'done' : typeof tagInfo === 'object' ? `${tagInfo.id}:${tagInfo.description}` : tagInfo
+                })`,
+            );
+            if (state.fadeOpacity >= 1) {
+                state.fadingOut = false;
+                state.fadingIn = true;
+                state.fadeOpacity = 1;
+            } else {
+                state.fadingOut = false;
+                state.fadeOpacity = 0;
+            }
+            if (state.data.scenes[state.currentScene] === undefined) {
+                debugLog('ADS cycle complete');
+                state.continue = true;
+                return true;
+            }
             state.continue = false;
             return false;
         }
-        const scene = state.data.scenes[state.currentScene];
 
-        if (scene !== undefined) {
-            const previousScene = state.currentScene;
-            state.activeAdsScript = this.#adsScripts[state.currentScene];
-            const execution = runScript(state, state.activeAdsScript, true);
-            completed = execution.status === ExecutionStatus.COMPLETED;
-            if (
-                state.adsSceneEnd != null &&
-                state.currentScene >= state.adsSceneEnd &&
-                (state.scenes.length > 0 || state.addScenes.length > 0)
-            ) {
-                // END has stopped ADS interpretation, but the selected tag's
-                // final child batch still owns the presentation.
-                state.continue = false;
-                completed = false;
-            }
-            if (state.currentScene !== previousScene) {
-                const tagInfo = state.data.scenes[state.currentScene]?.tagId;
-                const tagDescription = !tagInfo
-                    ? 'done'
-                    : typeof tagInfo === 'object'
-                      ? `${tagInfo.id}:${tagInfo.description}`
-                      : tagInfo;
-                debugLog(`Scene ${state.currentScene}/${state.data.scenes.length} started (${tagDescription})`);
-
-                if (state.fadeOpacity >= 1) {
-                    state.fadingOut = false;
-                    state.fadingIn = true;
-                    state.fadeOpacity = 1;
-                } else {
-                    state.fadingOut = false;
-                    state.fadeOpacity = 0;
-                }
-            }
-        } else if (state.scenes.length === 0 && state.addScenes.length === 0) {
-            debugLog('ADS cycle complete');
-            completed = true;
-        }
-
-        return completed;
+        // Children still live: hold interpretation this tick so the TTM
+        // controller advances/composes them (compose = !state.continue).
+        state.continue = false;
+        return false;
     }
 
     #runTtmController() {
@@ -580,6 +605,10 @@ export class DgdsRuntime {
 
         traceEvent(state, 'runtime-control', { action: 'jump-to-scene', tagId });
         state.currentScene = sceneIndex;
+        // Force a fresh per-slot chunk build for the jumped-to tag (resumable ip
+        // + flag reset), even when re-jumping to the same tag index.
+        this.#adsSlotsScene = -1;
+        this.#adsSlotsList = null;
         // Default to the browser's single-gag completion path (adsSceneEnd set, so
         // completion runs through the concluding-children hold + `blockers` check),
         // NOT the legacy free-run where the linear PC drives to script END. Tests and
@@ -593,6 +622,7 @@ export class DgdsRuntime {
         state.removeScenes = [];
         state.scenesRandom = [];
         state.playedHistory.clear();
+        state.stoppedScenes?.clear();
         state.dispatchedAdsKeys.clear();
         state.localOverrides?.clear();
         // Prune stored backgrounds on the OLD environment map before discarding it,
