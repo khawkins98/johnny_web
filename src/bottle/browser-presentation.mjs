@@ -11,13 +11,19 @@ import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 import { faithfulRandomFromArchive } from '../dgds/scripting/faithful-rng.mjs';
 
-// Opt-in (default OFF): `?faithfulRng` swaps the injected random source for a
+// DEFAULT ON: the engine's RANDOM (ADS weighted scene pick) is driven by a
 // bit-faithful reproduction of the original binary's baked lagged-Fibonacci
-// stream (see tools/faithfulness-oracle/rng-port.md). It changes the RNG-driven
-// story to the original's, so it is behind a flag pending the golden refresh.
-const faithfulRngRequested = () => {
+// stream (see tools/faithfulness-oracle/rng-port.md), so the screensaver plays
+// the original's exact RNG-driven story instead of a Math.random one. Only the
+// RANDOM pick consumes this stream (the one validated LFG consumer: jump-table
+// 0x3010 -> FUN_1048_0cda); cosmetic randomness (cloud spawn/drift, the SET_TIMER
+// sleep, day-ocean tint) stays on Math.random because the binary either draws no
+// word there (0x2020) or interleaves those draws by wall-clock in a way that is
+// not reproducibly countable. Escape hatch: `?faithfulRng=off` restores the
+// legacy Math.random weighted pick.
+const faithfulRngDisabled = () => {
     try {
-        return new URLSearchParams(globalThis.location?.search ?? '').has('faithfulRng');
+        return new URLSearchParams(globalThis.location?.search ?? '').get('faithfulRng') === 'off';
     } catch {
         return false;
     }
@@ -109,14 +115,18 @@ export const runBrowserPresentation = async ({
     const resourceProvider = createEntryResourceProvider(resource.entries);
 
     // One faithful stream shared across the whole session (matches the binary's
-    // single generator). Default OFF -> engine keeps Math.random.
-    let faithfulRandom = null;
-    if (faithfulRngRequested()) {
+    // single generator). Default ON: its pick() drives every ADS RANDOM choice so
+    // the story is the original's; `?faithfulRng=off` restores Math.random. We
+    // expose only pick() to the engine (as faithfulPick) -- NOT the raw stream as
+    // state.random -- so the shared story stream is consumed by the RANDOM opcode
+    // alone and cannot be perturbed by cosmetic/timer draws (see the header note).
+    let faithfulPick = null;
+    if (!faithfulRngDisabled()) {
         try {
-            faithfulRandom = faithfulRandomFromArchive(new Uint8Array(arcBuf)).random;
-            console.log('[DGDS] Faithful RNG enabled (binary lagged-Fibonacci stream)');
+            faithfulPick = faithfulRandomFromArchive(new Uint8Array(arcBuf)).pick;
+            console.log('[DGDS] Faithful RNG enabled (binary lagged-Fibonacci stream drives ADS RANDOM)');
         } catch (err) {
-            console.warn('[DGDS] Faithful RNG unavailable, using default random', err);
+            console.warn('[DGDS] Faithful RNG unavailable, using default random for RANDOM picks', err);
         }
     }
     const presentationPolicy = createBrowserPresentationPolicy();
@@ -253,7 +263,7 @@ export const runBrowserPresentation = async ({
                         context,
                         mainContext,
                         data,
-                        ...(faithfulRandom ? { random: faithfulRandom } : {}),
+                        ...(faithfulPick ? { faithfulPick } : {}),
                         resourceProvider,
                         backgroundDecorator,
                         game,
