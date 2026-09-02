@@ -33,6 +33,30 @@ const pickFromBlock = (weights, roll01) => {
     return state.addScenes[0]?.tagId;
 };
 
+// Same, but exercising the FAITHFUL path: state.faithfulPick returns a 1..total
+// index (the binary FUN_1048_0cda value abs((int16)word%total)+1), and RANDOM_END
+// walks subtracting each weight until the running value drops below 1. `pickValue`
+// is that 1-based index directly, so tests can pin an exact bucket boundary.
+const pickFromBlockFaithful = (weights, pickValue) => {
+    const state = {
+        type: 'ADS',
+        scenes: [],
+        addScenes: [],
+        removeScenes: [],
+        scenesRandom: [],
+        playedHistory: new Set(),
+        randomize: false,
+        random: () => {
+            throw new Error('faithful path must not touch state.random');
+        },
+        faithfulPick: () => pickValue,
+    };
+    RANDOM_START(state);
+    weights.forEach((w, i) => ADD_SCENE(state, 100 + i, 200 + i, 1, w));
+    RANDOM_END(state);
+    return state.addScenes[0]?.tagId;
+};
+
 describe('ADS RANDOM picks weighted by proportion (crosscheck B2)', () => {
     // FISHING.ADS #2 stages {1:38 w=5, 1:21 w=3, 1:22 w=3, 1:23 w=3, 1:15 w=1};
     // total weight 15. Cumulative buckets: [0,5)->A [5,8)->B [8,11)->C [11,14)->D [14,15)->E.
@@ -65,5 +89,35 @@ describe('ADS RANDOM picks weighted by proportion (crosscheck B2)', () => {
         expect(pickFromBlock([1, 1, 1], 0.5)).toBe(201); // floor(0.5*3)=1
         expect(pickFromBlock([1, 1, 1], 0)).toBe(200);
         expect(pickFromBlock([1, 1, 1], 0.9)).toBe(202); // floor(0.9*3)=2
+    });
+});
+
+// The DEFAULT engine path: RANDOM is driven by the binary's baked lagged-Fibonacci
+// stream via state.faithfulPick (bound to faithful-rng.mjs pick()). This is the one
+// validated LFG consumer (jump-table 0x3010 -> FUN_1048_1629 -> FUN_1048_0cda,
+// decompiled.c:14458): draw one raw word, index = abs((int16)(word % total)) + 1 in
+// 1..total, then subtract each staged weight until the running value < 1.
+describe('ADS RANDOM faithful pick walks the binary 1..total cumulative buckets', () => {
+    // FISHING.ADS #2: {1:38 w=5, 1:21 w=3, 1:22 w=3, 1:23 w=3, 1:15 w=1}, total 15.
+    // 1-based buckets (subtract-until-<1): [1,5]->A(200) [6,8]->B(201) [9,11]->C(202)
+    // [12,14]->D(203) [15]->E(204).
+    const fishingWeights = [5, 3, 3, 3, 1];
+
+    it('maps each 1..total pick value to its cumulative-weight bucket', () => {
+        expect(pickFromBlockFaithful(fishingWeights, 1)).toBe(200);
+        expect(pickFromBlockFaithful(fishingWeights, 5)).toBe(200);
+        expect(pickFromBlockFaithful(fishingWeights, 6)).toBe(201);
+        expect(pickFromBlockFaithful(fishingWeights, 8)).toBe(201);
+        expect(pickFromBlockFaithful(fishingWeights, 11)).toBe(202);
+        expect(pickFromBlockFaithful(fishingWeights, 14)).toBe(203);
+        // The weight-1 break branch E is reachable ONLY at the very top (pick == 15),
+        // i.e. a single word value out of 15 -- the faithful 1/15, not the uniform 1/5.
+        expect(pickFromBlockFaithful(fishingWeights, 15)).toBe(204);
+    });
+
+    it('prefers faithfulPick over state.random when both are present', () => {
+        // state.random throws in this harness; a committed pick proves the faithful
+        // branch is taken and the cosmetic source is never consumed for the story pick.
+        expect(pickFromBlockFaithful(fishingWeights, 7)).toBe(201);
     });
 });

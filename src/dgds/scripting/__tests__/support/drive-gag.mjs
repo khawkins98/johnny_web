@@ -62,7 +62,15 @@ export const loadAds = (adsName) => archive().loadEntry(adsName);
  *   `seen` = every TTM tagId that was ever active (reachability of terminal tags,
  *   e.g. FISHING 1:39 / ACTIVITY 4:23, is the general "teleport-class" / drain check).
  */
-export const driveGag = ({ adsName, tag, seed = 1, maxTicks = 5000, onTick = null, onEvent = null }) => {
+export const driveGag = ({
+    adsName,
+    tag,
+    seed = 1,
+    maxTicks = 5000,
+    onTick = null,
+    onEvent = null,
+    faithfulPick = null,
+}) => {
     const data = loadAds(adsName);
     const runtime = new DgdsRuntime({
         type: 'ADS',
@@ -72,6 +80,9 @@ export const driveGag = ({ adsName, tag, seed = 1, maxTicks = 5000, onTick = nul
         surfaceFactory: createSoftwareSurface,
         timingCompatibility: createTimingCompatibility(),
         random: seededRandom(seed),
+        // Optional: drive ADS RANDOM through the binary's faithful pick (the engine's
+        // production default). state.random stays the seeded LCG for cosmetic draws.
+        ...(faithfulPick ? { faithfulPick } : {}),
         singleAdsScene: true,
         adsSceneTag: tag,
     });
