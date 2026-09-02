@@ -1,5 +1,5 @@
 diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
-index 26d9f49..447b229 100644
+index 26d9f49..964532f 100644
 --- a/src/cpu/core_normal.cpp
 +++ b/src/cpu/core_normal.cpp
 @@ -16,6 +16,7 @@
@@ -10,7 +10,7 @@ index 26d9f49..447b229 100644
  #include "cpu.h"
  #include "lazyflags.h"
  #include "callback.h"
-@@ -171,6 +172,72 @@ Bits CPU_Core_Normal_Run(void) {
+@@ -171,6 +172,120 @@ Bits CPU_Core_Normal_Run(void) {
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -33,6 +33,16 @@ index 26d9f49..447b229 100644
 +				{ 10, 0x1925, "action",     {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0xeb,0x2c,0xff,0x76,0x08,0xff,0x76,0x06,0x0e,0xe8,0xde,0xfb,0x59,0x59} },
 +				{ 10, 0x1acb, "tick",       {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x12,0x56,0x57,0xc7,0x46,0xee,0x00,0x00,0x83,0x3e,0x08,0x26} },
 +			};
++			/* RNG FUN_1018_1e86 (NE seg 4, off 0x1e86): additive lagged-Fibonacci,
++			 * table[i]+=table[j]; return table[i]. State in DGROUP: j@1ce2, i@1ce4,
++			 * table@1ce6. Leaf function -> capture true return AX at ret addr. */
++			static const unsigned char DBX_RNG_SIG[24] =
++				{0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x02,0x8b,0x1e,0xe2,0x1c,0xd1,0xe3,0x8b,0x87,0xe6,0x1c,0x8b};
++			static bool dbx_rng_reported = false;
++			static unsigned long long dbx_rng_count = 0;
++			static bool dbx_rng_pending = false;
++			static uint16_t rng_retcs = 0, rng_retip = 0, rng_i = 0, rng_j = 0, rng_ti = 0, rng_tj = 0;
++			static unsigned long long rng_entry_icount = 0;
 +			if (!dbx_init) {
 +				dbx_init = true;
 +				const char *p = getenv("DBX_TRACE");
@@ -42,8 +52,46 @@ index 26d9f49..447b229 100644
 +			dbx_icount++;
 +			if (dbx_fp != NULL) {
 +				const PhysPt lin = core.cseip;
++				/* RNG return capture: leaf fn, log the true returned word (AX) plus the
++				 * DGROUP state snapshot taken at entry. Bounded to keep the log small. */
++				if (dbx_rng_pending && (uint16_t)SegValue(cs) == rng_retcs && (uint16_t)reg_ip == rng_retip) {
++					dbx_rng_pending = false;
++					dbx_rng_count++;
++					if (!dbx_rng_reported) {
++						dbx_rng_reported = true;
++						fprintf(dbx_fp, "#RESOLVE rng seg=4 in_off=1E86\n");
++					}
++					if (dbx_rng_count <= 20000ULL) {
++						fprintf(dbx_fp,
++							"RNG %llu entry_ic=%llu i=%u j=%u ti=%04X tj=%04X sum=%04X ax=%04X\n",
++							dbx_rng_count, rng_entry_icount,
++							(unsigned)rng_i, (unsigned)rng_j,
++							(unsigned)rng_ti, (unsigned)rng_tj,
++							(unsigned)(uint16_t)(rng_ti + rng_tj), (unsigned)(uint16_t)reg_ax);
++						fflush(dbx_fp);
++					}
++				}
 +				/* cheap gate: far-proc prologue always begins 8C D8 (mov ax,ds) */
 +				if (mem_readb(lin) == 0x8Cu && mem_readb(lin + 1u) == 0xD8u) {
++					/* RNG entry: snapshot DGROUP state + arm return capture */
++					if (!dbx_rng_pending) {
++						bool rmatch = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_RNG_SIG[k]) { rmatch = false; break; }
++						}
++						if (rmatch) {
++							const PhysPt dsb = SegPhys(ds);
++							const PhysPt ssb2 = SegPhys(ss);
++							rng_i = mem_readw(dsb + 0x1ce4u);
++							rng_j = mem_readw(dsb + 0x1ce2u);
++							rng_ti = mem_readw(dsb + 0x1ce6u + (uint16_t)(rng_i * 2u));
++							rng_tj = mem_readw(dsb + 0x1ce6u + (uint16_t)(rng_j * 2u));
++							rng_retip = mem_readw(ssb2 + (uint16_t)(reg_sp + 0));
++							rng_retcs = mem_readw(ssb2 + (uint16_t)(reg_sp + 2));
++							rng_entry_icount = dbx_icount;
++							dbx_rng_pending = true;
++						}
++					}
 +					for (int fi = 0; fi < 4; fi++) {
 +						bool match = true;
 +						for (int k = 2; k < 24; k++) {
