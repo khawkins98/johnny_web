@@ -38,23 +38,48 @@ if (!hasData) {
 mkdirSync(outDir, { recursive: true });
 
 const W = 640, H = 480;
-const writePPM = (pixels, file) => {
+const writePPM = (pixels, file, base = null) => {
     const header = Buffer.from(`P6\n${W} ${H}\n255\n`, 'ascii');
     const body = Buffer.allocUnsafe(W * H * 3);
+    // base = optional full-frame RGBA underlayer (the loaded bkgScreen, as the browser's
+    // frame-renderer draws it beneath the actor raster). Where absent, fall back to flat bg.
     for (let i = 0, o = 0; i < W * H; i++) {
         const a = pixels[i * 4 + 3];
+        const ur = base ? base[i * 4] : bg[0];
+        const ug = base ? base[i * 4 + 1] : bg[1];
+        const ub = base ? base[i * 4 + 2] : bg[2];
         if (a === 255) {
             body[o++] = pixels[i * 4]; body[o++] = pixels[i * 4 + 1]; body[o++] = pixels[i * 4 + 2];
         } else if (a === 0) {
-            body[o++] = bg[0]; body[o++] = bg[1]; body[o++] = bg[2];
+            body[o++] = ur; body[o++] = ug; body[o++] = ub;
         } else {
             const ia = 255 - a;
-            body[o++] = Math.round((pixels[i * 4] * a + bg[0] * ia) / 255);
-            body[o++] = Math.round((pixels[i * 4 + 1] * a + bg[1] * ia) / 255);
-            body[o++] = Math.round((pixels[i * 4 + 2] * a + bg[2] * ia) / 255);
+            body[o++] = Math.round((pixels[i * 4] * a + ur * ia) / 255);
+            body[o++] = Math.round((pixels[i * 4 + 1] * a + ug * ia) / 255);
+            body[o++] = Math.round((pixels[i * 4 + 2] * a + ub * ia) / 255);
         }
     }
     writeFileSync(file, Buffer.concat([header, body]));
+};
+
+// Rasterize the loaded background screen (bkgScreen.images[0], an array of {r,g,b,a})
+// into a full 640x480 RGBA base at 0,0 -- exactly what frame-renderer.drawBackground
+// blits beneath the actors. Returns null when no screen is loaded (flat-bg fallback).
+const backgroundBase = (state) => {
+    const scr = state.bkgScreen ?? state.root?.bkgScreen;
+    const img = scr?.images?.[0];
+    if (!img?.pixels?.length) return null;
+    const iw = img.width ?? W, ih = img.height ?? H;
+    const base = new Uint8Array(W * H * 4);
+    for (let y = 0; y < Math.min(ih, H); y++) {
+        for (let x = 0; x < Math.min(iw, W); x++) {
+            const s = img.pixels[y * iw + x];
+            if (!s) continue;
+            const d = (y * W + x) * 4;
+            base[d] = s.r; base[d + 1] = s.g; base[d + 2] = s.b; base[d + 3] = 255;
+        }
+    }
+    return base;
 };
 
 let n = 0, prevRev = null;
@@ -67,8 +92,9 @@ const { completed, ticks } = driveGag({
         prevRev = rev;
         composeTtmFrame(runtime.state);
         const fp = runtime.state.surface.fingerprint();
-        writePPM(runtime.state.surface.pixels, path.join(outDir, `ours_${String(n).padStart(4, '0')}.ppm`));
-        if (n % 20 === 0) console.log(`frame ${n}: px=${fp.pixels} bounds=${JSON.stringify(fp.bounds)}`);
+        const base = backgroundBase(runtime.state);
+        writePPM(runtime.state.surface.pixels, path.join(outDir, `ours_${String(n).padStart(4, '0')}.ppm`), base);
+        if (n % 20 === 0) console.log(`frame ${n}: px=${fp.pixels} bg=${base ? 'screen' : 'flat'} bounds=${JSON.stringify(fp.bounds)}`);
         n++;
     },
 });
