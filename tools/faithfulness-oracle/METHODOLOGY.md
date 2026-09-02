@@ -80,10 +80,12 @@ functions with decoded stack args.
 - `FUN_1048_0766` completion oracle — live-thread drain (NE seg 10, off 0x0766)
 - weighted-RANDOM pick: `FUN_1048_0cda` (+ weight getter `FUN_1048_0c8d`)
 
-## RNG (key finding, enables full determinism — not yet ported)
+## RNG (PORTED + validated bit-for-bit vs the binary; see rng-port.md)
 The binary's RNG `FUN_1018_1e86` is a **56-word additive lagged-Fibonacci generator whose
-seed is BAKED into `SCRANTIC.SCR` at file offset 0x19ae2** (indices i=24, j=55, then 56
-non-zero words). There is NO `srand`/clock seed — the stream is identical every boot. Our
+seed is BAKED into `SCRANTIC.SCR` at file offset 0x19ae2** (`table[i] += table[j]` 16-bit
+wrap, returns updated `table[i]`, then i=(i+1)%56, j=(j+1)%56; the returned/updated index
+**i starts at 55**, the addend index **j at 24** — first draw = table[55]+table[24] =
+0xea0b). There is NO `srand`/clock seed — the stream is identical every boot. Our
 engine uses `Math.random` (injected `state.random`). Porting the LFG + baked seed would
 make our engine's *story* reproduce the original's exactly, which (a) is the last missing
 piece for a full per-tick sequencing diff and (b) removes the alignment caveat below.
