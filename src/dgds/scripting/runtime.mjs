@@ -335,15 +335,12 @@ export class DgdsRuntime {
         this.#dispatchAdsFinishChunks();
         let completed = false;
         if (state.adsSceneEnd != null && state.currentScene >= state.adsSceneEnd) {
-            const blockers = state.scenes.filter((scene) => {
-                const done = isTtmFinished(scene);
-                const unboundedLoop =
-                    scene.runMode === TtmRunMode.KEEP_GOING ||
-                    (scene.execution?.status === ExecutionStatus.LOOPED &&
-                        scene.retries === 0 &&
-                        !Number.isFinite(scene.timeLimitTicks));
-                return !done && !unboundedLoop;
-            });
+            // Binary Model A (phase11-ads-completion-model.md, FUN_1048_0766): a gag is
+            // COMPLETE iff no LIVE TTM thread remains -- every thread finished or stopped.
+            // A live thread (incl. a self-rearming ambient) blocks completion INHERENTLY by
+            // staying in the list; there is no KEEP_GOING/unbounded-loop exclusion (that was
+            // the port's divergence). Completion is now the pure live-thread count.
+            const blockers = state.scenes.filter((scene) => !isTtmFinished(scene));
             // INERT observability hook (no behavior change): emit the completion
             // DECISION -- the live-thread set + the `blockers` verdict -- at the
             // decision point, BEFORE clearAdsSceneBatch empties state.scenes. A
