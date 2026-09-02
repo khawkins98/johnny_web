@@ -591,24 +591,39 @@ const IF_PLAYED = (state, sceneIdx, tagId) => {
 
     if (scene !== undefined) {
         if (done) {
-            // Present + finished: the guard is satisfied. By default LEAVE the
-            // finished instance present (the binary keeps the display-list node
-            // until an explicit STOP or gag clear) so ADD's presence-dedup keeps a
-            // re-poll of this or any predecessor chunk a no-op -- the finished
-            // scene fires its successor exactly once instead of telescoping the
-            // whole cycle a second time each tick under the per-slot re-poll.
+            // Present + finished: the guard is satisfied. The binary keeps the
+            // finished display-list node present (until STOP/gag-clear), and the
+            // handoff to the successor fires EDGE-TRIGGERED -- ONCE when the scene
+            // finishes -- NOT every tick while it lingers played. Under the per-slot
+            // re-poll we must reproduce that edge for a NON-IDEMPOTENT body:
             //
-            // EXCEPTION: a genuine SELF-rearming chunk whose body is a PLAIN ADD
-            // of s:t (IF_PLAYED[s,t] -> MOVE_TO_BACK + ADD 3:44, the campfire
-            // flame) MUST remove the finished instance here so the body's ADD
-            // restarts it -- that is how the flame keeps burning through the boot
-            // routine. But a self-referential ADD inside a RANDOM block (STAND #15
-            // IF_PLAYED[2,29] -> RANDOM{...ADD 2:29...}) is NON-idempotent:
-            // remove+re-run would re-pick and telescope the scan into "multiple
-            // Johnnies" that never drain. Leave THOSE present-as-finished so the
-            // RANDOM body's re-poll dedups. The explicit-stop guard (STOP_SCENE)
-            // still keeps a stopped flame dead.
-            if (isSelfRearmingSequence(state, sceneIdx, tagId) && !chunkBodyHasRandom(script, state.reentryNow)) {
+            // A body containing a 0x3010 RANDOM block picks a DIFFERENT scene each
+            // time it runs (RANDOM_END commits one of several staged ADDs). If the
+            // re-poll re-ran it every tick while the trigger sits present-as-finished,
+            // it would spawn a fresh pick per tick -- the FISHING action-loop pile-up
+            // (IF_PLAYED[1:10] OR [21]OR[22]OR[23]OR[38] -> RANDOM{...}: once one
+            // action is played the OR-guard is permanently true, so a naive re-poll
+            // fires a new random action every tick). Fire it ONCE per finished
+            // instance (scene.handoffFired), then skip until the trigger re-arms
+            // (a re-armed scene is a NEW object with no flag).
+            if (chunkBodyHasRandom(script, state.reentryNow)) {
+                if (scene.handoffFired) {
+                    state.continue = true;
+                    handleIfCondition(state, false); // already fired this instance -> skip the RANDOM body
+                    return;
+                }
+                scene.handoffFired = true;
+                state.continue = true;
+                handleIfCondition(state, true); // fire the RANDOM pick exactly once
+                return;
+            }
+            // Plain-ADD body: IDEMPOTENT (ADD_SCENE's presence-dedup makes a re-poll
+            // a no-op while the target is present), so re-running every tick is safe.
+            // A genuine SELF-rearming plain-ADD chunk (IF_PLAYED[s,t] -> ADD s:t, the
+            // campfire flame 3:44) MUST remove the finished instance so its ADD
+            // restarts it -- that is how the flame keeps burning. STOP_SCENE's
+            // explicit-stop guard still keeps a stopped flame dead.
+            if (isSelfRearmingSequence(state, sceneIdx, tagId)) {
                 state.removeScenes.push({ sceneIdx, tagId });
             }
             state.continue = true;
