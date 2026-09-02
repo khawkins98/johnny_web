@@ -28,7 +28,10 @@ describe.skipIf(!hasData)('ACTIVITY #7 plays its reading loop exactly once (one-
         return rises;
     };
 
-    it('runs 4:7/4:8/4:9/4:10 once and terminates at 4:23, for every seed 1..5', () => {
+    // Heavy: 5 seeds x completion drive + 5 seeds x 20000-tick passCounts. Matches the
+    // explicit timeouts the sibling gag/story sweeps carry (gag-terminal-sweep,
+    // fishing-return-walk) so it does not flake past the 5s default under parallel load.
+    it('runs 4:7/4:8/4:9/4:10 once and terminates at 4:23, for every seed 1..5', { timeout: 30000 }, () => {
         for (let seed = 1; seed <= 5; seed++) {
             const { completed } = driveGag({ adsName: 'ACTIVITY.ADS', tag: 7, seed });
             expect(completed, `seed ${seed} did not complete`).toBe(true);
