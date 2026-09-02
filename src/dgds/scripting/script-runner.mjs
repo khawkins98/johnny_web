@@ -135,8 +135,16 @@ const SET_COLORS = (state, fc, bc) => {
 const SET_FRAME1 = (state) => {};
 
 const SET_TIMER = (state, minimum, maximum) => {
-    // Opcode 0x2020 is a random sleep measured in DGDS ticks. Randomness is
-    // injected through state.random so interpreter traces can be deterministic.
+    // Opcode 0x2020 is treated here as a random sleep measured in DGDS ticks, with
+    // randomness injected through state.random so interpreter traces stay
+    // deterministic. IMPORTANT (faithfulness): this random sleep is a PORT
+    // INVENTION -- it does NOT consume the binary's lagged-Fibonacci stream. The
+    // original's 0x2020 handler (jump-table 0x2020 -> FUN_1048_15ea ->
+    // FUN_1048_0ec8, decompiled.c:14554) only looks up the scene thread
+    // (FUN_1048_0bf4) and re-initialises it (FUN_1048_0b3e); it draws NO rng word.
+    // So SET_TIMER must stay on state.random (the cosmetic source), NEVER the
+    // faithful story stream -- routing it through the faithful RNG would inject a
+    // phantom draw the binary never makes and desync every downstream RANDOM pick.
     const low = Math.min(minimum, maximum);
     const high = Math.max(minimum, maximum);
     if (typeof state.random !== 'function') {
@@ -805,13 +813,38 @@ const RANDOM_END = (state) => {
     // data ever changes -- and avoids a phantom draw/scene the original would not make.
     if (total <= 0) return;
 
-    let roll = Math.floor(state.random() * total);
+    // This is the engine's ONLY validated consumer of the binary's baked
+    // lagged-Fibonacci stream. The RANDOM opcode (jump-table 0x3010 ->
+    // FUN_1048_1629 -> FUN_1048_0cda, decompiled.c:14458) draws EXACTLY ONE raw
+    // 16-bit word and maps it to an index in 1..total via
+    //   iVar3 = abs((int16)(word % total)) + 1;
+    // then walks the staged branches subtracting each weight until the running
+    // value drops below 1 -- selecting the first branch whose cumulative weight
+    // reaches iVar3. `state.faithfulPick` (bound to the faithful RNG's pick(),
+    // src/dgds/scripting/faithful-rng.mjs) reproduces that word->index mapping
+    // bit-for-bit; when it is the injected default the story's RANDOM choices are
+    // driven by the original's exact stream. When absent (unit/golden harnesses
+    // that inject only a Math.random-shaped source) we fall back to the
+    // stream-faithful-but-mapping-approximate floor(random()*total): both consume
+    // one draw and honor the same per-branch weighting, preserving draw accounting.
     let scene;
-    for (const candidate of staged) {
-        roll -= weightOf(candidate);
-        if (roll < 0) {
-            scene = candidate;
-            break;
+    if (typeof state.faithfulPick === 'function') {
+        let roll = state.faithfulPick(total); // 1..total (binary abs((int16)word%total)+1)
+        for (const candidate of staged) {
+            roll -= weightOf(candidate);
+            if (roll < 1) {
+                scene = candidate;
+                break;
+            }
+        }
+    } else {
+        let roll = Math.floor(state.random() * total);
+        for (const candidate of staged) {
+            roll -= weightOf(candidate);
+            if (roll < 0) {
+                scene = candidate;
+                break;
+            }
         }
     }
     if (scene === undefined) scene = staged[staged.length - 1];
