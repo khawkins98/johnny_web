@@ -9,6 +9,19 @@ import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
+import { faithfulRandomFromArchive } from '../dgds/scripting/faithful-rng.mjs';
+
+// Opt-in (default OFF): `?faithfulRng` swaps the injected random source for a
+// bit-faithful reproduction of the original binary's baked lagged-Fibonacci
+// stream (see tools/faithfulness-oracle/rng-port.md). It changes the RNG-driven
+// story to the original's, so it is behind a flag pending the golden refresh.
+const faithfulRngRequested = () => {
+    try {
+        return new URLSearchParams(globalThis.location?.search ?? '').has('faithfulRng');
+    } catch {
+        return false;
+    }
+};
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -94,6 +107,18 @@ export const runBrowserPresentation = async ({
 
     const resource = res.getResource(game.resources.archive);
     const resourceProvider = createEntryResourceProvider(resource.entries);
+
+    // One faithful stream shared across the whole session (matches the binary's
+    // single generator). Default OFF -> engine keeps Math.random.
+    let faithfulRandom = null;
+    if (faithfulRngRequested()) {
+        try {
+            faithfulRandom = faithfulRandomFromArchive(new Uint8Array(arcBuf)).random;
+            console.log('[DGDS] Faithful RNG enabled (binary lagged-Fibonacci stream)');
+        } catch (err) {
+            console.warn('[DGDS] Faithful RNG unavailable, using default random', err);
+        }
+    }
     const presentationPolicy = createBrowserPresentationPolicy();
     const backgroundDecorator = createBackgroundDecorator({ resourceProvider });
     const selectionPresenter =
@@ -228,6 +253,7 @@ export const runBrowserPresentation = async ({
                         context,
                         mainContext,
                         data,
+                        ...(faithfulRandom ? { random: faithfulRandom } : {}),
                         resourceProvider,
                         backgroundDecorator,
                         game,

@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
     createFaithfulRng,
     extractFaithfulSeed,
+    faithfulRandomFromArchive,
     FAITHFUL_RNG_SEED_OFFSET,
 } from '../faithful-rng.mjs';
+import { TTMDispatch } from '../script-runner.mjs';
 
 // Bit-faithful port of the original binary RNG `FUN_1018_1e86` (a 56-word
 // additive lagged-Fibonacci generator whose seed is baked into SCRANTIC.SCR).
@@ -106,5 +108,34 @@ describe('faithful RNG stream (validated against the binary)', () => {
         rngB.nextWord();
         // Both advanced one draw; next raw words must agree.
         expect(rngA.nextWord()).toBe(rngB.nextWord());
+    });
+});
+
+describe('faithful RNG wiring', () => {
+    it('faithfulRandomFromArchive builds the same stream as the raw path', () => {
+        const a = faithfulRandomFromArchive(scr);
+        const b = createFaithfulRng(extractFaithfulSeed(scr));
+        for (let n = 0; n < 32; n++) expect(a.nextWord()).toBe(b.nextWord());
+    });
+
+    it('drives a real engine draw site (SET_TIMER) deterministically from the stream', () => {
+        // Prove the faithful stream is actually consumed by the interpreter: when
+        // injected as state.random, the TTM SET_TIMER opcode (0x2020) draws from it.
+        const SET_TIMER = TTMDispatch.find((d) => d.opcode === 0x2020).callback;
+        const source = faithfulRandomFromArchive(scr);
+        const state = { random: source.random };
+
+        // Mirror the draw with a parallel faithful stream to predict each timer.
+        const predictor = createFaithfulRng(extractFaithfulSeed(scr));
+        const low = 10;
+        const high = 30;
+        const range = high - low + 1;
+        for (let n = 0; n < 16; n++) {
+            SET_TIMER(state, low, high);
+            const expected = low + Math.floor((predictor.nextWord() / 0x10000) * range);
+            expect(state.timer).toBe(expected);
+            expect(state.timer).toBeGreaterThanOrEqual(low);
+            expect(state.timer).toBeLessThanOrEqual(high);
+        }
     });
 });

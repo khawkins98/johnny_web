@@ -101,3 +101,16 @@ export function createFaithfulRng(seed) {
         getState: () => ({ i, j, table: table.slice() }),
     };
 }
+
+/**
+ * Convenience: build a faithful RNG straight from a raw SCRANTIC.SCR archive
+ * buffer (the same bytes the resource loader receives). One instance produces a
+ * single continuous stream — reuse it across the whole session, mirroring the
+ * binary's single shared generator (do NOT create a fresh one per gag).
+ *
+ * @param {Uint8Array|Buffer|ArrayBuffer} scrBytes  the raw SCRANTIC.SCR archive
+ * @returns ReturnType<typeof createFaithfulRng>
+ */
+export function faithfulRandomFromArchive(scrBytes) {
+    return createFaithfulRng(extractFaithfulSeed(scrBytes));
+}
