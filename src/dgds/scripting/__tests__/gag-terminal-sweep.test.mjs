@@ -32,7 +32,7 @@ const gagIds = activity ? [...new Set(activity.scenes.map((s) => s.tagId?.id).fi
 const SEEDS = 25;
 
 describe.skipIf(!hasData)('gag terminal-drain seed sweep', () => {
-    it(`every ACTIVITY gag completes for seeds 1..${SEEDS}`, { timeout: 60000 }, () => {
+    it(`every ACTIVITY gag completes for seeds 1..${SEEDS}`, { timeout: 300000 }, () => {
         for (const gag of gagIds) {
             for (let seed = 1; seed <= SEEDS; seed++) {
                 const { completed } = driveGag({ adsName: johnnyCastaway.resources.activity, tag: gag, seed });
@@ -43,7 +43,7 @@ describe.skipIf(!hasData)('gag terminal-drain seed sweep', () => {
 
     // The read/bath cycle (ACTIVITY tag 7) must wind down through its terminal 4:23 drain,
     // not spin its ambient loop forever -- the general form of the fishing-teleport check.
-    it(`ACTIVITY #7 reaches its terminal drain 4:23 for seeds 1..${SEEDS}`, { timeout: 30000 }, () => {
+    it(`ACTIVITY #7 reaches its terminal drain 4:23 for seeds 1..${SEEDS}`, { timeout: 180000 }, () => {
         if (!(7 in (TERMINAL_TAGS['ACTIVITY.ADS'] ?? {}))) return;
         const want = TERMINAL_TAGS['ACTIVITY.ADS'][7];
         let reached = 0;

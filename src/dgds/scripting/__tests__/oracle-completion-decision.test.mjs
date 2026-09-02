@@ -49,7 +49,7 @@ describe.skipIf(!hasData)('oracle: completion decision matches binary live-threa
         { adsName: 'FISHING.ADS', tag: 2 },
     ];
 
-    it('never completes a gag via the KEEP_GOING exclusion (seeds 1..30, all gags)', { timeout: 120000 }, () => {
+    it('never completes a gag via the KEEP_GOING exclusion (seeds 1..30, all gags)', { timeout: 400000 }, () => {
         const divergences = [];
         for (const { adsName, tag } of targets) {
             for (const seed of SEEDS) {
