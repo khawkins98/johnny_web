@@ -93,3 +93,29 @@ the other `%N` sites to consume `nextWord()`. Because flipping the default chang
 (gag/golden shifts) and the per-site `%N` rework is non-trivial, the port is landed
 **validated but not yet the default** — the raw stream is proven; the default flip + per-site
 consumption is the documented next step.
+
+## Payoff: how far the per-tick diff aligns now
+
+The full per-tick sequencing diff (our engine vs the binary trace) was previously blocked by
+"RNG drift." That blocker is now **eliminated**: the stream is bit-exact, extractable, and
+boot-invariant. Re-running the combined trace (RNG + the four sequencing functions in one
+patched binary) isolated the *real* remaining blocker and quantified it:
+
+- **Boot-phase draw offset is boot-nondeterministic (the residual blocker).** The intro/clouds
+  frames are `GetTickCount`-paced, so the number of RNG draws consumed *before the first story
+  `director` call* varies run-to-run under `cycles=max`. Two captures measured **400** draws in
+  one boot vs **>20000** in another — same fixed stream, different starting offset into it.
+- Within the story, ~**152** RNG draws occur between the first `director` and first `completion`
+  (one gag's ambient/selection draws) — a tractable per-tick window *once the offset is fixed*.
+
+Conclusion: a bit-exact per-tick diff is now gated on two smaller, well-defined items rather
+than on RNG stream drift:
+1. **Story-window offset** — either count the intro draws exactly for a given capture and
+   fast-forward the JS RNG by that many, or pin the emulated PIT deterministically
+   (`cycles=N` + pinned CMOS) so the intro always consumes a fixed count.
+2. **Per-site raw-word consumption** — the engine's weighted RANDOM (`floor(random()*total)`)
+   and SET_TIMER (`floor*`) must consume raw words the binary's way
+   (`abs((int16)word % total)+1` / `word % range`) via `pick()`/`nextWord()`, or selections
+   won't match even when aligned.
+
+With those two done, the ~152-draw-per-gag window can be diffed tick-for-tick against the trace.
