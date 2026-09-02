@@ -1,0 +1,85 @@
+diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
+index 26d9f49..447b229 100644
+--- a/src/cpu/core_normal.cpp
++++ b/src/cpu/core_normal.cpp
+@@ -16,6 +16,7 @@
+  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+  */
+ 
++#include <cstdlib> /* getenv - oracle trace */
+ #include "cpu.h"
+ #include "lazyflags.h"
+ #include "callback.h"
+@@ -171,6 +172,72 @@ Bits CPU_Core_Normal_Run(void) {
+ 		BaseDS=SegBase(ds);
+ 		BaseSS=SegBase(ss);
+ 		core.base_val_ds=ds;
++		/* --- BEGIN oracle trace (SCRANTIC.SCR entry-signature detector) ---
++		 * Detect entry to the 4 target NE functions by matching their reloc-free,
++		 * file-unique 24-byte entry signatures against the bytes at core.cseip.
++		 * This is relocation-safe by construction (none of these 24 bytes are
++		 * touched by the NE loader) and paging-independent (only reads the
++		 * instruction bytes at the current, mapped IP). See specs/dosbox-trace-oracle.md.
++		 */
++		{
++			static FILE *dbx_fp = NULL;
++			static bool dbx_init = false;
++			static unsigned long long dbx_icount = 0;
++			static bool dbx_reported[4] = { false, false, false, false };
++			/* {seg, in-seg off, name, 24-byte entry sig} */
++			static const struct { int seg; unsigned off; const char *name; unsigned char sig[24]; } DBX_F[4] = {
++				{ 4,  0x06bf, "director",   {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x56,0x83,0x3e,0x4c,0x33,0x00,0x74,0x03,0xe9,0xe0,0x01,0x8b,0x1e,0xf2} },
++				{ 10, 0x0766, "completion", {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x08,0x56,0x57,0x8b,0x7e,0x06,0x57,0x90,0x0e,0xe8,0x69,0x12} },
++				{ 10, 0x1925, "action",     {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0xeb,0x2c,0xff,0x76,0x08,0xff,0x76,0x06,0x0e,0xe8,0xde,0xfb,0x59,0x59} },
++				{ 10, 0x1acb, "tick",       {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x12,0x56,0x57,0xc7,0x46,0xee,0x00,0x00,0x83,0x3e,0x08,0x26} },
++			};
++			if (!dbx_init) {
++				dbx_init = true;
++				const char *p = getenv("DBX_TRACE");
++				dbx_fp = fopen((p && *p) ? p : "/tmp/dbx-trace.log", "w");
++				if (dbx_fp) { fprintf(dbx_fp, "#SCRANTIC trace: icount func cs:ip ret=cs:ip args a0..a3 ax bx\n"); fflush(dbx_fp); }
++			}
++			dbx_icount++;
++			if (dbx_fp != NULL) {
++				const PhysPt lin = core.cseip;
++				/* cheap gate: far-proc prologue always begins 8C D8 (mov ax,ds) */
++				if (mem_readb(lin) == 0x8Cu && mem_readb(lin + 1u) == 0xD8u) {
++					for (int fi = 0; fi < 4; fi++) {
++						bool match = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_F[fi].sig[k]) { match = false; break; }
++						}
++						if (!match) continue;
++						/* At the entry instruction, SP points at the far return address;
++						 * far frame: [sp]=retIP [sp+2]=retCS [sp+4]=arg0 [sp+6]=arg1 ... */
++						const PhysPt ssb = SegPhys(ss);
++						uint16_t retip = mem_readw(ssb + (uint16_t)(reg_sp + 0));
++						uint16_t retcs = mem_readw(ssb + (uint16_t)(reg_sp + 2));
++						uint16_t a0 = mem_readw(ssb + (uint16_t)(reg_sp + 4));
++						uint16_t a1 = mem_readw(ssb + (uint16_t)(reg_sp + 6));
++						uint16_t a2 = mem_readw(ssb + (uint16_t)(reg_sp + 8));
++						uint16_t a3 = mem_readw(ssb + (uint16_t)(reg_sp + 10));
++						if (!dbx_reported[fi]) {
++							dbx_reported[fi] = true;
++							fprintf(dbx_fp,
++								"#RESOLVE %s seg=%d in_off=%04X runtime_lin=%08lX cs=%04X segbase=%08lX\n",
++								DBX_F[fi].name, DBX_F[fi].seg, DBX_F[fi].off,
++								(unsigned long)lin, (unsigned)SegValue(cs),
++								(unsigned long)(lin - DBX_F[fi].off));
++						}
++						fprintf(dbx_fp,
++							"%llu %s %04X:%04X ret=%04X:%04X args=%04X,%04X,%04X,%04X ax=%04X bx=%04X\n",
++							dbx_icount, DBX_F[fi].name, (unsigned)SegValue(cs), (unsigned)reg_ip,
++							(unsigned)retcs, (unsigned)retip,
++							(unsigned)a0, (unsigned)a1, (unsigned)a2, (unsigned)a3,
++							(unsigned)reg_ax, (unsigned)reg_bx);
++						fflush(dbx_fp);
++						break;
++					}
++				}
++			}
++		}
++		/* --- END oracle trace --- */
+ #if C_DEBUG
+ #if C_HEAVY_DEBUG
+ 		if (DEBUG_HeavyIsBreakpoint()) {
