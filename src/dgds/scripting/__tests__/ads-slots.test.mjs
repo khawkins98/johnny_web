@@ -6,6 +6,7 @@ import { isTtmFinished, isTtmRunning, TtmRunState } from '../ttm-run-state.mjs';
 const IF_PLAYED = 0x1350;
 const IF_NOT_PLAYED = 0x1330;
 const IF_NOT_RUNNING = 0x1360;
+const IF_RUNNING = 0x1370;
 const AND = 0x1420;
 const ADD_SCENE = 0x2005;
 const END_IF = 0xfff0;
@@ -258,5 +259,49 @@ describe('stepAdsSlots fire-retry shape (IF_NOT_RUNNING skip-then-take)', () => 
         expect(count(state, 5, 1)).toBe(1);
         stepAdsSlots(state, slots, script);
         expect(count(state, 5, 1)).toBe(1);
+    });
+});
+
+describe('stepAdsSlots failed-entry re-arm scoped to the slot entry (F3 regression)', () => {
+    it('a NON-LEADING (nested) IF_PLAYED that fails-as-jump skips only its own body -- it does NOT blow away the whole slot and re-arm to chunkStart', () => {
+        // Shape: entry IF_RUNNING c -> [nested IF_PLAYED n -> ADD x] -> END_IF ;
+        //        fall-through arm IF_NOT_PLAYED d -> ADD y  (merged into the same slot).
+        // c=1:46 (running), n=1:90 (never played -- guard fails-as-jump), x=1:91,
+        // d=1:45 (not played -- guard passes), y=1:92.
+        //
+        // The entry's own guard (IF_RUNNING) SUCCEEDS, so the walk enters the
+        // entry's body and hits the NESTED, non-leading IF_PLAYED. Before the F3
+        // fix, ads-slots.mjs keyed the "failed ENTRY guard" re-arm off the opcode
+        // alone (any IF_PLAYED whose guard fails-as-jump), so this nested failure
+        // was mistaken for the slot's entry guard failing: the whole slot re-armed
+        // to chunkStart immediately, and the merged fall-through arm (y) never ran
+        // -- EVER, since re-arming just re-triggers the same nested failure next
+        // tick. After the fix (gated on `i === chunkStart`), a non-leading guard
+        // failure only skips its own body (x) and falls through normally: y fires.
+        const script = [
+            op(IF_RUNNING, 1, 46), // 0: entry guard (succeeds -- c is running)
+            op(IF_PLAYED, 1, 90), // 1: nested, non-leading -- never played, fails-as-jump
+            op(ADD_SCENE, 1, 91, 0, 1), // 2: x -- must be SKIPPED
+            op(END_IF), // 3: closes nested IF_PLAYED
+            op(END_IF), // 4: closes entry IF_RUNNING
+            op(END_BRANCH), // 5: entry's own END_BRANCH
+            op(IF_NOT_PLAYED, 1, 45), // 6: fall-through arm entry (merged)
+            op(ADD_SCENE, 1, 92, 0, 1), // 7: y -- must be ADDED (ladder falls through)
+            op(END_IF), // 8
+            op(END_BRANCH), // 9: slot's final END_BRANCH
+        ];
+        const state = makeState({ 1: [45, 46, 90, 91, 92] });
+        const { slots } = buildAdsSlots(script);
+        expect(slots).toHaveLength(1); // confirms the arm actually merged
+        expect(slots[0]).toMatchObject({ chunkStart: 0, chunkEnd: 9 });
+
+        // Seed c as a running sibling so the entry guard passes.
+        state.scenes.push({ sceneIdx: 1, tagId: 46, runState: TtmRunState.RUNNING });
+
+        stepAdsSlots(state, slots, script);
+
+        expect(count(state, 1, 91)).toBe(0); // x: correctly skipped (nested guard failed)
+        expect(count(state, 1, 92)).toBe(1); // y: fall-through arm still fires
+        expect(slots[0].ip).toBe(0); // pass completed and re-armed normally, not mid-abort
     });
 });

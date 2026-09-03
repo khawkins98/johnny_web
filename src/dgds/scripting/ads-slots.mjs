@@ -186,11 +186,20 @@ const stepChunk = (state, slot, script) => {
     state.activeAdsScript = script;
 
     // Mirrors jc_reborn's `inSkipBlock`: a fall-through guard (IF_RUNNING /
-    // IF_NOT_RUNNING / IF_NOT_PLAYED) whose guard FAILS skips its body; at that
-    // branch's END_BRANCH the walk FALLS THROUGH to the next arm of a merged slot
-    // instead of ending the pass. A branch actually TAKEN ends the pass. Reset per
-    // pass -- parks only occur at the entry guard (chunkStart), so a fresh false at
-    // the top of each pass is correct.
+    // IF_NOT_RUNNING / IF_NOT_PLAYED, or a non-leading IF_PLAYED) whose guard
+    // FAILS-AS-A-JUMP skips its body; at that branch's END_BRANCH the walk FALLS
+    // THROUGH to the next arm of a merged slot instead of ending the pass. A
+    // branch actually TAKEN ends the pass. Reset to false at the top of EVERY
+    // pass (regardless of where `slot.ip` resumes) is correct because `skip` and
+    // a PARK never overlap: a park sets `state.continue=false` with NO jump (see
+    // GUARD_OPCODES handling below) and immediately ENDS the pass via `return`,
+    // so whatever `skip` held at that moment is simply discarded, never carried
+    // into a later pass. The stronger invariant this relies on is "a park cannot
+    // coincide with skip=true", not "parks only happen at chunkStart" -- a
+    // still-playing NON-leading guard (e.g. a nested IF_PLAYED) can park mid-chunk
+    // too; it just re-polls from that same position `i` next tick, discarding
+    // `skip` exactly the same way. See scratchpad/findings/final-review-ads-fix.md
+    // F4.
     let skip = false;
 
     for (let i = slot.ip; i <= chunkEnd; i++) {
@@ -207,12 +216,21 @@ const stepChunk = (state, slot, script) => {
             // chunk so a jump can never escape into a sibling chunk.
             const target = Math.min(state.jumpTo, chunkEnd + 1);
             state.jumpTo = undefined;
-            if (command.opcode === IF_PLAYED_OP) {
-                // A FAILED ENTRY guard (IF_PLAYED false) must END the pass and
-                // re-arm -- NOT jump past its END_IF and walk into a merged slot's
-                // fall-through tail (which would fire the ladder's "else" arm before
-                // its entry scene has played -- the FISHING:3 over-draw). The entry
-                // re-polls from the top next tick.
+            if (command.opcode === IF_PLAYED_OP && i === chunkStart) {
+                // A FAILED ENTRY guard (IF_PLAYED false AT THE SLOT'S OWN ENTRY
+                // POSITION) must END the pass and re-arm -- NOT jump past its
+                // END_IF and walk into a merged slot's fall-through tail (which
+                // would fire the ladder's "else" arm before its entry scene has
+                // played -- the FISHING:3 over-draw). The entry re-polls from the
+                // top next tick.
+                //
+                // Gated on `i === chunkStart` (not just the opcode) so a NESTED,
+                // non-leading IF_PLAYED inside a merged slot's fall-through arm --
+                // none exist in the current corpus, see
+                // scratchpad/findings/final-review-ads-fix.md F3 -- falls through
+                // to the generic "failed fall-through guard" skip path below
+                // instead of discarding the ladder's progress and re-arming the
+                // WHOLE slot. Only the slot's true entry point re-arms to the top.
                 slot.ip = chunkStart;
                 return;
             }
