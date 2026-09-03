@@ -268,6 +268,16 @@ ${tableHeader}${tableRows}
   init-only macro tag with no independent draw path) -- they are covered
   transitively through the gags that invoke them, and are listed here as
   explicit catalogue rows rather than silently omitted.
+- **STAND:1-12 show 0% vocab overlap -- a driving/capture mismatch, NOT a
+  confirmed rendering divergence.** These are the low-weight idle "standing pose"
+  fillers. Their maxConc matches (1/1) but the actor tags differ (e.g. STAND:1
+  ours \`1:42\` vs binary \`1:2/1:3/1:53\`, same slot 1). The story-controller
+  models the pose class as binary \`adsId 0xFF\` / pure-engine walk-sprite (no
+  ADS), so driving \`STAND.ADS tag N\` through the ADS path in isolation does not
+  reproduce the binary's captured pose selection -- an apples-to-oranges
+  comparison. (STAND:15/16 are real STAND.ADS gags and align at 100%.) FOLLOW-UP:
+  confirm whether the idle poses render faithfully in context vs. a real
+  wrong-pose bug; until then treat the STAND:1-12 vocab column as not meaningful.
 `;
 
 writeFileSync(outPath, doc, 'utf8');
