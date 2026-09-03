@@ -125,6 +125,50 @@ const handleIfCondition = (state, conditionPassed) => {
     state.continue = true;
 };
 
+/**
+ * IF_PLAYED's "present + finished" branch (the guard's scene is still in the
+ * display list but has finished playing). The binary keeps the finished node
+ * present until STOP/gag-clear, and the handoff to the successor fires
+ * EDGE-TRIGGERED -- ONCE when the scene finishes -- NOT every tick while it
+ * lingers played. Under the per-slot re-poll we must reproduce that edge for a
+ * NON-IDEMPOTENT body:
+ *
+ * A body containing a 0x3010 RANDOM block picks a DIFFERENT scene each time it
+ * runs (RANDOM_END commits one of several staged ADDs). If the re-poll re-ran
+ * it every tick while the trigger sits present-as-finished, it would spawn a
+ * fresh pick per tick -- the FISHING action-loop pile-up (IF_PLAYED[1:10] OR
+ * [21]OR[22]OR[23]OR[38] -> RANDOM{...}: once one action is played the
+ * OR-guard is permanently true, so a naive re-poll fires a new random action
+ * every tick). Fire it ONCE per finished instance (scene.handoffFired), then
+ * skip until the trigger re-arms (a re-armed scene is a NEW object with no
+ * flag).
+ *
+ * A plain-ADD body is IDEMPOTENT (ADD_SCENE's presence-dedup makes a re-poll a
+ * no-op while the target is present), so re-running it every tick is safe. A
+ * genuine SELF-rearming plain-ADD chunk (IF_PLAYED[s,t] -> ADD s:t, the
+ * campfire flame 3:44) MUST remove the finished instance so its ADD restarts
+ * it -- that is how the flame keeps burning. STOP_SCENE's explicit-stop guard
+ * still keeps a stopped flame dead.
+ */
+const handleIfPlayedFinishedBranch = (state, script, scene, sceneIdx, tagId) => {
+    if (chunkBodyHasRandom(script, state.reentryNow)) {
+        if (scene.handoffFired) {
+            state.continue = true;
+            handleIfCondition(state, false); // already fired this instance -> skip the RANDOM body
+            return;
+        }
+        scene.handoffFired = true;
+        state.continue = true;
+        handleIfCondition(state, true); // fire the RANDOM pick exactly once
+        return;
+    }
+    if (isSelfRearmingSequence(state, sceneIdx, tagId)) {
+        state.removeScenes.push({ sceneIdx, tagId });
+    }
+    state.continue = true;
+    handleIfCondition(state, true);
+};
+
 const isSceneDone = (scene) => isTtmFinished(scene);
 
 const isSceneRunning = (state, sceneIdx, tagId) => {
@@ -182,43 +226,10 @@ export const IF_PLAYED = (state, sceneIdx, tagId) => {
 
     if (scene !== undefined) {
         if (done) {
-            // Present + finished: the guard is satisfied. The binary keeps the
-            // finished display-list node present (until STOP/gag-clear), and the
-            // handoff to the successor fires EDGE-TRIGGERED -- ONCE when the scene
-            // finishes -- NOT every tick while it lingers played. Under the per-slot
-            // re-poll we must reproduce that edge for a NON-IDEMPOTENT body:
-            //
-            // A body containing a 0x3010 RANDOM block picks a DIFFERENT scene each
-            // time it runs (RANDOM_END commits one of several staged ADDs). If the
-            // re-poll re-ran it every tick while the trigger sits present-as-finished,
-            // it would spawn a fresh pick per tick -- the FISHING action-loop pile-up
-            // (IF_PLAYED[1:10] OR [21]OR[22]OR[23]OR[38] -> RANDOM{...}: once one
-            // action is played the OR-guard is permanently true, so a naive re-poll
-            // fires a new random action every tick). Fire it ONCE per finished
-            // instance (scene.handoffFired), then skip until the trigger re-arms
-            // (a re-armed scene is a NEW object with no flag).
-            if (chunkBodyHasRandom(script, state.reentryNow)) {
-                if (scene.handoffFired) {
-                    state.continue = true;
-                    handleIfCondition(state, false); // already fired this instance -> skip the RANDOM body
-                    return;
-                }
-                scene.handoffFired = true;
-                state.continue = true;
-                handleIfCondition(state, true); // fire the RANDOM pick exactly once
-                return;
-            }
-            // Plain-ADD body: IDEMPOTENT (ADD_SCENE's presence-dedup makes a re-poll
-            // a no-op while the target is present), so re-running every tick is safe.
-            // A genuine SELF-rearming plain-ADD chunk (IF_PLAYED[s,t] -> ADD s:t, the
-            // campfire flame 3:44) MUST remove the finished instance so its ADD
-            // restarts it -- that is how the flame keeps burning. STOP_SCENE's
-            // explicit-stop guard still keeps a stopped flame dead.
-            if (isSelfRearmingSequence(state, sceneIdx, tagId)) {
-                state.removeScenes.push({ sceneIdx, tagId });
-            }
-            state.continue = true;
-            handleIfCondition(state, true);
+            // Present + finished: the guard is satisfied -- see
+            // handleIfPlayedFinishedBranch for the RANDOM-vs-plain-ADD /
+            // edge-vs-every-tick distinction this depends on.
+            handleIfPlayedFinishedBranch(state, script, scene, sceneIdx, tagId);
         } else {
             // Still playing and not dispatch-owned -> BLOCK (keep state.continue = false)
         }
