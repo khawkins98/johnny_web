@@ -223,6 +223,38 @@ that slot, and unions the sliced timelines with `build-vocab.mjs`. `index.json` 
 committed ref (`{name, tag, file}`); `test/faithfulness-diff.mjs` asserts it stays in sync
 with the files on disk.
 
+Twenty gags (the 19 that sat at "ours = ref+1" plus BUILDING:2) were regenerated at `runs: 8`
+to turn `maxConc` from a 3-run lower bound into a reliable ceiling; those refs also carry a
+`lifespans` field — `{ "slot:tag": { "min": <ticks>, "max": <ticks> } }`, the per-actor
+drawn-tick range across the runs — consumed by `compare-lifespans.mjs` as a warn-only
+duration signal (a stuck-on or dropped-early actor that `maxConc` alone can't see).
+
+### Known coverage & documented follow-ups
+- **2 gags are not injectable** (excluded from `index.json`, so untested by the gate):
+  **STAND:14** is not a gag — it's "STAND INIT", a shared macro every STAND:1-12 gag
+  `RUN_SCRIPT`-inlines at load, so it has no catalogue record and is *transitively covered* by
+  all twelve STAND refs. **VISITOR:3** ("VISITOR 6") is genuine orphaned content, structurally
+  identical to its 5 catalogued siblings (VISITOR:1/4/5/6/7) which *are* tested; standalone
+  isolation would need an ADS-load-path injection hook (director injection only patches
+  existing catalogue records). Low marginal value — deferred.
+- **The 19 "ours = ref+1" gags are a test-harness artifact, not engine bugs.** Each opens with
+  a one-time `IF_NOT_PLAYED[S,X] -> ADD(S,X)` "establishing shot"; `driveGag` builds a fresh
+  runtime (empty `playedHistory`) per gag, so it replays that shot every time, while the binary
+  ref was captured mid-session where it had already played. Confirmed structural: regenerating
+  at N=8 collapsed *zero* of them. Fix = seed the gate's `playedHistory` (17 of 19 have a
+  verified-safe single-key seed map in `scratchpad/findings/establishing-shot-seedmap.md`;
+  ACTIVITY:11 and JOHNNY:6 are excluded — see next point). Deferred.
+- **JOHNNY:6 / ACTIVITY:11 over-count is an oracle-predicate limitation, not an engine bug.**
+  `isDrawing` here counts a scene live when it is not finished-and-aged-out, but `composeTtmFrame`
+  *also* skips empty-`frameOps` scenes; asset-preload pseudo-scenes (load-only, no draw opcode)
+  are counted here but never painted. A naive per-tick `frameOps` check can't fix it (frameOps
+  is a per-tick transient not set at sample time — it regressed 12 STAND gags); the faithful fix
+  needs a scene-level "ever drew" flag. Deferred.
+- **BUILDING:2 under-count (ours 6 vs binary 7)** is a real but low-severity 1-tick gap:
+  `#runAdsController` (evaluating `IF_PLAYED`) runs before `#runTtmController` (which ages the
+  finishing frame), so a one-tick held finish frame is gone before the handoff commits. The fix
+  shares tick ordering with the double-Johnny fix — needs a careful dedicated cycle. Deferred.
+
 **Deferred exact-match path:** the LFG generator itself is already ported and validated
 bit-for-bit against the binary (`rng-port.md`) — what's missing is wiring our engine to
 consume it (instead of `Math.random`) with the same baked seed, which would remove the
