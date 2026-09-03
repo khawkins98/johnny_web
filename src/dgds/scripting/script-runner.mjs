@@ -25,7 +25,7 @@ export { debugLog, verboseLog, sceneLog, sceneLabel, applySceneChanges, clearAds
 // Script runner
 // ---------------------------------------------------------------------------
 
-export const runScript = (state, script, main = false) => {
+export const runScript = (state, script) => {
     // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
     // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
     // TTM child scenes use their own state objects (each has its own reentry).
@@ -70,15 +70,6 @@ export const runScript = (state, script, main = false) => {
         state.reentry = 0;
         state.runs++;
         state.played = true;
-        if (main) {
-            state.currentScene++;
-            // Reset lastCommand so the next ADS scene's intermediate END doesn't
-            // inherit the stale "final command" flag and prematurely clear child scenes.
-            state.lastCommand = false;
-            // Reset OR-chain state so it doesn't bleed into the next ADS scene.
-            state.orMode = false;
-            state.orChainPassed = false;
-        }
         if (state.type === 'TTM') {
             if (state.sceneIdx !== undefined) {
                 sceneLog(state, 'TTM_DONE', sceneLabel(state.scenesRes, state.sceneIdx, state.tagId));
