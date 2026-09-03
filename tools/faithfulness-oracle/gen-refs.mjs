@@ -173,6 +173,32 @@ for (const g of gags) {
         continue;
     }
 
+    // lifespans: per-actor DRAWN-TICK COUNT (ticks "slot:tag" appears live) per
+    // run, then min/max over the runs it appeared in at all. Derived from the
+    // same sliced per-run timelines used for the vocab union above.
+    const perActorCountsByRun = new Map(); // actor -> [count per run it appeared in]
+    for (const sliced of slicedTimelines) {
+        let text;
+        try { text = readFileSync(sliced, 'utf8'); } catch { continue; }
+        const runCounts = new Map();
+        for (const line of text.split('\n')) {
+            if (!line.trim()) continue;
+            let rec;
+            try { rec = JSON.parse(line); } catch { continue; }
+            for (const a of rec.live || []) {
+                runCounts.set(a, (runCounts.get(a) || 0) + 1);
+            }
+        }
+        for (const [actor, count] of runCounts) {
+            if (!perActorCountsByRun.has(actor)) perActorCountsByRun.set(actor, []);
+            perActorCountsByRun.get(actor).push(count);
+        }
+    }
+    const lifespans = {};
+    for (const [actor, counts] of perActorCountsByRun) {
+        lifespans[actor] = { min: Math.min(...counts), max: Math.max(...counts) };
+    }
+
     const ref = {
         name: g.name,
         adsId: g.hex,
@@ -182,6 +208,7 @@ for (const g of gags) {
         vocab: vocab.actors,
         maxConc: vocab.maxConc,
         states: vocab.states,
+        lifespans,
         drainTick: null,
     };
     const refPath = path.join(outDir, `${g.name}_${g.tag}.json`);

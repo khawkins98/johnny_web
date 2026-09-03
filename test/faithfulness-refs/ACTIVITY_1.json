@@ -3,13 +3,32 @@
   "adsId": "0x65",
   "tag": 1,
   "slot": "1",
-  "runs": 3,
+  "runs": 8,
   "vocab": [
     "1:7",
+    "1:9",
     "1:13",
     "1:14"
   ],
   "maxConc": 1,
-  "states": 4,
+  "states": 5,
+  "lifespans": {
+    "1:13": {
+      "min": 306,
+      "max": 331
+    },
+    "1:9": {
+      "min": 33,
+      "max": 79
+    },
+    "1:14": {
+      "min": 20,
+      "max": 31
+    },
+    "1:7": {
+      "min": 25,
+      "max": 100
+    }
+  },
   "drainTick": null
 }
