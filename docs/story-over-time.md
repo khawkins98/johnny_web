@@ -1,6 +1,6 @@
 # The story, over time
 
-How Johnny's screensaver tells one continuous 11-day story across many separate runs, without ever restarting it — and how to see or change where you are in it. All mechanics described here live in `src/games/johnny/story-controller.mjs`; see [Johnny host behavior](johnny-host-behavior.md) for the surrounding sequence-planning and presentation pipeline, and [Architecture](architecture.md) for the host/engine split this controller sits on top of.
+How Johnny's screensaver tells one continuous 11-day story across many separate runs, without ever restarting it — and how to see or change where you are in it. All mechanics described here live in `src/games/johnny/story-controller.mjs`; see [Johnny host behavior](johnny-host-behavior.md) for the surrounding sequence-planning and presentation pipeline, and [Architecture](architecture.md) for the host/engine split this controller sits on top of. This doc covers the arc *across* gags; [Scene flows](scene-flows/README.md) covers the scripted flow *within* each individual gag, generated from the authored ADS bytecode.
 
 ## Two levels of randomness
 
