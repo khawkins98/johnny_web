@@ -47,7 +47,7 @@ const BUILD_VOCAB = path.join(here, 'rendering-oracle', 'build-vocab.mjs');
 
 const ADS_NAME_TO_HEX = {
     ACTIVITY: '0x65', BUILDING: '0x66', FISHING: '0x68', JOHNNY: '0x69',
-    MARY: '0x6a', STAND: '0x6c', SUZY: '0x6d', VISITOR: '0x6e', WALKSTUF: '0x6f',
+    MARY: '0x6a', MISCGAG: '0x6b', STAND: '0x6c', SUZY: '0x6d', VISITOR: '0x6e', WALKSTUF: '0x6f',
 };
 
 // -- args --

@@ -1,0 +1,16 @@
+{
+  "name": "SUZY",
+  "adsId": "0x6d",
+  "tag": 2,
+  "slot": "2",
+  "runs": 3,
+  "vocab": [
+    "2:3",
+    "2:4",
+    "2:6",
+    "2:7"
+  ],
+  "maxConc": 1,
+  "states": 5,
+  "drainTick": null
+}

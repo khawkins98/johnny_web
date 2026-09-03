@@ -1,0 +1,16 @@
+{
+  "name": "JOHNNY",
+  "adsId": "0x69",
+  "tag": 6,
+  "slot": "3",
+  "runs": 3,
+  "vocab": [
+    "3:3",
+    "3:4",
+    "3:7",
+    "3:8"
+  ],
+  "maxConc": 1,
+  "states": 5,
+  "drainTick": null
+}

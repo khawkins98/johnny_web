@@ -1,0 +1,19 @@
+{
+  "name": "VISITOR",
+  "adsId": "0x6e",
+  "tag": 4,
+  "slot": "4",
+  "runs": 3,
+  "vocab": [
+    "4:16",
+    "4:17",
+    "4:18",
+    "4:19",
+    "4:20",
+    "4:33",
+    "4:35"
+  ],
+  "maxConc": 3,
+  "states": 7,
+  "drainTick": null
+}

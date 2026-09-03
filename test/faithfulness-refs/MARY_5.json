@@ -1,0 +1,15 @@
+{
+  "name": "MARY",
+  "adsId": "0x6a",
+  "tag": 5,
+  "slot": "6",
+  "runs": 3,
+  "vocab": [
+    "6:2",
+    "6:3",
+    "6:4"
+  ],
+  "maxConc": 2,
+  "states": 4,
+  "drainTick": null
+}

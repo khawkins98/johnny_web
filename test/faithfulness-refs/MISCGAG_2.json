@@ -1,0 +1,15 @@
+{
+  "name": "MISCGAG",
+  "adsId": "0x6b",
+  "tag": 2,
+  "slot": "2",
+  "runs": 3,
+  "vocab": [
+    "2:1",
+    "2:2",
+    "2:3"
+  ],
+  "maxConc": 1,
+  "states": 4,
+  "drainTick": null
+}

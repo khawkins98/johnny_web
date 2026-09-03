@@ -1,0 +1,18 @@
+{
+  "name": "WALKSTUF",
+  "adsId": "0x6f",
+  "tag": 2,
+  "slot": "2",
+  "runs": 3,
+  "vocab": [
+    "2:3",
+    "2:4",
+    "2:6",
+    "2:7",
+    "2:15",
+    "2:17"
+  ],
+  "maxConc": 1,
+  "states": 7,
+  "drainTick": null
+}
