@@ -160,6 +160,84 @@ describe('Johnny host story controller', () => {
         expect(storage.values.get('jc-story-day')).toBe('1'); // chased to 12, then wrapped
     });
 
+    describe('story-day tooling (settings + dev panel)', () => {
+        const clock = () => new Date(2026, 6, 21, 12);
+
+        it('getStoryDay reads back the persisted day, clamped 1-11, defaulting to 1', () => {
+            const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+            expect(controller.getStoryDay()).toBe(1);
+
+            const clamped = createJohnnyStoryController({
+                random: () => 0,
+                storage: memoryStorage({ 'jc-story-day': '99' }),
+            });
+            expect(clamped.getStoryDay()).toBe(11);
+        });
+
+        it('getStartTime reads back the persisted StartTime, or null when unset', () => {
+            const unset = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+            expect(unset.getStartTime()).toBeNull();
+
+            const set = createJohnnyStoryController({
+                random: () => 0,
+                storage: memoryStorage({ 'jc-start-time': '721' }),
+            });
+            expect(set.getStartTime()).toBe(721);
+        });
+
+        it('setStoryDay clamps to 1-11 and writes day, target, and date so the arc holds from there', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            expect(controller.setStoryDay(6)).toBe(6);
+            expect(storage.values.get('jc-story-day')).toBe('6');
+            expect(storage.values.get('jc-story-target')).toBe('6');
+            expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
+            expect(controller.getStoryDay()).toBe(6);
+
+            expect(controller.setStoryDay(0)).toBe(1);
+            expect(controller.setStoryDay(99)).toBe(11);
+        });
+
+        it('advanceStoryDay steps forward and wraps 11 -> 1', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            controller.setStoryDay(3);
+            expect(controller.advanceStoryDay()).toBe(4);
+            expect(storage.values.get('jc-story-day')).toBe('4');
+
+            controller.setStoryDay(11);
+            expect(controller.advanceStoryDay()).toBe(1);
+            expect(storage.values.get('jc-story-day')).toBe('1');
+        });
+
+        it('resetStory sets day 1 and re-anchors StartTime to today', () => {
+            const storage = memoryStorage({
+                'jc-story-day': '8',
+                'jc-story-target': '9',
+                'jc-start-time': '101',
+            });
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            expect(controller.resetStory()).toBe(1);
+            expect(storage.values.get('jc-story-day')).toBe('1');
+            expect(storage.values.get('jc-story-target')).toBe('1');
+            expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
+            expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+            expect(controller.getStoryDay()).toBe(1);
+            expect(controller.getStartTime()).toBe((6 + 1) * 100 + 21);
+        });
+
+        it('after setStoryDay(N) a subsequent sequence status reflects day N', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+            controller.setStoryDay(6);
+            controller.next();
+            expect(controller.status().storyDay).toBe(6);
+        });
+    });
+
     it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {
         const clock = () => new Date(2026, 6, 21, 15, 0);
         const lowTideFor = (rng) => {

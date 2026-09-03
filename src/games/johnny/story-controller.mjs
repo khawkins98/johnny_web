@@ -579,6 +579,61 @@ export const createJohnnyStoryController = ({
     const debugStoryDay = (sceneMetadata, requestedDay) =>
         sceneMetadata.day || Math.max(1, Math.min(11, Number(requestedDay) || 1));
 
+    // Player/developer-facing story-day controls. These write the same three
+    // persisted keys `updateStoryDay`/`getStartTime` read, so the arc holds and
+    // then advances naturally from wherever it's set on the next real-date change.
+    const getStoryDay = () => {
+        let stored;
+        try {
+            stored = Number(storage?.getItem('jc-story-day')) || 1;
+        } catch {
+            stored = 1;
+        }
+        return Math.max(1, Math.min(11, stored));
+    };
+
+    const getPersistedStartTime = () => {
+        let stored;
+        try {
+            stored = storage?.getItem('jc-start-time');
+        } catch {
+            return null;
+        }
+        if (!stored) return null;
+        const parsed = Number(stored);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const dateKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+    const setStoryDay = (day) => {
+        const clamped = Math.max(1, Math.min(11, Number(day) || 1));
+        try {
+            const currentDate = dateKey(now());
+            storage?.setItem('jc-story-day', String(clamped));
+            storage?.setItem('jc-story-target', String(clamped));
+            storage?.setItem('jc-story-date', currentDate);
+        } catch {
+            // Persistence is optional.
+        }
+        return clamped;
+    };
+
+    const advanceStoryDay = () => {
+        const next = getStoryDay() >= 11 ? 1 : getStoryDay() + 1;
+        return setStoryDay(next);
+    };
+
+    const resetStory = () => {
+        const date = now();
+        try {
+            storage?.setItem('jc-start-time', String((date.getMonth() + 1) * 100 + date.getDate()));
+        } catch {
+            // Persistence is optional.
+        }
+        return setStoryDay(1);
+    };
+
     return {
         next() {
             if (queue.length === 0) buildSequence();
@@ -624,6 +679,11 @@ export const createJohnnyStoryController = ({
             return sequenceStatus;
         },
         status: () => sequenceStatus,
+        getStoryDay,
+        getStartTime: getPersistedStartTime,
+        setStoryDay,
+        advanceStoryDay,
+        resetStory,
         subscribeStatus(listener) {
             statusListeners.add(listener);
             listener(sequenceStatus);
