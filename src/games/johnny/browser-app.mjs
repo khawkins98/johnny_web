@@ -3,6 +3,7 @@ import { setupDebugUI } from '../../bottle/debug-ui.mjs';
 import { johnnyCastaway } from './manifest.mjs';
 import { setupEnhancedUI } from './ui/enhanced.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from './ui/settings.mjs';
+import { setupSceneFlowPanel } from './ui/scene-flow-panel.mjs';
 import { createHolidayOverlay, HOLIDAY_SETTING_KEY, HOLIDAY_THEME_OPTIONS } from './ui/holidays.mjs';
 import { createJohnnyStoryController } from './story-controller.mjs';
 import { runJohnnySequenceTransition } from './ui/transitions.mjs';
@@ -16,6 +17,7 @@ export const runJohnnyCastaway = () => {
         setupDebugUI,
         setupEnhancedUI,
         setupSettingsUI,
+        setupSceneFlowUI: setupSceneFlowPanel,
         soundSettingKey: SOUND_SETTING_KEY,
         createBackgroundDecorator: createHolidayOverlay,
         selectScene: () => story.next(),

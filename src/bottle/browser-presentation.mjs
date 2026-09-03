@@ -41,6 +41,7 @@ export const runBrowserPresentation = async ({
     setupDebugUI = () => {},
     setupEnhancedUI = () => null,
     setupSettingsUI,
+    setupSceneFlowUI = () => null,
     soundSettingKey,
     createBackgroundDecorator = () => null,
     selectScene = null,
@@ -150,6 +151,14 @@ export const runBrowserPresentation = async ({
           }
         : debugSequence;
     setupDebugUI({ themes: debugThemes, sequenceTools });
+    // "How it works": a live view of the CURRENT gag's authored scene flow.
+    // Uses the same resourceProvider the runtime itself resolves ADS/TTM
+    // entries through, and the same sequenceTools (story controller) the
+    // debug panel tracks the running gag with.
+    setupSceneFlowUI({
+        resolveEntry: (name) => resourceProvider.resolve(name),
+        sequenceTools,
+    });
     const settings = setupSettingsUI({
         getAudioManager: () => audioManager,
         onRestart: () => {

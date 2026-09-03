@@ -111,6 +111,40 @@ const parseBody = (body, label) => {
  * @param {{tagId:{id:number,description:string}, script:Array}} scene
  * @param {{label:(slot:number,tag:number)=>string}} deps
  */
+/**
+ * Build a `label(slot, tag) -> name` resolver from an ADS file's resource TTMs.
+ *
+ * An ADS's `resources` list names the TTMs it references by resource id; each
+ * TTM's own `tags` list maps a sequence tag to a human name (e.g. "2:21" ->
+ * "Fishing rod snaps"). `loadEntry(name)` is injected so this stays browser-safe:
+ * the CLI doc generator passes a node-fs-backed loader (see
+ * tools/faithfulness-oracle/scene-flow-doc.mjs), the in-app panel passes the
+ * loaded archive's `resource.loadEntry`.
+ *
+ * @param {{resources?: Array<{id:number, name:string}>}} ads
+ * @param {(name:string) => {tags?: Array<{id:number, description:string}>}} loadEntry
+ * @param {Map<string, Array>} [cache] optional cache keyed by resource name,
+ *   shared across calls (e.g. across ADS files that reference the same TTM).
+ */
+export const buildSceneFlowLabelResolver = (ads, loadEntry, cache = new Map()) => {
+    const names = new Map();
+    for (const res of ads.resources || []) {
+        if (!cache.has(res.name)) {
+            let tags = [];
+            try {
+                tags = loadEntry(res.name)?.tags || [];
+            } catch {
+                tags = [];
+            }
+            cache.set(res.name, tags);
+        }
+        for (const t of cache.get(res.name)) {
+            names.set(`${res.id}:${t.id}`, (t.description || '').trim());
+        }
+    }
+    return (slot, tag) => names.get(`${slot}:${tag}`) || `${slot}:${tag}`;
+};
+
 export const extractSceneFlow = (scene, { label }) => {
     const branches = splitBranches(scene.script);
 
@@ -151,4 +185,50 @@ export const extractSceneFlow = (scene, { label }) => {
         edges,
         nodes: [...nodeMap.values()],
     };
+};
+
+const GUARD_PHRASE = {
+    start: () => 'at the start',
+    after: (name) => `after "${name}"`,
+    while: (name) => `while "${name}" is on screen`,
+    ifNotRunning: (name) => `if "${name}" isn't on screen`,
+    always: () => 'always',
+};
+
+/**
+ * Render a step's guard as a readable phrase, e.g. `at the start`,
+ * `after "Johnny waves"`, or a joined chain `after "A" or "B"`. Shared by the
+ * committed-doc generator (tools/faithfulness-oracle/scene-flow-doc.mjs) and
+ * the in-app "How it works" panel so their wording never drifts apart.
+ * @param {object} guard one of extractSceneFlow's `steps[].guard` values
+ */
+export const describeSceneFlowGuard = (guard) => {
+    const phrase = GUARD_PHRASE[guard.kind] ?? ((name) => `${guard.kind}${name ? ` "${name}"` : ''}`);
+    if (guard.kind === 'always') return phrase();
+    if (!guard.refs) return phrase(guard.name);
+    const joiner = guard.combinator === 'and' ? '" and "' : '" or "';
+    const names = guard.refs.map((r) => r.name);
+    return phrase(names[0]).replace(`"${names[0]}"`, `"${names.join(joiner)}"`);
+};
+
+/**
+ * Turn a flow's `steps` into a flat outline: one entry per step that actually
+ * does something (adds/stops a scene), with the guard already rendered to
+ * text and its targets as plain strings ready to join or wrap in markup.
+ * Steps with no adds/stops (guard-only no-ops) are skipped, matching the
+ * committed-doc outline.
+ * @param {{steps: Array}} flow extractSceneFlow's return value
+ * @returns {Array<{guardText:string, random:boolean, targets:string[]}>}
+ */
+export const outlineSceneFlowSteps = (flow) => {
+    const outline = [];
+    for (const step of flow.steps) {
+        const targets = [
+            ...step.adds.map((a) => `"${a.name}"`),
+            ...step.stops.map((s) => `stop "${s.name}"`),
+        ];
+        if (!targets.length) continue;
+        outline.push({ guardText: describeSceneFlowGuard(step.guard), random: Boolean(step.random), targets });
+    }
+    return outline;
 };
