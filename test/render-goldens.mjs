@@ -204,7 +204,10 @@ const readGame = async () => {
             readFile(path.join(dataDirectory, johnnyCastaway.resources.archive)),
         ]);
     } catch (error) {
-        throw new Error(`Golden rendering checks require extracted game data in ${dataDirectory}: ${error.message}`);
+        // Data absent (gitignored, proprietary) -> signal the caller to skip
+        // gracefully. A genuine read error on PRESENT data still throws.
+        if (error.code === 'ENOENT') return null;
+        throw new Error(`Golden rendering checks failed to read game data in ${dataDirectory}: ${error.message}`);
     }
     const resources = loadResources(asArrayBuffer(mapBuffer), asArrayBuffer(archiveBuffer));
     const archive = resources.getResource(johnnyCastaway.resources.archive);
@@ -254,6 +257,17 @@ const verifyNoRenderTrail = (captures) => {
 
 const main = async () => {
     const game = await readGame();
+    if (!game) {
+        // Extracted game data is proprietary and gitignored; on a clean clone
+        // (and in CI) it is absent. Skip with a clear message and exit 0 rather
+        // than throwing, so `test:golden` is safe to run anywhere.
+        console.log(
+            'test:golden skipped: no extracted game data in public/data/ ' +
+                '(proprietary, not committed -- see README). Golden fidelity checks run ' +
+                'only where the data is present.',
+        );
+        return;
+    }
     verifyCampfireContinuity(game);
     verifyBathingActorContinuity(game);
     const captures = new Map();

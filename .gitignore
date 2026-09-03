@@ -14,3 +14,10 @@ node_modules
 coverage/
 .DS_Store
 server-log.txt
+
+# session scratch, agent worktrees, and ad-hoc probe output (never commit --
+# these hold working notes, findings, and out-of-repo tooling like the patched
+# dosbox-x tree; committing them is never intended)
+scratchpad/
+track4-out/
+.claude/worktrees/
