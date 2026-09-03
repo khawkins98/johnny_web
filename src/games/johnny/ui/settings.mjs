@@ -5,7 +5,7 @@ export const EXPERIENCE_SETTING_KEY = 'jc-experience';
 
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
-export function setupSettingsUI({ getAudioManager = () => null, onRestart = () => {} } = {}) {
+export function setupSettingsUI({ getAudioManager = () => null, onRestart = () => {}, storyController = null } = {}) {
     const recordSetting = (setting, value) => diagnostics.record('user-control', { control: 'setting', setting, value });
     // Inject some whimsical CSS
     const style = document.createElement('style');
@@ -639,6 +639,49 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     });
     renderDebugStatus();
     modal.appendChild(debugStatus);
+
+    // Story: the 11-day keyframe arc (see story-controller.mjs) unfolds across real
+    // screensaver runs over real days, not within one sitting. Let a player see where
+    // they are in it and start it over if they'd like.
+    const MONTH_NAMES = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    const formatStartTime = (startTime) => {
+        if (startTime == null) return null;
+        const month = Math.floor(startTime / 100);
+        const day = startTime % 100;
+        return MONTH_NAMES[month - 1] ? `${MONTH_NAMES[month - 1]} ${day}` : null;
+    };
+
+    const storyRow = document.createElement('div');
+    storyRow.className = 'settings-row';
+    const storyLabel = document.createElement('span');
+    storyLabel.innerText = 'Story:';
+    const storyStatus = document.createElement('span');
+    storyStatus.id = 'settings-story-status';
+    const renderStoryStatus = () => {
+        if (!storyController) {
+            storyStatus.innerText = '';
+            return;
+        }
+        const day = storyController.getStoryDay();
+        const started = formatStartTime(storyController.getStartTime());
+        storyStatus.innerText = started ? `Day ${day} of 11 · Started ${started}` : `Day ${day} of 11`;
+    };
+    renderStoryStatus();
+    const restartStoryBtn = document.createElement('button');
+    restartStoryBtn.innerText = 'Restart story';
+    restartStoryBtn.dataset.setting = 'restart-story';
+    restartStoryBtn.onclick = () => {
+        storyController?.resetStory();
+        renderStoryStatus();
+        recordSetting('restart-story', '1');
+    };
+    storyRow.appendChild(storyLabel);
+    storyRow.appendChild(storyStatus);
+    if (storyController) storyRow.appendChild(restartStoryBtn);
+    storyRow.style.display = storyController ? '' : 'none';
+    modal.appendChild(storyRow);
 
     const markCustomExperience = () => {
         experienceSelect.value = 'custom';

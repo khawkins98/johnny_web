@@ -585,6 +585,52 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         sequenceStatus.innerText = `Chapter ${status.storyDay} · Event ${status.current} of ${status.total}\nHost event: ${active}\nNext: ${next} · ${status.remaining} remaining\nFinale: ${status.final.script} #${status.final.tagId} · ${tide}`;
     };
     container.appendChild(sequenceStatus);
+
+    // Real story-day controls: unlike the "Story chapter to simulate" selector above
+    // (a per-run preview value passed to preview/planFrom), these read/write the
+    // persisted jc-story-day/target/date state itself via the controller API
+    // (story-controller.mjs getStoryDay/setStoryDay/advanceStoryDay), so a change here
+    // sticks across sequences -- taking effect on the next gag.
+    const storyDayControlRow = document.createElement('div');
+    storyDayControlRow.dataset.debugRow = 'story-day-control';
+    storyDayControlRow.style.display = sequenceTools ? 'flex' : 'none';
+    storyDayControlRow.style.flexDirection = 'column';
+    storyDayControlRow.style.gap = '3px';
+    const storyDayControlLabel = document.createElement('span');
+    storyDayControlLabel.innerText = 'Story day (persisted)';
+    storyDayControlLabel.title = 'Sets the real 11-day story counter. Takes effect on the next gag.';
+    const storyDayControls = document.createElement('div');
+    storyDayControls.style.display = 'flex';
+    storyDayControls.style.gap = '6px';
+    const storyDayInput = document.createElement('input');
+    storyDayInput.type = 'number';
+    storyDayInput.min = '1';
+    storyDayInput.max = '11';
+    storyDayInput.dataset.debugControl = 'story-day-value';
+    storyDayInput.style.cssText = controlStyle;
+    storyDayInput.style.width = '64px';
+    storyDayInput.value = String(sequenceTools?.getStoryDay?.() ?? 1);
+    const setStoryDayBtn = makeActionButton('Set', () => {
+        const day = sequenceTools?.setStoryDay?.(Number(storyDayInput.value));
+        if (day != null) {
+            storyDayInput.value = String(day);
+            showActionFeedback(`Story day set to ${day}. It applies starting the next gag.`);
+        }
+    });
+    const advanceStoryDayBtn = makeActionButton('+1 day', () => {
+        const day = sequenceTools?.advanceStoryDay?.();
+        if (day != null) {
+            storyDayInput.value = String(day);
+            showActionFeedback(`Story day advanced to ${day}. It applies starting the next gag.`);
+        }
+    });
+    storyDayControls.appendChild(storyDayInput);
+    storyDayControls.appendChild(setStoryDayBtn);
+    storyDayControls.appendChild(advanceStoryDayBtn);
+    storyDayControlRow.appendChild(storyDayControlLabel);
+    storyDayControlRow.appendChild(storyDayControls);
+    container.appendChild(storyDayControlRow);
+
     if (sequenceTools?.subscribeStatus) sequenceTools.subscribeStatus(renderSequenceStatus);
     // Reconcile as well as subscribe: host playback can cross runtime and
     // interlude boundaries where a title-specific notification may be missed.

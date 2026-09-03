@@ -156,6 +156,7 @@ export const runBrowserPresentation = async ({
             audioManager?.stopAll?.();
             stopProcess('restart');
         },
+        storyController: debugSequence,
     });
 
     const context = document.getElementById('canvas').getContext('2d');
