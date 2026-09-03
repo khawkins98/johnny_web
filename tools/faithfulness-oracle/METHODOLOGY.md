@@ -3,12 +3,16 @@
 How we verify that this JS reimplementation of the 1993 DGDS "Johnny Castaway" engine
 behaves like the original, and how we caught real faithfulness bugs. The content is
 frozen (the shipped `SCRANTIC.SCR` + `RESOURCE.*`), so "faithful" means: does our engine
-make the same *sequencing* decisions the original does, over the same data. (For *rendering*
-faithfulness — transparency / z-order / scene-clearing, which sequencing cannot see — see the
-sibling **[RENDERING-ORACLE.md](./RENDERING-ORACLE.md)**, which captures the original's VGA
-framebuffer and pixel-diffs it against our render.) This file +
-the tooling beside it are the durable record — the working build tree and captured traces
-lived in an ephemeral scratchpad and are not committed (only the small artifacts are).
+make the same *sequencing* decisions the original does, over the same data. This file +
+the tooling beside it are the durable record — the working build tree, patched dosbox-x
+checkout, and captured traces live in an ephemeral scratchpad (`scratchpad/dosbox-x-src`,
+out of repo) and are not committed (only the small derived artifacts — patches, tools, and
+committed reference fingerprints — are).
+
+The current, reproducible, CI-friendly verification is the **thread/behavioral timeline
+diff** (below): per-tick "who is drawing" compared between the original binary and our
+engine. An earlier **pixel-diff** approach (framebuffer capture + PPM compare) was retired
+in favor of it — see "Retired: pixel-diff approach" at the end of this file.
 
 ## The problem it solves
 Faithfulness had been a *judgment call*, and that cost us: bugs (campfire blips, telescope
@@ -143,3 +147,133 @@ core_normal.cpp`, guarded by the `DBX_FORCE_*` env; ~40 lines added next to the 
 `cd <sp>/dosbox-x-src/src && make -C cpu && make dosbox-x`. The `#FORCE ads=.. tag=.. recoff=..`
 line in `trace.log` confirms the pin armed; `timeline.jsonl` is the capture in the shared
 per-tick format for diffing against `our-thread-timeline.mjs`.
+
+## The reproducible flow: thread/behavioral timeline diff
+
+The full pipeline, ORIGINAL side to CI gate:
+
+```
+patched dosbox-x (DBX_THREADS + DBX_TRACE, DBX_FORCE_ADS/DBX_FORCE_TAG director injection)
+  └─► capture-original-gag.mjs <adsIdHex> <tag> <outdir>   (isolated single-gag capture)
+        └─► threads-to-timeline.mjs   (drawing = runstate ∈ {1,2,3} -> {"t","live":[...]})
+              └─► build-vocab.mjs     (union per-tick live-sets across N runs -> vocabulary)
+                    └─► gen-refs.mjs  (drives the above end-to-end; writes committed
+                                        test/faithfulness-refs/<NAME>_<tag>.json + index.json)
+
+OUR ENGINE:
+  our-thread-timeline.mjs   (drives driveGag(), same "drawing" predicate as composeTtmFrame:
+                              !isTtmFinished(scene) || scene.agedOut === false)
+        └─► test/faithfulness-diff.mjs  (`npm run test:faithful`; vitest, NO emulator --
+                                          compares our fingerprint against the committed ref)
+```
+
+The patched dosbox-x checkout lives out-of-repo in `scratchpad/dosbox-x-src` (see "Binary
+trace" above for the base `DBX_TRACE` patch and `DBX_THREADS` gate). Only the derived
+JSON fingerprints are committed — no raw captures, PPMs, or `threads.log` files.
+
+### The runstate/"drawing" definition
+`threads-to-timeline.mjs` reads the emulator's `DBX_THREADS` log — one line per director
+tick (`FUN_1048_1acb`), listing every live thread node as `<slot>:<tag>:<runstate>`
+(`runstate` at node offset `+0x2f`). A thread counts as **drawing** when
+`runstate ∈ {1 (run-once), 2 (count), 3 (timed)}` — `4` (finished) and `5` (unknown/idle)
+are excluded. This mirrors the "drawing" predicate our engine's `our-thread-timeline.mjs`
+and `composeTtmFrame` use (`!isTtmFinished(scene) || scene.agedOut === false`), so the two
+sides' per-tick "who is on screen" sets are directly comparable as `"slot:tag"` strings.
+
+### The CI gate (`npm run test:faithful`, `test/faithfulness-diff.mjs`)
+Drives OUR engine (via the sanctioned `driveGag()` helper — the real completion path, same
+as `building8-double-johnny.test.mjs` — never the free-run `jumpToScene`) for each committed
+ref, computes `{vocab, maxConc}`, and compares against the ref:
+
+- **HARD FAIL** — `ours.maxConc >= ref.maxConc + 2`. An "extra concurrent body" regression
+  (the double-Johnny bug class). A +1 slack is allowed: a single extra concurrent actor is
+  within the noise of a 3-run union vs. our one deterministic run; two or more is the
+  reliable signal.
+- **HARD FAIL** — our engine produced zero live/drawing ticks for the gag (it silently did
+  nothing).
+- **REVIEW ONLY** (`console.warn`, not a failing assertion) — vocab set-differences:
+  `missing` = `ref.vocab \ ours.vocab` (behaviors the original shows we don't hit with this
+  seed) and `extra` = `ours.vocab \ ref.vocab` (behaviors we show the reference union didn't
+  cover).
+
+**Why vocab is warn-only and maxConc is the reliable gate:** the ref vocabulary is a
+*coverage lower-bound* (a union over only 3 original-binary runs), not an exhaustive listing
+of every RANDOM branch the original can take — and our single deterministic run only samples
+one RNG path too. So a vocab set-difference is expected noise, not proof of a bug; it's a
+triage signal for a human, not something an assertion can be trusted to gate on without
+flooding CI with false failures. `maxConc` is different: the *peak* concurrent-actor count is
+far less sensitive to which RNG branch either side happens to sample, so a peak that blows
+past the reference by 2+ is a real structural regression (extra actors drawing that never
+coexist in the original) rather than branch-coverage noise.
+
+### The reference model
+Each `test/faithfulness-refs/<NAME>_<tag>.json` has the shape:
+```json
+{ "name": "ACTIVITY", "adsId": "0x65", "tag": 10, "slot": "4",
+  "runs": 3, "vocab": ["4:24", "4:82", ...], "maxConc": 3, "states": 16, "drainTick": null }
+```
+`vocab` and `maxConc` are the UNION over `runs` original-binary captures — a coverage
+lower-bound, **not a byte-exact reference**. This is unavoidable today: the original's boot
+phase is `GetTickCount`-paced, so under `cycles=max` it consumes a non-deterministic number
+of pre-window RNG draws before the game even starts (see "RNG" above) — every capture of the
+"same" gag enters at a different LFG stream offset, so no single run's timeline is
+authoritative. `gen-refs.mjs` resolves the gag's TTM slot from the unfiltered captures (the
+slot with the most live-entries, summed across runs), re-slices each run's `threads.log` to
+that slot, and unions the sliced timelines with `build-vocab.mjs`. `index.json` lists every
+committed ref (`{name, tag, file}`); `test/faithfulness-diff.mjs` asserts it stays in sync
+with the files on disk.
+
+**Deferred exact-match path:** the LFG generator itself is already ported and validated
+bit-for-bit against the binary (`rng-port.md`) — what's missing is wiring our engine to
+consume it (instead of `Math.random`) with the same baked seed, which would remove the
+boot-phase alignment variance and let a future oracle diff against a single deterministic
+original run instead of an N-run union. Tracked as future work, not required for today's
+maxConc-gated CI check.
+
+### Regenerating refs / adding a new gag
+1. Build the patched dosbox-x in the scratchpad (see "Binary trace" above), with the
+   `DBX_FORCE_*` director-injection hook applied (see "Deterministic single-gag ORIGINAL
+   capture" above).
+2. Find the gag's ADS id (see `ADS_NAME_TO_HEX` in `gen-refs.mjs`: ACTIVITY=0x65,
+   BUILDING=0x66, FISHING=0x68, JOHNNY=0x69, MARY=0x6a, STAND=0x6c, SUZY=0x6d, VISITOR=0x6e,
+   WALKSTUF=0x6f) and its tag.
+3. Run:
+   ```
+   node tools/faithfulness-oracle/gen-refs.mjs --gags NAME:tag,NAME2:tag2,... \
+     --out test/faithfulness-refs [--runs 3] [--conc 4] [--secs 90]
+   ```
+   This captures each gag `--runs` times (concurrency-limited across the whole batch by
+   `--conc`), resolves its slot, unions the vocabulary, and writes/updates
+   `test/faithfulness-refs/<NAME>_<tag>.json` + `index.json` (merging with existing entries,
+   never dropping refs not in this run's `--gags`).
+4. `npm run test:faithful` picks up every ref listed in `index.json` automatically — no test
+   file changes needed for a new gag.
+
+## Retired: pixel-diff approach
+
+An earlier iteration of this oracle extended sequencing verification to *rendering*
+(transparency / z-order / scene-clearing) by capturing the original binary's VGA framebuffer
+(`dosbox-x-framebuffer.patch`, still present) as scene-labeled PPMs and diffing them
+pixel-for-pixel against our engine's render of the same scene (`render-ours.mjs` +
+`diff-frames.mjs` + `ppm-bbox.mjs` for alignment, plus supporting `soft-canvas.mjs`,
+`mask-diff.mjs`, `ppm-lib.mjs`, `actor-timeline.mjs`, `compare-gag.mjs`, `rank.mjs`). It
+proved useful once — the SUZY scene-1 "city dweller" divergence (a 30% pixel-diff no
+sequencing oracle could see) — but was **retired** in favor of the thread/behavioral flow
+above, because it wasn't reproducible enough to run unattended or gate CI on:
+
+- Alignment was **per-scene, by content** (matching bounding boxes), not per-tick, because
+  of the same RNG boot-phase variance described above — every capture needed a human to pick
+  matching frames, which doesn't scale to a regression gate.
+- It needed a second dosbox-x patch (`dosbox-x-framebuffer.patch`) and a working headless
+  raw-VGA-capture pipeline that was fragile and slow (whole-frame PPM dumps vs. one line of
+  text per tick).
+- Its verdict was a single point-in-time pixel diff on one hand-picked frame pair, not an
+  RNG-tolerant union — noisier and less amenable to "run N times, take the union" than the
+  live-actor-set model the thread timeline uses.
+
+The thread-timeline approach captures the same class of divergence (an extra concurrent
+actor drawing — the exact class the SUZY finding and the later "double Johnny" bug both are)
+as a per-tick text log instead of pixels, which is cheap to capture, cheap to diff, and
+naturally supports the N-run union model refs rely on. `dosbox-x-framebuffer.patch` is kept
+for one-off manual pixel arbitration (tier 5, "what does the original actually do here?")
+but is no longer part of the reproducible/CI flow.

@@ -1,8 +1,7 @@
 # tools/faithfulness-oracle
 
 Durable record of how we verify this engine against the original 1993 binary, and the
-small tooling to reproduce it. Full write-up: **[METHODOLOGY.md](./METHODOLOGY.md)**
-(sequencing) and **[RENDERING-ORACLE.md](./RENDERING-ORACLE.md)** (framebuffer / compositing).
+small tooling to reproduce it. Full write-up: **[METHODOLOGY.md](./METHODOLOGY.md)**.
 
 The runnable JS oracle lives in the engine itself (committed):
 - `src/dgds/scripting/oracle/completion-model.mjs` — transliterated completion oracle
@@ -22,10 +21,18 @@ traces are large/ephemeral and NOT committed — rebuild from these):
   with the active ADS scene.
 - `dosbox-x-framebuffer.patch` — patch for `src/hardware/vga_draw.cpp`; dumps the emulated VGA
   framebuffer as scene-labeled PPMs (reuses the built-in raw-screenshot / DAC path, headless).
-  See RENDERING-ORACLE.md.
-- `rendering-oracle/` — the diff toolchain: `capture-original.sh` (original side),
-  `render-ours.mjs` (our side), `diff-frames.mjs` + `ppm-bbox.mjs` (align + diff),
-  `force-scene-patches.py` (force a rare day-locked keyframe, selection-only).
+  Superseded by the thread-timeline approach for the CI gate (see METHODOLOGY.md "retired:
+  pixel-diff approach"); kept as a manual arbitration tool.
+- `capture-original-gag.mjs` — deterministic single-gag ORIGINAL capture (director injection).
+- `gen-refs.mjs` — generate committed, RNG-tolerant reference fingerprints from N captures.
+- `our-thread-timeline.mjs` — per-tick "live actor" timeline extractor for OUR engine.
+- `rendering-oracle/` — supporting tooling: `threads-to-timeline.mjs` (DBX_THREADS log ->
+  shared per-tick JSONL), `build-vocab.mjs` (union a coverage vocabulary from N timelines),
+  `compare-vocab.mjs` (RNG-tolerant vocab/maxConc verdict), `compare-thread-timelines.mjs`
+  (LCS-aligned state-sequence diff), `parallel-capture.mjs` / `run-diff-sweep.mjs` /
+  `sweep-catalogue.mjs` (batch capture + sweep orchestration), `force-gag.py` /
+  `force-scene-patches.py` (selection-only director forcing), `capture-original.sh` /
+  `capture-gag.sh` (original-binary capture drivers).
 - `ne_entry.py` — extract each target function's entry signature (file-unique) from SCRANTIC.SCR.
 - `ne_reloc.py` / `ne_mask.py` — parse the NE relocation table / prove a signature is
   relocation-safe.
