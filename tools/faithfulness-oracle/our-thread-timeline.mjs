@@ -64,8 +64,10 @@ const tag = Number(tagRaw);
 const seed = seedRaw !== undefined ? Number(seedRaw) : 1;
 
 // -- Shared "drawing" predicate -----------------------------------------------
-// Exactly matches composeTtmFrame's skip-check and the building8 test's `drawing`
-// set: a scene draws unless it is finished AND has already aged out.
+// A scene draws unless it is finished-and-aged-out. (composeTtmFrame also skips
+// empty-frameOps scenes, but frameOps is a per-tick transient not reliably set at
+// sample time -- testing it here regressed real gags; the preload-exclusion fix
+// needs a scene-level "ever drew" flag instead. See johnny6-activity11-rootcause.md.)
 const isDrawing = (scene) => !isTtmFinished(scene) || scene.agedOut === false;
 
 const liveKeysFor = (runtime) =>

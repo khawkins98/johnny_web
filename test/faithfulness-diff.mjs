@@ -39,6 +39,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { driveGag, hasData } from '../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { isTtmFinished } from '../src/dgds/scripting/ttm-run-state.mjs';
+import { compareLifespans } from '../tools/faithfulness-oracle/compare-lifespans.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const refsDir = path.join(here, 'faithfulness-refs');
@@ -48,13 +49,26 @@ const index = JSON.parse(readFileSync(path.join(refsDir, 'index.json'), 'utf8'))
 
 const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf8'));
 
-// Exactly the "drawing" predicate our-thread-timeline.mjs and
-// building8-double-johnny.test.mjs use: draw unless finished-and-aged-out.
+// The "drawing" predicate: a scene draws unless it is finished-and-aged-out.
+// NOTE: composeTtmFrame ALSO skips scenes with empty frameOps, which would let us
+// drop asset-preload pseudo-scenes (load-only, no draw opcode) that inflate
+// maxConc/vocab in a few gags (JOHNNY:6, ACTIVITY:11 -- see
+// scratchpad/findings/johnny6-activity11-rootcause.md). But frameOps is a PER-TICK
+// transient populated during composition, so testing it here (at onTick time)
+// falsely excludes real scenes whose frameOps isn't built yet this tick -- it
+// regressed 12 STAND gags to "did not run". The faithful fix needs an "ever drew"
+// scene-level flag (a scene that NEVER populates frameOps across its whole life is
+// the true preload) rather than a per-tick check -- deferred as a follow-up.
 const isDrawing = (scene) => !isTtmFinished(scene) || scene.agedOut === false;
 
-/** Drive one gag on our engine and compute its {vocab, maxConc} fingerprint. */
+/**
+ * Drive one gag on our engine and compute its fingerprint: {vocab, maxConc,
+ * liveTicks, actorTicks}. `actorTicks` maps "slot:tag" -> the number of ticks it
+ * was drawing this run (for the lifespan/duration comparison).
+ */
 const fingerprintOurs = (adsName, tag, seed = 1) => {
     const vocab = new Set();
+    const actorTicks = {};
     let maxConc = 0;
     let liveTicks = 0;
     driveGag({
@@ -65,10 +79,13 @@ const fingerprintOurs = (adsName, tag, seed = 1) => {
             const live = runtime.state.scenes.filter(isDrawing).map((s) => `${s.sceneIdx}:${s.tagId}`);
             if (live.length > 0) liveTicks++;
             maxConc = Math.max(maxConc, live.length);
-            for (const key of live) vocab.add(key);
+            for (const key of live) {
+                vocab.add(key);
+                actorTicks[key] = (actorTicks[key] || 0) + 1;
+            }
         },
     });
-    return { vocab, maxConc, liveTicks };
+    return { vocab, maxConc, liveTicks, actorTicks };
 };
 
 /**
@@ -82,6 +99,7 @@ const fingerprintOurs = (adsName, tag, seed = 1) => {
  */
 const fingerprintOursUnion = (adsName, tag, runs) => {
     const vocab = new Set();
+    const actorTicks = {};
     let maxConc = 0;
     let liveTicks = 0;
     for (let seed = 1; seed <= runs; seed++) {
@@ -89,8 +107,13 @@ const fingerprintOursUnion = (adsName, tag, runs) => {
         for (const key of run.vocab) vocab.add(key);
         maxConc = Math.max(maxConc, run.maxConc);
         liveTicks += run.liveTicks;
+        // Worst-case (max) drawn-tick count per actor across seeds, consistent
+        // with how maxConc takes the worst-case peak.
+        for (const [key, ticks] of Object.entries(run.actorTicks)) {
+            actorTicks[key] = Math.max(actorTicks[key] || 0, ticks);
+        }
     }
-    return { vocab, maxConc, liveTicks };
+    return { vocab, maxConc, liveTicks, actorTicks };
 };
 
 // Per-gag triage summary, collected across the describe block and printed once
@@ -152,6 +175,26 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                     `[faithfulness-diff] ${gagId} [${category}] maxConc ours=${ours.maxConc} ref=${ref.maxConc} ` +
                         `(runs=${runs}) vocab missing=${missing.length} extra=${extra.length}`,
                 );
+
+                // Duration/lifespan signal (complements maxConc, which only sees peak
+                // concurrency): does each actor we draw stay live for a tick-count within
+                // the binary's observed [min,max] range? Refs regenerated at N=8 carry a
+                // `lifespans` field; older N=3 refs don't -- compareLifespans returns empty
+                // for those (graceful). WARN-ONLY for now: this surfaces the new signal so
+                // we can validate it against the enriched refs before promoting egregious
+                // (>=3x) divergences to a hard gate (follow-up).
+                if (ref.lifespans) {
+                    const life = compareLifespans(ours.actorTicks, ref.lifespans);
+                    if (life.hard.length || life.warnings.length) {
+                        const fmt = (e) =>
+                            `${e.actor}(ours=${e.ourTicks} ref=[${e.refMin},${e.refMax}])`;
+                        console.warn(
+                            `[faithfulness-diff] ${gagId} lifespan diff -- ` +
+                                `hard(${life.hard.length}): [${life.hard.map(fmt).join(', ')}]; ` +
+                                `warn(${life.warnings.length}): [${life.warnings.map(fmt).join(', ')}]`,
+                        );
+                    }
+                }
 
                 // Hard gate: extra-body regression. A single extra concurrent actor is
                 // within the noise of a 3-run union vs. our N-seed union; two or more
