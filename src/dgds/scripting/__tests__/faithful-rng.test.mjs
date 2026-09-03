@@ -133,9 +133,10 @@ describe('faithful RNG wiring', () => {
         for (let n = 0; n < 16; n++) {
             SET_TIMER(state, low, high);
             const expected = low + Math.floor((predictor.nextWord() / 0x10000) * range);
-            expect(state.timer).toBe(expected);
-            expect(state.timer).toBeGreaterThanOrEqual(low);
-            expect(state.timer).toBeLessThanOrEqual(high);
+            // 0x2020 arms the frame delay (state.delay), not the inert state.timer.
+            expect(state.delay).toBe(expected);
+            expect(state.delay).toBeGreaterThanOrEqual(low);
+            expect(state.delay).toBeLessThanOrEqual(high);
         }
     });
 });

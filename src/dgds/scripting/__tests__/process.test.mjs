@@ -477,15 +477,16 @@ describe('SET_TIMER handler', () => {
     const entry = TTMDispatch.find((e) => e.opcode === 0x2020);
 
     it('selects an inclusive deterministic tick count from the supplied range', () => {
-        const state = { timer: 0, random: () => 0.5 };
+        // 0x2020 arms the frame delay (state.delay), like SET_DELAY but random.
+        const state = { delay: 0, random: () => 0.5 };
         entry.callback(state, 3, 5);
-        expect(state.timer).toBe(4);
+        expect(state.delay).toBe(4);
     });
 
     it('accepts reversed bounds', () => {
-        const state = { timer: 0, random: () => 0 };
+        const state = { delay: 0, random: () => 0 };
         entry.callback(state, 5, 3);
-        expect(state.timer).toBe(3);
+        expect(state.delay).toBe(3);
     });
 });
 

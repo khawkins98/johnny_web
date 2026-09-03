@@ -378,11 +378,9 @@ export class DgdsRuntime {
                     return;
                 }
             }
-            // SET_TIMER countdown lives on the fine tick like the other countdowns,
-            // NOT behind the 50 ms present gate below (all countdowns run on the 16 ms
-            // heartbeat in the original). It is inert today (trace-only), so this just
-            // keeps it correct if SET_TIMER ever gates execution.
-            if (!isTtmFinished(scene) && scene.state.timer > 0) scene.state.timer--;
+            // (SET_TIMER no longer uses state.timer -- 0x2020 now arms state.delay
+            // directly, like SET_DELAY, so the old trace-only timer countdown here
+            // is removed as dead.)
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
             if (scene.state.waitTicks > 0) {
