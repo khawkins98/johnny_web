@@ -102,6 +102,7 @@ Headless tools can read `window.__DGDS__.getTrace()`, download with `saveTrace()
 - [Architecture](docs/architecture.md) — current execution model, repository map, host boundaries, and known compatibility gaps
 - [Johnny host behavior](docs/johnny-host-behavior.md) — historical scene sequencing, holidays, and current compatibility limits
 - [The story, over time](docs/story-over-time.md) — the calendar-driven 11-day story arc, tide-by-clock, and its Settings/dev-panel controls
+- [Oracle coverage report](docs/oracle-coverage.md) — generated per-gag alignment table for the differential faithfulness oracle
 - [Resource index](docs/resindex.md) — file formats and reverse-engineering notes
 - [Contributing](CONTRIBUTING.md) — verification and change guidelines
 
