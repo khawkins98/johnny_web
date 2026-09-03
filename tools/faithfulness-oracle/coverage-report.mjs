@@ -8,10 +8,11 @@
 // per gag: maxConc alignment, vocab overlap, and (where lifespan data exists)
 // duration in-band coverage.
 //
-// NO EMULATOR: mirrors test/faithfulness-diff.mjs exactly (same isDrawing
-// predicate, same driveGag helper, same seed-union approach) so the numbers in
-// this report match the CI gate. Data-only: gated on hasData; prints a clear
-// message and exits 0 if the gitignored public/data game assets are absent.
+// NO EMULATOR: mirrors test/faithfulness-diff.mjs exactly (shares the same
+// isDrawing predicate and seed-union fingerprint logic via ./fingerprint.mjs) so
+// the numbers in this report match the CI gate. Data-only: gated on hasData;
+// prints a clear message and exits 0 if the gitignored public/data game assets
+// are absent.
 //
 // Usage: node tools/faithfulness-oracle/coverage-report.mjs
 
@@ -19,9 +20,9 @@ import { execSync } from 'node:child_process';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { driveGag, hasData } from '../../src/dgds/scripting/__tests__/support/drive-gag.mjs';
-import { isTtmFinished } from '../../src/dgds/scripting/ttm-run-state.mjs';
+import { hasData } from '../../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { compareLifespans } from './compare-lifespans.mjs';
+import { fingerprintOursUnion } from './fingerprint.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -40,50 +41,9 @@ if (!hasData) {
 const index = JSON.parse(readFileSync(path.join(refsDir, 'index.json'), 'utf8'));
 const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf8'));
 
-// Same "drawing" predicate as test/faithfulness-diff.mjs -- see that file for
-// the full rationale/caveats (frameOps preload false-exclusion, etc.).
-const isDrawing = (scene) => !isTtmFinished(scene) || scene.agedOut === false;
-
-/** Drive one gag on our engine and compute its fingerprint (identical to faithfulness-diff.mjs). */
-const fingerprintOurs = (adsName, tag, seed = 1) => {
-    const vocab = new Set();
-    const actorTicks = {};
-    let maxConc = 0;
-    let liveTicks = 0;
-    driveGag({
-        adsName: `${adsName}.ADS`,
-        tag,
-        seed,
-        onTick: (runtime) => {
-            const live = runtime.state.scenes.filter(isDrawing).map((s) => `${s.sceneIdx}:${s.tagId}`);
-            if (live.length > 0) liveTicks++;
-            maxConc = Math.max(maxConc, live.length);
-            for (const key of live) {
-                vocab.add(key);
-                actorTicks[key] = (actorTicks[key] || 0) + 1;
-            }
-        },
-    });
-    return { vocab, maxConc, liveTicks, actorTicks };
-};
-
-/** Union our fingerprint over seeds 1..runs (identical approach to faithfulness-diff.mjs). */
-const fingerprintOursUnion = (adsName, tag, runs) => {
-    const vocab = new Set();
-    const actorTicks = {};
-    let maxConc = 0;
-    let liveTicks = 0;
-    for (let seed = 1; seed <= runs; seed++) {
-        const run = fingerprintOurs(adsName, tag, seed);
-        for (const key of run.vocab) vocab.add(key);
-        maxConc = Math.max(maxConc, run.maxConc);
-        liveTicks += run.liveTicks;
-        for (const [key, ticks] of Object.entries(run.actorTicks)) {
-            actorTicks[key] = Math.max(actorTicks[key] || 0, ticks);
-        }
-    }
-    return { vocab, maxConc, liveTicks, actorTicks };
-};
+// `isDrawing`/`fingerprintOursUnion` now live in ./fingerprint.mjs, shared with
+// test/faithfulness-diff.mjs (the CI gate) and our-thread-timeline.mjs -- see that
+// module for the full rationale/caveats (frameOps preload false-exclusion, etc.).
 
 const pct = (n, d) => (d === 0 ? 100 : Math.round((n / d) * 100));
 

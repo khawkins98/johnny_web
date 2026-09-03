@@ -39,8 +39,8 @@ const repoRoot = path.resolve(here, '../..');
 const { driveGag, hasData, loadAds, seededRandom } = await import(
     path.join(repoRoot, 'src/dgds/scripting/__tests__/support/drive-gag.mjs')
 );
-const { isTtmFinished } = await import(path.join(repoRoot, 'src/dgds/scripting/ttm-run-state.mjs'));
 const { DGDS_TICK_MS } = await import(path.join(repoRoot, 'src/dgds/scripting/timing.mjs'));
+const { liveKeysFor } = await import(path.join(here, 'fingerprint.mjs'));
 
 // -- CLI parsing --------------------------------------------------------------
 
@@ -64,17 +64,13 @@ const tag = Number(tagRaw);
 const seed = seedRaw !== undefined ? Number(seedRaw) : 1;
 
 // -- Shared "drawing" predicate -----------------------------------------------
-// A scene draws unless it is finished-and-aged-out. (composeTtmFrame also skips
-// empty-frameOps scenes, but frameOps is a per-tick transient not reliably set at
-// sample time -- testing it here regressed real gags; the preload-exclusion fix
-// needs a scene-level "ever drew" flag instead. See johnny6-activity11-rootcause.md.)
-const isDrawing = (scene) => !isTtmFinished(scene) || scene.agedOut === false;
-
-const liveKeysFor = (runtime) =>
-    [...runtime.state.scenes]
-        .filter(isDrawing)
-        .map((scene) => `${scene.sceneIdx}:${scene.tagId}`)
-        .sort();
+// `liveKeysFor` (built on the isDrawing predicate: a scene draws unless it is
+// finished-and-aged-out) lives in ./fingerprint.mjs, shared with
+// test/faithfulness-diff.mjs and coverage-report.mjs.
+// (composeTtmFrame also skips empty-frameOps scenes, but frameOps is a per-tick
+// transient not reliably set at sample time -- testing it here regressed real
+// gags; the preload-exclusion fix needs a scene-level "ever drew" flag instead.
+// See johnny6-activity11-rootcause.md.)
 
 // -- Output sink ---------------------------------------------------------------
 

@@ -37,9 +37,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { driveGag, hasData } from '../src/dgds/scripting/__tests__/support/drive-gag.mjs';
-import { isTtmFinished } from '../src/dgds/scripting/ttm-run-state.mjs';
+import { hasData } from '../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { compareLifespans } from '../tools/faithfulness-oracle/compare-lifespans.mjs';
+import { fingerprintOursUnion } from '../tools/faithfulness-oracle/fingerprint.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const refsDir = path.join(here, 'faithfulness-refs');
@@ -49,72 +49,19 @@ const index = JSON.parse(readFileSync(path.join(refsDir, 'index.json'), 'utf8'))
 
 const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf8'));
 
-// The "drawing" predicate: a scene draws unless it is finished-and-aged-out.
-// NOTE: composeTtmFrame ALSO skips scenes with empty frameOps, which would let us
-// drop asset-preload pseudo-scenes (load-only, no draw opcode) that inflate
-// maxConc/vocab in a few gags (JOHNNY:6, ACTIVITY:11 -- see
+// The "drawing" predicate and the per-gag fingerprint accumulation
+// (isDrawing/fingerprintOursUnion) live in tools/faithfulness-oracle/fingerprint.mjs,
+// shared with our-thread-timeline.mjs and coverage-report.mjs. NOTE: composeTtmFrame
+// ALSO skips scenes with empty frameOps, which would let us drop asset-preload
+// pseudo-scenes (load-only, no draw opcode) that inflate maxConc/vocab in a few
+// gags (JOHNNY:6, ACTIVITY:11 -- see
 // scratchpad/findings/johnny6-activity11-rootcause.md). But frameOps is a PER-TICK
 // transient populated during composition, so testing it here (at onTick time)
 // falsely excludes real scenes whose frameOps isn't built yet this tick -- it
 // regressed 12 STAND gags to "did not run". The faithful fix needs an "ever drew"
 // scene-level flag (a scene that NEVER populates frameOps across its whole life is
-// the true preload) rather than a per-tick check -- deferred as a follow-up.
-const isDrawing = (scene) => !isTtmFinished(scene) || scene.agedOut === false;
-
-/**
- * Drive one gag on our engine and compute its fingerprint: {vocab, maxConc,
- * liveTicks, actorTicks}. `actorTicks` maps "slot:tag" -> the number of ticks it
- * was drawing this run (for the lifespan/duration comparison).
- */
-const fingerprintOurs = (adsName, tag, seed = 1) => {
-    const vocab = new Set();
-    const actorTicks = {};
-    let maxConc = 0;
-    let liveTicks = 0;
-    driveGag({
-        adsName: `${adsName}.ADS`,
-        tag,
-        seed,
-        onTick: (runtime) => {
-            const live = runtime.state.scenes.filter(isDrawing).map((s) => `${s.sceneIdx}:${s.tagId}`);
-            if (live.length > 0) liveTicks++;
-            maxConc = Math.max(maxConc, live.length);
-            for (const key of live) {
-                vocab.add(key);
-                actorTicks[key] = (actorTicks[key] || 0) + 1;
-            }
-        },
-    });
-    return { vocab, maxConc, liveTicks, actorTicks };
-};
-
-/**
- * Union OUR engine's fingerprint over seeds 1..runs, SYMMETRIC with how the refs
- * themselves were built (an RNG-tolerant union over `ref.runs` original-binary
- * runs). Each seed is a deterministic drive (fixed seeded RNG); unioning them
- * gives a robust worst-case measurement instead of relying on whichever single
- * seed happens to be default. `vocab` unions; `maxConc` takes the MAX across
- * seeds (worst-case concurrency peak, the thing the hard gate cares about);
- * `liveTicks` sums for visibility only (not gated on).
- */
-const fingerprintOursUnion = (adsName, tag, runs) => {
-    const vocab = new Set();
-    const actorTicks = {};
-    let maxConc = 0;
-    let liveTicks = 0;
-    for (let seed = 1; seed <= runs; seed++) {
-        const run = fingerprintOurs(adsName, tag, seed);
-        for (const key of run.vocab) vocab.add(key);
-        maxConc = Math.max(maxConc, run.maxConc);
-        liveTicks += run.liveTicks;
-        // Worst-case (max) drawn-tick count per actor across seeds, consistent
-        // with how maxConc takes the worst-case peak.
-        for (const [key, ticks] of Object.entries(run.actorTicks)) {
-            actorTicks[key] = Math.max(actorTicks[key] || 0, ticks);
-        }
-    }
-    return { vocab, maxConc, liveTicks, actorTicks };
-};
+// the true preload) rather than a per-tick check -- deferred as a follow-up. DO NOT
+// add the frameOps check to isDrawing; that was tried and reverted.
 
 // Per-gag triage summary, collected across the describe block and printed once
 // at the end so a human sees "what we catch" at a glance (categories + the
