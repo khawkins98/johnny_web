@@ -135,11 +135,6 @@
     "file": "FISHING_8.json"
   },
   {
-    "name": "VISITOR",
-    "tag": 5,
-    "file": "VISITOR_5.json"
-  },
-  {
     "name": "JOHNNY",
     "tag": 1,
     "file": "JOHNNY_1.json"
@@ -205,6 +200,76 @@
     "file": "MISCGAG_2.json"
   },
   {
+    "name": "STAND",
+    "tag": 1,
+    "file": "STAND_1.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 2,
+    "file": "STAND_2.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 3,
+    "file": "STAND_3.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 4,
+    "file": "STAND_4.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 5,
+    "file": "STAND_5.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 6,
+    "file": "STAND_6.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 7,
+    "file": "STAND_7.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 8,
+    "file": "STAND_8.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 9,
+    "file": "STAND_9.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 10,
+    "file": "STAND_10.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 11,
+    "file": "STAND_11.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 12,
+    "file": "STAND_12.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 15,
+    "file": "STAND_15.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 16,
+    "file": "STAND_16.json"
+  },
+  {
     "name": "SUZY",
     "tag": 1,
     "file": "SUZY_1.json"
@@ -223,6 +288,11 @@
     "name": "VISITOR",
     "tag": 4,
     "file": "VISITOR_4.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 5,
+    "file": "VISITOR_5.json"
   },
   {
     "name": "VISITOR",

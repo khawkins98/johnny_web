@@ -1,0 +1,17 @@
+{
+  "name": "STAND",
+  "adsId": "0x6c",
+  "tag": 7,
+  "slot": "1",
+  "runs": 3,
+  "vocab": [
+    "1:31",
+    "1:48",
+    "1:49",
+    "1:50",
+    "1:60"
+  ],
+  "maxConc": 1,
+  "states": 6,
+  "drainTick": null
+}
