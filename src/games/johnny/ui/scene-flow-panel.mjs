@@ -23,9 +23,13 @@ import {
 } from '../../../dgds/scripting/scene-flow.mjs';
 
 const REPO_URL = 'https://github.com/khawkins98/johnny_web';
-const DOCS_BASE = `${REPO_URL}/blob/main/docs/scene-flows`;
-const EXTRACTOR_URL = `${REPO_URL}/blob/main/src/dgds/scripting/scene-flow.mjs`;
-const METHODOLOGY_URL = `${REPO_URL}/blob/main/tools/faithfulness-oracle/METHODOLOGY.md`;
+// The git ref the "see the source / docs" links point at. `main` is correct once
+// this branch is merged; kept as a single named constant so it's a one-line
+// change if we ever need to pin these deep links to a tag/commit instead.
+const DOCS_REF = 'main';
+const DOCS_BASE = `${REPO_URL}/blob/${DOCS_REF}/docs/scene-flows`;
+const EXTRACTOR_URL = `${REPO_URL}/blob/${DOCS_REF}/src/dgds/scripting/scene-flow.mjs`;
+const METHODOLOGY_URL = `${REPO_URL}/blob/${DOCS_REF}/tools/faithfulness-oracle/METHODOLOGY.md`;
 
 export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools = null } = {}) {
     const style = document.createElement('style');
@@ -263,9 +267,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     overlay.addEventListener('click', (event) => {
         if (event.target === overlay) close();
     });
-    window.addEventListener('keydown', (e) => {
+    // Named so destroy() can remove it (window listeners outlive the modal DOM).
+    const onKeydown = (e) => {
         if (e.key === 'Escape' && overlay.style.display === 'flex') close();
-    });
+    };
+    window.addEventListener('keydown', onKeydown);
 
     // Floating reveal button, matching the settings cog's mousemove reveal.
     const cog = document.createElement('button');
@@ -443,10 +449,28 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     }
 
     // Live update: re-render whenever the running gag changes, but only while
-    // the panel is actually open (no point building DOM nobody can see).
-    sequenceTools?.subscribeStatus?.(() => {
+    // the panel is actually open (no point building DOM nobody can see). Capture
+    // the unsubscribe handle (if the controller returns one) so destroy() can
+    // detach it.
+    const unsubscribeStatus = sequenceTools?.subscribeStatus?.(() => {
         if (isOpen) renderCurrent();
     });
 
-    return { open, close };
+    // Tear down every global hook this panel installed: the window listeners
+    // (keydown/mousemove), the status subscription, the pending cog-hide timer,
+    // and the DOM nodes appended to <head>/<body>. It's a singleton today, so
+    // this is hygiene — but it keeps the panel safe to re-create (e.g. in tests
+    // or a future multi-instance host) without leaking listeners.
+    const destroy = () => {
+        window.removeEventListener('keydown', onKeydown);
+        window.removeEventListener('mousemove', showCog);
+        if (cogTimer !== null) window.clearTimeout(cogTimer);
+        cogTimer = null;
+        if (typeof unsubscribeStatus === 'function') unsubscribeStatus();
+        style.remove();
+        overlay.remove();
+        cog.remove();
+    };
+
+    return { open, close, destroy };
 }
