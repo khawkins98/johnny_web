@@ -8,9 +8,10 @@ import { driveGag, hasData } from './support/drive-gag.mjs';
 //
 // The loop sustains via the OR-chain handoff dispatch: `IF_PLAYED 10 OR 21 OR 22 OR
 // 23 OR 38 -> RANDOM{...,15}` and `IF_PLAYED 34 OR 35 OR 30 OR 36 OR 37 -> ADD 39`.
-// indexAdsChunks must map EVERY OR-clause to the shared body so a finish on ANY
-// clause re-fires the RANDOM / adds 39 -- not just the last-in-file clause. Before
-// that fix only ~4% of seeds reached 39 (Johnny stuck at the water); after, ~100%.
+// The runtime's OR-chain handoff must map EVERY OR-clause to the shared body so a
+// finish on ANY clause re-fires the RANDOM / adds 39 -- not just the last-in-file
+// clause. Before that fix only ~4% of seeds reached 39 (Johnny stuck at the water);
+// after, ~100%.
 //
 // Driven via `driveGag` (the real singleAdsScene browser path), NOT jumpToScene's
 // divergent free-run. SCRANTIC data is proprietary + gitignored (absent in CI).
