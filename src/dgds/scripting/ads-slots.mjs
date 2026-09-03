@@ -82,13 +82,39 @@ const segmentHasWork = (script, start, end) => {
     return false;
 };
 
+// ENTRY guards: the opcodes the binary (and jc_reborn's `adsLoad`) bookmarks as
+// a slot boundary -- 0x1350 IF_PLAYED, and a LEADING 0x1360 IF_NOT_RUNNING (one
+// that precedes the tag's first 0x1350/0x1370). A segment whose leading guard is
+// a non-first 0x1330 IF_NOT_PLAYED or 0x1370 IF_RUNNING is NOT bookmarked -- it
+// is a FALL-THROUGH continuation of the current slot's branch ladder.
+const IF_PLAYED_OP = 0x1350;
+const IF_NOT_RUNNING_OP = 0x1360;
+const IF_RUNNING_OP = 0x1370;
+
+// The first guard opcode a segment leads with, or null if it carries none.
+const leadingGuard = (script, start, end) => {
+    for (let i = start; i <= end; i++) {
+        if (GUARD_OPCODES.has(script[i].opcode)) return script[i].opcode;
+    }
+    return null;
+};
+
 /**
- * Split a tag's already-expanded ADS script into chunks at each END_BRANCH
- * (0x1510) boundary -- the binary's `FUN_1048_04fc` load-time split. Each chunk
- * spans from the opcode after the previous boundary through its own terminating
- * END_BRANCH (inclusive). Degenerate segments that contain only terminators
- * (e.g. a lone trailing END, or the second of a doubled END_BRANCH left by a
- * nested branch) are dropped -- they carry no work.
+ * Split a tag's already-expanded ADS script into RESUMABLE slots. The binary does
+ * NOT create one independent thread per END_BRANCH: `FUN_1048_04fc` / jc_reborn's
+ * `adsLoad` bookmark slot ENTRY POINTS only, and only at an IF_PLAYED (0x1350), a
+ * leading IF_NOT_RUNNING (0x1360), or the tag's opening segment. A segment led by
+ * a non-first IF_NOT_PLAYED (0x1330) or IF_RUNNING (0x1370) is a FALL-THROUGH arm
+ * of the preceding slot's branch ladder, so its opcode range is MERGED into that
+ * slot (its `chunkEnd` extends to cover the arm) rather than becoming a new,
+ * independently-polled slot. Without the merge a mid-tag IF_NOT_PLAYED arm whose
+ * guard is trivially true at tick 1 (FISHING tag 3's octopus "else" arm) fires in
+ * parallel with the opening pass, over-drawing the scene (maxConc 4 vs the
+ * reference's 2). See scratchpad/findings/ads-branch-model.md.
+ *
+ * Degenerate segments that contain only terminators (a lone trailing END, or the
+ * second of a doubled END_BRANCH left by a nested branch) are dropped -- they
+ * carry no work.
  *
  * @param {{opcode:number, params?:number[]}[]} expandedScript
  * @returns {{ script: object[], slots: {index:number, chunkStart:number, chunkEnd:number, ip:number, flag:string}[] }}
@@ -96,16 +122,32 @@ const segmentHasWork = (script, start, end) => {
 export const buildAdsSlots = (expandedScript) => {
     const slots = [];
     let start = 0;
+    // jc_reborn `bookmarkingIfNotRunnings`: a 0x1360 is an entry only until the
+    // tag's first 0x1350/0x1370 is seen.
+    let bookmarking = true;
+    let sawFirst = false;
     for (let i = 0; i < expandedScript.length; i++) {
         if (expandedScript[i].opcode !== END_BRANCH) continue;
         if (segmentHasWork(expandedScript, start, i)) {
-            slots.push({
-                index: slots.length,
-                chunkStart: start,
-                chunkEnd: i,
-                ip: start,
-                flag: 'fresh',
-            });
+            const guard = leadingGuard(expandedScript, start, i);
+            const isEntry =
+                !sawFirst || // the opening pass is always a slot start
+                guard === IF_PLAYED_OP ||
+                (guard === IF_NOT_RUNNING_OP && bookmarking);
+            if (isEntry || slots.length === 0) {
+                slots.push({
+                    index: slots.length,
+                    chunkStart: start,
+                    chunkEnd: i,
+                    ip: start,
+                    flag: 'fresh',
+                });
+            } else {
+                // Fall-through arm: extend the current slot to cover this segment.
+                slots[slots.length - 1].chunkEnd = i;
+            }
+            sawFirst = true;
+            if (guard === IF_PLAYED_OP || guard === IF_RUNNING_OP) bookmarking = false;
         }
         start = i + 1;
     }
@@ -143,6 +185,14 @@ const stepChunk = (state, slot, script) => {
     // reads state.activeAdsScript; bind it to the script this slot indexes.
     state.activeAdsScript = script;
 
+    // Mirrors jc_reborn's `inSkipBlock`: a fall-through guard (IF_RUNNING /
+    // IF_NOT_RUNNING / IF_NOT_PLAYED) whose guard FAILS skips its body; at that
+    // branch's END_BRANCH the walk FALLS THROUGH to the next arm of a merged slot
+    // instead of ending the pass. A branch actually TAKEN ends the pass. Reset per
+    // pass -- parks only occur at the entry guard (chunkStart), so a fresh false at
+    // the top of each pass is correct.
+    let skip = false;
+
     for (let i = slot.ip; i <= chunkEnd; i++) {
         const command = script[i];
         const entry = ADSDispatch.find((e) => e.opcode === command.opcode);
@@ -157,6 +207,17 @@ const stepChunk = (state, slot, script) => {
             // chunk so a jump can never escape into a sibling chunk.
             const target = Math.min(state.jumpTo, chunkEnd + 1);
             state.jumpTo = undefined;
+            if (command.opcode === IF_PLAYED_OP) {
+                // A FAILED ENTRY guard (IF_PLAYED false) must END the pass and
+                // re-arm -- NOT jump past its END_IF and walk into a merged slot's
+                // fall-through tail (which would fire the ladder's "else" arm before
+                // its entry scene has played -- the FISHING:3 over-draw). The entry
+                // re-polls from the top next tick.
+                slot.ip = chunkStart;
+                return;
+            }
+            // A failed fall-through guard marks a skip: fall through at its END_BRANCH.
+            skip = true;
             i = target - 1; // the loop's i++ lands on `target`
             continue;
         }
@@ -175,6 +236,20 @@ const stepChunk = (state, slot, script) => {
             // (e.g. the terminal chunk's STOPs) flush at end of tick.
             slot.ip = chunkStart;
             return;
+        }
+
+        // An INTRA-slot END_BRANCH (a merged slot's inner branch boundary): its
+        // END_SCENE_BRANCH callback just committed this arm's staged changes. If the
+        // arm was SKIPPED (a failed fall-through guard) continue to the next arm;
+        // if it was TAKEN, end the pass and re-arm. The slot's FINAL END_BRANCH
+        // (i === chunkEnd) always ends the pass via the loop exit below.
+        if (command.opcode === END_BRANCH && i < chunkEnd) {
+            if (skip) {
+                skip = false;
+            } else {
+                slot.ip = chunkStart;
+                return;
+            }
         }
     }
 

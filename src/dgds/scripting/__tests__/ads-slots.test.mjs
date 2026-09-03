@@ -78,6 +78,47 @@ describe('buildAdsSlots', () => {
         expect(slots[1]).toMatchObject({ chunkStart: 4, chunkEnd: 7, ip: 4, flag: 'fresh' });
     });
 
+    it('merges a fall-through ladder (IF_RUNNING / IF_NOT_PLAYED arms) into the entry slot', () => {
+        // Mirrors FISHING tag 3's octopus ladder shape:
+        //   chunk0 IF_NOT_PLAYED a  -> ADD         (opening pass, entry, own slot)
+        //   chunk1 IF_PLAYED     b  -> IF_RUNNING  (ladder ENTRY, slot start)
+        //   chunk2 IF_RUNNING    c  -> ...         (fall-through arm, MERGE)
+        //   chunk3 IF_NOT_PLAYED c  -> ...         (else arm, MERGE)
+        //   chunk4 IF_PLAYED     d  -> ADD         (entry again, own slot)
+        const IF_RUNNING = 0x1370;
+        const script = [
+            op(IF_NOT_PLAYED, 1, 1),
+            op(ADD_SCENE, 1, 2, 0, 1),
+            op(END_IF),
+            op(END_BRANCH), // 3
+            op(IF_PLAYED, 1, 44),
+            op(IF_RUNNING, 1, 47),
+            op(ADD_SCENE, 1, 48, 0, 1),
+            op(END_IF),
+            op(END_IF),
+            op(END_BRANCH), // 9
+            op(IF_RUNNING, 1, 46),
+            op(ADD_SCENE, 1, 47, 0, 1),
+            op(END_IF),
+            op(END_BRANCH), // 13
+            op(IF_NOT_PLAYED, 1, 45),
+            op(ADD_SCENE, 1, 45, 0, 1),
+            op(END_IF),
+            op(END_BRANCH), // 17
+            op(IF_PLAYED, 1, 13),
+            op(ADD_SCENE, 1, 15, 0, 1),
+            op(END_IF),
+            op(END_BRANCH), // 21
+        ];
+        const { slots } = buildAdsSlots(script);
+        // 4 slots: chunk0, MERGED(chunk1+2+3), chunk4 => the two IF_RUNNING/
+        // IF_NOT_PLAYED arms fold into the IF_PLAYED entry's slot.
+        expect(slots).toHaveLength(3);
+        expect(slots[0]).toMatchObject({ chunkStart: 0, chunkEnd: 3 });
+        expect(slots[1]).toMatchObject({ chunkStart: 4, chunkEnd: 17 }); // merged ladder
+        expect(slots[2]).toMatchObject({ chunkStart: 18, chunkEnd: 21 });
+    });
+
     it('drops degenerate segments (a trailing lone END) so the chunk list is the guarded chain', () => {
         const script = [
             op(IF_NOT_PLAYED, 3, 36),
