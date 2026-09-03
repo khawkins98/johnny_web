@@ -55,6 +55,22 @@ const renderOutline = (flow) => {
     return lines.length ? lines.join('\n') : '_(no scripted steps)_';
 };
 
+// Mermaid node text inside `["..."]` breaks on several raw characters on
+// GitHub's renderer: `"` closes the label early, `&`/`<`/`>` can be read as
+// entities/markup, `#` starts an entity, and `[`/`]` collide with the node
+// bracket syntax. Mermaid decodes numeric/named HTML entities written with a
+// leading `#` inside labels, so escape each to its `#…;` form. `#` itself is
+// escaped FIRST so the escapes we then insert aren't re-escaped.
+const escapeMermaidLabel = (text) =>
+    String(text)
+        .replace(/#/g, '#35;')
+        .replace(/&/g, '#amp;')
+        .replace(/"/g, '#quot;')
+        .replace(/</g, '#lt;')
+        .replace(/>/g, '#gt;')
+        .replace(/\[/g, '#91;')
+        .replace(/\]/g, '#93;');
+
 const renderMermaid = (flow) => {
     if (!flow.edges.length) return '';
     const ids = new Map();
@@ -66,7 +82,7 @@ const renderMermaid = (flow) => {
     const nameByKey = new Map(flow.nodes.map((node) => [node.key, node.name]));
     let mm = 'flowchart TD\n';
     for (const node of flow.nodes) {
-        mm += `  ${nid(node.key)}["${(nameByKey.get(node.key) || node.key).replace(/"/g, "'")}"]\n`;
+        mm += `  ${nid(node.key)}["${escapeMermaidLabel(nameByKey.get(node.key) || node.key)}"]\n`;
     }
     for (const [from, to] of flow.edges) {
         mm += `  ${nid(from)} --> ${nid(to)}\n`;
@@ -86,8 +102,14 @@ const renderGagSection = (ads, adsName, scene, label) => {
 const renderAdsDoc = (adsName, ads, label) => {
     let md = `# ${adsName} scene flows\n\n${HEADER}\n\n`;
     md +=
-        'Pairs with [../story-over-time.md](../story-over-time.md), which covers the calendar-driven ' +
-        'story arc across gags; this doc covers the scripted flow *within* each of this file\'s gags.\n\n';
+        'A readable projection of each gag\'s authored ADS branch logic — guards, branches, and ' +
+        'RANDOM picks — rendered through the SAME slot model the engine runs (`buildAdsSlots` in ' +
+        '`src/dgds/scripting/ads-slots.mjs`), so a branch that is really a *fall-through* rung of a ' +
+        'retry ladder reads as one ("otherwise…") rather than as a second independent start. It is ' +
+        'faithful to the authored entry/fall-through structure; it is not a literal tick-by-tick ' +
+        'trace (RANDOM picks and timing are decided at runtime). Pairs with ' +
+        '[../story-over-time.md](../story-over-time.md), which covers the calendar-driven story arc ' +
+        'across gags; this doc covers the scripted flow *within* each of this file\'s gags.\n\n';
     for (const scene of ads.scenes) {
         md += renderGagSection(ads, adsName, scene, label) + '\n';
     }
@@ -98,8 +120,12 @@ const renderIndex = (entries) => {
     let md = `# Scene flows\n\n${HEADER}\n\n`;
     md +=
         'Human-readable flows of each gag\'s authored ADS scripting — guards, branches, and ' +
-        'RANDOM picks — rendered from the real bytecode so they can\'t drift from it. Pairs with ' +
-        '[../story-over-time.md](../story-over-time.md) (the calendar-driven story arc across gags).\n\n';
+        'RANDOM picks — rendered from the real bytecode through the SAME slot model the engine runs ' +
+        '(`buildAdsSlots`), so they can\'t drift from it and so entry branches are told apart from ' +
+        'the fall-through rungs of a retry ladder. Faithful to the authored entry/fall-through ' +
+        'structure, not a literal tick-by-tick trace (RANDOM picks and timing happen at runtime). ' +
+        'Pairs with [../story-over-time.md](../story-over-time.md) (the calendar-driven story arc ' +
+        'across gags).\n\n';
     for (const { adsName, gagCount } of entries) {
         md += `- [${adsName}](./${adsName}.md) — ${gagCount} gag${gagCount === 1 ? '' : 's'}\n`;
     }
