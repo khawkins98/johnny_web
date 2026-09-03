@@ -22,6 +22,8 @@
  * `random: true` on the step.
  */
 
+import { buildAdsSlots } from './ads-slots.mjs';
+
 const GUARD_KIND_BY_OPCODE_NAME = {
     IF_NOT_PLAYED: 'start',
     IF_PLAYED: 'after',
@@ -39,21 +41,40 @@ const guardRef = (op, label) => {
     return { kind: GUARD_KIND_BY_OPCODE_NAME[opName(op)], slot, tag, name: label(slot, tag) };
 };
 
-/** Split a scene's flat script into its top-level branches (END_SCENE_BRANCH-delimited chunks). */
+/**
+ * Split a scene's flat script into its top-level branches (END_SCENE_BRANCH-
+ * delimited chunks), each carrying the opcode index it STARTS at in the raw
+ * script. That start index is what lets us line each branch up with the engine's
+ * slot boundaries (buildAdsSlots' chunkStart values) so we can tell an ENTRY
+ * branch from a FALL-THROUGH arm.
+ *
+ * A branch made up only of terminators (a lone END_IF, or the empty second half
+ * of a doubled END_SCENE_BRANCH) carries no work and is dropped — matching
+ * ads-slots.mjs's `segmentHasWork`, so the surviving branches align 1:1 with the
+ * slot model's work-bearing segments.
+ * @returns {{ops:Array, start:number}[]}
+ */
 const splitBranches = (script) => {
     const branches = [];
     let current = [];
-    for (const op of script) {
+    let start = -1;
+    const flush = () => {
+        if (current.some((op) => opName(op) !== 'END_IF')) branches.push({ ops: current, start });
+        current = [];
+        start = -1;
+    };
+    for (let i = 0; i < script.length; i++) {
+        const op = script[i];
         if (opName(op) === 'END_SCENE_BRANCH') {
-            if (current.length) branches.push(current);
-            current = [];
+            flush();
         } else if (opName(op) === 'END') {
             // sentinel end-of-script marker, not part of any branch
         } else {
+            if (start === -1) start = i;
             current.push(op);
         }
     }
-    if (current.length) branches.push(current);
+    flush();
     return branches;
 };
 
@@ -148,6 +169,16 @@ export const buildSceneFlowLabelResolver = (ads, loadEntry, cache = new Map()) =
 export const extractSceneFlow = (scene, { label }) => {
     const branches = splitBranches(scene.script);
 
+    // The engine's REAL control model (ads-slots.mjs / the original binary): the
+    // script is split into resumable SLOTS whose ENTRY points are only an
+    // IF_PLAYED, a leading IF_NOT_RUNNING, or the tag's first segment. A non-first
+    // IF_NOT_PLAYED / IF_RUNNING segment is a FALL-THROUGH arm of the preceding
+    // slot's branch ladder, not an independent "at the start" entry. Reuse that
+    // exact boundary logic so the flow model reflects what actually runs — a
+    // branch is an ENTRY iff it begins a slot.
+    const { slots } = buildAdsSlots(scene.script);
+    const slotStarts = new Set(slots.map((s) => s.chunkStart));
+
     const steps = [];
     const edges = [];
     const nodeMap = new Map();
@@ -158,15 +189,25 @@ export const extractSceneFlow = (scene, { label }) => {
     };
 
     for (const branch of branches) {
-        const { refs, combinator, body } = parseGuardChain(branch, label);
+        const { refs, combinator, body } = parseGuardChain(branch.ops, label);
         const { adds, stops, random } = parseBody(body, label);
         if (refs.length === 0 && adds.length === 0 && stops.length === 0) continue;
 
-        steps.push({ guard: buildGuard(refs, combinator), adds, stops, random });
+        // ENTRY branches start a new slot; everything else is a fall-through arm
+        // of the most recent entry's branch ladder (the octopus retry ladder).
+        // The very first branch is always an entry (the tag's opening segment).
+        const isEntry = slotStarts.has(branch.start) || steps.length === 0;
+        const node = { guard: buildGuard(refs, combinator), adds, stops, random, fallThrough: !isEntry };
+        if (isEntry) {
+            steps.push({ ...node, arms: [] });
+        } else {
+            steps[steps.length - 1].arms.push(node);
+        }
 
         // Dependency edges: an IF_PLAYED/IF_RUNNING guard tag "unlocks" whatever
         // this branch adds. IF_NOT_PLAYED (start) and no-guard branches don't
-        // depend on another gag scene, so they contribute no edges.
+        // depend on another gag scene, so they contribute no edges. Arms edge the
+        // same way entries do — the ladder graph is unchanged.
         const edgeSources = refs.filter((r) => r.kind === 'after' || r.kind === 'while');
         if (edgeSources.length && adds.length) {
             for (const src of edgeSources) {
@@ -195,15 +236,32 @@ const GUARD_PHRASE = {
     always: () => 'always',
 };
 
+// Fall-through arms of a slot's branch ladder read as "otherwise…" rungs, NOT as
+// a second "at the start": the engine only reaches them after the preceding
+// entry's guard didn't take, so they are the ladder's escalation/retry steps.
+const FALLTHROUGH_PHRASE = {
+    start: () => 'otherwise (first time)',
+    after: (name) => `otherwise, after "${name}"`,
+    while: (name) => `otherwise, while "${name}" is on screen`,
+    ifNotRunning: (name) => `otherwise, if "${name}" isn't on screen`,
+    always: () => 'otherwise',
+};
+
 /**
  * Render a step's guard as a readable phrase, e.g. `at the start`,
  * `after "Johnny waves"`, or a joined chain `after "A" or "B"`. Shared by the
  * committed-doc generator (tools/faithfulness-oracle/scene-flow-doc.mjs) and
  * the in-app "How it works" panel so their wording never drifts apart.
+ *
+ * Pass `{ fallThrough: true }` for a branch that the slot model classifies as a
+ * fall-through arm (see extractSceneFlow): it renders as an "otherwise…" ladder
+ * rung so a gag never shows two "at the start" steps.
  * @param {object} guard one of extractSceneFlow's `steps[].guard` values
+ * @param {{fallThrough?: boolean}} [opts]
  */
-export const describeSceneFlowGuard = (guard) => {
-    const phrase = GUARD_PHRASE[guard.kind] ?? ((name) => `${guard.kind}${name ? ` "${name}"` : ''}`);
+export const describeSceneFlowGuard = (guard, { fallThrough = false } = {}) => {
+    const phrases = fallThrough ? FALLTHROUGH_PHRASE : GUARD_PHRASE;
+    const phrase = phrases[guard.kind] ?? ((name) => `${guard.kind}${name ? ` "${name}"` : ''}`);
     if (guard.kind === 'always') return phrase();
     if (!guard.refs) return phrase(guard.name);
     const joiner = guard.combinator === 'and' ? '" and "' : '" or "';
@@ -217,18 +275,33 @@ export const describeSceneFlowGuard = (guard) => {
  * text and its targets as plain strings ready to join or wrap in markup.
  * Steps with no adds/stops (guard-only no-ops) are skipped, matching the
  * committed-doc outline.
+ *
+ * A step's fall-through arms (the rungs of a slot's branch ladder — see
+ * extractSceneFlow) are flattened right after their entry, each flagged
+ * `fallThrough: true` and rendered with an "otherwise…" guard so the ladder
+ * reads as one escalation/retry rather than disconnected top-level steps.
  * @param {{steps: Array}} flow extractSceneFlow's return value
- * @returns {Array<{guardText:string, random:boolean, targets:string[]}>}
+ * @returns {Array<{guardText:string, random:boolean, targets:string[], fallThrough:boolean}>}
  */
 export const outlineSceneFlowSteps = (flow) => {
     const outline = [];
-    for (const step of flow.steps) {
+    const push = (node) => {
         const targets = [
-            ...step.adds.map((a) => `"${a.name}"`),
-            ...step.stops.map((s) => `stop "${s.name}"`),
+            ...node.adds.map((a) => `"${a.name}"`),
+            ...node.stops.map((s) => `stop "${s.name}"`),
         ];
-        if (!targets.length) continue;
-        outline.push({ guardText: describeSceneFlowGuard(step.guard), random: Boolean(step.random), targets });
+        if (!targets.length) return;
+        const fallThrough = Boolean(node.fallThrough);
+        outline.push({
+            guardText: describeSceneFlowGuard(node.guard, { fallThrough }),
+            random: Boolean(node.random),
+            targets,
+            fallThrough,
+        });
+    };
+    for (const step of flow.steps) {
+        push(step);
+        for (const arm of step.arms || []) push(arm);
     }
     return outline;
 };

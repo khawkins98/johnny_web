@@ -1,8 +1,28 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setupSceneFlowPanel } from '../scene-flow-panel.mjs';
 
-// Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses.
-const op = (line, params, indent = 0) => ({ line, params, indent, opcode: 0 });
+// Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses. Real
+// ADS ops carry a numeric `opcode` (which the slot model in ads-slots.mjs reads
+// to tell entry branches from fall-through arms), so map the mnemonic to it.
+const OPCODES = {
+    IF_NOT_PLAYED: 0x1330,
+    IF_PLAYED: 0x1350,
+    IF_NOT_RUNNING: 0x1360,
+    IF_RUNNING: 0x1370,
+    END_SCENE_BRANCH: 0x1510,
+    ADD_SCENE: 0x2005,
+    STOP_SCENE: 0x2010,
+    RANDOM_START: 0x3010,
+    RANDOM_END: 0x30ff,
+    END_IF: 0xfff0,
+    END: 0xffff,
+};
+const op = (line, params, indent = 0) => ({
+    line,
+    params,
+    indent,
+    opcode: OPCODES[line.trim().split(/\s+/)[0]] ?? 0,
+});
 
 const FISHY_ADS = {
     resources: [{ id: 2, name: 'FISHY.TTM' }],
@@ -59,7 +79,9 @@ const makeSequenceTools = (initialActive) => {
         subscribeStatus: (listener) => {
             listeners.add(listener);
             listener(status);
+            return () => listeners.delete(listener);
         },
+        listenerCount: () => listeners.size,
         setActive: (active) => {
             status = active ? { active } : null;
             for (const listener of listeners) listener(status);
@@ -149,6 +171,31 @@ describe('scene-flow panel', () => {
         sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
 
         expect(document.getElementById('scene-flow-title').textContent).toBe('Johnny naps');
+    });
+
+    it('destroy() unsubscribes, removes window listeners, and tears down its DOM', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        const removeSpy = [];
+        const origRemove = window.removeEventListener.bind(window);
+        window.removeEventListener = (type, fn, opts) => {
+            removeSpy.push(type);
+            return origRemove(type, fn, opts);
+        };
+        try {
+            const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+            expect(sequenceTools.listenerCount()).toBe(1);
+            expect(document.getElementById('scene-flow-overlay')).not.toBeNull();
+
+            panel.destroy();
+
+            expect(sequenceTools.listenerCount()).toBe(0);
+            expect(removeSpy).toContain('keydown');
+            expect(removeSpy).toContain('mousemove');
+            expect(document.getElementById('scene-flow-overlay')).toBeNull();
+            expect(document.getElementById('scene-flow-cog')).toBeNull();
+        } finally {
+            window.removeEventListener = origRemove;
+        }
     });
 
     it('does not re-render while closed, but reflects the latest gag on next open', () => {
