@@ -114,3 +114,32 @@ intro frames consume a non-deterministic *number* of pre-window RNG draws under
   caused a long mis-diagnosis.
 - Prefer the cheap cross-check (jc_reborn) to surface candidates, then arbitrate with the
   binary (or the decompile, when it settles it unambiguously) before fixing.
+
+## Deterministic single-gag ORIGINAL capture (`capture-original-gag.mjs`) — director injection
+
+To diff one gag against ground truth you need the original binary to run **exactly that
+gag, alone, on a known slot**. The old approach (force-gag.py + capture the whole
+screensaver + filter) failed at scale: force-gag doesn't reliably make many gags run
+(director selection also depends on spot/tide/story/reachability), and the binary
+allocates TTM slots dynamically by resource load order, so a whole-screensaver capture
+mixes gags on shifting slots.
+
+`node tools/faithfulness-oracle/capture-original-gag.mjs <adsIdHex> <tag> <outdir>`
+solves both with **director injection (option A)**. A patched dosbox-x hooks the scene
+director `FUN_1018_06bf` at entry: when `DBX_FORCE_ADS`/`DBX_FORCE_TAG` are set, it finds
+the catalogue record matching `(adsId, tag)` in the in-memory catalogue (`DS:0x1756`,
+79 records × 0x11) and **pins the director's scene queue** `DAT_1068_30f4[] = { thatRecord, 0 }`,
+index `DAT_1068_30f2 = 0`, `startSpot(+3) = 0`, and sets the record's active bit
+(`+0xd |= 0x8000`) once to bootstrap. The binary then loads → runs → **loops** exactly that
+one gag forever, bypassing story/spot/tide/reachability selection. No file patch
+(force-gag.py) is needed, and the capture is that gag alone on the single ADS context the
+binary binds for it — so `threads.log` is inherently un-mixed. Each run uses an isolated
+driveC copy (reset to the `.prepatch` baseline) and the dosbox-x child is killed by its own
+PID on timeout (never a global `pkill`), so many captures run concurrently.
+
+The dosbox-x source change lives in the ephemeral scratchpad (`<sp>/dosbox-x-src/src/cpu/
+core_normal.cpp`, guarded by the `DBX_FORCE_*` env; ~40 lines added next to the existing
+`DBX_THREADS`/`DBX_TRACE`/`DBX_FB` hooks) and is **not** committed here. Rebuild:
+`cd <sp>/dosbox-x-src/src && make -C cpu && make dosbox-x`. The `#FORCE ads=.. tag=.. recoff=..`
+line in `trace.log` confirms the pin armed; `timeline.jsonl` is the capture in the shared
+per-tick format for diffing against `our-thread-timeline.mjs`.
