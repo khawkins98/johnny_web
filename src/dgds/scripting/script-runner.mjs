@@ -39,15 +39,12 @@ export const sceneLog = (state, action, target = '') => {
         target,
         gagId,
         runs: state.runs || 0,
-        timer: state.timer || 0,
     });
     if (!isConsoleLogging()) return;
 
-    let timerStr = '';
     let runStr = '';
-    if (state.timer !== undefined && state.timer > 0) timerStr = `T:${Math.round(state.timer)}`;
     if (state.runs !== undefined && state.runs > 0) runStr = `R:${state.runs}`;
-    const cycles = [timerStr, runStr].filter(Boolean).join(' ');
+    const cycles = [runStr].filter(Boolean).join(' ');
 
     const gagStr = `[Gag ${String(gagId).padEnd(2, ' ')}]`.padEnd(9, ' ');
     const actStr = action.padEnd(12, ' ');

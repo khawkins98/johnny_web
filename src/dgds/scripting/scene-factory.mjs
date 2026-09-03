@@ -10,7 +10,7 @@
  *    after that prologue has finished; a different TTM resource gets a different environment.
  *
  *  FRESH per scene (from initialState):
- *    reentry, played, runs, continue, delay, timer, lastCommand, skip.
+ *    reentry, played, runs, continue, delay, lastCommand, skip.
  *    Never inherited — stale execution state from a sibling must not bleed into a new scene.
  *    There are no per-scene sprite save-under slots: the renderer is immediate-mode, so
  *    a moving/stopped sprite is handled by the per-tick clear+replay, not by GET/PUT.
@@ -39,7 +39,6 @@ const initialState = {
     continue: true,
     skip: false,
     backgroundId: 1,
-    timer: 0,
     delay: 0,
     waitTicks: 0,
     frameReady: false,

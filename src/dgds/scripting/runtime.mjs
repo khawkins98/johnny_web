@@ -119,7 +119,6 @@ export class DgdsRuntime {
             waitTicks: 0,
             frameReady: false,
             frameBoundary: null,
-            timer: 0,
             continue: true,
             backgroundId: 1,
             foregroundColor: PALETTE[0],
@@ -378,9 +377,6 @@ export class DgdsRuntime {
                     return;
                 }
             }
-            // (SET_TIMER no longer uses state.timer -- 0x2020 now arms state.delay
-            // directly, like SET_DELAY, so the old trace-only timer countdown here
-            // is removed as dead.)
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
             if (scene.state.waitTicks > 0) {
@@ -438,7 +434,6 @@ export class DgdsRuntime {
                         scene.state.waitTicks = 0;
                         scene.state.frameReady = false;
                         scene.state.frameBoundary = null;
-                        scene.state.timer = 0;
                         scene.execution = pendingExecution(
                             scene.state,
                             repeatsUntilTimeLimit
