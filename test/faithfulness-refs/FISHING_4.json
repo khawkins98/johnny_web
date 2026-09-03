@@ -1,0 +1,15 @@
+{
+  "name": "FISHING",
+  "adsId": "0x68",
+  "tag": 4,
+  "slot": "4",
+  "runs": 3,
+  "vocab": [
+    "4:2",
+    "4:17",
+    "4:42"
+  ],
+  "maxConc": 1,
+  "states": 4,
+  "drainTick": null
+}

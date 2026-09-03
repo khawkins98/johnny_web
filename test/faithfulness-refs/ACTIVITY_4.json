@@ -1,0 +1,15 @@
+{
+  "name": "ACTIVITY",
+  "adsId": "0x65",
+  "tag": 4,
+  "slot": "2",
+  "runs": 3,
+  "vocab": [
+    "2:1",
+    "2:2",
+    "2:3"
+  ],
+  "maxConc": 1,
+  "states": 4,
+  "drainTick": null
+}

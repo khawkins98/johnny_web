@@ -1,8 +1,58 @@
 [
   {
     "name": "ACTIVITY",
+    "tag": 1,
+    "file": "ACTIVITY_1.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 4,
+    "file": "ACTIVITY_4.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 5,
+    "file": "ACTIVITY_5.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 6,
+    "file": "ACTIVITY_6.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 7,
+    "file": "ACTIVITY_7.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 8,
+    "file": "ACTIVITY_8.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 9,
+    "file": "ACTIVITY_9.json"
+  },
+  {
+    "name": "ACTIVITY",
     "tag": 10,
     "file": "ACTIVITY_10.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 11,
+    "file": "ACTIVITY_11.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 12,
+    "file": "ACTIVITY_12.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 1,
+    "file": "BUILDING_1.json"
   },
   {
     "name": "BUILDING",
@@ -11,8 +61,38 @@
   },
   {
     "name": "BUILDING",
+    "tag": 3,
+    "file": "BUILDING_3.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 4,
+    "file": "BUILDING_4.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 5,
+    "file": "BUILDING_5.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 6,
+    "file": "BUILDING_6.json"
+  },
+  {
+    "name": "BUILDING",
     "tag": 7,
     "file": "BUILDING_7.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 8,
+    "file": "BUILDING_8.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 9,
+    "file": "BUILDING_9.json"
   },
   {
     "name": "FISHING",
@@ -21,8 +101,38 @@
   },
   {
     "name": "FISHING",
+    "tag": 2,
+    "file": "FISHING_2.json"
+  },
+  {
+    "name": "FISHING",
     "tag": 3,
     "file": "FISHING_3.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 4,
+    "file": "FISHING_4.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 5,
+    "file": "FISHING_5.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 6,
+    "file": "FISHING_6.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 7,
+    "file": "FISHING_7.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 8,
+    "file": "FISHING_8.json"
   },
   {
     "name": "VISITOR",
