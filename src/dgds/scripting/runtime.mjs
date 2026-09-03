@@ -20,7 +20,7 @@ import {
 } from './script-runner.mjs';
 import { buildAdsSlots, stepAdsSlots } from './ads-slots.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
-import { pruneEnvironmentBackground } from './composition.mjs';
+import { resetAdsDisplayList } from './ads-scene-changes.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
@@ -520,15 +520,12 @@ export class DgdsRuntime {
         // scene-stepping opts out (`single: false`) to keep its free-run preview.
         state.singleAdsScene = single;
         state.adsSceneEnd = single ? sceneIndex + 1 : null;
-        state.scenes = [];
-        state.addScenes = [];
-        state.removeScenes = [];
-        state.scenesRandom = [];
         state.playedHistory.clear();
-        state.stoppedScenes?.clear();
         // Prune stored backgrounds on the OLD environment map before discarding it,
         // so a persistent background does not survive the jump onto the raster.
-        for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) pruneEnvironmentBackground(state, sceneIdx);
+        // (resetAdsDisplayList also drops the scene collections and the
+        // explicit-stop revive guard -- shared with clearAdsSceneBatch.)
+        resetAdsDisplayList(state);
         state.ttmEnvironments = new Map();
         state.continue = true;
         state.reentry = 0;
@@ -540,7 +537,6 @@ export class DgdsRuntime {
         state.fadingIn = false;
         state.fadeOpacity = 0;
         state.surface?.clear();
-        if (state.saveBkg?.[0]) state.saveBkg[0].canDraw = false;
         debugLog(`DEBUG: jumped to scene ${tagId} (index ${sceneIndex})`);
         return true;
     }

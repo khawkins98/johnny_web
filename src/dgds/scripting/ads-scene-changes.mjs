@@ -21,26 +21,40 @@ import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 // module-evaluation time.
 import { runScript } from './script-runner.mjs';
 
-export const clearAdsSceneBatch = (state) => {
-    state.scenes.forEach((s) => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
+/**
+ * Shared core of an ADS display-list reset: drop the staged/active scene
+ * collections, clear the explicit-stop revive guard, prune every TTM
+ * environment's stored background (so stale pixels never carry into an
+ * unrelated sequence), and disarm the save-behind buffer. Used by both
+ * clearAdsSceneBatch (end of an ADS segment/fade) and Runtime#jumpToScene
+ * (debug/programmatic scene jump) -- the two places that need a clean
+ * display list. Callers remain responsible for anything OUTSIDE the shared
+ * subset: clearAdsSceneBatch also emits CLEAR_SURFACE and records played
+ * history; jumpToScene also resets fade/control flags, replaces
+ * ttmEnvironments wholesale, and clears the surface directly. Those differ
+ * per call site and must NOT be folded in here.
+ */
+export const resetAdsDisplayList = (state) => {
     state.scenes = [];
     state.addScenes = [];
     state.removeScenes = [];
     state.scenesRandom = [];
-    // The explicit-stop revive guard is per-gag; a new gag starts with a clean
-    // display list, so a (slot,tag) stopped here must not gate the next gag.
+    // The explicit-stop revive guard is per-gag; a new gag (or a jump to a
+    // new scene) starts with a clean display list, so a (slot,tag) stopped
+    // here must not gate what comes next.
     state.stoppedScenes?.clear();
-    emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
-    if (state.saveBkg?.[0]) {
-        state.saveBkg[0].canDraw = false;
-    }
-    // The raster was just cleared. Prune every environment's stored background so
-    // stale pixels never carry into an unrelated sequence; after the clear, a
-    // scene redraws its own content by executing its script, so no explicit
-    // background re-bake is needed at this boundary.
     for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
         pruneEnvironmentBackground(state, sceneIdx);
     }
+    if (state.saveBkg?.[0]) {
+        state.saveBkg[0].canDraw = false;
+    }
+};
+
+export const clearAdsSceneBatch = (state) => {
+    state.scenes.forEach((s) => state.playedHistory.add(`${s.sceneIdx}:${s.tagId}`));
+    resetAdsDisplayList(state);
+    emitFrameOperation(state, { type: FrameOperationType.CLEAR_SURFACE });
 };
 
 // ADS-level fade to black. First call starts the animation (blocks ADS); each subsequent
