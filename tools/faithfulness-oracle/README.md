@@ -27,12 +27,7 @@ traces are large/ephemeral and NOT committed — rebuild from these):
 - `gen-refs.mjs` — generate committed, RNG-tolerant reference fingerprints from N captures.
 - `our-thread-timeline.mjs` — per-tick "live actor" timeline extractor for OUR engine.
 - `rendering-oracle/` — supporting tooling: `threads-to-timeline.mjs` (DBX_THREADS log ->
-  shared per-tick JSONL), `build-vocab.mjs` (union a coverage vocabulary from N timelines),
-  `compare-vocab.mjs` (RNG-tolerant vocab/maxConc verdict), `compare-thread-timelines.mjs`
-  (LCS-aligned state-sequence diff), `parallel-capture.mjs` / `run-diff-sweep.mjs` /
-  `sweep-catalogue.mjs` (batch capture + sweep orchestration), `force-gag.py` /
-  `force-scene-patches.py` (selection-only director forcing), `capture-original.sh` /
-  `capture-gag.sh` (original-binary capture drivers).
+  shared per-tick JSONL), `build-vocab.mjs` (union a coverage vocabulary from N timelines).
 - `ne_entry.py` — extract each target function's entry signature (file-unique) from SCRANTIC.SCR.
 - `ne_reloc.py` / `ne_mask.py` — parse the NE relocation table / prove a signature is
   relocation-safe.

@@ -122,11 +122,12 @@ intro frames consume a non-deterministic *number* of pre-window RNG draws under
 ## Deterministic single-gag ORIGINAL capture (`capture-original-gag.mjs`) — director injection
 
 To diff one gag against ground truth you need the original binary to run **exactly that
-gag, alone, on a known slot**. The old approach (force-gag.py + capture the whole
-screensaver + filter) failed at scale: force-gag doesn't reliably make many gags run
-(director selection also depends on spot/tide/story/reachability), and the binary
-allocates TTM slots dynamically by resource load order, so a whole-screensaver capture
-mixes gags on shifting slots.
+gag, alone, on a known slot**. The old selection-forcing approach (a since-removed
+`force-gag.py`, which patched the on-disk catalogue file to force the director's hand,
+then captured the whole screensaver and filtered) failed at scale: it doesn't reliably
+make many gags run (director selection also depends on spot/tide/story/reachability), and
+the binary allocates TTM slots dynamically by resource load order, so a whole-screensaver
+capture mixes gags on shifting slots.
 
 `node tools/faithfulness-oracle/capture-original-gag.mjs <adsIdHex> <tag> <outdir>`
 solves both with **director injection (option A)**. A patched dosbox-x hooks the scene
@@ -135,8 +136,8 @@ the catalogue record matching `(adsId, tag)` in the in-memory catalogue (`DS:0x1
 79 records × 0x11) and **pins the director's scene queue** `DAT_1068_30f4[] = { thatRecord, 0 }`,
 index `DAT_1068_30f2 = 0`, `startSpot(+3) = 0`, and sets the record's active bit
 (`+0xd |= 0x8000`) once to bootstrap. The binary then loads → runs → **loops** exactly that
-one gag forever, bypassing story/spot/tide/reachability selection. No file patch
-(force-gag.py) is needed, and the capture is that gag alone on the single ADS context the
+one gag forever, bypassing story/spot/tide/reachability selection. No file patch is needed,
+and the capture is that gag alone on the single ADS context the
 binary binds for it — so `threads.log` is inherently un-mixed. Each run uses an isolated
 driveC copy (reset to the `.prepatch` baseline) and the dosbox-x child is killed by its own
 PID on timeout (never a global `pkill`), so many captures run concurrently.
