@@ -1,0 +1,32 @@
+[
+  {
+    "name": "ACTIVITY",
+    "tag": 10,
+    "file": "ACTIVITY_10.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 2,
+    "file": "BUILDING_2.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 7,
+    "file": "BUILDING_7.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 1,
+    "file": "FISHING_1.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 3,
+    "file": "FISHING_3.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 5,
+    "file": "VISITOR_5.json"
+  }
+]
