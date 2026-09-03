@@ -71,45 +71,129 @@ const fingerprintOurs = (adsName, tag, seed = 1) => {
     return { vocab, maxConc, liveTicks };
 };
 
+/**
+ * Union OUR engine's fingerprint over seeds 1..runs, SYMMETRIC with how the refs
+ * themselves were built (an RNG-tolerant union over `ref.runs` original-binary
+ * runs). Each seed is a deterministic drive (fixed seeded RNG); unioning them
+ * gives a robust worst-case measurement instead of relying on whichever single
+ * seed happens to be default. `vocab` unions; `maxConc` takes the MAX across
+ * seeds (worst-case concurrency peak, the thing the hard gate cares about);
+ * `liveTicks` sums for visibility only (not gated on).
+ */
+const fingerprintOursUnion = (adsName, tag, runs) => {
+    const vocab = new Set();
+    let maxConc = 0;
+    let liveTicks = 0;
+    for (let seed = 1; seed <= runs; seed++) {
+        const run = fingerprintOurs(adsName, tag, seed);
+        for (const key of run.vocab) vocab.add(key);
+        maxConc = Math.max(maxConc, run.maxConc);
+        liveTicks += run.liveTicks;
+    }
+    return { vocab, maxConc, liveTicks };
+};
+
+// Per-gag triage summary, collected across the describe block and printed once
+// at the end so a human sees "what we catch" at a glance (categories + the
+// OVER+1 / UNDER gag lists) without having to scroll every individual line.
+const triage = { EXACT: [], 'OVER+1': [], UNDER: [], HARD: [] };
+
 describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary reference fingerprints', () => {
     for (const entry of index) {
         const ref = loadRef(entry.file);
-        it(`${entry.name}:${entry.tag}`, () => {
-            const ours = fingerprintOurs(ref.name, ref.tag);
+        // Driving N seeds per gag (vs. 1 previously) multiplies wall time per
+        // test roughly Nx; the default 5000ms vitest test timeout is too tight
+        // for that under load. 30s is generous headroom, not a correctness knob.
+        it(
+            `${entry.name}:${entry.tag}`,
+            () => {
+                const runs = ref.runs || 3;
+                const ours = fingerprintOursUnion(ref.name, ref.tag, runs);
 
-            // Hard fail: the gag produced nothing at all.
-            expect(
-                ours.liveTicks,
-                `${ref.name}:${ref.tag} produced zero live/drawing ticks -- gag did not run`,
-            ).toBeGreaterThan(0);
+                // Hard fail: the gag produced nothing at all.
+                expect(
+                    ours.liveTicks,
+                    `${ref.name}:${ref.tag} produced zero live/drawing ticks -- gag did not run`,
+                ).toBeGreaterThan(0);
 
-            const ourVocabSorted = [...ours.vocab].sort();
-            const refVocabSet = new Set(ref.vocab);
-            const missing = ref.vocab.filter((k) => !ours.vocab.has(k));
-            const extra = ourVocabSorted.filter((k) => !refVocabSet.has(k));
+                const ourVocabSorted = [...ours.vocab].sort();
+                const refVocabSet = new Set(ref.vocab);
+                const missing = ref.vocab.filter((k) => !ours.vocab.has(k));
+                const extra = ourVocabSorted.filter((k) => !refVocabSet.has(k));
 
-            if (missing.length || extra.length) {
-                console.warn(
-                    `[faithfulness-diff] ${ref.name}:${ref.tag} vocab coverage diff -- ` +
-                        `missing (ref\\ours, ${missing.length}): [${missing.join(', ')}]; ` +
-                        `extra (ours\\ref, ${extra.length}): [${extra.join(', ')}]`,
+                if (missing.length || extra.length) {
+                    console.warn(
+                        `[faithfulness-diff] ${ref.name}:${ref.tag} vocab coverage diff -- ` +
+                            `missing (ref\\ours, ${missing.length}): [${missing.join(', ')}]; ` +
+                            `extra (ours\\ref, ${extra.length}): [${extra.join(', ')}]`,
+                    );
+                }
+
+                // Categorize this gag's maxConc relationship for the end-of-run triage
+                // summary: EXACT (ours==ref), OVER+1 (ours==ref+1, inside the allowed
+                // slack), UNDER (ours<ref, by how much), HARD (ours>=ref+2, gate-failing).
+                const gagId = `${ref.name}:${ref.tag}`;
+                const delta = ours.maxConc - ref.maxConc;
+                let category;
+                if (delta === 0) category = 'EXACT';
+                else if (delta === 1) category = 'OVER+1';
+                else if (delta < 0) category = 'UNDER';
+                else category = 'HARD';
+                triage[category].push({
+                    gag: gagId,
+                    ourMaxConc: ours.maxConc,
+                    refMaxConc: ref.maxConc,
+                    delta,
+                    missing: missing.length,
+                    extra: extra.length,
+                });
+
+                console.log(
+                    `[faithfulness-diff] ${gagId} [${category}] maxConc ours=${ours.maxConc} ref=${ref.maxConc} ` +
+                        `(runs=${runs}) vocab missing=${missing.length} extra=${extra.length}`,
                 );
-            }
 
-            console.log(
-                `[faithfulness-diff] ${ref.name}:${ref.tag} maxConc ours=${ours.maxConc} ref=${ref.maxConc}`,
-            );
-
-            // Hard gate: extra-body regression. A single extra concurrent actor is
-            // within the noise of a 3-run union vs. our one deterministic run; two
-            // or more extra is the reliable "double Johnny"-class signal.
-            expect(
-                ours.maxConc,
-                `${ref.name}:${ref.tag} maxConc regressed: ours=${ours.maxConc} vs ref=${ref.maxConc} ` +
-                    `(threshold ref+2=${ref.maxConc + 2})`,
-            ).toBeLessThan(ref.maxConc + 2);
-        });
+                // Hard gate: extra-body regression. A single extra concurrent actor is
+                // within the noise of a 3-run union vs. our N-seed union; two or more
+                // extra is the reliable "double Johnny"-class signal.
+                expect(
+                    ours.maxConc,
+                    `${ref.name}:${ref.tag} maxConc regressed: ours=${ours.maxConc} vs ref=${ref.maxConc} ` +
+                        `(threshold ref+2=${ref.maxConc + 2})`,
+                ).toBeLessThan(ref.maxConc + 2);
+            },
+            30000,
+        );
     }
+
+    it('prints the per-gag triage summary', () => {
+        const total = Object.values(triage).reduce((n, arr) => n + arr.length, 0);
+        // Only meaningful once every gag `it()` above has run; if some were
+        // skipped (e.g. filtered run) this just summarizes whatever ran.
+        console.log(
+            `\n[faithfulness-diff] TRIAGE SUMMARY (${total} gags): ` +
+                `EXACT=${triage.EXACT.length} OVER+1=${triage['OVER+1'].length} ` +
+                `UNDER=${triage.UNDER.length} HARD=${triage.HARD.length}`,
+        );
+        if (triage['OVER+1'].length) {
+            console.log(
+                `[faithfulness-diff] OVER+1 gags: ${triage['OVER+1'].map((g) => g.gag).join(', ')}`,
+            );
+        }
+        if (triage.UNDER.length) {
+            console.log(
+                `[faithfulness-diff] UNDER gags: ${triage.UNDER.map((g) => `${g.gag}(${g.delta})`).join(', ')}`,
+            );
+        }
+        if (triage.HARD.length) {
+            console.warn(
+                `[faithfulness-diff] HARD gags (>=ref+2): ${triage.HARD.map((g) => `${g.gag} ours=${g.ourMaxConc} ref=${g.refMaxConc}`).join(', ')}`,
+            );
+        }
+        // This test itself never fails -- HARD divergences already failed their
+        // own `it()` above; this is a reporting-only summary.
+        expect(total).toBeGreaterThan(0);
+    });
 });
 
 // Sanity: every ref file listed in index.json actually exists and is used above.
