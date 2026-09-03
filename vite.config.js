@@ -60,7 +60,7 @@ export default defineConfig({
     },
     test: {
         environment: 'jsdom',
-        include: ['src/**/*.test.mjs'],
+        include: ['src/**/*.test.mjs', 'test/faithfulness-diff.mjs'],
         coverage: {
             provider: 'v8',
             include: ['src/**/*.mjs'],
