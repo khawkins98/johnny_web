@@ -65,6 +65,37 @@ describe('Johnny host walking', () => {
         expect(pickWalkSegment([[5, 10], [6, 10]], () => 0.99)).toBe(6);
     });
 
+    it('uses one raw modulo draw for a faithful route choice', () => {
+        const draws = [];
+        const storyRandom = {
+            modulo(divisor, site) {
+                draws.push({ divisor, site });
+                return 51;
+            },
+        };
+
+        expect(pickWalkSegment([[7, 50], [8, 50]], () => { throw new Error('cosmetic fallback used'); }, storyRandom)).toBe(8);
+        expect(draws).toEqual([{ divisor: 100, site: 'walk-route-segment' }]);
+    });
+
+    it('uses one low-bit draw only for an opposite-heading turn', () => {
+        const data = Array.from({ length: 480 }, (_, frame) => ({ flipX: false, frame, x: 0, y: 0 }));
+        const draws = [];
+        const storyRandom = { bit: (mask, site) => (draws.push({ mask, site }), 0) };
+
+        planJohnnyWalkFrames(
+            { fromSpot: 0, fromHeading: 0, toSpot: 0, toHeading: 4 },
+            data,
+            () => { throw new Error('cosmetic fallback used'); },
+            storyRandom,
+        );
+        expect(draws).toEqual([{ mask: 1, site: 'walk-opposite-turn' }]);
+
+        draws.length = 0;
+        planJohnnyWalkFrames({ fromSpot: 0, fromHeading: 0, toSpot: 0, toHeading: 3 }, data, () => 0, storyRandom);
+        expect(draws).toEqual([]);
+    });
+
     it('returns no frames for null headings or out-of-range spots', () => {
         const data = Array.from({ length: 480 }, () => ({ flipX: false, frame: -1, x: 0, y: 0 }));
         expect(planJohnnyWalkFrames({ fromSpot: 0, fromHeading: null, toSpot: 1, toHeading: 2 }, data, () => 0)).toEqual([]);

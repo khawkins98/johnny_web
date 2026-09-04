@@ -163,18 +163,23 @@ const pick = (random, values) => values[randomIndex(random, values.length)];
 const hasAll = (flags, required) => (flags & required) === required;
 
 // Weight-roulette over candidate scenes (binary picker FUN_1018_0d76 sums byte@0x02).
-const weightedPick = (random, candidates) => {
+const weightedPick = (random, candidates, storyRandom = null, site = 'director-weighted-scene') => {
     const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
-    let roll = Math.floor(random() * total);
+    let roll = storyRandom ? storyRandom.modulo(total, site) + 1 : Math.floor(random() * total) + 1;
     for (const candidate of candidates) {
-        if (roll < candidate.weight) return candidate;
+        if (roll <= candidate.weight) return candidate;
         roll -= candidate.weight;
     }
     return candidates[candidates.length - 1];
 };
 // Repeat count for an idle (flagsB & 0x08) scene: centre-weighted buckets summing 100 -> 1..6.
 const REPEAT_WEIGHTS = [10, 20, 30, 20, 10, 10];
-const repeatCount = (random) => {
+const repeatCount = (random, storyRandom = null) => {
+    if (storyRandom) {
+        let bucket = 0;
+        while (bucket === 0) bucket = storyRandom.weightedBucket(REPEAT_WEIGHTS, 'director-repeat-count');
+        return bucket;
+    }
     let roll = Math.floor(random() * 100);
     for (let bucket = 0; bucket < REPEAT_WEIGHTS.length; bucket++) {
         if (roll < REPEAT_WEIGHTS[bucket]) return bucket + 1;
@@ -305,6 +310,7 @@ const createIslandState = (
     storyDay,
     date,
     random,
+    storyRandom = null,
     { allowLowTide = true, allowVariablePosition = true, startTime = 0 } = {},
 ) => {
     const tidePhase = tidePhaseFor(date, startTime);
@@ -322,6 +328,9 @@ const createIslandState = (
     // The old fixed whole-island `x = -272` here was fabricated and was the visible
     // between-chain teleport; removed.
     if (allowVariablePosition && hasAll(finalScene.flags, F.ISLAND)) {
+        // Keep this on the compatibility source until the catalogue's raw flagsB
+        // 0x0200 layout selector is preserved. Guessing layout 0 vs 1 here would
+        // consume the right number of words but map them through the wrong ranges.
         if (random() >= 0.5) {
             x = -222 + Math.floor(random() * 109);
             y = -44 + Math.floor(random() * 128);
@@ -355,7 +364,7 @@ const createIslandState = (
         // path from this flag into that renderer, not wired in this pass.
         waves: !hasAll(finalScene.flags, F.VARPOS_OK),
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
-        oceanIndex: randomIndex(random, 3),
+        oceanIndex: storyRandom ? storyRandom.modulo(3, 'island-ocean') : randomIndex(random, 3),
         presentationKey: Object.freeze({}),
         clouds: Object.freeze(createClouds(random)),
         storyDay,
@@ -364,9 +373,11 @@ const createIslandState = (
 
 export const createJohnnyStoryController = ({
     random = Math.random,
+    storyRandom: initialStoryRandom = null,
     storage = globalThis.localStorage,
     now = () => new Date(),
 } = {}) => {
+    let storyRandom = initialStoryRandom;
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
@@ -394,14 +405,14 @@ export const createJohnnyStoryController = ({
     const chooseFinalScene = (storyDay, tidePhase) => {
         const finals = eligible(storyDay, F.FINAL, 0, tidePhase);
         if (finals.length === 0) return pick(random, JOHNNY_SCENES.filter((s) => hasAll(s.flags, F.FINAL)));
-        if (random() < 0.1) {
+        if (storyRandom ? storyRandom.modulo(10, 'director-keyframe-gate') === 0 : random() < 0.1) {
             const keyframe = finals.find((s) => s.day === storyDay && s.day !== 0 && !recentFinals.includes(s));
             if (keyframe) return keyframe;
         }
         let pool = finals.filter((s) => !hasAll(s.flags, F.FIRST) && !recentFinals.includes(s));
         if (pool.length === 0) pool = finals.filter((s) => !recentFinals.includes(s));
         if (pool.length === 0) pool = finals;
-        return weightedPick(random, pool);
+        return weightedPick(random, pool, storyRandom, 'director-final-scene');
     };
 
     const findScene = (script, tagId) =>
@@ -477,7 +488,7 @@ export const createJohnnyStoryController = ({
                   allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
             : { startTime: resolvedStartTime };
-        const islandState = createIslandState(finalScene, storyDay, date, random, constraints);
+        const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, constraints);
         const planned = [];
         let previous = null;
 
@@ -506,10 +517,10 @@ export const createJohnnyStoryController = ({
                     (candidate) => candidate.width / 2 < budget,
                 );
                 if (candidates.length === 0) break;
-                const next = weightedPick(random, candidates);
+                const next = weightedPick(random, candidates, storyRandom, 'director-intermediate-scene');
                 let reps = 1;
                 if (next.repeat) {
-                    reps = repeatCount(random);
+                    reps = repeatCount(random, storyRandom);
                     // Re-roll a repeat count that would overrun the budget (unless it lands
                     // exactly on 0), bounded so a degenerate/constant rng still terminates.
                     for (
@@ -517,7 +528,7 @@ export const createJohnnyStoryController = ({
                         attempt < 8 && reps > 1 && next.width * reps > budget && next.width * reps - budget !== 0;
                         attempt++
                     ) {
-                        reps = repeatCount(random);
+                        reps = repeatCount(random, storyRandom);
                     }
                     // Hard guarantee: never place more repeats than the budget can hold.
                     reps = Math.min(reps, Math.max(1, Math.floor(budget / next.width)));
@@ -656,7 +667,7 @@ export const createJohnnyStoryController = ({
             const storyDay = debugStoryDay(selected, requestedDay);
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
             const date = now();
-            const islandState = createIslandState(finalScene, storyDay, date, random, {
+            const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
                 startTime: getStartTime(storage, date),
                 allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
                 allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
@@ -684,6 +695,9 @@ export const createJohnnyStoryController = ({
         setStoryDay,
         advanceStoryDay,
         resetStory,
+        setRandomSource(source) {
+            storyRandom = source;
+        },
         subscribeStatus(listener) {
             statusListeners.add(listener);
             listener(sequenceStatus);

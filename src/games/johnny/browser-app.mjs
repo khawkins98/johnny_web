@@ -25,6 +25,7 @@ export const runJohnnyCastaway = () => {
         runInterlude: runJohnnyWalk,
         runPose: runJohnnyPose,
         createSelectionPresenter: createJohnnySelectionPresenter,
+        configureStoryRandom: (source) => story.setRandomSource(source),
         debugThemes: {
             label: 'Holiday Theme',
             storageKey: HOLIDAY_SETTING_KEY,

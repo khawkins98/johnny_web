@@ -59,6 +59,9 @@ export function extractFaithfulSeed(data, offset = FAITHFUL_RNG_SEED_OFFSET) {
  * @returns {{
  *   nextWord: (site?: string) => number, // raw unsigned 16-bit draw (the ground-truth primitive)
  *   random: () => number,          // Math.random-compatible float in [0, 1)
+ *   modulo: (divisor: number, site?: string) => number,
+ *   bit: (mask: number, site?: string) => number,
+ *   weightedBucket: (weights: number[], site?: string) => number,
  *   pick: (total: number, site?: string) => number, // weighted-index draw: 1..total
  *   getState: () => { i, j, table: Uint16Array },
  * }}
@@ -92,6 +95,25 @@ export function createFaithfulRng(seed, { onDraw = null } = {}) {
         // float sites (SET_TIMER etc.) that do Math.floor(random()*N) will NOT
         // exactly match the binary's `word % N`; use pick() for weighted RANDOM.
         random: () => nextWord('math-random-adapter') / 0x10000,
+        modulo: (divisor, site = 'unsigned-modulo') => {
+            if (!Number.isInteger(divisor) || divisor <= 0) {
+                throw new RangeError('Faithful RNG modulo divisor must be a positive integer');
+            }
+            return nextWord(site) % divisor;
+        },
+        bit: (mask, site = 'bit-test') => nextWord(site) & mask,
+        // Binary helper FUN_1018_1f1b: each weight occupies weight*655 raw
+        // values, with an inclusive boundary. It returns a 1-based bucket or 0
+        // for the 35 values above a full 100-point table.
+        weightedBucket: (weights, site = 'weighted-bucket') => {
+            let remaining = nextWord(site);
+            for (let index = 0; index < weights.length; index++) {
+                const threshold = weights[index] * 655;
+                if (remaining <= threshold) return index + 1;
+                remaining -= threshold;
+            }
+            return 0;
+        },
         // Faithful weighted-index selection (binary FUN_1048_0cda):
         //   iVar3 = abs((int16)(raw % total)) + 1   -> a value in 1..total
         // Consumes exactly one raw word, matching the binary's draw accounting.

@@ -135,6 +135,29 @@ describe('faithful RNG stream (validated against the binary)', () => {
         expect(draws[0].site).toBe('ads-random:FISHING.ADS#2');
         expect(draws[0].ordinal).toBe(0);
     });
+
+    it('maps unsigned modulo and bit tests with one labeled draw each', () => {
+        const seed = extractFaithfulSeed(scr);
+        const source = createFaithfulRng(seed);
+        const predictor = createFaithfulRng(seed);
+
+        expect(source.modulo(10, 'gate')).toBe(predictor.nextWord() % 10);
+        expect(source.bit(1, 'turn')).toBe(predictor.nextWord() & 1);
+        expect(source.nextWord()).toBe(predictor.nextWord());
+    });
+
+    it('uses the binary 655-per-weight inclusive bucket thresholds', () => {
+        const tableForFirst = (raw) => {
+            const table = new Uint16Array(56);
+            table[0] = raw;
+            return { i: 0, j: 1, table };
+        };
+
+        expect(createFaithfulRng(tableForFirst(655)).weightedBucket([1])).toBe(1);
+        expect(createFaithfulRng(tableForFirst(656)).weightedBucket([1])).toBe(0);
+        expect(createFaithfulRng(tableForFirst(19650)).weightedBucket([10, 20])).toBe(2);
+        expect(createFaithfulRng(tableForFirst(65535)).weightedBucket([10, 20, 30, 20, 10, 10])).toBe(0);
+    });
 });
 
 describe('faithful RNG wiring', () => {

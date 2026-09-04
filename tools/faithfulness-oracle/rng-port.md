@@ -1,6 +1,6 @@
 # Reproducing the original random choices
 
-The original *Johnny Castaway* program contains a fixed random-number state. It produces the same sequence after every clean start; it is not seeded from the clock. The browser port can use this sequence experimentally for ADS random choices.
+The original *Johnny Castaway* program contains a fixed random-number state. It produces the same sequence after every clean start; it is not seeded from the clock. The browser port can use this sequence experimentally for confirmed authored choices.
 
 ## Algorithm and seed
 
@@ -25,7 +25,7 @@ The first result is `table[55] + table[24] = 0xea0b`, with 16-bit wraparound.
 
 ## Where the stream is used
 
-Only authored ADS `RANDOM` choices use the faithful stream in the browser engine. The original maps one word to a weighted choice with `abs((int16)word % total) + 1`.
+The opt-in stream is shared by confirmed host decisions: the keyframe gate, weighted final and intermediate selection, idle repeat count, ocean choice, walking route and opposite-turn tie, and ADS `RANDOM`. Each site uses its recovered raw-word mapping rather than a floating-point adapter.
 
 Other apparent randomness stays on the browser's cosmetic random source:
 
@@ -33,7 +33,9 @@ Other apparent randomness stays on the browser's cosmetic random source:
 | --- | --- |
 | Opcode `0x2020` delay | Later emulator instrumentation contradicted the earlier decompile-based “no draw” finding. Its raw mapping and draw count must be captured again before it is connected to this stream. |
 | Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
-| Ocean tint | It belongs to the same ambient setup rather than the scripted choice stream. |
+| Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
+
+Island position is not connected yet. Its two coordinate mappings are known, but the current catalogue discards raw flag `0x0200`, which participates in choosing the layout and therefore its coordinate ranges. Restoring and validating that flag is required before consuming position words.
 
 Keeping these separate makes the experimental path deterministic, but it also means its choices do not line up with a live original-program session. Add `?faithfulRng=on` to enable it; the default remains `Math.random`.
 

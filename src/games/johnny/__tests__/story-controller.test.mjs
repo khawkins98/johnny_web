@@ -11,6 +11,49 @@ const memoryStorage = (initial = {}) => {
 };
 
 describe('Johnny host story controller', () => {
+    it('shares typed raw draws across final, ocean, and intermediate decisions', () => {
+        const draws = [];
+        const storyRandom = {
+            modulo(divisor, site) {
+                draws.push({ kind: 'modulo', divisor, site });
+                if (divisor === 10) return 1;
+                return site === 'director-intermediate-scene' ? divisor - 1 : 0;
+            },
+            weightedBucket(weights, site) {
+                draws.push({ kind: 'bucket', weights, site });
+                return 1;
+            },
+        };
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        controller.next();
+
+        expect(draws.slice(0, 3)).toEqual([
+            { kind: 'modulo', divisor: 10, site: 'director-keyframe-gate' },
+            expect.objectContaining({ kind: 'modulo', site: 'director-final-scene' }),
+            { kind: 'modulo', divisor: 3, site: 'island-ocean' },
+        ]);
+        expect(draws.some((draw) => draw.site === 'director-intermediate-scene')).toBe(true);
+    });
+
+    it('can attach the shared source before the first selection', () => {
+        const sites = [];
+        const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+        controller.setRandomSource({
+            modulo: (divisor, site) => (sites.push(site), divisor === 10 ? 0 : 0),
+            weightedBucket: () => 1,
+        });
+
+        controller.next();
+        expect(sites).toContain('director-keyframe-gate');
+        expect(sites).toContain('island-ocean');
+    });
+
     it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
         expect(JOHNNY_SCENES).toHaveLength(79);
         expect(new Set(JOHNNY_SCENES.map(({ script }) => script))).toEqual(
