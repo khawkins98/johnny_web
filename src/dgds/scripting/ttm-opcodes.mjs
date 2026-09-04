@@ -86,30 +86,25 @@ export const SET_COLORS = (state, fc, bc) => {
 export const SET_FRAME1 = (state) => {};
 
 export const SET_TIMER = (state, minimum, maximum) => {
-    // Opcode 0x2020 (raw 0x2022) is SET_DELAY-but-random: it IMMEDIATELY arms the
-    // current frame's hold to a uniform random integer in [min,max], persisting
-    // like SET_DELAY until the next SET_DELAY/0x2020. Empirically verified by
-    // instrumenting the real binary (the operative handler is the seg-1058
-    // jump-table entry 1058:0e08, which Ghidra could not recover; the earlier
-    // FUN_1048_15ea/0ec8 "re-init, no rng" reading was a misattribution to the
-    // wrong handler). It therefore writes state.delay -- the field the UPDATE
-    // frame-advance / createFrameBoundary actually reads -- NOT the inert
-    // state.timer it used to write (which nothing consumed, so every 0x2020 hold
-    // was silently skipped -> gags flashed too fast, e.g. JOHNNY:2's thought bubble).
-    //
-    // Randomness stays on state.random for now. Stage-1 instrumentation indicated
-    // 1058:0e08 does draw from the faithful lagged-Fibonacci stream, so switching
-    // SET_TIMER onto the faithful RNG is likely more correct -- but that is a
-    // SEPARATE, marker-gated change (a blind switch would desync downstream RANDOM
-    // picks), tracked as a follow-up. Also tracked separately: a pre-existing
-    // ~2.5x delay-duration inflation that affects ALL delay opcodes (incl.
-    // SET_DELAY), so some short-hold actors over-run until that is fixed.
+    // Active handler 1058:0e08 draws once and stages min + raw%(max-min), with
+    // the upper bound excluded. The binary's 46da measurement-pass gate skips
+    // the handler entirely; this interpreter invokes callbacks only on its active
+    // execution path, which is the equivalent modeled boundary.
     const low = Math.min(minimum, maximum);
     const high = Math.max(minimum, maximum);
+    const range = high - low;
+    if (range <= 0) {
+        state.delay = low;
+        return;
+    }
+    if (state.storyRandom) {
+        state.delay = low + state.storyRandom.modulo(range, 'ttm-random-delay');
+        return;
+    }
     if (typeof state.random !== 'function') {
         throw new TypeError('TTM runtime requires an injected random source');
     }
-    state.delay = low + Math.floor(state.random() * (high - low + 1));
+    state.delay = low + Math.floor(state.random() * range);
 };
 
 export const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {

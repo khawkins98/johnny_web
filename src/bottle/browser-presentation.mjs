@@ -11,19 +11,18 @@ import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 import { faithfulRandomFromArchive } from '../dgds/scripting/faithful-rng.mjs';
 
-// DEFAULT ON: the engine's RANDOM (ADS weighted scene pick) is driven by a
+// OPT IN: the engine's RANDOM (ADS weighted scene pick) can be driven by a
 // bit-faithful reproduction of the original binary's baked lagged-Fibonacci
-// stream (see tools/faithfulness-oracle/rng-port.md), so the screensaver plays
-// the original's exact RNG-driven story instead of a Math.random one. Only the
-// RANDOM pick consumes this stream (the one validated LFG consumer: jump-table
-// 0x3010 -> FUN_1048_0cda); cosmetic randomness (cloud spawn/drift, the SET_TIMER
-// sleep, day-ocean tint) stays on Math.random because the binary either draws no
-// word there (0x2020) or interleaves those draws by wall-clock in a way that is
-// not reproducibly countable. Escape hatch: `?faithfulRng=off` restores the
-// legacy Math.random weighted pick.
-const faithfulRngDisabled = () => {
+// stream (see tools/faithfulness-oracle/rng-port.md). This reproduces the
+// generator and ADS mapping, not a live boot's timing-dependent choices. Only the
+// Confirmed host decisions and ADS RANDOM consume this one stream. Cosmetic
+// randomness (cloud spawn/drift, the SET_TIMER
+// sleep, day-ocean tint) stays on Math.random because their draw mappings or
+// wall-clock interleave are not yet reproducibly traced. `?faithfulRng=on` enables
+// this experimental path.
+const faithfulRngEnabled = () => {
     try {
-        return new URLSearchParams(globalThis.location?.search ?? '').get('faithfulRng') === 'off';
+        return new URLSearchParams(globalThis.location?.search ?? '').get('faithfulRng') === 'on';
     } catch {
         return false;
     }
@@ -49,6 +48,7 @@ export const runBrowserPresentation = async ({
     runInterlude = null,
     runPose = null,
     createSelectionPresenter = null,
+    configureStoryRandom = () => {},
     debugThemes = null,
     debugSequence = null,
 }) => {
@@ -116,18 +116,22 @@ export const runBrowserPresentation = async ({
     const resourceProvider = createEntryResourceProvider(resource.entries);
 
     // One faithful stream shared across the whole session (matches the binary's
-    // single generator). Default ON: its pick() drives every ADS RANDOM choice so
-    // the story is the original's; `?faithfulRng=off` restores Math.random. We
-    // expose only pick() to the engine (as faithfulPick) -- NOT the raw stream as
-    // state.random -- so the shared story stream is consumed by the RANDOM opcode
-    // alone and cannot be perturbed by cosmetic/timer draws (see the header note).
+    // single generator). Opt-in: its pick() drives ADS RANDOM choices. We
+    // Expose pick() to DGDS as faithfulPick, and the typed raw source to Johnny's
+    // controller/walker. It is deliberately not state.random, so cosmetic and
+    // unconfirmed timer draws cannot perturb the authored stream.
+    let faithfulRandom = null;
     let faithfulPick = null;
-    if (!faithfulRngDisabled()) {
+    if (faithfulRngEnabled()) {
         try {
-            faithfulPick = faithfulRandomFromArchive(new Uint8Array(arcBuf)).pick;
-            console.log('[DGDS] Faithful RNG enabled (binary lagged-Fibonacci stream drives ADS RANDOM)');
+            faithfulRandom = faithfulRandomFromArchive(new Uint8Array(arcBuf));
+            faithfulPick = faithfulRandom.pick;
+            configureStoryRandom(faithfulRandom);
+            console.log('[DGDS] Experimental faithful RNG enabled for confirmed authored choices');
         } catch (err) {
-            console.warn('[DGDS] Faithful RNG unavailable, using default random for RANDOM picks', err);
+            faithfulRandom = null;
+            faithfulPick = null;
+            console.warn('[DGDS] Faithful RNG unavailable, using default random sources', err);
         }
     }
     const presentationPolicy = createBrowserPresentationPolicy();
@@ -232,6 +236,7 @@ export const runBrowserPresentation = async ({
                     presentBackground: presentSelectionBackground,
                     signal: attempt?.signal ?? null,
                     record: (type, data) => diagnostics.record(type, data),
+                    storyRandom: faithfulRandom,
                 });
                 diagnostics.record('host-interlude', {
                     phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
@@ -274,6 +279,7 @@ export const runBrowserPresentation = async ({
                         mainContext,
                         data,
                         ...(faithfulPick ? { faithfulPick } : {}),
+                        ...(faithfulRandom ? { storyRandom: faithfulRandom } : {}),
                         resourceProvider,
                         backgroundDecorator,
                         game,

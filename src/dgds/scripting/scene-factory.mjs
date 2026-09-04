@@ -100,6 +100,7 @@ export const createTtmRuntimeState = (parent, assets, sceneIdx, tagId) => ({
     presentFrameOperation: parent.presentFrameOperation,
     scenesRes: parent.scenesRes,
     random: parent.random,
+    storyRandom: parent.storyRandom,
     game: parent.game,
     titleState: parent.titleState,
     trace: parent.trace,

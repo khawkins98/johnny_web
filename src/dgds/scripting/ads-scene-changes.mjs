@@ -256,8 +256,8 @@ export const RANDOM_END = (state) => {
     // value drops below 1 -- selecting the first branch whose cumulative weight
     // reaches iVar3. `state.faithfulPick` (bound to the faithful RNG's pick(),
     // src/dgds/scripting/faithful-rng.mjs) reproduces that word->index mapping
-    // bit-for-bit; when it is the injected default the story's RANDOM choices are
-    // driven by the original's exact stream. When absent (unit/golden harnesses
+    // bit-for-bit; when explicitly injected, ADS choices use that deterministic
+    // stream. This does not reproduce a live boot's ambient draw interleave. When absent (unit/golden harnesses
     // that inject only a Math.random-shaped source) we fall back to the
     // stream-faithful-but-mapping-approximate floor(random()*total): both consume
     // one draw and honor the same per-branch weighting, preserving draw accounting.

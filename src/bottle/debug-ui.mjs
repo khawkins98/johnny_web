@@ -154,8 +154,8 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         return label;
     };
 
-    const targetLabel = makeSectionLabel('Start a debug run');
-    targetLabel.dataset.debugSection = 'target';
+    const targetLabel = makeSectionLabel('Debug Run');
+    targetLabel.dataset.debugSection = 'debug-run';
 
     const targetHelp = document.createElement('div');
     targetHelp.innerText = 'Following the host event now playing. Change a selector to choose a different target.';
@@ -192,7 +192,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyRow.style.gap = '3px';
     storyRow.style.alignItems = 'stretch';
     const storyDayLabel = document.createElement('span');
-    storyDayLabel.innerText = 'Story chapter to simulate';
+    storyDayLabel.innerText = 'Simulated day for this run';
     storyDayLabel.title = 'The original 11-day story counter; it gates special finales and advances the raft.';
     storyRow.appendChild(storyDayLabel);
     const storyDayHelp = document.createElement('span');
@@ -299,12 +299,16 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         option.innerText = `Day ${day}`;
         storyDaySelect.appendChild(option);
     }
+    const savedStoryDayAtInit = sequenceTools?.getStoryDay?.() ?? 1;
     try {
-        storyDaySelect.value = String(linkedStage?.storyDay ?? localStorage.getItem('jc-debug-story-day') ?? 1);
+        storyDaySelect.value = String(
+            linkedStage?.storyDay ?? localStorage.getItem('jc-debug-story-day') ?? savedStoryDayAtInit,
+        );
     } catch {
         storyDaySelect.value = '1';
     }
     let preferredStoryDay = storyDaySelect.value;
+    let updateSavedDayAction = () => {};
     storyDaySelect.addEventListener('change', () => {
         preferredStoryDay = storyDaySelect.value;
         try {
@@ -312,6 +316,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         } catch {
             // The selected value still applies for this page session.
         }
+        updateSavedDayAction();
         syncSelectedSceneContext();
     });
     storyRow.appendChild(storyDaySelect);
@@ -418,6 +423,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         }
         preferredStoryDay = String(status.storyDay);
         storyDaySelect.value = preferredStoryDay;
+        updateSavedDayAction();
         syncSelectedSceneContext();
         syncingPlaybackTarget = false;
     };
@@ -586,7 +592,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     };
     container.appendChild(sequenceStatus);
 
-    // Real story-day controls: unlike the "Story chapter to simulate" selector above
+    // Real story-day controls: unlike the per-run simulated selector above
     // (a per-run preview value passed to preview/planFrom), these read/write the
     // persisted jc-story-day/target/date state itself via the controller API
     // (story-controller.mjs getStoryDay/setStoryDay/advanceStoryDay), so a change here
@@ -597,7 +603,7 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyDayControlRow.style.flexDirection = 'column';
     storyDayControlRow.style.gap = '3px';
     const storyDayControlLabel = document.createElement('span');
-    storyDayControlLabel.innerText = 'Story day (persisted)';
+    storyDayControlLabel.innerText = 'Saved day for normal playback';
     storyDayControlLabel.title = 'Sets the real 11-day story counter. Takes effect on the next gag.';
     const storyDayControls = document.createElement('div');
     storyDayControls.style.display = 'flex';
@@ -610,10 +616,30 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     storyDayInput.style.cssText = controlStyle;
     storyDayInput.style.width = '64px';
     storyDayInput.value = String(sequenceTools?.getStoryDay?.() ?? 1);
+    storyDayInput.style.fontVariantNumeric = 'tabular-nums';
+    const useSavedDayBtn = makeActionButton('Use saved day', () => {
+        preferredStoryDay = storyDayInput.value;
+        storyDaySelect.value = preferredStoryDay;
+        try {
+            localStorage.removeItem('jc-debug-story-day');
+        } catch {
+            // The page-session value is still synchronized.
+        }
+        updateSavedDayAction();
+        syncSelectedSceneContext();
+    });
+    useSavedDayBtn.dataset.debugControl = 'use-saved-story-day';
+    updateSavedDayAction = () => {
+        useSavedDayBtn.disabled = preferredStoryDay === storyDayInput.value;
+        useSavedDayBtn.title = useSavedDayBtn.disabled
+            ? 'The simulated day already matches saved progress.'
+            : 'Use saved progress for the next debug run without changing it.';
+    };
     const setStoryDayBtn = makeActionButton('Set', () => {
         const day = sequenceTools?.setStoryDay?.(Number(storyDayInput.value));
         if (day != null) {
             storyDayInput.value = String(day);
+            updateSavedDayAction();
             showActionFeedback(`Story day set to ${day}. It applies starting the next gag.`);
         }
     });
@@ -621,15 +647,28 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
         const day = sequenceTools?.advanceStoryDay?.();
         if (day != null) {
             storyDayInput.value = String(day);
+            updateSavedDayAction();
             showActionFeedback(`Story day advanced to ${day}. It applies starting the next gag.`);
         }
     });
     storyDayControls.appendChild(storyDayInput);
     storyDayControls.appendChild(setStoryDayBtn);
     storyDayControls.appendChild(advanceStoryDayBtn);
+    storyDayControls.appendChild(useSavedDayBtn);
     storyDayControlRow.appendChild(storyDayControlLabel);
     storyDayControlRow.appendChild(storyDayControls);
-    container.appendChild(storyDayControlRow);
+    const savedStorySection = document.createElement('div');
+    savedStorySection.dataset.debugSection = 'saved-story-progress';
+    savedStorySection.style.display = sequenceTools ? 'flex' : 'none';
+    savedStorySection.style.flexDirection = 'column';
+    savedStorySection.style.gap = '8px';
+    savedStorySection.style.marginTop = '8px';
+    savedStorySection.style.paddingTop = '12px';
+    savedStorySection.style.boxShadow = 'inset 0 1px 0 rgba(74, 53, 32, 0.16)';
+    savedStorySection.appendChild(makeSectionLabel('Saved Story Progress'));
+    savedStorySection.appendChild(storyDayControlRow);
+    container.appendChild(savedStorySection);
+    updateSavedDayAction();
 
     if (sequenceTools?.subscribeStatus) sequenceTools.subscribeStatus(renderSequenceStatus);
     // Reconcile as well as subscribe: host playback can cross runtime and

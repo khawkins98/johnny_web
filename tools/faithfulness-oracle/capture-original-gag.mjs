@@ -41,14 +41,17 @@
  *   DBX        path to the patched dosbox-x binary (default: SP_DOSBOX/../dosbox-x-src/src/dosbox-x)
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readFileSync, openSync, closeSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-const SP = process.env.SP_DOSBOX
-    || '/private/tmp/claude-501/-Users-khawkins-Documents-git-johnny-web/636b3fbc-2323-4456-ae0c-481b8c5b84c4/scratchpad/dosbox';
+const SP = process.env.SP_DOSBOX;
+if (!SP) {
+    console.error('SP_DOSBOX is required (directory containing driveC/ and driveD/)');
+    process.exit(3);
+}
 const DBX = process.env.DBX || path.resolve(SP, '../dosbox-x-src/src/dosbox-x');
 const THREADS_TO_TIMELINE = path.join(here, 'rendering-oracle', 'threads-to-timeline.mjs');
 
@@ -113,9 +116,10 @@ const runLog = path.join(out, 'run.log');
 
 // -- run dosbox-x headless, isolated, killed by ITS OWN pid on timeout --
 const runDosbox = () => new Promise((resolve) => {
+    const logFd = openSync(runLog, 'w');
     const child = spawn(DBX, ['-conf', confPath, '-set', 'cpu core=normal', '-nogui'], {
         cwd: out,
-        stdio: ['ignore', 'ignore', 'ignore'],
+        stdio: ['ignore', logFd, logFd],
         env: {
             ...process.env,
             SDL_VIDEODRIVER: 'dummy',
@@ -127,7 +131,14 @@ const runDosbox = () => new Promise((resolve) => {
         },
     });
     let done = false;
-    const finish = (code) => { if (!done) { done = true; clearTimeout(timer); resolve(code); } };
+    const finish = (code) => {
+        if (!done) {
+            done = true;
+            clearTimeout(timer);
+            closeSync(logFd);
+            resolve(code);
+        }
+    };
     const timer = setTimeout(() => { try { process.kill(child.pid, 'SIGKILL'); } catch {} }, secs * 1000);
     child.on('exit', (code) => finish(code));
     child.on('error', () => finish(-1));

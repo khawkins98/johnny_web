@@ -39,7 +39,7 @@ import { isTtmFinished } from '../ttm-run-state.mjs';
 // (presence-dedup keeps a re-poll a no-op while 3:39 is live), so the
 // smoke->fire->sit->walk cycle runs ONCE -- no second sit-back re-firing during 3:140's
 // walk, hence no two Johnny bodies. smokeCycles==1, no DRAWN walk/sit overlap, all seeds.
-describe('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () => {
+describe.skipIf(!hasData)('BUILDING.ADS #8 — no "two Johnnys" at the fire-gag finish', () => {
     // A range of seeds; several currently produce the double (e.g. 1, 3, 4, 7).
     for (const seed of [1, 2, 3, 4, 5, 7, 11, 42, 99, 123]) {
         it(`seed ${seed}: walk-to-tree (3:140) never overlaps a sit-back (3:53/3:143)`, () => {

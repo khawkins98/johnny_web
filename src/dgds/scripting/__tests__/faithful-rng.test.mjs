@@ -9,6 +9,7 @@ import {
     FAITHFUL_RNG_SEED_OFFSET,
 } from '../faithful-rng.mjs';
 import { TTMDispatch } from '../script-runner.mjs';
+import { hasData } from './support/drive-gag.mjs';
 
 // Bit-faithful port of the original binary RNG `FUN_1018_1e86` (a 56-word
 // additive lagged-Fibonacci generator whose seed is baked into SCRANTIC.SCR).
@@ -33,9 +34,11 @@ const BINARY_FIRST_64 = [
 
 const here = dirname(fileURLToPath(import.meta.url));
 const scrPath = resolve(here, '../../../../public/data/SCRANTIC.SCR');
-const scr = readFileSync(scrPath);
+// Guarded: CI has no proprietary data. The describes below skipIf(!hasData), but a
+// module-level read would still run at import — so only read when the data exists.
+const scr = hasData ? readFileSync(scrPath) : null;
 
-describe('faithful RNG seed extraction', () => {
+describe.skipIf(!hasData)('faithful RNG seed extraction', () => {
     it('reads the baked lag indices and table from SCRANTIC.SCR @0x19ae2', () => {
         expect(FAITHFUL_RNG_SEED_OFFSET).toBe(0x19ae2);
         const seed = extractFaithfulSeed(scr);
@@ -52,7 +55,7 @@ describe('faithful RNG seed extraction', () => {
     });
 });
 
-describe('faithful RNG stream (validated against the binary)', () => {
+describe.skipIf(!hasData)('faithful RNG stream (validated against the binary)', () => {
     it('reproduces the binary word stream bit-for-bit from the baked seed', () => {
         const rng = createFaithfulRng(extractFaithfulSeed(scr));
         const got = Array.from({ length: BINARY_FIRST_64.length }, () => rng.nextWord());
@@ -109,34 +112,80 @@ describe('faithful RNG stream (validated against the binary)', () => {
         // Both advanced one draw; next raw words must agree.
         expect(rngA.nextWord()).toBe(rngB.nextWord());
     });
+
+    it('reports ordered raw draws with explicit call-site labels', () => {
+        const draws = [];
+        const rng = createFaithfulRng(extractFaithfulSeed(scr), { onDraw: (draw) => draws.push(draw) });
+
+        const first = rng.nextWord('director-final');
+        rng.pick(15);
+        rng.random();
+
+        expect(draws).toEqual([
+            { ordinal: 0, site: 'director-final', raw: first },
+            { ordinal: 1, site: 'ads-random', raw: BINARY_FIRST_64[1] },
+            { ordinal: 2, site: 'math-random-adapter', raw: BINARY_FIRST_64[2] },
+        ]);
+        expect(Object.isFrozen(draws[0])).toBe(true);
+    });
+
+    it('lets callers distinguish multiple instances of the same mapper', () => {
+        const draws = [];
+        const rng = createFaithfulRng(extractFaithfulSeed(scr), { onDraw: (draw) => draws.push(draw) });
+
+        rng.pick(10, 'ads-random:FISHING.ADS#2');
+
+        expect(draws[0].site).toBe('ads-random:FISHING.ADS#2');
+        expect(draws[0].ordinal).toBe(0);
+    });
+
+    it('maps unsigned modulo and bit tests with one labeled draw each', () => {
+        const seed = extractFaithfulSeed(scr);
+        const source = createFaithfulRng(seed);
+        const predictor = createFaithfulRng(seed);
+
+        expect(source.modulo(10, 'gate')).toBe(predictor.nextWord() % 10);
+        expect(source.bit(1, 'turn')).toBe(predictor.nextWord() & 1);
+        expect(source.nextWord()).toBe(predictor.nextWord());
+    });
+
+    it('uses the binary 655-per-weight inclusive bucket thresholds', () => {
+        const tableForFirst = (raw) => {
+            const table = new Uint16Array(56);
+            table[0] = raw;
+            return { i: 0, j: 1, table };
+        };
+
+        expect(createFaithfulRng(tableForFirst(655)).weightedBucket([1])).toBe(1);
+        expect(createFaithfulRng(tableForFirst(656)).weightedBucket([1])).toBe(0);
+        expect(createFaithfulRng(tableForFirst(19650)).weightedBucket([10, 20])).toBe(2);
+        expect(createFaithfulRng(tableForFirst(65535)).weightedBucket([10, 20, 30, 20, 10, 10])).toBe(0);
+    });
 });
 
-describe('faithful RNG wiring', () => {
+describe.skipIf(!hasData)('faithful RNG wiring', () => {
     it('faithfulRandomFromArchive builds the same stream as the raw path', () => {
         const a = faithfulRandomFromArchive(scr);
         const b = createFaithfulRng(extractFaithfulSeed(scr));
         for (let n = 0; n < 32; n++) expect(a.nextWord()).toBe(b.nextWord());
     });
 
-    it('drives a real engine draw site (SET_TIMER) deterministically from the stream', () => {
-        // Prove the faithful stream is actually consumed by the interpreter: when
-        // injected as state.random, the TTM SET_TIMER opcode (0x2020) draws from it.
+    it('drives SET_TIMER with the binary unsigned-modulo mapping', () => {
         const SET_TIMER = TTMDispatch.find((d) => d.opcode === 0x2020).callback;
         const source = faithfulRandomFromArchive(scr);
-        const state = { random: source.random };
+        const state = { random: () => { throw new Error('fallback random used'); }, storyRandom: source };
 
         // Mirror the draw with a parallel faithful stream to predict each timer.
         const predictor = createFaithfulRng(extractFaithfulSeed(scr));
         const low = 10;
         const high = 30;
-        const range = high - low + 1;
+        const range = high - low;
         for (let n = 0; n < 16; n++) {
             SET_TIMER(state, low, high);
-            const expected = low + Math.floor((predictor.nextWord() / 0x10000) * range);
-            // 0x2020 arms the frame delay (state.delay), not the inert state.timer.
+            const expected = low + predictor.nextWord() % range;
             expect(state.delay).toBe(expected);
             expect(state.delay).toBeGreaterThanOrEqual(low);
-            expect(state.delay).toBeLessThanOrEqual(high);
+            expect(state.delay).toBeLessThan(high);
         }
     });
 });

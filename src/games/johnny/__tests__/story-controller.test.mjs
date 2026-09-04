@@ -11,6 +11,128 @@ const memoryStorage = (initial = {}) => {
 };
 
 describe('Johnny host story controller', () => {
+    const recordingStoryRandom = (chooseModulo = () => 0) => {
+        const draws = [];
+        return {
+            draws,
+            source: {
+                modulo(divisor, site) {
+                    draws.push({ site, divisor });
+                    return chooseModulo(divisor, site);
+                },
+                weightedBucket(weights, site) {
+                    draws.push({ site, weights });
+                    return 1;
+                },
+            },
+        };
+    };
+
+    it('shares typed raw draws across final, ocean, and intermediate decisions', () => {
+        const draws = [];
+        const storyRandom = {
+            modulo(divisor, site) {
+                draws.push({ kind: 'modulo', divisor, site });
+                if (divisor === 10) return 1;
+                return site === 'director-intermediate-scene' ? divisor - 1 : 0;
+            },
+            weightedBucket(weights, site) {
+                draws.push({ kind: 'bucket', weights, site });
+                return 1;
+            },
+        };
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        controller.next();
+
+        expect(draws.slice(0, 2)).toEqual([
+            { kind: 'modulo', divisor: 10, site: 'director-keyframe-gate' },
+            expect.objectContaining({ kind: 'modulo', site: 'director-final-scene' }),
+        ]);
+        expect(draws.some((draw) => draw.site === 'director-intermediate-scene')).toBe(true);
+        expect(draws.findLastIndex((draw) => draw.site === 'director-intermediate-scene')).toBeLessThan(
+            draws.findIndex((draw) => draw.site === 'island-ocean'),
+        );
+    });
+
+    it('can attach the shared source before the first selection', () => {
+        const sites = [];
+        const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+        controller.setRandomSource({
+            modulo: (divisor, site) => (sites.push(site), divisor === 10 ? 0 : 0),
+            weightedBucket: () => 1,
+        });
+
+        controller.next();
+        expect(sites).toContain('director-keyframe-gate');
+        expect(sites).toContain('island-ocean');
+    });
+
+    it('uses any queued raw 0x0200 flag to select layout band 0 after planning', () => {
+        const { source, draws } = recordingStoryRandom((divisor, site) => {
+            if (site === 'island-ocean') return 2;
+            if (site === 'island-x') return divisor - 1;
+            return 0;
+        });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        controller.planFrom('ACTIVITY.ADS', 8, { storyDay: 1 });
+        const first = controller.next();
+        expect(first.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 2, x: 3, y: -24 });
+        expect(draws.slice(-3)).toEqual([
+            { site: 'island-ocean', divisor: 3 },
+            { site: 'island-x', divisor: 226 },
+            { site: 'island-y', divisor: 129 },
+        ]);
+        expect(draws.findLastIndex(({ site }) => site.startsWith('director-'))).toBeLessThan(
+            draws.findIndex(({ site }) => site === 'island-ocean'),
+        );
+    });
+
+    it('uses layout band 1 without drawing a random layout choice', () => {
+        const { source, draws } = recordingStoryRandom((divisor, site) =>
+            site === 'island-x' ? divisor - 1 : 0,
+        );
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
+        expect(preview.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 0, x: -11, y: -24 });
+        expect(draws).toEqual([
+            { site: 'island-ocean', divisor: 3 },
+            { site: 'island-x', divisor: 111 },
+            { site: 'island-y', divisor: 59 },
+        ]);
+    });
+
+    it('does not draw a day-ocean word at night', () => {
+        const { source, draws } = recordingStoryRandom(() => 0);
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 22),
+        });
+
+        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
+        expect(preview.titleState.night).toBe(true);
+        expect(draws.map(({ site }) => site)).toEqual(['island-x', 'island-y']);
+    });
+
     it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
         expect(JOHNNY_SCENES).toHaveLength(79);
         expect(new Set(JOHNNY_SCENES.map(({ script }) => script))).toEqual(

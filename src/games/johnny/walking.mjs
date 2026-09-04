@@ -141,8 +141,10 @@ export const decodeJohnnyWalkData = (archiveBuffer) => {
  * route 1->5 spot A sums 150 -- which is faithful to the binary; the overflow entries
  * are simply unreachable, in the original too.)
  */
-export const pickWalkSegment = (choices, random = Math.random) => {
-    let roll = Math.min(99, Math.max(0, Math.floor(random() * 100)));
+export const pickWalkSegment = (choices, random = Math.random, storyRandom = null) => {
+    let roll = storyRandom
+        ? storyRandom.modulo(100, 'walk-route-segment')
+        : Math.min(99, Math.max(0, Math.floor(random() * 100)));
     for (const [segmentId, weight] of choices) {
         if (roll <= weight) return segmentId;
         roll -= weight;
@@ -150,12 +152,25 @@ export const pickWalkSegment = (choices, random = Math.random) => {
     return choices[choices.length - 1]?.[0] ?? 0;
 };
 
-const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false, random = Math.random) => {
+const appendTurn = (
+    frames,
+    data,
+    spot,
+    fromHeading,
+    toHeading,
+    waiting = false,
+    random = Math.random,
+    storyRandom = null,
+) => {
     let heading = fromHeading;
     const difference = (toHeading - heading) & 7;
     // A difference of 4 is an opposite (180deg) facing: the original turns a RANDOM
     // shortest way ((rng()&1)?-1:+1). Otherwise take the short way (1..3 -> +1, 5..7 -> -1).
-    const increment = difference === 0 ? 0 : difference === 4 ? (random() < 0.5 ? 1 : -1) : difference < 4 ? 1 : -1;
+    let increment = difference === 0 ? 0 : difference < 4 ? 1 : -1;
+    if (difference === 4) {
+        const clockwise = storyRandom ? storyRandom.bit(1, 'walk-opposite-turn') === 0 : random() < 0.5;
+        increment = clockwise ? 1 : -1;
+    }
     while (heading !== toHeading) {
         heading = (heading + increment + 8) & 7;
         frames.push(data[TURNS[spot] + heading + (waiting ? 9 : 0)]);
@@ -170,7 +185,7 @@ const appendTurn = (frames, data, spot, fromHeading, toHeading, waiting = false,
  * repeat until the destination. This is the original engine's mechanism, replacing the
  * port's runtime path enumeration over the hand-built BOOKMARKS graph.
  */
-export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
+export const planJohnnyWalkFrames = (walk, data, random = Math.random, storyRandom = null) => {
     const { fromSpot, toSpot, fromHeading, toHeading } = walk;
     if (fromHeading == null || toHeading == null) return [];
     if (!Number.isInteger(fromSpot) || !Number.isInteger(toSpot)) return [];
@@ -187,9 +202,9 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
         for (let guard = 0; route && spot !== toSpot && guard < 16; guard++) {
             const choices = route[spot + 1];
             if (!choices || choices.length === 0) break;
-            const segment = WALK_SEGMENTS[pickWalkSegment(choices, random)];
+            const segment = WALK_SEGMENTS[pickWalkSegment(choices, random, storyRandom)];
             if (!segment || segment.es === 0) break;
-            appendTurn(frames, data, spot, heading, segment.sh, false, random);
+            appendTurn(frames, data, spot, heading, segment.sh, false, random, storyRandom);
             for (let row = segment.row; data[row]?.frame >= 0; row++) frames.push(data[row]);
             heading = segment.eh;
             spot = segment.es - 1; // 1-based end spot -> 0-based
@@ -209,7 +224,7 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random) => {
     // hold, rather than an all-invisible sequence that leaves Johnny absent (the
     // standing-turn visibility fix). Only when an actual turn happens.
     if (heading !== toHeading) frames.push(data[TURNS[toSpot] + 9 + heading]);
-    appendTurn(frames, data, toSpot, heading, toHeading, true, random);
+    appendTurn(frames, data, toSpot, heading, toHeading, true, random, storyRandom);
     frames.push(data[TURNS[toSpot] + 9 + toHeading]);
     return frames.filter(Boolean);
 };
@@ -239,10 +254,11 @@ export const runJohnnyWalk = async ({
     wait = delay,
     signal = null,
     random = Math.random,
+    storyRandom = null,
     record = null,
 }) => {
     if (!walk || signal?.aborted) return false;
-    const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer), random);
+    const frames = planJohnnyWalkFrames(walk, decodeJohnnyWalkData(archiveBuffer), random, storyRandom);
     const sprites = resourceProvider.resolve('JOHNWALK.BMP');
     const background = resourceProvider.resolve('BACKGRND.BMP');
     const offsetX = titleState?.x || 0;
