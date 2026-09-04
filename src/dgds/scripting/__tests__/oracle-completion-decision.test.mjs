@@ -42,12 +42,18 @@ const collectDecisions = ({ adsName, tag, seed }) => {
 };
 
 describe.skipIf(!hasData)('oracle: completion decision matches binary live-thread drain', () => {
-    const activity = loadAds(johnnyCastaway.resources.activity);
-    const gagIds = [...new Set(activity.scenes.map((s) => s.tagId?.id).filter((id) => id != null))];
-    const targets = [
-        ...gagIds.map((tag) => ({ adsName: johnnyCastaway.resources.activity, tag })),
-        { adsName: 'FISHING.ADS', tag: 2 },
-    ];
+    // NB: describe.skipIf still RUNS this body to register tests, so data access here
+    // must be guarded — loadAds would otherwise throw at collection time on CI (no data).
+    const activity = hasData ? loadAds(johnnyCastaway.resources.activity) : null;
+    const gagIds = activity
+        ? [...new Set(activity.scenes.map((s) => s.tagId?.id).filter((id) => id != null))]
+        : [];
+    const targets = activity
+        ? [
+              ...gagIds.map((tag) => ({ adsName: johnnyCastaway.resources.activity, tag })),
+              { adsName: 'FISHING.ADS', tag: 2 },
+          ]
+        : [];
 
     it('never completes a gag via the KEEP_GOING exclusion (seeds 1..30, all gags)', { timeout: 400000 }, () => {
         const divergences = [];
