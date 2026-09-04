@@ -102,14 +102,10 @@ const renderGagSection = (ads, adsName, scene, label) => {
 const renderAdsDoc = (adsName, ads, label) => {
     let md = `# ${adsName} scene flows\n\n${HEADER}\n\n`;
     md +=
-        'A readable projection of each gag\'s authored ADS branch logic — guards, branches, and ' +
-        'RANDOM picks — rendered through the SAME slot model the engine runs (`buildAdsSlots` in ' +
-        '`src/dgds/scripting/ads-slots.mjs`), so a branch that is really a *fall-through* rung of a ' +
-        'retry ladder reads as one ("otherwise…") rather than as a second independent start. It is ' +
-        'faithful to the authored entry/fall-through structure; it is not a literal tick-by-tick ' +
-        'trace (RANDOM picks and timing are decided at runtime). Pairs with ' +
-        '[../story-over-time.md](../story-over-time.md), which covers the calendar-driven story arc ' +
-        'across gags; this doc covers the scripted flow *within* each of this file\'s gags.\n\n';
+        'These diagrams come from the original game scripts and show how each gag can unfold. ' +
+        'They include conditions, choices, and retry paths, but not exact timing or the result of ' +
+        'a random choice. See [Johnny\'s 11-day story](../story-over-time.md) for how gags are ' +
+        'chosen over time.\n\n';
     for (const scene of ads.scenes) {
         md += renderGagSection(ads, adsName, scene, label) + '\n';
     }
@@ -119,13 +115,10 @@ const renderAdsDoc = (adsName, ads, label) => {
 const renderIndex = (entries) => {
     let md = `# Scene flows\n\n${HEADER}\n\n`;
     md +=
-        'Human-readable flows of each gag\'s authored ADS scripting — guards, branches, and ' +
-        'RANDOM picks — rendered from the real bytecode through the SAME slot model the engine runs ' +
-        '(`buildAdsSlots`), so they can\'t drift from it and so entry branches are told apart from ' +
-        'the fall-through rungs of a retry ladder. Faithful to the authored entry/fall-through ' +
-        'structure, not a literal tick-by-tick trace (RANDOM picks and timing happen at runtime). ' +
-        'Pairs with [../story-over-time.md](../story-over-time.md) (the calendar-driven story arc ' +
-        'across gags).\n\n';
+        'Explore the conditions and choices inside every gag. These pages are generated from the ' +
+        'original game scripts, so the diagrams stay in step with the engine. They show possible ' +
+        'routes rather than exact timing. See [Johnny\'s 11-day story](../story-over-time.md) for ' +
+        'how the game chooses gags over time.\n\n';
     for (const { adsName, gagCount } of entries) {
         md += `- [${adsName}](./${adsName}.md) — ${gagCount} gag${gagCount === 1 ? '' : 's'}\n`;
     }

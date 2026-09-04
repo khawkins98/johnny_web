@@ -176,13 +176,12 @@ const tableRows = sorted
     .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.duration} | ${r.status} |`)
     .join('\n');
 
-const doc = `# Oracle coverage report
+const doc = `# Faithfulness coverage
 
-This is a **generated** per-gag alignment/fidelity report for the differential
-faithfulness oracle (\`test/faithfulness-diff.mjs\`). It drives OUR engine against
-each of the committed original-binary reference fingerprints in
-\`test/faithfulness-refs/\` and reports, per gag: maxConc alignment, vocabulary
-overlap, and (where lifespan data exists) duration in-band coverage.
+This generated report compares each browser-engine gag with recordings from the
+original program. \`maxConc\` is the largest number of actors drawn together;
+vocabulary is the set of actor combinations seen; duration compares how long
+matching actors remain visible.
 
 Regenerate with:
 
@@ -196,48 +195,16 @@ Reflects HEAD \`${headSha}\`, generated ${today}.
 
 ${summaryLine}
 
-## Per-gag table
+## Gags
 
 ${tableHeader}${tableRows}
 
-## Caveats
+## Reading the report
 
-- **Duration is a gross-divergence signal, not fine duration matching.**
-  Absolute lifespan tick-counts carry roughly ±3x reference-capture noise: the
-  original binary's capture sessions ran under \`cycles=max\` / \`GetTickCount\`
-  pacing, where the DOSBox director's real invocation rate varies session to
-  session (see \`scratchpad/findings/delay-calibration-rootcause.md\` and
-  \`scratchpad/findings/global-timing-ratio.md\`). The "within 3x" duration band
-  is deliberately loose so it only catches egregious divergences -- a stuck-on
-  or dropped-early actor (e.g. the JOHNNY:2 0x2020 flash/stuck-hold bug this
-  oracle caught) -- not subtle timing drift. Exact-duration ground truth would
-  need a deterministic LFG-seeded capture of the original binary, which is
-  tracked separately in \`tools/faithfulness-oracle/rng-port.md\`.
-- **43 of the 64 committed refs lack lifespan data** (\`maxConc-only\`), which is
-  a known duration-coverage gap, not a fidelity problem -- those refs predate
-  the lifespans field. They are enrichable by regenerating with
-  \`node tools/faithfulness-oracle/gen-refs.mjs --gags NAME:tag,... --runs 8\`.
-- **Vocab overlap** is computed against the reference union (an RNG-tolerant
-  lower bound over \`ref.runs\` original-binary runs), so it is the more
-  reliable coverage metric here; a gag can show less than 100% overlap simply
-  because our single seed-union run didn't happen to hit every RNG branch the
-  binary's multi-run union did -- see \`test/faithfulness-diff.mjs\` for why
-  vocab diffs are review-only, not a hard gate.
-- **VISITOR:3** and **STAND:14** cannot be driven in isolation by \`driveGag\`
-  (VISITOR:3 only ever runs as a sibling of another VISITOR gag; STAND:14 is an
-  init-only macro tag with no independent draw path) -- they are covered
-  transitively through the gags that invoke them, and are listed here as
-  explicit catalogue rows rather than silently omitted.
-- **STAND:1-12 show 0% vocab overlap -- a driving/capture mismatch, NOT a
-  confirmed rendering divergence.** These are the low-weight idle "standing pose"
-  fillers. Their maxConc matches (1/1) but the actor tags differ (e.g. STAND:1
-  ours \`1:42\` vs binary \`1:2/1:3/1:53\`, same slot 1). The story-controller
-  models the pose class as binary \`adsId 0xFF\` / pure-engine walk-sprite (no
-  ADS), so driving \`STAND.ADS tag N\` through the ADS path in isolation does not
-  reproduce the binary's captured pose selection -- an apples-to-oranges
-  comparison. (STAND:15/16 are real STAND.ADS gags and align at 100%.) FOLLOW-UP:
-  confirm whether the idle poses render faithfully in context vs. a real
-  wrong-pose bug; until then treat the STAND:1-12 vocab column as not meaningful.
+- Peak concurrency is the hard check. A difference of one is allowed for capture variation; two or more fails.
+- Vocabulary and duration are review aids. Random branches differ between runs, and DOSBox timing makes precise duration comparisons unreliable. The 3x band is intended to catch actors that vanish early or remain stuck on screen.
+- \`VISITOR:3\` is orphaned content and \`STAND:14\` is a shared setup macro, so neither can be captured alone. Their callers cover them indirectly.
+- The \`STAND:1-12\` vocabulary comparison is not meaningful. The browser test and original capture reach these idle poses through different paths; matching concurrency does not yet prove that the pose itself is correct.
 `;
 
 writeFileSync(outPath, doc, 'utf8');
