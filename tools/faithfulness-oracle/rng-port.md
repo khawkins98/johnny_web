@@ -1,6 +1,6 @@
 # Reproducing the original random choices
 
-The original *Johnny Castaway* program contains a fixed random-number state. It produces the same sequence after every clean start; it is not seeded from the clock. The browser port uses this sequence for scripted random scene choices.
+The original *Johnny Castaway* program contains a fixed random-number state. It produces the same sequence after every clean start; it is not seeded from the clock. The browser port can use this sequence experimentally for ADS random choices.
 
 ## Algorithm and seed
 
@@ -31,17 +31,17 @@ Other apparent randomness stays on the browser's cosmetic random source:
 
 | Feature | Why it is separate |
 | --- | --- |
-| Opcode `0x2020` delay | The original opcode does not draw a random word. |
+| Opcode `0x2020` delay | Later emulator instrumentation contradicted the earlier decompile-based “no draw” finding. Its raw mapping and draw count must be captured again before it is connected to this stream. |
 | Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Ocean tint | It belongs to the same ambient setup rather than the scripted choice stream. |
 
-Keeping these separate prevents cosmetic animation from shifting every later story choice. Add `?faithfulRng=off` to use the older `Math.random` path.
+Keeping these separate makes the experimental path deterministic, but it also means its choices do not line up with a live original-program session. Add `?faithfulRng=on` to enable it; the default remains `Math.random`.
 
 ## Validation
 
 The DOSBox-X trace patch records the generator's indexes, table inputs, and returned `AX`. The JavaScript implementation matched **20,000 of 20,000** consecutive draws across two clean boots, with no differences.
 
-`src/dgds/scripting/__tests__/faithful-rng.test.mjs` keeps the first 64 traced words as a compact CI check. `faithful-story.test.mjs` also confirms that sampled story streams complete, including the fishing return path.
+`src/dgds/scripting/__tests__/faithful-rng.test.mjs` keeps the first 64 traced words as a compact CI check. It can also record each draw as an ordinal, call-site label, and raw word for comparison with emulator traces. `faithful-story.test.mjs` confirms that sampled streams complete, including the fishing return path.
 
 ## Limit of exact replay
 

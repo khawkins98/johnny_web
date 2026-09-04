@@ -109,6 +109,32 @@ describe('faithful RNG stream (validated against the binary)', () => {
         // Both advanced one draw; next raw words must agree.
         expect(rngA.nextWord()).toBe(rngB.nextWord());
     });
+
+    it('reports ordered raw draws with explicit call-site labels', () => {
+        const draws = [];
+        const rng = createFaithfulRng(extractFaithfulSeed(scr), { onDraw: (draw) => draws.push(draw) });
+
+        const first = rng.nextWord('director-final');
+        rng.pick(15);
+        rng.random();
+
+        expect(draws).toEqual([
+            { ordinal: 0, site: 'director-final', raw: first },
+            { ordinal: 1, site: 'ads-random', raw: BINARY_FIRST_64[1] },
+            { ordinal: 2, site: 'math-random-adapter', raw: BINARY_FIRST_64[2] },
+        ]);
+        expect(Object.isFrozen(draws[0])).toBe(true);
+    });
+
+    it('lets callers distinguish multiple instances of the same mapper', () => {
+        const draws = [];
+        const rng = createFaithfulRng(extractFaithfulSeed(scr), { onDraw: (draw) => draws.push(draw) });
+
+        rng.pick(10, 'ads-random:FISHING.ADS#2');
+
+        expect(draws[0].site).toBe('ads-random:FISHING.ADS#2');
+        expect(draws[0].ordinal).toBe(0);
+    });
 });
 
 describe('faithful RNG wiring', () => {
@@ -118,9 +144,10 @@ describe('faithful RNG wiring', () => {
         for (let n = 0; n < 32; n++) expect(a.nextWord()).toBe(b.nextWord());
     });
 
-    it('drives a real engine draw site (SET_TIMER) deterministically from the stream', () => {
-        // Prove the faithful stream is actually consumed by the interpreter: when
-        // injected as state.random, the TTM SET_TIMER opcode (0x2020) draws from it.
+    it('can drive the legacy random-function adapter deterministically', () => {
+        // SET_TIMER still accepts a Math.random-shaped source. This checks adapter
+        // compatibility only; production does not wire 0x2020 to the faithful stream
+        // until its contradictory emulator/decompile findings are revalidated.
         const SET_TIMER = TTMDispatch.find((d) => d.opcode === 0x2020).callback;
         const source = faithfulRandomFromArchive(scr);
         const state = { random: source.random };

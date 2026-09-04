@@ -10,7 +10,7 @@ import { faithfulRandomFromArchive } from '../faithful-rng.mjs';
 // driven by the original binary's baked lagged-Fibonacci stream (faithful-rng.mjs
 // pick(), the one validated LFG consumer -- jump-table 0x3010 -> FUN_1048_0cda).
 // This suite proves the faithful STORY is sound: every gag still runs to completion
-// and FISHING #2 still winds down through its return-walk, so switching the default
+// and FISHING #2 still winds down through its return-walk, so enabling the experiment
 // does not break reachability / the content-addressed handoff drain. It complements
 // the rendering goldens (which stay on their deterministic LCG rendering baseline).
 //
@@ -37,7 +37,7 @@ const gagIds = activity
     ? [...new Set(activity.scenes.map((scene) => scene.tagId?.id).filter((id) => id != null))]
     : [];
 
-describe.skipIf(!hasData)('faithful RNG default plays a sound story', () => {
+describe.skipIf(!hasData)('faithful RNG experiment plays a sound story', () => {
     for (const gag of gagIds) {
         it(`gag ${gag} completes under the faithful pick`, { timeout: 20000 }, () => {
             const { completed } = driveGag({

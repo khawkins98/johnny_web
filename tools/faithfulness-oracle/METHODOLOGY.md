@@ -128,7 +128,7 @@ One known scheduler issue remains: removing duplicates before staging a random b
 
 ## Random-number behavior
 
-The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port matches 20,000 traced values exactly and uses that stream for authored random scene choices. Ambient animation remains separate because its draw count depends on real-time DOSBox execution. See [rng-port.md](./rng-port.md).
+The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port matches 20,000 traced values exactly. An opt-in experiment uses it for ADS random choices, but ambient animation remains separate because its draw count depends on real-time DOSBox execution. See [rng-port.md](./rng-port.md).
 
 ## Retired pixel comparison
 
