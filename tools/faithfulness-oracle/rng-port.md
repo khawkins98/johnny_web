@@ -39,13 +39,17 @@ The original shares this stream across its scene director, walking, island setup
 | Island coordinates | separate `word % width` and `word % height` draws |
 | ADS `RANDOM` | `word % totalWeight + 1` |
 
+Opcode `0x2020` is not an RNG consumer. Its binary handler finds and reinitializes a scene thread without calling the generator; a browser-side random hold must not advance the faithful stream.
+
+Island layout is also not randomly selected. Catalogue `flagsB` is the little-endian word at record offset `+0x0b`; bit `0x0200` forces layout 0. The existing decoder already exposes this field, but the browser's compact scene flags discard it. Preserve that datum before replacing the current approximate island-position logic.
+
 Island coordinates and timing-dependent ambient consumers remain outside the shared browser stream, so this does not reproduce the original draw order end to end.
 
 Other apparent randomness stays on the browser's cosmetic random source:
 
 | Feature | Why it is separate |
 | --- | --- |
-| Opcode `0x2020` delay | Later emulator instrumentation contradicted the earlier decompile-based “no draw” finding. Its raw mapping and draw count must be captured again before it is connected to this stream. |
+| Opcode `0x2020` | The original reinitializes a scene thread without drawing a word. Its remaining non-RNG timing semantics still need an argument-level trace. |
 | Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
 | Browser-created clouds | Their model and draw count differ from the original. |

@@ -20,5 +20,16 @@
     "1018:01eb": "opposite-heading tie: word & 1",
     "1010:151a": "island X: word % rangeWidth",
     "1010:1537": "island Y: word % rangeHeight"
+  },
+  "nonConsumer": {
+    "opcode2020": "FUN_1048_15ea -> FUN_1048_0ec8 reinitializes the selected thread through FUN_1048_0b3e; it makes zero RNG calls"
+  },
+  "catalogueLayout": {
+    "tableOffset": "0x19556",
+    "recordStride": "0x11",
+    "flagsBOffset": "0x0b (uint16 little-endian)",
+    "forceLayout0Bit": "0x0200",
+    "recordIndices": [0, 2, 3, 8, 9, 11, 12, 14, 26, 27, 28, 30, 34, 36, 51, 52, 78],
+    "warning": "The compact browser flags currently discard this bit; do not infer the layout by adding another random draw."
   }
 }
