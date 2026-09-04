@@ -39,7 +39,9 @@ The original shares this stream across its scene director, walking, island setup
 | Island coordinates | separate `word % width` and `word % height` draws |
 | ADS `RANDOM` | `word % totalWeight + 1` |
 
-Opcode `0x2020` is not an RNG consumer. Its binary handler finds and reinitializes a scene thread without calling the generator; a browser-side random hold must not advance the faithful stream.
+Opcode `0x2020` is an RNG consumer. Its actual TTM handler is `1058:0e08` (the earlier `1048:0ec8` attribution was an unrelated ADS reinitialization path). On an active interpreter pass it consumes one word and sets the delay staging global to `minimum + (word % (maximum - minimum))`; the maximum is exclusive. The tick driver copies a changed staged value into the thread delay and sets its deadline before deciding whether the current frame may advance. If the interpreter's execution gate is inactive, the handler exits without drawing.
+
+A focused JOHNNY:2 capture observed arguments `(60,180)`, RNG ordinal 49,533 with word `0x1f2f`, and thread delay 123: `60 + (0x1f2f % 120) = 123`. This confirms both the machine-code formula and the live state transition.
 
 Island layout is not randomly selected. Catalogue `flagsB` is the little-endian word at record offset `+0x0b`; bit `0x0200` on any planned scene forces layout 0. The browser preserves that semantic flag and, after planning the complete chain, draws ocean, X, and Y in the original order and ranges.
 
