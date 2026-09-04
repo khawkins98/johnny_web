@@ -119,4 +119,13 @@ describe('settings UI', () => {
         setupSettingsUI();
         expect(document.querySelector('[data-setting="restart-story"]')).toBeNull();
     });
+
+    it('degrades gracefully when the controller lacks the story-day API (does not throw)', () => {
+        // Regression: browser-app once passed a limited sequence-tools object as
+        // storyController (no getStoryDay), which hard-crashed settings init.
+        const limited = { status: () => null, subscribeStatus: () => () => {} };
+        expect(() => setupSettingsUI({ storyController: limited })).not.toThrow();
+        const status = document.getElementById('settings-story-status');
+        if (status) expect(status.innerText).toBe('');
+    });
 });

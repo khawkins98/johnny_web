@@ -36,6 +36,12 @@ export const runJohnnyCastaway = () => {
             status: () => story.status(),
             subscribeStatus: (listener) => story.subscribeStatus(listener),
             describe: (script, tagId) => story.describe(script, tagId),
+            // Story-day API consumed by the Settings "Story" section + the dev panel.
+            getStoryDay: () => story.getStoryDay(),
+            getStartTime: () => story.getStartTime(),
+            setStoryDay: (day) => story.setStoryDay(day),
+            advanceStoryDay: () => story.advanceStoryDay(),
+            resetStory: () => story.resetStory(),
         },
     });
 };

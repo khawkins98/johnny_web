@@ -660,12 +660,18 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const storyStatus = document.createElement('span');
     storyStatus.id = 'settings-story-status';
     const renderStoryStatus = () => {
-        if (!storyController) {
+        // Degrade gracefully if the injected controller doesn't expose the story-day
+        // API (e.g. a limited sequence-tools object): hide the status rather than
+        // throwing and taking down the whole settings init.
+        if (typeof storyController?.getStoryDay !== 'function') {
             storyStatus.innerText = '';
             return;
         }
         const day = storyController.getStoryDay();
-        const started = formatStartTime(storyController.getStartTime());
+        const started =
+            typeof storyController.getStartTime === 'function'
+                ? formatStartTime(storyController.getStartTime())
+                : null;
         storyStatus.innerText = started ? `Day ${day} of 11 · Started ${started}` : `Day ${day} of 11`;
     };
     renderStoryStatus();
