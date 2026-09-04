@@ -34,15 +34,48 @@ Required assets:
 
 - the original `SCRANTIC.SCR`, renamed `SCRANTIC.EXE`, plus `RESOURCE.001` and `RESOURCE.MAP`
 - a minimal Windows 3.1 installation
-- a debug build of DOSBox-X with `dosbox-x-trace.patch` applied
+- a DOSBox-X build with `dosbox-x-oracle.patch` applied
 
-Put the game data on drive C and Windows 3.1 on drive D as described by `dbx.conf`. Build DOSBox-X with its normal CPU core; the dynamic core bypasses the tracing hook.
+Use DOSBox-X commit `6676eb916c77c95bd235f9bfc9984684403598a4`. The patch is tied to that revision and contains the director injection, actor-thread trace, RNG trace, delay trace, and optional framebuffer capture:
+
+```sh
+git clone https://github.com/joncampbell123/dosbox-x.git scratchpad/dosbox-x-src
+git -C scratchpad/dosbox-x-src checkout 6676eb916c77c95bd235f9bfc9984684403598a4
+git -C scratchpad/dosbox-x-src apply "$PWD/tools/faithfulness-oracle/dosbox-x-oracle.patch"
+cd scratchpad/dosbox-x-src
+./autogen.sh
+./configure
+make -C src/cpu
+make -C src dosbox-x
+```
+
+Platform packages required by `./configure` vary; follow DOSBox-X's build guide if it reports a missing library. A release build is sufficient. Captures must use the normal CPU core because the dynamic core bypasses the hook.
+
+Create this local layout:
+
+```text
+scratchpad/dosbox/
+├── driveC/
+│   ├── SCRANTIC.SCR
+│   ├── SCRANTIC.EXE  (a copy of SCRANTIC.SCR)
+│   ├── RESOURCE.001
+│   └── RESOURCE.MAP
+└── driveD/
+    ├── runapp.bat
+    └── <minimal Windows 3.1 installation>
+```
+
+`runapp.bat` must start the named Windows program. The repository's `dbx.conf` is an illustrative template; the capture script writes a per-run configuration with resolved paths.
 
 Example:
 
 ```sh
+export SP_DOSBOX="$PWD/scratchpad/dosbox"
+export DBX="$PWD/scratchpad/dosbox-x-src/src/dosbox-x"
 node tools/faithfulness-oracle/capture-original-gag.mjs 0x65 7 scratchpad/activity-7
 ```
+
+A successful summary says `forced: true` and `isolatedToTarget: true`. The output directory contains `trace.log`, `threads.log`, `timeline.jsonl`, and emulator output in `run.log`.
 
 The patch identifies Win16 functions by unique, relocation-safe entry bytes rather than runtime addresses. `ne_entry.py`, `ne_reloc.py`, and `ne_mask.py` verify those signatures.
 
@@ -74,6 +107,8 @@ npm run test:faithful
 Capture or refresh selected gags:
 
 ```sh
+export SP_DOSBOX="$PWD/scratchpad/dosbox"
+export DBX="$PWD/scratchpad/dosbox-x-src/src/dosbox-x"
 node tools/faithfulness-oracle/gen-refs.mjs --gags ACTIVITY:7,FISHING:2 --runs 8
 node tools/faithfulness-oracle/coverage-report.mjs
 ```
@@ -97,4 +132,4 @@ The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port m
 
 ## Retired pixel comparison
 
-An earlier tool captured VGA frames and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. `dosbox-x-framebuffer.patch` remains useful for manual visual investigations.
+An earlier tool captured VGA frames and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. `dosbox-x-oracle.patch` still contains optional framebuffer hooks for manual visual investigations.
