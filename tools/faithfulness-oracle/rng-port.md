@@ -41,9 +41,9 @@ The original shares this stream across its scene director, walking, island setup
 
 Opcode `0x2020` is not an RNG consumer. Its binary handler finds and reinitializes a scene thread without calling the generator; a browser-side random hold must not advance the faithful stream.
 
-Island layout is also not randomly selected. Catalogue `flagsB` is the little-endian word at record offset `+0x0b`; bit `0x0200` forces layout 0. The existing decoder already exposes this field, but the browser's compact scene flags discard it. Preserve that datum before replacing the current approximate island-position logic.
+Island layout is not randomly selected. Catalogue `flagsB` is the little-endian word at record offset `+0x0b`; bit `0x0200` on any planned scene forces layout 0. The browser preserves that semantic flag and, after planning the complete chain, draws ocean, X, and Y in the original order and ranges.
 
-Island coordinates and timing-dependent ambient consumers remain outside the shared browser stream, so this does not reproduce the original draw order end to end.
+Holiday-specific coordinate modifiers are not connected because their raw `flagsD` field is not yet preserved. Timing-dependent ambient consumers also remain outside the shared browser stream, so this does not reproduce the original draw order end to end.
 
 Other apparent randomness stays on the browser's cosmetic random source:
 
@@ -54,7 +54,7 @@ Other apparent randomness stays on the browser's cosmetic random source:
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
 | Browser-created clouds | Their model and draw count differ from the original. |
 
-Island position is not connected yet. Its two coordinate mappings are known, but the current catalogue discards raw flag `0x0200`, which participates in choosing the layout and therefore its coordinate ranges. Restoring and validating that flag is required before consuming position words.
+Ordinary island positioning is connected. Holiday fixed quadrants and range modifiers remain deferred until raw `flagsD` is decoded and validated; the browser does not guess them.
 
 Keeping these separate makes the experimental path deterministic, but it also means its choices do not line up with a live original-program session. Add `?faithfulRng=on` to enable it; the default remains `Math.random`.
 

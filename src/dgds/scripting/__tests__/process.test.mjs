@@ -467,6 +467,16 @@ describe('SET_TIMER handler', () => {
         entry.callback(state, 5, 3);
         expect(state.delay).toBe(3);
     });
+
+    it('does not consume the faithful authored stream', () => {
+        const state = {
+            delay: 0,
+            random: () => 0.5,
+            storyRandom: { nextWord: () => { throw new Error('0x2020 consumed faithful RNG'); } },
+        };
+        entry.callback(state, 3, 5);
+        expect(state.delay).toBe(4);
+    });
 });
 
 describe('RANDOM_END handler', () => {

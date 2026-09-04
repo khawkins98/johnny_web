@@ -59,6 +59,7 @@ describe.skipIf(!hasData)('catalogue matches the binary 79-record table', () => 
             // Budget metrics (byte@0x07 width, byte@0x02 weight) must match the binary too.
             expect(js.width).toBe(rec.width);
             expect(js.weight).toBe(rec.weight);
+            expect(js.forceLayout0).toBe((rec.flagsB & 0x0200) !== 0);
             // Ending status: the derived F.FINAL flag must track the binary's ending
             // bit (flagsB & 0x4). This closes the flags blind spot that let JOHNNY#2 be
             // mis-flagged FINAL. (Poses are never endings.)

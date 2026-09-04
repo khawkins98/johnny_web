@@ -86,24 +86,10 @@ export const SET_COLORS = (state, fc, bc) => {
 export const SET_FRAME1 = (state) => {};
 
 export const SET_TIMER = (state, minimum, maximum) => {
-    // Opcode 0x2020 (raw 0x2022) is SET_DELAY-but-random: it IMMEDIATELY arms the
-    // current frame's hold to a uniform random integer in [min,max], persisting
-    // like SET_DELAY until the next SET_DELAY/0x2020. Empirically verified by
-    // instrumenting the real binary (the operative handler is the seg-1058
-    // jump-table entry 1058:0e08, which Ghidra could not recover; the earlier
-    // FUN_1048_15ea/0ec8 "re-init, no rng" reading was a misattribution to the
-    // wrong handler). It therefore writes state.delay -- the field the UPDATE
-    // frame-advance / createFrameBoundary actually reads -- NOT the inert
-    // state.timer it used to write (which nothing consumed, so every 0x2020 hold
-    // was silently skipped -> gags flashed too fast, e.g. JOHNNY:2's thought bubble).
-    //
-    // Randomness stays on state.random for now. Stage-1 instrumentation indicated
-    // 1058:0e08 does draw from the faithful lagged-Fibonacci stream, so switching
-    // SET_TIMER onto the faithful RNG is likely more correct -- but that is a
-    // SEPARATE, marker-gated change (a blind switch would desync downstream RANDOM
-    // picks), tracked as a follow-up. Also tracked separately: a pre-existing
-    // ~2.5x delay-duration inflation that affects ALL delay opcodes (incl.
-    // SET_DELAY), so some short-hold actors over-run until that is fixed.
+    // The original 0x2020 handler reinitializes a scene thread and does not call
+    // the shared RNG. This range-based hold is retained as browser compatibility
+    // behavior until an argument-level trace establishes the remaining timing
+    // semantics. It must never consume state.storyRandom.
     const low = Math.min(minimum, maximum);
     const high = Math.max(minimum, maximum);
     if (typeof state.random !== 'function') {

@@ -55,16 +55,26 @@ const SCENE_METRICS = new Map([
     ['SUZY#1', [35, 10]], ['SUZY#2', [25, 10]],
 ]);
 
+// Raw catalogue flagsB bit 0x0200 forces executable island-position band 0.
+// Kept as a semantic datum rather than folded into SceneFlags, whose bits are
+// browser selection behavior rather than a copy of the executable record.
+const FORCE_LAYOUT0 = new Set([
+    'ACTIVITY#8', 'WALKSTUF#2', 'BUILDING#2', 'MARY#2', 'MARY#3', 'MARY#4', 'MARY#5',
+    'ACTIVITY#1', 'FISHING#5', 'JOHNNY#4', 'JOHNNY#5', 'MISCGAG#2', 'ACTIVITY#6',
+    'ACTIVITY#11', 'BUILDING#4', 'BUILDING#6', 'VISITOR#3',
+]);
+
 // A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
 // [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide). `width`/`weight`
 // come from SCENE_METRICS; `repeat` (binary flagsB & 0x08) marks the idle poses that may
 // repeat 1..6x in a sequence.
 const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) => {
     const isPose = script === POSE;
-    const [width, weight] = isPose ? [5, 1] : SCENE_METRICS.get(`${script.replace('.ADS', '')}#${tagId}`) ?? [15, 10];
+    const key = `${script.replace('.ADS', '')}#${tagId}`;
+    const [width, weight] = isPose ? [5, 1] : SCENE_METRICS.get(key) ?? [15, 10];
     return Object.freeze({
         script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
-        tideMin, tideMax, width, weight, repeat: isPose,
+        tideMin, tideMax, width, weight, repeat: isPose, forceLayout0: FORCE_LAYOUT0.has(key),
     });
 };
 
@@ -311,27 +321,33 @@ const createIslandState = (
     date,
     random,
     storyRandom = null,
-    { allowLowTide = true, allowVariablePosition = true, startTime = 0 } = {},
+    { allowLowTide = true, allowVariablePosition = true, startTime = 0, layoutIndex = 1 } = {},
 ) => {
     const tidePhase = tidePhaseFor(date, startTime);
     const lowTide = allowLowTide && tidePhase >= LOW_TIDE_PHASES;
+    const night = date.getHours() < 6 || date.getHours() >= 18;
     let x = 0;
     let y = 0;
+    // The executable bakes the day ocean before island origin coordinates.
+    // Browser-created clouds remain on `random` and cannot advance this stream.
+    const oceanIndex = storyRandom
+        ? (night ? 0 : storyRandom.modulo(3, 'island-ocean'))
+        : randomIndex(random, 3);
     // The island world origin is randomized ONCE per island CHAIN and held fixed for
     // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136,
     // dec 5161/5693). It is randomized UNCONDITIONALLY for an island chain -- VARPOS
     // (flagsB 0x1000) does NOT gate position; it only turns waves off (dec 4314). The
-    // three branches approximate the binary's {layout0, layout1, layout1+holiday}
-    // bands; the base X values (-222, -114) are the binary's layout0/layout1 bases
-    // (67, 168) re-based by -289. LEFT_ISLAND is NOT a whole-island move -- it is the
-    // per-scene FOREGROUND +272 nudge applied in makeSelection (binary flagsB 0x400).
-    // The old fixed whole-island `x = -272` here was fabricated and was the visible
-    // between-chain teleport; removed.
+    // The faithful path uses the selected layout's ordinary band. Holiday-specific
+    // flagsD modifiers remain deferred. LEFT_ISLAND is a per-scene foreground nudge,
+    // not a whole-island move.
     if (allowVariablePosition && hasAll(finalScene.flags, F.ISLAND)) {
-        // Keep this on the compatibility source until the catalogue's raw flagsB
-        // 0x0200 layout selector is preserved. Guessing layout 0 vs 1 here would
-        // consume the right number of words but map them through the wrong ranges.
-        if (random() >= 0.5) {
+        if (storyRandom) {
+            const band = layoutIndex === 0
+                ? { baseX: 67, width: 226, baseY: 255, height: 129 }
+                : { baseX: 168, width: 111, baseY: 255, height: 59 };
+            x = band.baseX + storyRandom.modulo(band.width, 'island-x') - 289;
+            y = band.baseY + storyRandom.modulo(band.height, 'island-y') - 279;
+        } else if (random() >= 0.5) {
             x = -222 + Math.floor(random() * 109);
             y = -44 + Math.floor(random() * 128);
         } else if (random() >= 0.5) {
@@ -351,7 +367,7 @@ const createIslandState = (
         islandLayoutId: 1,
         lowTide,
         tidePhase,
-        night: date.getHours() < 6 || date.getHours() >= 18,
+        night,
         raft,
         x,
         y,
@@ -364,7 +380,7 @@ const createIslandState = (
         // path from this flag into that renderer, not wired in this pass.
         waves: !hasAll(finalScene.flags, F.VARPOS_OK),
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
-        oceanIndex: storyRandom ? storyRandom.modulo(3, 'island-ocean') : randomIndex(random, 3),
+        oceanIndex,
         presentationKey: Object.freeze({}),
         clouds: Object.freeze(createClouds(random)),
         storyDay,
@@ -488,7 +504,9 @@ export const createJohnnyStoryController = ({
                   allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
             : { startTime: resolvedStartTime };
-        const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, constraints);
+        const tidePhase = tidePhaseFor(date, resolvedStartTime);
+        const variablePosition =
+            (constraints.allowVariablePosition ?? true) && hasAll(finalScene.flags, F.ISLAND);
         const planned = [];
         let previous = null;
 
@@ -499,7 +517,7 @@ export const createJohnnyStoryController = ({
 
         if (!hasAll(finalScene.flags, F.FIRST)) {
             let wanted = 0;
-            if (islandState.x !== 0 || islandState.y !== 0) wanted |= F.VARPOS_OK;
+            if (variablePosition) wanted |= F.VARPOS_OK;
             // Poses are ADS-less "stand at spot" fillers, selectable as intermediates
             // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
             // from the intermediate pool here.
@@ -513,7 +531,7 @@ export const createJohnnyStoryController = ({
             let budget = 300 - finalScene.width - (anchorScene ? anchorScene.width : 0);
             let slots = anchorScene ? 1 : 0;
             while (budget > 0 && slots < 298) {
-                const candidates = eligible(storyDay, wanted, unwanted, islandState.tidePhase).filter(
+                const candidates = eligible(storyDay, wanted, unwanted, tidePhase).filter(
                     (candidate) => candidate.width / 2 < budget,
                 );
                 if (candidates.length === 0) break;
@@ -543,6 +561,13 @@ export const createJohnnyStoryController = ({
             }
         }
         planned.push({ scene: finalScene, walkFrom: previous });
+        // The executable accumulates flags across the complete queue. Any scene
+        // carrying raw flagsB 0x0200 forces position band 0; otherwise band 1.
+        const layoutIndex = planned.some(({ scene: selected }) => selected.forceLayout0) ? 0 : 1;
+        const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
+            ...constraints,
+            layoutIndex,
+        });
         return { planned, islandState };
     };
 
@@ -671,6 +696,7 @@ export const createJohnnyStoryController = ({
                 startTime: getStartTime(storage, date),
                 allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
                 allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
+                layoutIndex: selected.forceLayout0 ? 0 : 1,
             });
             return Object.freeze({
                 ...makeSelection({ selected, islandState, index: 0, total: 1, wipe: null }),
