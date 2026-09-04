@@ -1,0 +1,29 @@
+{
+  "name": "ACTIVITY",
+  "adsId": "0x65",
+  "tag": 4,
+  "slot": "2",
+  "runs": 8,
+  "vocab": [
+    "2:1",
+    "2:2",
+    "2:3"
+  ],
+  "maxConc": 1,
+  "states": 4,
+  "lifespans": {
+    "2:1": {
+      "min": 1071,
+      "max": 1080
+    },
+    "2:3": {
+      "min": 185,
+      "max": 185
+    },
+    "2:2": {
+      "min": 295,
+      "max": 295
+    }
+  },
+  "drainTick": null
+}

@@ -11,6 +11,128 @@ const memoryStorage = (initial = {}) => {
 };
 
 describe('Johnny host story controller', () => {
+    const recordingStoryRandom = (chooseModulo = () => 0) => {
+        const draws = [];
+        return {
+            draws,
+            source: {
+                modulo(divisor, site) {
+                    draws.push({ site, divisor });
+                    return chooseModulo(divisor, site);
+                },
+                weightedBucket(weights, site) {
+                    draws.push({ site, weights });
+                    return 1;
+                },
+            },
+        };
+    };
+
+    it('shares typed raw draws across final, ocean, and intermediate decisions', () => {
+        const draws = [];
+        const storyRandom = {
+            modulo(divisor, site) {
+                draws.push({ kind: 'modulo', divisor, site });
+                if (divisor === 10) return 1;
+                return site === 'director-intermediate-scene' ? divisor - 1 : 0;
+            },
+            weightedBucket(weights, site) {
+                draws.push({ kind: 'bucket', weights, site });
+                return 1;
+            },
+        };
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        controller.next();
+
+        expect(draws.slice(0, 2)).toEqual([
+            { kind: 'modulo', divisor: 10, site: 'director-keyframe-gate' },
+            expect.objectContaining({ kind: 'modulo', site: 'director-final-scene' }),
+        ]);
+        expect(draws.some((draw) => draw.site === 'director-intermediate-scene')).toBe(true);
+        expect(draws.findLastIndex((draw) => draw.site === 'director-intermediate-scene')).toBeLessThan(
+            draws.findIndex((draw) => draw.site === 'island-ocean'),
+        );
+    });
+
+    it('can attach the shared source before the first selection', () => {
+        const sites = [];
+        const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+        controller.setRandomSource({
+            modulo: (divisor, site) => (sites.push(site), divisor === 10 ? 0 : 0),
+            weightedBucket: () => 1,
+        });
+
+        controller.next();
+        expect(sites).toContain('director-keyframe-gate');
+        expect(sites).toContain('island-ocean');
+    });
+
+    it('uses any queued raw 0x0200 flag to select layout band 0 after planning', () => {
+        const { source, draws } = recordingStoryRandom((divisor, site) => {
+            if (site === 'island-ocean') return 2;
+            if (site === 'island-x') return divisor - 1;
+            return 0;
+        });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        controller.planFrom('ACTIVITY.ADS', 8, { storyDay: 1 });
+        const first = controller.next();
+        expect(first.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 2, x: 3, y: -24 });
+        expect(draws.slice(-3)).toEqual([
+            { site: 'island-ocean', divisor: 3 },
+            { site: 'island-x', divisor: 226 },
+            { site: 'island-y', divisor: 129 },
+        ]);
+        expect(draws.findLastIndex(({ site }) => site.startsWith('director-'))).toBeLessThan(
+            draws.findIndex(({ site }) => site === 'island-ocean'),
+        );
+    });
+
+    it('uses layout band 1 without drawing a random layout choice', () => {
+        const { source, draws } = recordingStoryRandom((divisor, site) =>
+            site === 'island-x' ? divisor - 1 : 0,
+        );
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
+
+        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
+        expect(preview.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 0, x: -11, y: -24 });
+        expect(draws).toEqual([
+            { site: 'island-ocean', divisor: 3 },
+            { site: 'island-x', divisor: 111 },
+            { site: 'island-y', divisor: 59 },
+        ]);
+    });
+
+    it('does not draw a day-ocean word at night', () => {
+        const { source, draws } = recordingStoryRandom(() => 0);
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storyRandom: source,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 22),
+        });
+
+        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
+        expect(preview.titleState.night).toBe(true);
+        expect(draws.map(({ site }) => site)).toEqual(['island-x', 'island-y']);
+    });
+
     it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
         expect(JOHNNY_SCENES).toHaveLength(79);
         expect(new Set(JOHNNY_SCENES.map(({ script }) => script))).toEqual(
@@ -158,6 +280,84 @@ describe('Johnny host story controller', () => {
         // The calendar wrap (cur 11 -> 12 -> reset 1) is deterministic in updateStoryDay,
         // independent of which finale the sequence then selects.
         expect(storage.values.get('jc-story-day')).toBe('1'); // chased to 12, then wrapped
+    });
+
+    describe('story-day tooling (settings + dev panel)', () => {
+        const clock = () => new Date(2026, 6, 21, 12);
+
+        it('getStoryDay reads back the persisted day, clamped 1-11, defaulting to 1', () => {
+            const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+            expect(controller.getStoryDay()).toBe(1);
+
+            const clamped = createJohnnyStoryController({
+                random: () => 0,
+                storage: memoryStorage({ 'jc-story-day': '99' }),
+            });
+            expect(clamped.getStoryDay()).toBe(11);
+        });
+
+        it('getStartTime reads back the persisted StartTime, or null when unset', () => {
+            const unset = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+            expect(unset.getStartTime()).toBeNull();
+
+            const set = createJohnnyStoryController({
+                random: () => 0,
+                storage: memoryStorage({ 'jc-start-time': '721' }),
+            });
+            expect(set.getStartTime()).toBe(721);
+        });
+
+        it('setStoryDay clamps to 1-11 and writes day, target, and date so the arc holds from there', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            expect(controller.setStoryDay(6)).toBe(6);
+            expect(storage.values.get('jc-story-day')).toBe('6');
+            expect(storage.values.get('jc-story-target')).toBe('6');
+            expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
+            expect(controller.getStoryDay()).toBe(6);
+
+            expect(controller.setStoryDay(0)).toBe(1);
+            expect(controller.setStoryDay(99)).toBe(11);
+        });
+
+        it('advanceStoryDay steps forward and wraps 11 -> 1', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            controller.setStoryDay(3);
+            expect(controller.advanceStoryDay()).toBe(4);
+            expect(storage.values.get('jc-story-day')).toBe('4');
+
+            controller.setStoryDay(11);
+            expect(controller.advanceStoryDay()).toBe(1);
+            expect(storage.values.get('jc-story-day')).toBe('1');
+        });
+
+        it('resetStory sets day 1 and re-anchors StartTime to today', () => {
+            const storage = memoryStorage({
+                'jc-story-day': '8',
+                'jc-story-target': '9',
+                'jc-start-time': '101',
+            });
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+
+            expect(controller.resetStory()).toBe(1);
+            expect(storage.values.get('jc-story-day')).toBe('1');
+            expect(storage.values.get('jc-story-target')).toBe('1');
+            expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
+            expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+            expect(controller.getStoryDay()).toBe(1);
+            expect(controller.getStartTime()).toBe((6 + 1) * 100 + 21);
+        });
+
+        it('after setStoryDay(N) a subsequent sequence status reflects day N', () => {
+            const storage = memoryStorage();
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
+            controller.setStoryDay(6);
+            controller.next();
+            expect(controller.status().storyDay).toBe(6);
+        });
     });
 
     it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {

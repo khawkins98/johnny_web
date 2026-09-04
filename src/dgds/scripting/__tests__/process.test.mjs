@@ -154,7 +154,7 @@ describe('GOTO handler', () => {
             { opcode: 0x9999, params: [], line: 'UNK' }, // 1 — unknown, skipped
             { opcode: 0x0110, params: [], line: 'PURGE' }, // 2 — known, runs (last → end-of-script)
         ];
-        runScript(mockState, script, false);
+        runScript(mockState, script);
         // gotoRestart was cleared; script ran from 0 to end
         expect(mockState.gotoRestart).toBe(false);
         expect(mockState.played).toBe(true); // end-of-script fires after gotoRestart is consumed
@@ -181,7 +181,7 @@ describe('GOTO handler', () => {
             { opcode: 0x0110, params: [], line: 'PURGE' }, // 0
             { opcode: 0x1200, params: [7], line: 'GOTO 7' }, // 1 — last cmd
         ];
-        const outcome = runScript(mockState, script, false);
+        const outcome = runScript(mockState, script);
         expect(mockState.played).toBe(false); // end-of-script suppressed
         expect(mockState.gotoRestart).toBe(true); // deferred restart flagged
         expect(mockState.runs).toBe(1); // GOTO incremented runs
@@ -204,28 +204,7 @@ describe('runScript scene transition', () => {
         consoleSpy.mockRestore();
     });
 
-    it('increments currentScene after the last command completes when main=true', () => {
-        // A single-command ADS script using PURGE (0x0110, not in ADSDispatch so skipped).
-        // When runScript exhausts script[0] as last entry, reentry===0===length-1 triggers
-        // end-of-script: played=true and currentScene advances.
-        const mockState = {
-            reentry: 0,
-            reentryNow: 0,
-            jumpTo: undefined,
-            continue: true,
-            lastCommand: false,
-            runs: 0,
-            played: false,
-            type: 'ADS',
-            currentScene: 0,
-        };
-        const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        runScript(mockState, script, /* main= */ true);
-        expect(mockState.currentScene).toBe(1);
-        expect(mockState.played).toBe(true);
-    });
-
-    it('does NOT increment currentScene when main=false (TTM child scene)', () => {
+    it('does not increment currentScene on end-of-script (advancing currentScene is the runtime controller\'s job)', () => {
         const mockState = {
             reentry: 0,
             reentryNow: 0,
@@ -238,7 +217,7 @@ describe('runScript scene transition', () => {
             currentScene: 0,
         };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        runScript(mockState, script, /* main= */ false);
+        runScript(mockState, script);
         expect(mockState.currentScene).toBe(0);
         expect(mockState.played).toBe(true);
     });
@@ -256,13 +235,13 @@ describe('runScript scene transition', () => {
             currentScene: 0,
         };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        runScript(mockState, script, true);
+        runScript(mockState, script);
         expect(mockState.runs).toBe(1);
     });
 
     it('returns a completed outcome immediately when script is undefined', () => {
         const mockState = { reentry: 0, continue: true };
-        expect(runScript(mockState, undefined, false)).toMatchObject({
+        expect(runScript(mockState, undefined)).toMatchObject({
             status: ExecutionStatus.COMPLETED,
             reason: 'no-script',
         });
@@ -271,7 +250,7 @@ describe('runScript scene transition', () => {
     it('returns a completed outcome immediately when state.reentry is -1', () => {
         const mockState = { reentry: -1, continue: true };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        expect(runScript(mockState, script, false)).toMatchObject({
+        expect(runScript(mockState, script)).toMatchObject({
             status: ExecutionStatus.COMPLETED,
             reason: 'no-script',
         });
@@ -295,7 +274,7 @@ describe('runScript scene transition', () => {
             type: 'TTM',
         };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        runScript(mockState, script, false);
+        runScript(mockState, script);
         // runs incremented again — proves re-run happened; process.mjs MUST guard against this
         expect(mockState.runs).toBe(2);
     });
@@ -476,16 +455,43 @@ describe('named resource provider opcodes', () => {
 describe('SET_TIMER handler', () => {
     const entry = TTMDispatch.find((e) => e.opcode === 0x2020);
 
-    it('selects an inclusive deterministic tick count from the supplied range', () => {
-        const state = { timer: 0, random: () => 0.5 };
+    it('selects a deterministic tick count with an exclusive upper bound', () => {
+        const state = { delay: 0, random: () => 0.5 };
         entry.callback(state, 3, 5);
-        expect(state.timer).toBe(4);
+        expect(state.delay).toBe(4);
     });
 
     it('accepts reversed bounds', () => {
-        const state = { timer: 0, random: () => 0 };
+        const state = { delay: 0, random: () => 0 };
         entry.callback(state, 5, 3);
-        expect(state.timer).toBe(3);
+        expect(state.delay).toBe(3);
+    });
+
+    it('maps the traced raw word with one faithful modulo draw', () => {
+        const calls = [];
+        const state = {
+            delay: 0,
+            random: () => { throw new Error('fallback random used'); },
+            storyRandom: {
+                modulo: (range, site) => {
+                    calls.push({ range, site });
+                    return 0x1f2f % range;
+                },
+            },
+        };
+        entry.callback(state, 60, 180);
+        expect(state.delay).toBe(123);
+        expect(calls).toEqual([{ range: 120, site: 'ttm-random-delay' }]);
+    });
+
+    it('does not draw for a zero-width defensive range', () => {
+        const state = {
+            delay: 0,
+            random: () => { throw new Error('fallback random used'); },
+            storyRandom: { modulo: () => { throw new Error('equal bounds consumed RNG'); } },
+        };
+        entry.callback(state, 7, 7);
+        expect(state.delay).toBe(7);
     });
 });
 
@@ -596,18 +602,22 @@ describe('IF_NOT_RUNNING handler', () => {
         jumpTo: undefined,
     });
 
-    it('waits when a finite scene lifecycle is "active"', () => {
+    // Skip-if-running (binary 0x1360): a running child fails the guard, so the
+    // body is SKIPPED this tick (jump past the END_IF, continue=true) -- NOT
+    // parked on a wait-barrier. The per-slot re-poll driver re-evaluates the
+    // guard next tick, taking the branch once the child stops.
+    it('skips the body (does not park) when a finite scene lifecycle is "active"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'starting' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBeUndefined();
-        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBe(3); // past the END_IF at index 2
+        expect(state.continue).toBe(true);
     });
 
-    it('waits when a finite scene lifecycle is "running"', () => {
+    it('skips the body (does not park) when a finite scene lifecycle is "running"', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'running' }]);
         entry.callback(state, 1, 7);
-        expect(state.jumpTo).toBeUndefined();
-        expect(state.continue).toBe(false);
+        expect(state.jumpTo).toBe(3);
+        expect(state.continue).toBe(true);
     });
 
     it('does not set jumpTo when scene lifecycle is "completed"', () => {
@@ -765,11 +775,15 @@ describe('IF_PLAYED handler', () => {
         expect(state.removeScenes).toEqual([]);
     });
 
-    it('passes (continue=true) when scene is in scenes[] and played=true', () => {
+    it('passes (continue=true) and LEAVES the finished scene present when played=true', () => {
         const state = makeState([{ sceneIdx: 1, tagId: 7, runState: 'finished', state: { played: true, timer: 0 } }]);
         entry.callback(state, 1, 7);
         expect(state.continue).toBe(true);
-        expect(state.removeScenes).toEqual([{ sceneIdx: 1, tagId: 7 }]);
+        // Present + finished: the guard passes, but the finished instance is NOT
+        // removed -- the binary keeps the display-list node present-as-finished so
+        // ADD's presence-dedup keeps a re-poll a no-op (no resurrection by a
+        // permanently-true predecessor guard under the per-slot re-poll driver).
+        expect(state.removeScenes).toEqual([]);
     });
 
     it('passes via playedHistory when scene was cleared by END (cross-scene check)', () => {
@@ -912,9 +926,9 @@ describe('runScript jumpTo mechanism', () => {
             data: { scenes: [{ script }] },
             scenes: [],
         };
-        runScript(mockState, script, true);
+        runScript(mockState, script);
         expect(mockState.played).toBe(true);
-        expect(mockState.currentScene).toBe(1);
+        expect(mockState.reentry).toBe(0); // reset to 0 on end-of-script
     });
 
     it('does not skip the block when IF_NOT_PLAYED fires (scene NOT in playedHistory)', () => {
@@ -938,10 +952,10 @@ describe('runScript jumpTo mechanism', () => {
             data: { scenes: [{ script }] },
             scenes: [],
         };
-        runScript(mockState, script, true);
+        runScript(mockState, script);
         // All 4 commands ran; last one (index 3) sets reentry=3 → end-of-script
         expect(mockState.played).toBe(true);
-        expect(mockState.currentScene).toBe(1);
+        expect(mockState.reentry).toBe(0); // reset to 0 on end-of-script
     });
 
     it('sets state.reentryNow to the index of each command before invoking its callback', () => {
@@ -969,7 +983,7 @@ describe('runScript jumpTo mechanism', () => {
             data: { scenes: [{ script }] },
             scenes: [],
         };
-        runScript(mockState, script, true);
+        runScript(mockState, script);
         expect(capturedIdx).toBe(1);
     });
 });
@@ -1317,7 +1331,7 @@ describe('runScript — TTM script completion', () => {
             currentScene: 0,
         };
         const script = [{ opcode: 0x0110, params: [], line: 'PURGE' }];
-        runScript(mockState, script, false);
+        runScript(mockState, script);
         expect(mockState.played).toBe(true);
         expect(mockState.runs).toBe(1);
     });

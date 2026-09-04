@@ -9,6 +9,24 @@ import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
+import { faithfulRandomFromArchive } from '../dgds/scripting/faithful-rng.mjs';
+
+// OPT IN: the engine's RANDOM (ADS weighted scene pick) can be driven by a
+// bit-faithful reproduction of the original binary's baked lagged-Fibonacci
+// stream (see tools/faithfulness-oracle/rng-port.md). This reproduces the
+// generator and ADS mapping, not a live boot's timing-dependent choices. Only the
+// Confirmed host decisions and ADS RANDOM consume this one stream. Cosmetic
+// randomness (cloud spawn/drift, the SET_TIMER
+// sleep, day-ocean tint) stays on Math.random because their draw mappings or
+// wall-clock interleave are not yet reproducibly traced. `?faithfulRng=on` enables
+// this experimental path.
+const faithfulRngEnabled = () => {
+    try {
+        return new URLSearchParams(globalThis.location?.search ?? '').get('faithfulRng') === 'on';
+    } catch {
+        return false;
+    }
+};
 
 /**
  * Run one packaged, non-interactive DGDS presentation in a browser.
@@ -22,6 +40,7 @@ export const runBrowserPresentation = async ({
     setupDebugUI = () => {},
     setupEnhancedUI = () => null,
     setupSettingsUI,
+    setupSceneFlowUI = () => null,
     soundSettingKey,
     createBackgroundDecorator = () => null,
     selectScene = null,
@@ -29,6 +48,7 @@ export const runBrowserPresentation = async ({
     runInterlude = null,
     runPose = null,
     createSelectionPresenter = null,
+    configureStoryRandom = () => {},
     debugThemes = null,
     debugSequence = null,
 }) => {
@@ -94,6 +114,26 @@ export const runBrowserPresentation = async ({
 
     const resource = res.getResource(game.resources.archive);
     const resourceProvider = createEntryResourceProvider(resource.entries);
+
+    // One faithful stream shared across the whole session (matches the binary's
+    // single generator). Opt-in: its pick() drives ADS RANDOM choices. We
+    // Expose pick() to DGDS as faithfulPick, and the typed raw source to Johnny's
+    // controller/walker. It is deliberately not state.random, so cosmetic and
+    // unconfirmed timer draws cannot perturb the authored stream.
+    let faithfulRandom = null;
+    let faithfulPick = null;
+    if (faithfulRngEnabled()) {
+        try {
+            faithfulRandom = faithfulRandomFromArchive(new Uint8Array(arcBuf));
+            faithfulPick = faithfulRandom.pick;
+            configureStoryRandom(faithfulRandom);
+            console.log('[DGDS] Experimental faithful RNG enabled for confirmed authored choices');
+        } catch (err) {
+            faithfulRandom = null;
+            faithfulPick = null;
+            console.warn('[DGDS] Faithful RNG unavailable, using default random sources', err);
+        }
+    }
     const presentationPolicy = createBrowserPresentationPolicy();
     const backgroundDecorator = createBackgroundDecorator({ resourceProvider });
     const selectionPresenter =
@@ -115,12 +155,21 @@ export const runBrowserPresentation = async ({
           }
         : debugSequence;
     setupDebugUI({ themes: debugThemes, sequenceTools });
+    // "How it works": a live view of the CURRENT gag's authored scene flow.
+    // Uses the same resourceProvider the runtime itself resolves ADS/TTM
+    // entries through, and the same sequenceTools (story controller) the
+    // debug panel tracks the running gag with.
+    setupSceneFlowUI({
+        resolveEntry: (name) => resourceProvider.resolve(name),
+        sequenceTools,
+    });
     const settings = setupSettingsUI({
         getAudioManager: () => audioManager,
         onRestart: () => {
             audioManager?.stopAll?.();
             stopProcess('restart');
         },
+        storyController: debugSequence,
     });
 
     const context = document.getElementById('canvas').getContext('2d');
@@ -187,6 +236,7 @@ export const runBrowserPresentation = async ({
                     presentBackground: presentSelectionBackground,
                     signal: attempt?.signal ?? null,
                     record: (type, data) => diagnostics.record(type, data),
+                    storyRandom: faithfulRandom,
                 });
                 diagnostics.record('host-interlude', {
                     phase: attempt?.signal?.aborted ? 'aborted' : 'complete',
@@ -228,6 +278,8 @@ export const runBrowserPresentation = async ({
                         context,
                         mainContext,
                         data,
+                        ...(faithfulPick ? { faithfulPick } : {}),
+                        ...(faithfulRandom ? { storyRandom: faithfulRandom } : {}),
                         resourceProvider,
                         backgroundDecorator,
                         game,

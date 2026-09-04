@@ -1,0 +1,322 @@
+[
+  {
+    "name": "ACTIVITY",
+    "tag": 1,
+    "file": "ACTIVITY_1.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 4,
+    "file": "ACTIVITY_4.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 5,
+    "file": "ACTIVITY_5.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 6,
+    "file": "ACTIVITY_6.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 7,
+    "file": "ACTIVITY_7.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 8,
+    "file": "ACTIVITY_8.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 9,
+    "file": "ACTIVITY_9.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 10,
+    "file": "ACTIVITY_10.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 11,
+    "file": "ACTIVITY_11.json"
+  },
+  {
+    "name": "ACTIVITY",
+    "tag": 12,
+    "file": "ACTIVITY_12.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 1,
+    "file": "BUILDING_1.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 2,
+    "file": "BUILDING_2.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 3,
+    "file": "BUILDING_3.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 4,
+    "file": "BUILDING_4.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 5,
+    "file": "BUILDING_5.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 6,
+    "file": "BUILDING_6.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 7,
+    "file": "BUILDING_7.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 8,
+    "file": "BUILDING_8.json"
+  },
+  {
+    "name": "BUILDING",
+    "tag": 9,
+    "file": "BUILDING_9.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 1,
+    "file": "FISHING_1.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 2,
+    "file": "FISHING_2.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 3,
+    "file": "FISHING_3.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 4,
+    "file": "FISHING_4.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 5,
+    "file": "FISHING_5.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 6,
+    "file": "FISHING_6.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 7,
+    "file": "FISHING_7.json"
+  },
+  {
+    "name": "FISHING",
+    "tag": 8,
+    "file": "FISHING_8.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 1,
+    "file": "JOHNNY_1.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 2,
+    "file": "JOHNNY_2.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 3,
+    "file": "JOHNNY_3.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 4,
+    "file": "JOHNNY_4.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 5,
+    "file": "JOHNNY_5.json"
+  },
+  {
+    "name": "JOHNNY",
+    "tag": 6,
+    "file": "JOHNNY_6.json"
+  },
+  {
+    "name": "MARY",
+    "tag": 1,
+    "file": "MARY_1.json"
+  },
+  {
+    "name": "MARY",
+    "tag": 2,
+    "file": "MARY_2.json"
+  },
+  {
+    "name": "MARY",
+    "tag": 3,
+    "file": "MARY_3.json"
+  },
+  {
+    "name": "MARY",
+    "tag": 4,
+    "file": "MARY_4.json"
+  },
+  {
+    "name": "MARY",
+    "tag": 5,
+    "file": "MARY_5.json"
+  },
+  {
+    "name": "MISCGAG",
+    "tag": 1,
+    "file": "MISCGAG_1.json"
+  },
+  {
+    "name": "MISCGAG",
+    "tag": 2,
+    "file": "MISCGAG_2.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 1,
+    "file": "STAND_1.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 2,
+    "file": "STAND_2.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 3,
+    "file": "STAND_3.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 4,
+    "file": "STAND_4.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 5,
+    "file": "STAND_5.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 6,
+    "file": "STAND_6.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 7,
+    "file": "STAND_7.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 8,
+    "file": "STAND_8.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 9,
+    "file": "STAND_9.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 10,
+    "file": "STAND_10.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 11,
+    "file": "STAND_11.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 12,
+    "file": "STAND_12.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 15,
+    "file": "STAND_15.json"
+  },
+  {
+    "name": "STAND",
+    "tag": 16,
+    "file": "STAND_16.json"
+  },
+  {
+    "name": "SUZY",
+    "tag": 1,
+    "file": "SUZY_1.json"
+  },
+  {
+    "name": "SUZY",
+    "tag": 2,
+    "file": "SUZY_2.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 1,
+    "file": "VISITOR_1.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 4,
+    "file": "VISITOR_4.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 5,
+    "file": "VISITOR_5.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 6,
+    "file": "VISITOR_6.json"
+  },
+  {
+    "name": "VISITOR",
+    "tag": 7,
+    "file": "VISITOR_7.json"
+  },
+  {
+    "name": "WALKSTUF",
+    "tag": 1,
+    "file": "WALKSTUF_1.json"
+  },
+  {
+    "name": "WALKSTUF",
+    "tag": 2,
+    "file": "WALKSTUF_2.json"
+  },
+  {
+    "name": "WALKSTUF",
+    "tag": 3,
+    "file": "WALKSTUF_3.json"
+  }
+]

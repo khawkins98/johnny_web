@@ -3,6 +3,7 @@ import { setupDebugUI } from '../../bottle/debug-ui.mjs';
 import { johnnyCastaway } from './manifest.mjs';
 import { setupEnhancedUI } from './ui/enhanced.mjs';
 import { setupSettingsUI, SOUND_SETTING_KEY } from './ui/settings.mjs';
+import { setupSceneFlowPanel } from './ui/scene-flow-panel.mjs';
 import { createHolidayOverlay, HOLIDAY_SETTING_KEY, HOLIDAY_THEME_OPTIONS } from './ui/holidays.mjs';
 import { createJohnnyStoryController } from './story-controller.mjs';
 import { runJohnnySequenceTransition } from './ui/transitions.mjs';
@@ -16,6 +17,7 @@ export const runJohnnyCastaway = () => {
         setupDebugUI,
         setupEnhancedUI,
         setupSettingsUI,
+        setupSceneFlowUI: setupSceneFlowPanel,
         soundSettingKey: SOUND_SETTING_KEY,
         createBackgroundDecorator: createHolidayOverlay,
         selectScene: () => story.next(),
@@ -23,6 +25,7 @@ export const runJohnnyCastaway = () => {
         runInterlude: runJohnnyWalk,
         runPose: runJohnnyPose,
         createSelectionPresenter: createJohnnySelectionPresenter,
+        configureStoryRandom: (source) => story.setRandomSource(source),
         debugThemes: {
             label: 'Holiday Theme',
             storageKey: HOLIDAY_SETTING_KEY,
@@ -34,6 +37,12 @@ export const runJohnnyCastaway = () => {
             status: () => story.status(),
             subscribeStatus: (listener) => story.subscribeStatus(listener),
             describe: (script, tagId) => story.describe(script, tagId),
+            // Story-day API consumed by the Settings "Story" section + the dev panel.
+            getStoryDay: () => story.getStoryDay(),
+            getStartTime: () => story.getStartTime(),
+            setStoryDay: (day) => story.setStoryDay(day),
+            advanceStoryDay: () => story.advanceStoryDay(),
+            resetStory: () => story.resetStory(),
         },
     });
 };

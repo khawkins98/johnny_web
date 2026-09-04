@@ -1,0 +1,47 @@
+{
+  "source": "original SCRANTIC.SCR under patched DOSBox-X",
+  "sample": {
+    "preFirstDirectorDraws": 47942,
+    "note": "Timing-dependent observation, not a constant seed offset.",
+    "firstBuildCallerSequence": [
+      "1018:0da3",
+      "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67",
+      "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67",
+      "1018:1f33",
+      "1018:0e67", "1018:0e67", "1018:0e67",
+      "1010:151a", "1010:1537"
+    ]
+  },
+  "consumers": {
+    "1018:0da3": "keyframe gate: word % 10 == 0",
+    "1018:0e67": "scene roulette: word % totalWeight + 1",
+    "1018:1f33": "percentage buckets: compare against successive weight * 655 thresholds",
+    "1018:010a": "walk route roulette: word % 100",
+    "1018:01eb": "opposite-heading tie: word & 1",
+    "1010:151a": "island X: word % rangeWidth",
+    "1010:1537": "island Y: word % rangeHeight"
+  },
+  "opcode2020": {
+    "handler": "1058:0e08 (raw opcode 0x2022)",
+    "activeFormula": "minimum + (rawWord % (maximum - minimum)); maximum is exclusive",
+    "draws": "one when DAT_1068_46da is nonzero; zero on the handler's inactive pass",
+    "store": "DAT_1068_46e8; the tick driver copies a changed value to thread+0x29 and sets deadline=now+delay",
+    "liveSample": {
+      "gag": "JOHNNY:2",
+      "params": [60, 180],
+      "rngOrdinal": 49533,
+      "rawWord": "0x1f2f",
+      "resultingDelay": 123,
+      "check": "60 + (0x1f2f % 120) = 123"
+    },
+    "misattribution": "1048:15ea/0ec8/0b3e is an ADS thread reinitialization path, not TTM opcode 0x2020"
+  },
+  "catalogueLayout": {
+    "tableOffset": "0x19556",
+    "recordStride": "0x11",
+    "flagsBOffset": "0x0b (uint16 little-endian)",
+    "forceLayout0Bit": "0x0200",
+    "recordIndices": [0, 2, 3, 8, 9, 11, 12, 14, 26, 27, 28, 30, 34, 36, 51, 52, 78],
+    "warning": "The compact browser flags currently discard this bit; do not infer the layout by adding another random draw."
+  }
+}

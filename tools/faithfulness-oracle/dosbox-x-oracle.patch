@@ -1,0 +1,434 @@
+diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
+index 26d9f49..dea2978 100644
+--- a/src/cpu/core_normal.cpp
++++ b/src/cpu/core_normal.cpp
+@@ -16,6 +16,7 @@
+  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+  */
+ 
++#include <cstdlib> /* getenv - oracle trace */
+ #include "cpu.h"
+ #include "lazyflags.h"
+ #include "callback.h"
+@@ -157,6 +158,20 @@ static INLINE uint32_t Fetchd() {
+ 
+ #define EALookupTable (core.ea_table)
+ 
++/* oracle trace helper: resolve an arbitrary guest selector to its linear base.
++ * In protected mode this walks the GDT/LDT (GetDescriptor routes to the LDT
++ * when selector&4); in real/vm86 it is the paragraph<<4. Used by the per-tick
++ * thread-list walk because the ADS context + thread nodes live in the context's
++ * own segment (DGROUP-stored far ptr), not in DS. */
++static inline PhysPt dbx_sel_base(uint16_t sel) {
++	if (cpu.pmode && !(reg_flags & FLAG_VM)) {
++		Descriptor d;
++		if (cpu.gdt.GetDescriptor(sel, d)) return (PhysPt)d.GetBase();
++		return 0;
++	}
++	return (PhysPt)sel << 4;
++}
++
+ Bits CPU_Core_Normal_Run(void) {
+ 	if (CPU_Cycles <= 0)
+ 		return CBRET_NONE;
+@@ -171,6 +186,303 @@ Bits CPU_Core_Normal_Run(void) {
+ 		BaseDS=SegBase(ds);
+ 		BaseSS=SegBase(ss);
+ 		core.base_val_ds=ds;
++		/* --- BEGIN oracle trace (SCRANTIC.SCR entry-signature detector) ---
++		 * Detect entry to the 4 target NE functions by matching their reloc-free,
++		 * file-unique 24-byte entry signatures against the bytes at core.cseip.
++		 * This is relocation-safe by construction (none of these 24 bytes are
++		 * touched by the NE loader) and paging-independent (only reads the
++		 * instruction bytes at the current, mapped IP). See specs/dosbox-trace-oracle.md.
++		 */
++		{
++			static FILE *dbx_fp = NULL;
++			static FILE *dbx_thr_fp = NULL;      /* DBX_THREADS per-tick thread-list log */
++			static FILE *dbx_delay_fp = NULL;    /* DBX_DELAY per-tick timing-field log */
++			static unsigned long long dbx_tick_no = 0;
++			static bool dbx_init = false;
++			static unsigned long long dbx_icount = 0;
++			static bool dbx_reported[4] = { false, false, false, false };
++			/* {seg, in-seg off, name, 24-byte entry sig} */
++			static const struct { int seg; unsigned off; const char *name; unsigned char sig[24]; } DBX_F[4] = {
++				{ 4,  0x06bf, "director",   {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x56,0x83,0x3e,0x4c,0x33,0x00,0x74,0x03,0xe9,0xe0,0x01,0x8b,0x1e,0xf2} },
++				{ 10, 0x0766, "completion", {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x08,0x56,0x57,0x8b,0x7e,0x06,0x57,0x90,0x0e,0xe8,0x69,0x12} },
++				{ 10, 0x1925, "action",     {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0xeb,0x2c,0xff,0x76,0x08,0xff,0x76,0x06,0x0e,0xe8,0xde,0xfb,0x59,0x59} },
++				{ 10, 0x1acb, "tick",       {0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x12,0x56,0x57,0xc7,0x46,0xee,0x00,0x00,0x83,0x3e,0x08,0x26} },
++			};
++			/* RNG FUN_1018_1e86 (NE seg 4, off 0x1e86): additive lagged-Fibonacci,
++			 * table[i]+=table[j]; return table[i]. State in DGROUP: j@1ce2, i@1ce4,
++			 * table@1ce6. Leaf function -> capture true return AX at ret addr. */
++			static const unsigned char DBX_RNG_SIG[24] =
++				{0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x83,0xec,0x02,0x8b,0x1e,0xe2,0x1c,0xd1,0xe3,0x8b,0x87,0xe6,0x1c,0x8b};
++			static bool dbx_rng_reported = false;
++			static unsigned long long dbx_rng_count = 0;
++			static bool dbx_rng_pending = false;
++			static uint16_t rng_retcs = 0, rng_retip = 0, rng_i = 0, rng_j = 0, rng_ti = 0, rng_tj = 0;
++			static unsigned long long rng_entry_icount = 0;
++			/* --- framebuffer oracle: ADS-loader detector ---
++			 * FUN_1018_0c88 (NE seg 4, off 0x0c88) is the ADS-file loader; arg0
++			 * (mov di,[bp+6]) is the ADS id (name table 1068:166e: 0x65 ACTIVITY
++			 * .. 0x6d SUZY .. 0x6f WALKSTUF). When it is entered with the target
++			 * id (env DBX_FB_ADS, default 0x6d=SUZY) we tag + arm a framebuffer
++			 * dump so the capture is labeled with the active ADS scene. Sig is
++			 * reloc-free 26 bytes / file-unique at 16 (ne_entry.py). */
++			static const unsigned char DBX_ADS_SIG[24] =
++				{0x8c,0xd8,0x90,0x45,0x55,0x8b,0xec,0x1e,0x8e,0xd8,0x56,0x57,0x8b,0x7e,0x06,0x3b,0x3e,0x50,0x33,0x74,0x10,0xff,0x36,0x50};
++			/* indexed by (adsId - 0x65); name table 1068:166e */
++			static const char *DBX_ADS_NAMES[11] = {
++				"ACTIVITY","BUILDING","ADS67","FISHING","JOHNNY","MARY","MISCGAG",
++				"STAND","SUZY","VISITOR","WALKSTUF" };
++			extern volatile int dbx_fb_want;   /* frame countdown, defined in vga_draw.cpp */
++			extern char dbx_fb_label[64];
++			static bool dbx_ads_reported = false;
++			static unsigned int dbx_ads_target = 0x100; /* >0xff = disabled; set from env once */
++			static int dbx_ads_burst = 40; /* frames to capture per target load */
++			static bool dbx_ads_target_init = false;
++			/* director force-injection (option A): pin the scene-director queue
++			 * (DAT_1068_30f4[]) to ONE catalogue record so exactly one chosen
++			 * (adsId,tag) gag runs & loops -- bypasses story/spot/tide select.
++			 * Env: DBX_FORCE_ADS (hex), DBX_FORCE_TAG. See capture-original-gag.mjs. */
++			static bool dbx_force_on = false;
++			static unsigned int dbx_force_ads = 0, dbx_force_tag = 0;
++			static uint16_t dbx_force_recoff = 0; /* cached near-off of target rec (0=unfound) */
++			static bool dbx_force_armed = false;  /* one-time active-bit bootstrap */
++			if (!dbx_ads_target_init) {
++				dbx_ads_target_init = true;
++				const char *t = getenv("DBX_FB_ADS");
++				if (t && *t) dbx_ads_target = (unsigned int)strtoul(t, NULL, 0);
++				const char *b = getenv("DBX_FB_BURST");
++				if (b && *b) dbx_ads_burst = (int)strtoul(b, NULL, 10);
++				const char *fa = getenv("DBX_FORCE_ADS");
++				const char *ft = getenv("DBX_FORCE_TAG");
++				if (fa && *fa && ft && *ft) {
++					dbx_force_ads = (unsigned int)strtoul(fa, NULL, 0) & 0xff;
++					dbx_force_tag = (unsigned int)strtoul(ft, NULL, 0) & 0xff;
++					dbx_force_on = true;
++				}
++			}
++			if (!dbx_init) {
++				dbx_init = true;
++				const char *p = getenv("DBX_TRACE");
++				dbx_fp = fopen((p && *p) ? p : "/tmp/dbx-trace.log", "w");
++				if (dbx_fp) { fprintf(dbx_fp, "#SCRANTIC trace: icount func cs:ip ret=cs:ip args a0..a3 ax bx\n"); fflush(dbx_fp); }
++				/* Per-tick live-thread-list trace (see specs/oracle-trace-foundation.md).
++				 * One line per tick: THREADS <tick#> <slot>:<tag>:<runstate> ... */
++				const char *tp = getenv("DBX_THREADS");
++				if (tp && *tp) {
++					dbx_thr_fp = fopen(tp, "w");
++					if (dbx_thr_fp) { fprintf(dbx_thr_fp, "#SCRANTIC threads: tick# slot:tag:runstate (runstate 1=once 2=count 3=timed 4=finished 5=?)\n"); fflush(dbx_thr_fp); }
++				}
++				/* Per-tick per-node timing fields (0x2020 semantics probe). One line
++				 * per tick: DELAY <tick#> now=LO:HI | slot:tag:rs:delay(+0x29):dlLo(+0x37):dlHi(+0x39) ...
++				 * delay = reload period (+0x29), deadline = next-fire (+0x37/+0x39),
++				 * now = global time DAT_1068_2e72(lo)/2e74(hi). Advance-gate FUN_1048_196e
++				 * HOLDS the frame while now < deadline; on advance deadline = now + delay. */
++				const char *dp = getenv("DBX_DELAY");
++				if (dp && *dp) {
++					dbx_delay_fp = fopen(dp, "w");
++					if (dbx_delay_fp) { fprintf(dbx_delay_fp, "#SCRANTIC delay: tick# now=lo:hi | slot:tag:rs:delay:dlLo:dlHi ...\n"); fflush(dbx_delay_fp); }
++				}
++			}
++			dbx_icount++;
++			if (dbx_fp != NULL) {
++				const PhysPt lin = core.cseip;
++				/* RNG return capture: leaf fn, log the true returned word (AX) plus the
++				 * DGROUP state snapshot taken at entry. Bounded to keep the log small. */
++				if (dbx_rng_pending && (uint16_t)SegValue(cs) == rng_retcs && (uint16_t)reg_ip == rng_retip) {
++					dbx_rng_pending = false;
++					dbx_rng_count++;
++					if (!dbx_rng_reported) {
++						dbx_rng_reported = true;
++						fprintf(dbx_fp, "#RESOLVE rng seg=4 in_off=1E86\n");
++					}
++					if (dbx_rng_count <= 100000ULL) {
++						fprintf(dbx_fp,
++							"RNG %llu entry_ic=%llu caller=%04X:%04X i=%u j=%u ti=%04X tj=%04X sum=%04X ax=%04X\n",
++							dbx_rng_count, rng_entry_icount,
++							(unsigned)rng_retcs, (unsigned)rng_retip,
++							(unsigned)rng_i, (unsigned)rng_j,
++							(unsigned)rng_ti, (unsigned)rng_tj,
++							(unsigned)(uint16_t)(rng_ti + rng_tj), (unsigned)(uint16_t)reg_ax);
++						fflush(dbx_fp);
++					}
++				}
++				/* cheap gate: far-proc prologue always begins 8C D8 (mov ax,ds) */
++				if (mem_readb(lin) == 0x8Cu && mem_readb(lin + 1u) == 0xD8u) {
++					/* RNG entry: snapshot DGROUP state + arm return capture */
++					if (!dbx_rng_pending) {
++						bool rmatch = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_RNG_SIG[k]) { rmatch = false; break; }
++						}
++						if (rmatch) {
++							const PhysPt dsb = SegPhys(ds);
++							const PhysPt ssb2 = SegPhys(ss);
++							rng_i = mem_readw(dsb + 0x1ce4u);
++							rng_j = mem_readw(dsb + 0x1ce2u);
++							rng_ti = mem_readw(dsb + 0x1ce6u + (uint16_t)(rng_i * 2u));
++							rng_tj = mem_readw(dsb + 0x1ce6u + (uint16_t)(rng_j * 2u));
++							rng_retip = mem_readw(ssb2 + (uint16_t)(reg_sp + 0));
++							rng_retcs = mem_readw(ssb2 + (uint16_t)(reg_sp + 2));
++							rng_entry_icount = dbx_icount;
++							dbx_rng_pending = true;
++						}
++					}
++					for (int fi = 0; fi < 4; fi++) {
++						bool match = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_F[fi].sig[k]) { match = false; break; }
++						}
++						if (!match) continue;
++						/* At the entry instruction, SP points at the far return address;
++						 * far frame: [sp]=retIP [sp+2]=retCS [sp+4]=arg0 [sp+6]=arg1 ... */
++						const PhysPt ssb = SegPhys(ss);
++						uint16_t retip = mem_readw(ssb + (uint16_t)(reg_sp + 0));
++						uint16_t retcs = mem_readw(ssb + (uint16_t)(reg_sp + 2));
++						uint16_t a0 = mem_readw(ssb + (uint16_t)(reg_sp + 4));
++						uint16_t a1 = mem_readw(ssb + (uint16_t)(reg_sp + 6));
++						uint16_t a2 = mem_readw(ssb + (uint16_t)(reg_sp + 8));
++						uint16_t a3 = mem_readw(ssb + (uint16_t)(reg_sp + 10));
++						if (!dbx_reported[fi]) {
++							dbx_reported[fi] = true;
++							fprintf(dbx_fp,
++								"#RESOLVE %s seg=%d in_off=%04X runtime_lin=%08lX cs=%04X segbase=%08lX\n",
++								DBX_F[fi].name, DBX_F[fi].seg, DBX_F[fi].off,
++								(unsigned long)lin, (unsigned)SegValue(cs),
++								(unsigned long)(lin - DBX_F[fi].off));
++						}
++						fprintf(dbx_fp,
++							"%llu %s %04X:%04X ret=%04X:%04X args=%04X,%04X,%04X,%04X ax=%04X bx=%04X\n",
++							dbx_icount, DBX_F[fi].name, (unsigned)SegValue(cs), (unsigned)reg_ip,
++							(unsigned)retcs, (unsigned)retip,
++							(unsigned)a0, (unsigned)a1, (unsigned)a2, (unsigned)a3,
++							(unsigned)reg_ax, (unsigned)reg_bx);
++						fflush(dbx_fp);
++						/* fi==3 is the tick (FUN_1048_1acb). At entry (DS=DGROUP),
++						 * walk the live-thread linked list and emit one THREADS line.
++						 * ADSctx far ptr = DS:*(DAT_1068_2608*4 + 0x460e); the third
++						 * loop of the tick fn dereferences its offset near/DS-relative,
++						 * so all node reads are DS-relative. head=ctx+0x10, node fields
++						 * slot@+0 tag@+2 runstate@+0x2f (word), next@+0x3b. */
++						/* fi==0 is the scene director (FUN_1018_06bf). If force-injection is
++						 * enabled, pin its queue DAT_1068_30f4[] = { targetRecord, 0 } with
++						 * index DAT_1068_30f2 = 0 so it loads+runs+loops exactly one (adsId,tag).
++						 * startSpot(+3)->0 makes the walk-continuity gate FUN_1018_0b64 pass; the
++						 * active bit (+0xd &0x8000) is set once to bootstrap (the director re-sets
++						 * it on each gag completion, so the pinned record re-loads and loops). */
++						if (fi == 0 && dbx_force_on) {
++							const PhysPt dsb = SegPhys(ds);
++							if (dbx_force_recoff == 0) {
++								for (int ri = 0; ri < 79; ri++) {
++									uint16_t roff = (uint16_t)(0x1756 + ri * 0x11);
++									uint8_t aid = mem_readb(dsb + (PhysPt)(uint16_t)(roff + 0x0f));
++									uint8_t atg = mem_readb(dsb + (PhysPt)(uint16_t)(roff + 0x10));
++									if (aid == dbx_force_ads && atg == dbx_force_tag) { dbx_force_recoff = roff; break; }
++								}
++							}
++							if (dbx_force_recoff != 0) {
++								uint16_t roff = dbx_force_recoff;
++								mem_writew(dsb + 0x30f4u, roff);      /* queue[0] = target record */
++								mem_writew(dsb + 0x30f6u, 0);         /* queue[1] = terminator    */
++								mem_writew(dsb + 0x30f2u, 0);         /* queue index = 0          */
++								mem_writeb(dsb + (PhysPt)(uint16_t)(roff + 0x03), 0); /* startSpot=0 */
++								if (!dbx_force_armed) {
++									dbx_force_armed = true;
++									uint16_t fl = mem_readw(dsb + (PhysPt)(uint16_t)(roff + 0x0d));
++									mem_writew(dsb + (PhysPt)(uint16_t)(roff + 0x0d), (uint16_t)(fl | 0x8000));
++									if (dbx_fp) { fprintf(dbx_fp, "#FORCE ads=%02X tag=%u recoff=%04X\n", dbx_force_ads, dbx_force_tag, (unsigned)roff); fflush(dbx_fp); }
++								}
++							}
++						}
++						if (fi == 3 && dbx_thr_fp) {
++							const PhysPt dsb = SegPhys(ds);
++							int16_t idx = (int16_t)mem_readw(dsb + 0x2608u); /* DAT_1068_2608 */
++							fprintf(dbx_thr_fp, "THREADS %llu", dbx_tick_no);
++							if (idx >= 0) {
++								/* ADSctx far ptr = DS:*(idx*4+0x460e){off}, *(idx*4+0x4610){seg}.
++								 * The context HEADER lives in its own segment (ctxseg); the
++								 * head near-pointer it stores at ctx+0x10, and every thread
++								 * node it chains to (+0x3b), are DGROUP/DS-relative (the node
++								 * pool is a DGROUP allocation). So: read head from ctxseg,
++								 * walk nodes in DS. Node fields: slot@+0, tag@+2,
++								 * runstate@+0x2f, next@+0x3b. */
++								uint16_t ctxoff = mem_readw(dsb + (uint16_t)(idx * 4 + 0x460e));
++								uint16_t ctxseg = mem_readw(dsb + (uint16_t)(idx * 4 + 0x4610));
++								const PhysPt csb = dbx_sel_base(ctxseg);
++								uint16_t node   = mem_readw(csb + (uint16_t)(ctxoff + 0x10));
++								int guard = 0;
++								while (node != 0 && guard++ < 512) {
++									uint16_t slot = mem_readw(dsb + (uint16_t)(node + 0x00));
++									uint16_t tag  = mem_readw(dsb + (uint16_t)(node + 0x02));
++									uint16_t rs   = mem_readw(dsb + (uint16_t)(node + 0x2f));
++									fprintf(dbx_thr_fp, " %u:%u:%u",
++										(unsigned)slot, (unsigned)tag, (unsigned)rs);
++									node = mem_readw(dsb + (uint16_t)(node + 0x3b));
++								}
++							}
++							fprintf(dbx_thr_fp, "\n");
++							fflush(dbx_thr_fp);
++							dbx_tick_no++;
++						}
++						if (fi == 3 && dbx_delay_fp) {
++							static unsigned long long dbx_delay_tick = 0;
++							const PhysPt dsb = SegPhys(ds);
++							int16_t idx = (int16_t)mem_readw(dsb + 0x2608u); /* DAT_1068_2608 */
++							uint16_t nowLo = mem_readw(dsb + 0x2e72u); /* DAT_1068_2e72 */
++							uint16_t nowHi = mem_readw(dsb + 0x2e74u); /* DAT_1068_2e74 */
++							fprintf(dbx_delay_fp, "DELAY %llu now=%u:%u |", dbx_delay_tick, (unsigned)nowLo, (unsigned)nowHi);
++							if (idx >= 0) {
++								uint16_t ctxoff = mem_readw(dsb + (uint16_t)(idx * 4 + 0x460e));
++								uint16_t ctxseg = mem_readw(dsb + (uint16_t)(idx * 4 + 0x4610));
++								const PhysPt csb = dbx_sel_base(ctxseg);
++								uint16_t node   = mem_readw(csb + (uint16_t)(ctxoff + 0x10));
++								int guard = 0;
++								while (node != 0 && guard++ < 512) {
++									uint16_t slot  = mem_readw(dsb + (uint16_t)(node + 0x00));
++									uint16_t tag   = mem_readw(dsb + (uint16_t)(node + 0x02));
++									uint16_t rs    = mem_readw(dsb + (uint16_t)(node + 0x2f));
++									uint16_t delay = mem_readw(dsb + (uint16_t)(node + 0x29));
++									uint16_t dlLo  = mem_readw(dsb + (uint16_t)(node + 0x37));
++									uint16_t dlHi  = mem_readw(dsb + (uint16_t)(node + 0x39));
++									fprintf(dbx_delay_fp, " %u:%u:%u:%u:%u:%u",
++										(unsigned)slot, (unsigned)tag, (unsigned)rs,
++										(unsigned)delay, (unsigned)dlLo, (unsigned)dlHi);
++									node = mem_readw(dsb + (uint16_t)(node + 0x3b));
++								}
++							}
++							fprintf(dbx_delay_fp, "\n");
++							fflush(dbx_delay_fp);
++							dbx_delay_tick++;
++						}
++						break;
++					}
++					/* ADS-loader detection (framebuffer oracle scene tagging) */
++					{
++						bool amatch = true;
++						for (int k = 2; k < 24; k++) {
++							if (mem_readb(lin + (PhysPt)k) != DBX_ADS_SIG[k]) { amatch = false; break; }
++						}
++						if (amatch) {
++							const PhysPt ssb = SegPhys(ss);
++							uint16_t adsid = mem_readw(ssb + (uint16_t)(reg_sp + 4)); /* arg0 */
++							if (!dbx_ads_reported) {
++								dbx_ads_reported = true;
++								fprintf(dbx_fp, "#RESOLVE ads-loader seg=4 in_off=0C88 runtime_lin=%08lX\n",
++									(unsigned long)(lin));
++							}
++							fprintf(dbx_fp, "%llu ads-loader id=%04X\n", dbx_icount, (unsigned)adsid);
++							fflush(dbx_fp);
++							/* Tag + arm a framebuffer dump for the target ADS id. */
++							if (dbx_ads_target <= 0xff && (unsigned int)(adsid & 0xff) == dbx_ads_target) {
++								unsigned int id = adsid & 0xff;
++								const char *nm = (id >= 0x65 && id <= 0x6f) ? DBX_ADS_NAMES[id - 0x65] : "ADS";
++								snprintf(dbx_fb_label, sizeof(dbx_fb_label), "%s_id%02X", nm, id);
++								dbx_fb_want = dbx_ads_burst;
++							}
++						}
++					}
++				}
++			}
++		}
++		/* --- END oracle trace --- */
+ #if C_DEBUG
+ #if C_HEAVY_DEBUG
+ 		if (DEBUG_HeavyIsBreakpoint()) {
+diff --git a/src/hardware/vga_draw.cpp b/src/hardware/vga_draw.cpp
+index b8335f6..e24e72d 100644
+--- a/src/hardware/vga_draw.cpp
++++ b/src/hardware/vga_draw.cpp
+@@ -195,6 +195,55 @@ void rawscreenshot::allocpalette2(unsigned int count) {
+ 
+ static rawscreenshot rawshot; // raw image data, translated palette
+ 
++/* --- BEGIN framebuffer oracle (rendering faithfulness) ---
++ * Dumps the EMULATED VGA framebuffer as a scene-labeled PPM by reusing the
++ * built-in raw-screenshot capture (VGA_DrawRawLine reads VGA memory directly +
++ * SetRawImagePalette() copies the DAC), so it is independent of the SDL/GFX
++ * output pipeline and works headless under SDL_VIDEODRIVER=dummy.
++ * Controlled by env: DBX_FB_DIR (output dir; enables the feature),
++ * DBX_FB_EVERY (auto-arm every N frames; 0 = only on explicit request),
++ * DBX_FB_MAX (cap total dumps), DBX_FB_START (skip first N frames).
++ * core_normal.cpp sets dbx_fb_want / dbx_fb_label from the ADS scene trace so
++ * a dump can be tagged with the currently-active ADS scene. See
++ * tools/faithfulness-oracle/RENDERING-ORACLE.md. */
++#include <cstdlib>
++#include <cstdio>
++#include <cstring>
++volatile int  dbx_fb_want = 0;           /* set by ADS hook: countdown of frames to capture */
++char          dbx_fb_label[64] = "frame"; /* scene tag for the filename */
++static unsigned long dbx_fb_frame_ctr = 0;
++static unsigned long dbx_fb_shot_ctr = 0;
++static void dbx_write_ppm(void) {
++	const char *dir = getenv("DBX_FB_DIR");
++	if (dir == NULL || *dir == 0) return;
++	if (rawshot.image == NULL || rawshot.image_palette == NULL) return;
++	if (rawshot.image_bpp != 8) return; /* Johnny runs Win3.1 SVGA 256-color = 8bpp */
++	const unsigned int w = rawshot.image_width, h = rawshot.image_height;
++	if (w == 0 || h == 0) return;
++	char path[1024];
++	/* sanitize label to keep filenames safe */
++	char lab[64]; unsigned li = 0;
++	for (const char *p = dbx_fb_label; *p && li < sizeof(lab)-1; p++)
++		lab[li++] = (*p=='/'||*p==' '||*p==':') ? '_' : *p;
++	lab[li] = 0;
++	snprintf(path, sizeof(path), "%s/fb_%06lu_%s.ppm", dir, dbx_fb_shot_ctr, lab);
++	FILE *fp = fopen(path, "wb");
++	if (fp == NULL) return;
++	fprintf(fp, "P6\n%u %u\n255\n", w, h);
++	const unsigned char *pal = rawshot.image_palette;
++	for (unsigned int y = 0; y < h; y++) {
++		const unsigned char *row = rawshot.image + (size_t)y * rawshot.image_stride;
++		for (unsigned int x = 0; x < w; x++) {
++			unsigned int idx = row[x];
++			unsigned char rgb[3] = { pal[idx*3+0], pal[idx*3+1], pal[idx*3+2] };
++			fwrite(rgb, 1, 3, fp);
++		}
++	}
++	fclose(fp);
++	dbx_fb_shot_ctr++;
++}
++/* --- END framebuffer oracle --- */
++
+ struct debugline_event {
+ 	unsigned int	colorline = 0;
+ 	int		event = -1;
+@@ -5960,6 +6009,15 @@ void WriteARawImage(rawscreenshot &rawimg,rawscreenshot &rawpal,const char *ext)
+ #endif
+ 
+ void WriteRawImage(void) {
++	if (getenv("DBX_FB_DIR") != NULL) {
++		/* framebuffer oracle: emit our own scene-labeled PPM and skip the
++		 * built-in PNG (avoids capture-dir/libpng dependencies headless). */
++		dbx_write_ppm();
++		if (dbx_fb_want > 0) dbx_fb_want--;
++		if (dbx_fb_want <= 0) strcpy(dbx_fb_label, "frame");
++		rawshot.render_y = 0;
++		return;
++	}
+ #if !defined(C_EMSCRIPTEN)
+ #if (C_SSHOT)
+ 	if (rawshot.image != NULL && rawshot.image_palette != NULL && rawshot.image_palette_size > 0)
+@@ -6012,6 +6070,20 @@ static void VGA_VerticalTimer(Bitu /*val*/) {
+ 	}
+ 
+ 	is_vga_rendering_on_demand = vga_render_on_demand;
++	/* framebuffer oracle: auto-arm a raw capture on a cadence or on request */
++	if (getenv("DBX_FB_DIR") != NULL && !rawshot.capturing && VGA_DrawRawLine != NULL) {
++		dbx_fb_frame_ctr++;
++		const char *ev = getenv("DBX_FB_EVERY");
++		const char *mx = getenv("DBX_FB_MAX");
++		const char *st = getenv("DBX_FB_START");
++		unsigned long every = ev ? strtoul(ev, NULL, 10) : 0;
++		unsigned long maxsh = mx ? strtoul(mx, NULL, 10) : 0;
++		unsigned long start = st ? strtoul(st, NULL, 10) : 0;
++		bool cadence = (every != 0 && dbx_fb_frame_ctr >= start && (dbx_fb_frame_ctr % every) == 0);
++		bool cap_ok = (maxsh == 0 || dbx_fb_shot_ctr < maxsh);
++		if ((dbx_fb_want || cadence) && cap_ok)
++			CaptureState |= CAPTURE_RAWIMAGE;
++	}
+ 	if (CaptureState & CAPTURE_RAWIMAGE) {
+ 		if (!rawshot.capturing) {
+ 			if (VGA_DrawRawLine != NULL) {

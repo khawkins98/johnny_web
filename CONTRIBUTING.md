@@ -61,8 +61,12 @@ When consulting another implementation, record the exact upstream file and the b
 
 ## Verification and diagnostics
 
+### What CI verifies — and what it does not
+
+CI (`.github/workflows/pr.yml`) runs `pnpm install`, `pnpm test`, and `pnpm run build`. Because the game data under `public/data/` is proprietary and gitignored, **CI runs with no data**, so every data-gated check — the end-to-end gag tests, the binary-faithfulness oracle (`test/faithfulness-diff.mjs`), and the render goldens — **silently does not run there** (`describe.skipIf(!hasData)` blocks simply don't enumerate). A green PR therefore verifies the codecs, parsers, VM, timing, composition, and UI, but **not** render/timing fidelity against the original. The fidelity net (`pnpm run test:golden` and `pnpm test` with data present) only runs locally, on a machine that has the extracted data — treat that as a manual gate for any rendering or scheduling change. The reverse-engineering behind those checks lives in `tools/faithfulness-oracle/METHODOLOGY.md`; regenerating references additionally needs an out-of-repo patched `dosbox-x` (documented there). Getting the data-gated tests running in CI against committed non-proprietary fixtures is the single highest-value hardening this project is missing.
+
 - Run `pnpm test` and `pnpm run build` before opening a PR.
-- Rendering changes also require extracted local data and `pnpm run test:golden`. Use `pnpm run test:golden:update` only after visually reviewing an intentional logical-frame change.
+- Rendering changes also require extracted local data and `pnpm run test:golden` (which skips with a message when data is absent, so it is safe to run anywhere). Use `pnpm run test:golden:update` only after visually reviewing an intentional logical-frame change.
 - Use `pnpm run dump` to regenerate ignored inspection output under `dumps/`. Do not commit proprietary files from `public/data/`, derived dumps, asset inventories, or ad hoc root-level extraction scripts.
 - Preserve findings that need to survive regeneration in parser/runtime tests and the relevant document under `docs/`.
 - Press `S` to open Settings and enable diagnostics, or press `D` to open the developer panel and enable them immediately.

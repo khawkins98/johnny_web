@@ -1,0 +1,29 @@
+{
+  "name": "FISHING",
+  "adsId": "0x68",
+  "tag": 4,
+  "slot": "4",
+  "runs": 8,
+  "vocab": [
+    "4:2",
+    "4:17",
+    "4:42"
+  ],
+  "maxConc": 1,
+  "states": 4,
+  "lifespans": {
+    "4:17": {
+      "min": 26,
+      "max": 34
+    },
+    "4:2": {
+      "min": 13,
+      "max": 32
+    },
+    "4:42": {
+      "min": 2,
+      "max": 34
+    }
+  },
+  "drainTick": null
+}

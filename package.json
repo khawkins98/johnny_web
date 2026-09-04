@@ -17,6 +17,7 @@
         "test:coverage": "vitest run --coverage",
         "test:golden": "node test/render-goldens.mjs",
         "test:golden:update": "node test/render-goldens.mjs --update",
+        "test:faithful": "vitest run test/faithfulness-diff.mjs",
         "dump": "node src/dump.mjs",
         "extract": "node src/extract.mjs"
     },

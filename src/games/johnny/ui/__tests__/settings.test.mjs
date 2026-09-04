@@ -97,4 +97,35 @@ describe('settings UI', () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
         expect(onRestart).toHaveBeenCalledTimes(2);
     });
+
+    it('shows the story day and start date, and restarts the story on request', () => {
+        const storyController = {
+            getStoryDay: vi.fn(() => 4),
+            getStartTime: vi.fn(() => 721),
+            resetStory: vi.fn(() => 1),
+        };
+        setupSettingsUI({ storyController });
+
+        const status = document.getElementById('settings-story-status');
+        expect(status.innerText).toBe('Day 4 of 11 · Started Jul 21');
+
+        storyController.getStoryDay.mockReturnValue(1);
+        document.querySelector('[data-setting="restart-story"]').click();
+        expect(storyController.resetStory).toHaveBeenCalledOnce();
+        expect(status.innerText).toBe('Day 1 of 11 · Started Jul 21');
+    });
+
+    it('omits the story section entirely without a story controller', () => {
+        setupSettingsUI();
+        expect(document.querySelector('[data-setting="restart-story"]')).toBeNull();
+    });
+
+    it('degrades gracefully when the controller lacks the story-day API (does not throw)', () => {
+        // Regression: browser-app once passed a limited sequence-tools object as
+        // storyController (no getStoryDay), which hard-crashed settings init.
+        const limited = { status: () => null, subscribeStatus: () => () => {} };
+        expect(() => setupSettingsUI({ storyController: limited })).not.toThrow();
+        const status = document.getElementById('settings-story-status');
+        if (status) expect(status.innerText).toBe('');
+    });
 });

@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { hasData, loadAds } from './support/drive-gag.mjs';
 
-// Data-lint guarding `indexAdsChunks`' OR-group assumption: an OR (0x1430) inside a
-// condition joins IF_PLAYED (0x1350) clauses ONLY. `indexAdsChunks` maps every clause
-// of such a group to the single shared body after the last clause; if a shipped ADS
-// ever joined a NON-IF_PLAYED opcode with OR (e.g. IF_PLAYED a OR IF_NOT_RUNNING b),
-// the walk would end the group early and mis-index the handoff silently. The corpus
-// is frozen (proprietary SCRANTIC data), so this is a one-time verification that turns
-// that latent assumption into a loud failure if the data is ever regenerated/changed.
+// Data-lint guarding the OR-group assumption the runtime's IF/OR chaining relies on
+// (see `handleIfCondition`/`findMatchingEndIf` in script-runner.mjs): an OR (0x1430)
+// inside a condition joins IF_PLAYED (0x1350) clauses ONLY. The OR-chain walk treats
+// every clause of such a group as sharing the single body after the last clause; if a
+// shipped ADS ever joined a NON-IF_PLAYED opcode with OR (e.g. IF_PLAYED a OR
+// IF_NOT_RUNNING b), the walk would end the group early and mis-index the handoff
+// silently. The corpus is frozen (proprietary SCRANTIC data), so this is a one-time
+// verification that turns that latent assumption into a loud failure if the data is
+// ever regenerated/changed.
 const ADS_FILES = [
     'ACTIVITY.ADS',
     'BUILDING.ADS',
@@ -24,7 +26,7 @@ const ADS_FILES = [
 const OR = 0x1430;
 const IF_PLAYED = 0x1350;
 
-describe.skipIf(!hasData)('ADS OR-groups join IF_PLAYED clauses only (indexAdsChunks assumption)', () => {
+describe.skipIf(!hasData)('ADS OR-groups join IF_PLAYED clauses only (OR-chain walk assumption)', () => {
     it('has no OR joining a non-IF_PLAYED opcode in any shipped ADS scene', () => {
         const offenders = [];
         for (const file of ADS_FILES) {

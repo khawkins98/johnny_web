@@ -55,16 +55,26 @@ const SCENE_METRICS = new Map([
     ['SUZY#1', [35, 10]], ['SUZY#2', [25, 10]],
 ]);
 
+// Raw catalogue flagsB bit 0x0200 forces executable island-position band 0.
+// Kept as a semantic datum rather than folded into SceneFlags, whose bits are
+// browser selection behavior rather than a copy of the executable record.
+const FORCE_LAYOUT0 = new Set([
+    'ACTIVITY#8', 'WALKSTUF#2', 'BUILDING#2', 'MARY#2', 'MARY#3', 'MARY#4', 'MARY#5',
+    'ACTIVITY#1', 'FISHING#5', 'JOHNNY#4', 'JOHNNY#5', 'MISCGAG#2', 'ACTIVITY#6',
+    'ACTIVITY#11', 'BUILDING#4', 'BUILDING#6', 'VISITOR#3',
+]);
+
 // A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
 // [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide). `width`/`weight`
 // come from SCENE_METRICS; `repeat` (binary flagsB & 0x08) marks the idle poses that may
 // repeat 1..6x in a sequence.
 const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) => {
     const isPose = script === POSE;
-    const [width, weight] = isPose ? [5, 1] : SCENE_METRICS.get(`${script.replace('.ADS', '')}#${tagId}`) ?? [15, 10];
+    const key = `${script.replace('.ADS', '')}#${tagId}`;
+    const [width, weight] = isPose ? [5, 1] : SCENE_METRICS.get(key) ?? [15, 10];
     return Object.freeze({
         script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
-        tideMin, tideMax, width, weight, repeat: isPose,
+        tideMin, tideMax, width, weight, repeat: isPose, forceLayout0: FORCE_LAYOUT0.has(key),
     });
 };
 
@@ -163,18 +173,23 @@ const pick = (random, values) => values[randomIndex(random, values.length)];
 const hasAll = (flags, required) => (flags & required) === required;
 
 // Weight-roulette over candidate scenes (binary picker FUN_1018_0d76 sums byte@0x02).
-const weightedPick = (random, candidates) => {
+const weightedPick = (random, candidates, storyRandom = null, site = 'director-weighted-scene') => {
     const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
-    let roll = Math.floor(random() * total);
+    let roll = storyRandom ? storyRandom.modulo(total, site) + 1 : Math.floor(random() * total) + 1;
     for (const candidate of candidates) {
-        if (roll < candidate.weight) return candidate;
+        if (roll <= candidate.weight) return candidate;
         roll -= candidate.weight;
     }
     return candidates[candidates.length - 1];
 };
 // Repeat count for an idle (flagsB & 0x08) scene: centre-weighted buckets summing 100 -> 1..6.
 const REPEAT_WEIGHTS = [10, 20, 30, 20, 10, 10];
-const repeatCount = (random) => {
+const repeatCount = (random, storyRandom = null) => {
+    if (storyRandom) {
+        let bucket = 0;
+        while (bucket === 0) bucket = storyRandom.weightedBucket(REPEAT_WEIGHTS, 'director-repeat-count');
+        return bucket;
+    }
     let roll = Math.floor(random() * 100);
     for (let bucket = 0; bucket < REPEAT_WEIGHTS.length; bucket++) {
         if (roll < REPEAT_WEIGHTS[bucket]) return bucket + 1;
@@ -305,24 +320,34 @@ const createIslandState = (
     storyDay,
     date,
     random,
-    { allowLowTide = true, allowVariablePosition = true, startTime = 0 } = {},
+    storyRandom = null,
+    { allowLowTide = true, allowVariablePosition = true, startTime = 0, layoutIndex = 1 } = {},
 ) => {
     const tidePhase = tidePhaseFor(date, startTime);
     const lowTide = allowLowTide && tidePhase >= LOW_TIDE_PHASES;
+    const night = date.getHours() < 6 || date.getHours() >= 18;
     let x = 0;
     let y = 0;
+    // The executable bakes the day ocean before island origin coordinates.
+    // Browser-created clouds remain on `random` and cannot advance this stream.
+    const oceanIndex = storyRandom
+        ? (night ? 0 : storyRandom.modulo(3, 'island-ocean'))
+        : randomIndex(random, 3);
     // The island world origin is randomized ONCE per island CHAIN and held fixed for
     // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136,
     // dec 5161/5693). It is randomized UNCONDITIONALLY for an island chain -- VARPOS
     // (flagsB 0x1000) does NOT gate position; it only turns waves off (dec 4314). The
-    // three branches approximate the binary's {layout0, layout1, layout1+holiday}
-    // bands; the base X values (-222, -114) are the binary's layout0/layout1 bases
-    // (67, 168) re-based by -289. LEFT_ISLAND is NOT a whole-island move -- it is the
-    // per-scene FOREGROUND +272 nudge applied in makeSelection (binary flagsB 0x400).
-    // The old fixed whole-island `x = -272` here was fabricated and was the visible
-    // between-chain teleport; removed.
+    // The faithful path uses the selected layout's ordinary band. Holiday-specific
+    // flagsD modifiers remain deferred. LEFT_ISLAND is a per-scene foreground nudge,
+    // not a whole-island move.
     if (allowVariablePosition && hasAll(finalScene.flags, F.ISLAND)) {
-        if (random() >= 0.5) {
+        if (storyRandom) {
+            const band = layoutIndex === 0
+                ? { baseX: 67, width: 226, baseY: 255, height: 129 }
+                : { baseX: 168, width: 111, baseY: 255, height: 59 };
+            x = band.baseX + storyRandom.modulo(band.width, 'island-x') - 289;
+            y = band.baseY + storyRandom.modulo(band.height, 'island-y') - 279;
+        } else if (random() >= 0.5) {
             x = -222 + Math.floor(random() * 109);
             y = -44 + Math.floor(random() * 128);
         } else if (random() >= 0.5) {
@@ -342,7 +367,7 @@ const createIslandState = (
         islandLayoutId: 1,
         lowTide,
         tidePhase,
-        night: date.getHours() < 6 || date.getHours() >= 18,
+        night,
         raft,
         x,
         y,
@@ -355,7 +380,7 @@ const createIslandState = (
         // path from this flag into that renderer, not wired in this pass.
         waves: !hasAll(finalScene.flags, F.VARPOS_OK),
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
-        oceanIndex: randomIndex(random, 3),
+        oceanIndex,
         presentationKey: Object.freeze({}),
         clouds: Object.freeze(createClouds(random)),
         storyDay,
@@ -364,9 +389,11 @@ const createIslandState = (
 
 export const createJohnnyStoryController = ({
     random = Math.random,
+    storyRandom: initialStoryRandom = null,
     storage = globalThis.localStorage,
     now = () => new Date(),
 } = {}) => {
+    let storyRandom = initialStoryRandom;
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
@@ -394,14 +421,14 @@ export const createJohnnyStoryController = ({
     const chooseFinalScene = (storyDay, tidePhase) => {
         const finals = eligible(storyDay, F.FINAL, 0, tidePhase);
         if (finals.length === 0) return pick(random, JOHNNY_SCENES.filter((s) => hasAll(s.flags, F.FINAL)));
-        if (random() < 0.1) {
+        if (storyRandom ? storyRandom.modulo(10, 'director-keyframe-gate') === 0 : random() < 0.1) {
             const keyframe = finals.find((s) => s.day === storyDay && s.day !== 0 && !recentFinals.includes(s));
             if (keyframe) return keyframe;
         }
         let pool = finals.filter((s) => !hasAll(s.flags, F.FIRST) && !recentFinals.includes(s));
         if (pool.length === 0) pool = finals.filter((s) => !recentFinals.includes(s));
         if (pool.length === 0) pool = finals;
-        return weightedPick(random, pool);
+        return weightedPick(random, pool, storyRandom, 'director-final-scene');
     };
 
     const findScene = (script, tagId) =>
@@ -477,7 +504,9 @@ export const createJohnnyStoryController = ({
                   allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
             : { startTime: resolvedStartTime };
-        const islandState = createIslandState(finalScene, storyDay, date, random, constraints);
+        const tidePhase = tidePhaseFor(date, resolvedStartTime);
+        const variablePosition =
+            (constraints.allowVariablePosition ?? true) && hasAll(finalScene.flags, F.ISLAND);
         const planned = [];
         let previous = null;
 
@@ -488,7 +517,7 @@ export const createJohnnyStoryController = ({
 
         if (!hasAll(finalScene.flags, F.FIRST)) {
             let wanted = 0;
-            if (islandState.x !== 0 || islandState.y !== 0) wanted |= F.VARPOS_OK;
+            if (variablePosition) wanted |= F.VARPOS_OK;
             // Poses are ADS-less "stand at spot" fillers, selectable as intermediates
             // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
             // from the intermediate pool here.
@@ -502,14 +531,14 @@ export const createJohnnyStoryController = ({
             let budget = 300 - finalScene.width - (anchorScene ? anchorScene.width : 0);
             let slots = anchorScene ? 1 : 0;
             while (budget > 0 && slots < 298) {
-                const candidates = eligible(storyDay, wanted, unwanted, islandState.tidePhase).filter(
+                const candidates = eligible(storyDay, wanted, unwanted, tidePhase).filter(
                     (candidate) => candidate.width / 2 < budget,
                 );
                 if (candidates.length === 0) break;
-                const next = weightedPick(random, candidates);
+                const next = weightedPick(random, candidates, storyRandom, 'director-intermediate-scene');
                 let reps = 1;
                 if (next.repeat) {
-                    reps = repeatCount(random);
+                    reps = repeatCount(random, storyRandom);
                     // Re-roll a repeat count that would overrun the budget (unless it lands
                     // exactly on 0), bounded so a degenerate/constant rng still terminates.
                     for (
@@ -517,7 +546,7 @@ export const createJohnnyStoryController = ({
                         attempt < 8 && reps > 1 && next.width * reps > budget && next.width * reps - budget !== 0;
                         attempt++
                     ) {
-                        reps = repeatCount(random);
+                        reps = repeatCount(random, storyRandom);
                     }
                     // Hard guarantee: never place more repeats than the budget can hold.
                     reps = Math.min(reps, Math.max(1, Math.floor(budget / next.width)));
@@ -532,6 +561,13 @@ export const createJohnnyStoryController = ({
             }
         }
         planned.push({ scene: finalScene, walkFrom: previous });
+        // The executable accumulates flags across the complete queue. Any scene
+        // carrying raw flagsB 0x0200 forces position band 0; otherwise band 1.
+        const layoutIndex = planned.some(({ scene: selected }) => selected.forceLayout0) ? 0 : 1;
+        const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
+            ...constraints,
+            layoutIndex,
+        });
         return { planned, islandState };
     };
 
@@ -579,6 +615,61 @@ export const createJohnnyStoryController = ({
     const debugStoryDay = (sceneMetadata, requestedDay) =>
         sceneMetadata.day || Math.max(1, Math.min(11, Number(requestedDay) || 1));
 
+    // Player/developer-facing story-day controls. These write the same three
+    // persisted keys `updateStoryDay`/`getStartTime` read, so the arc holds and
+    // then advances naturally from wherever it's set on the next real-date change.
+    const getStoryDay = () => {
+        let stored;
+        try {
+            stored = Number(storage?.getItem('jc-story-day')) || 1;
+        } catch {
+            stored = 1;
+        }
+        return Math.max(1, Math.min(11, stored));
+    };
+
+    const getPersistedStartTime = () => {
+        let stored;
+        try {
+            stored = storage?.getItem('jc-start-time');
+        } catch {
+            return null;
+        }
+        if (!stored) return null;
+        const parsed = Number(stored);
+        return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    const dateKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+
+    const setStoryDay = (day) => {
+        const clamped = Math.max(1, Math.min(11, Number(day) || 1));
+        try {
+            const currentDate = dateKey(now());
+            storage?.setItem('jc-story-day', String(clamped));
+            storage?.setItem('jc-story-target', String(clamped));
+            storage?.setItem('jc-story-date', currentDate);
+        } catch {
+            // Persistence is optional.
+        }
+        return clamped;
+    };
+
+    const advanceStoryDay = () => {
+        const next = getStoryDay() >= 11 ? 1 : getStoryDay() + 1;
+        return setStoryDay(next);
+    };
+
+    const resetStory = () => {
+        const date = now();
+        try {
+            storage?.setItem('jc-start-time', String((date.getMonth() + 1) * 100 + date.getDate()));
+        } catch {
+            // Persistence is optional.
+        }
+        return setStoryDay(1);
+    };
+
     return {
         next() {
             if (queue.length === 0) buildSequence();
@@ -601,10 +692,11 @@ export const createJohnnyStoryController = ({
             const storyDay = debugStoryDay(selected, requestedDay);
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
             const date = now();
-            const islandState = createIslandState(finalScene, storyDay, date, random, {
+            const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
                 startTime: getStartTime(storage, date),
                 allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
                 allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
+                layoutIndex: selected.forceLayout0 ? 0 : 1,
             });
             return Object.freeze({
                 ...makeSelection({ selected, islandState, index: 0, total: 1, wipe: null }),
@@ -624,6 +716,14 @@ export const createJohnnyStoryController = ({
             return sequenceStatus;
         },
         status: () => sequenceStatus,
+        getStoryDay,
+        getStartTime: getPersistedStartTime,
+        setStoryDay,
+        advanceStoryDay,
+        resetStory,
+        setRandomSource(source) {
+            storyRandom = source;
+        },
         subscribeStatus(listener) {
             statusListeners.add(listener);
             listener(sequenceStatus);

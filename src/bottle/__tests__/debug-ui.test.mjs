@@ -98,7 +98,72 @@ describe('developer sequence controls', () => {
             'First: ACTIVITY.ADS #1',
         );
         expect(document.querySelector('[data-debug-status="sequence"]').style.fontVariantNumeric).toBe('tabular-nums');
-        expect(day.parentElement.querySelector('span').innerText).toBe('Story chapter to simulate');
+        expect(day.parentElement.querySelector('span').innerText).toBe('Simulated day for this run');
+    });
+
+    it('separates debug-run context from saved normal-playback progress', () => {
+        const sequenceTools = {
+            describe: vi.fn(() => ({ fixedDay: null, action: 'starting-event' })),
+            status: vi.fn(() => null),
+            getStoryDay: vi.fn(() => 6),
+            setStoryDay: vi.fn((day) => day),
+        };
+        setupDebugUI({ sequenceTools });
+
+        expect(document.querySelector('[data-debug-section="debug-run"]').innerText).toBe('Debug Run');
+        expect(document.querySelector('[data-debug-section="saved-story-progress"] div').innerText).toBe(
+            'Saved Story Progress',
+        );
+        expect(document.querySelector('[data-debug-row="story-day"] span').innerText).toBe(
+            'Simulated day for this run',
+        );
+        expect(document.querySelector('[data-debug-row="story-day-control"] span').innerText).toBe(
+            'Saved day for normal playback',
+        );
+        expect(document.querySelector('[data-debug-control="story-day"]').value).toBe('6');
+        expect(document.querySelector('[data-debug-control="story-day-value"]').value).toBe('6');
+        expect(document.querySelector('[data-debug-control="use-saved-story-day"]').disabled).toBe(true);
+    });
+
+    it('preserves a debug override and can explicitly resync it to saved progress', () => {
+        localStorage.setItem('jc-debug-story-day', '3');
+        const sequenceTools = {
+            describe: vi.fn(() => ({ fixedDay: null, action: 'starting-event' })),
+            status: vi.fn(() => null),
+            getStoryDay: vi.fn(() => 6),
+            setStoryDay: vi.fn(),
+        };
+        setupDebugUI({ sequenceTools });
+
+        const simulated = document.querySelector('[data-debug-control="story-day"]');
+        const useSaved = document.querySelector('[data-debug-control="use-saved-story-day"]');
+        expect(simulated.value).toBe('3');
+        expect(useSaved.disabled).toBe(false);
+
+        useSaved.click();
+        expect(simulated.value).toBe('6');
+        expect(useSaved.disabled).toBe(true);
+        expect(localStorage.getItem('jc-debug-story-day')).toBeNull();
+        expect(sequenceTools.setStoryDay).not.toHaveBeenCalled();
+    });
+
+    it('saved-day controls change future playback without changing the simulated run', () => {
+        const sequenceTools = {
+            describe: vi.fn(() => ({ fixedDay: null, action: 'starting-event' })),
+            status: vi.fn(() => null),
+            getStoryDay: vi.fn(() => 4),
+            setStoryDay: vi.fn(() => 7),
+        };
+        setupDebugUI({ sequenceTools });
+        const simulated = document.querySelector('[data-debug-control="story-day"]');
+        const saved = document.querySelector('[data-debug-control="story-day-value"]');
+        saved.value = '7';
+        [...document.querySelectorAll('#debug-menu button')].find((button) => button.innerText === 'Set').click();
+
+        expect(sequenceTools.setStoryDay).toHaveBeenCalledWith(7);
+        expect(saved.value).toBe('7');
+        expect(simulated.value).toBe('4');
+        expect(document.querySelector('[data-debug-control="use-saved-story-day"]').disabled).toBe(false);
     });
 
     it('shows the trace build identity and left-anchors native resizing', () => {
@@ -255,7 +320,7 @@ describe('developer sequence controls', () => {
         setupDebugUI({ sequenceTools });
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'd' }));
 
-        expect(document.querySelector('[data-debug-section="target"]').innerText).toBe('Start a debug run');
+        expect(document.querySelector('[data-debug-section="debug-run"]').innerText).toBe('Debug Run');
         expect(document.querySelector('[data-debug-section="playback"]').innerText).toBe('Now playing — host event');
         expect(document.querySelector('[data-debug-status="scene-context"]').innerText).toContain(
             'compatible island events → Test scene finale',
