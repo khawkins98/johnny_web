@@ -86,16 +86,25 @@ export const SET_COLORS = (state, fc, bc) => {
 export const SET_FRAME1 = (state) => {};
 
 export const SET_TIMER = (state, minimum, maximum) => {
-    // The original 0x2020 handler reinitializes a scene thread and does not call
-    // the shared RNG. This range-based hold is retained as browser compatibility
-    // behavior until an argument-level trace establishes the remaining timing
-    // semantics. It must never consume state.storyRandom.
+    // Active handler 1058:0e08 draws once and stages min + raw%(max-min), with
+    // the upper bound excluded. The binary's 46da measurement-pass gate skips
+    // the handler entirely; this interpreter invokes callbacks only on its active
+    // execution path, which is the equivalent modeled boundary.
     const low = Math.min(minimum, maximum);
     const high = Math.max(minimum, maximum);
+    const range = high - low;
+    if (range <= 0) {
+        state.delay = low;
+        return;
+    }
+    if (state.storyRandom) {
+        state.delay = low + state.storyRandom.modulo(range, 'ttm-random-delay');
+        return;
+    }
     if (typeof state.random !== 'function') {
         throw new TypeError('TTM runtime requires an injected random source');
     }
-    state.delay = low + Math.floor(state.random() * (high - low + 1));
+    state.delay = low + Math.floor(state.random() * range);
 };
 
 export const SET_CLIP_REGION = (state, x1, y1, x2, y2) => {

@@ -25,7 +25,7 @@ The first result is `table[55] + table[24] = 0xea0b`, with 16-bit wraparound.
 
 ## Where the stream is used
 
-The opt-in stream is shared by confirmed host decisions: the keyframe gate, weighted final and intermediate selection, idle repeat count, ocean choice, walking route and opposite-turn tie, and ADS `RANDOM`. Each site uses its recovered raw-word mapping rather than a floating-point adapter.
+The opt-in stream is shared by confirmed host decisions: the keyframe gate, weighted final and intermediate selection, idle repeat count, ocean choice, walking route and opposite-turn tie, TTM random delays, and ADS `RANDOM`. Each site uses its recovered raw-word mapping rather than a floating-point adapter.
 
 The original shares this stream across its scene director, walking, island setup, ADS scripts, and ambient effects. Confirmed authored mappings are:
 
@@ -37,6 +37,7 @@ The original shares this stream across its scene director, walking, island setup
 | Walk-route choice | `word % 100` |
 | Opposite-heading turn | `word & 1` |
 | Island coordinates | separate `word % width` and `word % height` draws |
+| TTM opcode `0x2020` | `minimum + word % (maximum - minimum)` |
 | ADS `RANDOM` | `word % totalWeight + 1` |
 
 Opcode `0x2020` is an RNG consumer. Its actual TTM handler is `1058:0e08` (the earlier `1048:0ec8` attribution was an unrelated ADS reinitialization path). On an active interpreter pass it consumes one word and sets the delay staging global to `minimum + (word % (maximum - minimum))`; the maximum is exclusive. The tick driver copies a changed staged value into the thread delay and sets its deadline before deciding whether the current frame may advance. If the interpreter's execution gate is inactive, the handler exits without drawing.
@@ -51,7 +52,6 @@ Other apparent randomness stays on the browser's cosmetic random source:
 
 | Feature | Why it is separate |
 | --- | --- |
-| Opcode `0x2020` | The original reinitializes a scene thread without drawing a word. Its remaining non-RNG timing semantics still need an argument-level trace. |
 | Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
 | Browser-created clouds | Their model and draw count differ from the original. |

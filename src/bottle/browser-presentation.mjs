@@ -279,6 +279,7 @@ export const runBrowserPresentation = async ({
                         mainContext,
                         data,
                         ...(faithfulPick ? { faithfulPick } : {}),
+                        ...(faithfulRandom ? { storyRandom: faithfulRandom } : {}),
                         resourceProvider,
                         backgroundDecorator,
                         game,

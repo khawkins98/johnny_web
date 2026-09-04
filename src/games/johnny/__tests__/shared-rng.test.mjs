@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RANDOM_END } from '../../../dgds/scripting/ads-scene-changes.mjs';
 import { createFaithfulRng } from '../../../dgds/scripting/faithful-rng.mjs';
+import { SET_TIMER } from '../../../dgds/scripting/ttm-opcodes.mjs';
 import { createJohnnyStoryController } from '../story-controller.mjs';
 import { pickWalkSegment } from '../walking.mjs';
 
@@ -13,7 +14,7 @@ const memoryStorage = () => {
 };
 
 describe('Johnny shared authored RNG', () => {
-    it('keeps controller, walking, and ADS draws in one ordered stream', () => {
+    it('keeps controller, walking, TTM, and ADS draws in one ordered stream', () => {
         const draws = [];
         const table = Uint16Array.from({ length: 56 }, (_, index) => index * 977 + 1);
         const source = createFaithfulRng({ i: 55, j: 24, table }, { onDraw: (draw) => draws.push(draw) });
@@ -27,6 +28,8 @@ describe('Johnny shared authored RNG', () => {
         controller.next();
         const beforeWalk = draws.length;
         pickWalkSegment([[1, 50], [2, 50]], () => 0, source);
+        const beforeTimer = draws.length;
+        SET_TIMER({ storyRandom: source }, 60, 180);
         const beforeAds = draws.length;
         RANDOM_END({
             randomize: true,
@@ -42,6 +45,7 @@ describe('Johnny shared authored RNG', () => {
         });
 
         expect(draws[beforeWalk]).toMatchObject({ ordinal: beforeWalk, site: 'walk-route-segment' });
+        expect(draws[beforeTimer]).toMatchObject({ ordinal: beforeTimer, site: 'ttm-random-delay' });
         expect(draws[beforeAds]).toMatchObject({ ordinal: beforeAds, site: 'ads-random' });
         expect(draws.map(({ ordinal }) => ordinal)).toEqual(draws.map((_, index) => index));
     });

@@ -170,26 +170,22 @@ describe.skipIf(!hasData)('faithful RNG wiring', () => {
         for (let n = 0; n < 32; n++) expect(a.nextWord()).toBe(b.nextWord());
     });
 
-    it('can drive the legacy random-function adapter deterministically', () => {
-        // SET_TIMER still accepts a Math.random-shaped source. This checks adapter
-        // compatibility only; production does not wire 0x2020 to the faithful stream
-        // until its contradictory emulator/decompile findings are revalidated.
+    it('drives SET_TIMER with the binary unsigned-modulo mapping', () => {
         const SET_TIMER = TTMDispatch.find((d) => d.opcode === 0x2020).callback;
         const source = faithfulRandomFromArchive(scr);
-        const state = { random: source.random };
+        const state = { random: () => { throw new Error('fallback random used'); }, storyRandom: source };
 
         // Mirror the draw with a parallel faithful stream to predict each timer.
         const predictor = createFaithfulRng(extractFaithfulSeed(scr));
         const low = 10;
         const high = 30;
-        const range = high - low + 1;
+        const range = high - low;
         for (let n = 0; n < 16; n++) {
             SET_TIMER(state, low, high);
-            const expected = low + Math.floor((predictor.nextWord() / 0x10000) * range);
-            // 0x2020 arms the frame delay (state.delay), not the inert state.timer.
+            const expected = low + predictor.nextWord() % range;
             expect(state.delay).toBe(expected);
             expect(state.delay).toBeGreaterThanOrEqual(low);
-            expect(state.delay).toBeLessThanOrEqual(high);
+            expect(state.delay).toBeLessThan(high);
         }
     });
 });

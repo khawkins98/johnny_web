@@ -455,8 +455,7 @@ describe('named resource provider opcodes', () => {
 describe('SET_TIMER handler', () => {
     const entry = TTMDispatch.find((e) => e.opcode === 0x2020);
 
-    it('selects an inclusive deterministic tick count from the supplied range', () => {
-        // 0x2020 arms the frame delay (state.delay), like SET_DELAY but random.
+    it('selects a deterministic tick count with an exclusive upper bound', () => {
         const state = { delay: 0, random: () => 0.5 };
         entry.callback(state, 3, 5);
         expect(state.delay).toBe(4);
@@ -468,14 +467,31 @@ describe('SET_TIMER handler', () => {
         expect(state.delay).toBe(3);
     });
 
-    it('does not consume the faithful authored stream', () => {
+    it('maps the traced raw word with one faithful modulo draw', () => {
+        const calls = [];
         const state = {
             delay: 0,
-            random: () => 0.5,
-            storyRandom: { nextWord: () => { throw new Error('0x2020 consumed faithful RNG'); } },
+            random: () => { throw new Error('fallback random used'); },
+            storyRandom: {
+                modulo: (range, site) => {
+                    calls.push({ range, site });
+                    return 0x1f2f % range;
+                },
+            },
         };
-        entry.callback(state, 3, 5);
-        expect(state.delay).toBe(4);
+        entry.callback(state, 60, 180);
+        expect(state.delay).toBe(123);
+        expect(calls).toEqual([{ range: 120, site: 'ttm-random-delay' }]);
+    });
+
+    it('does not draw for a zero-width defensive range', () => {
+        const state = {
+            delay: 0,
+            random: () => { throw new Error('fallback random used'); },
+            storyRandom: { modulo: () => { throw new Error('equal bounds consumed RNG'); } },
+        };
+        entry.callback(state, 7, 7);
+        expect(state.delay).toBe(7);
     });
 });
 
