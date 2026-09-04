@@ -1,0 +1,24 @@
+{
+  "source": "original SCRANTIC.SCR under patched DOSBox-X",
+  "sample": {
+    "preFirstDirectorDraws": 47942,
+    "note": "Timing-dependent observation, not a constant seed offset.",
+    "firstBuildCallerSequence": [
+      "1018:0da3",
+      "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67",
+      "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67", "1018:0e67",
+      "1018:1f33",
+      "1018:0e67", "1018:0e67", "1018:0e67",
+      "1010:151a", "1010:1537"
+    ]
+  },
+  "consumers": {
+    "1018:0da3": "keyframe gate: word % 10 == 0",
+    "1018:0e67": "scene roulette: word % totalWeight + 1",
+    "1018:1f33": "percentage buckets: compare against successive weight * 655 thresholds",
+    "1018:010a": "walk route roulette: word % 100",
+    "1018:01eb": "opposite-heading tie: word & 1",
+    "1010:151a": "island X: word % rangeWidth",
+    "1010:1537": "island Y: word % rangeHeight"
+  }
+}

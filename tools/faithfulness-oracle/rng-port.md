@@ -27,6 +27,20 @@ The first result is `table[55] + table[24] = 0xea0b`, with 16-bit wraparound.
 
 The opt-in stream is shared by confirmed host decisions: the keyframe gate, weighted final and intermediate selection, idle repeat count, ocean choice, walking route and opposite-turn tie, and ADS `RANDOM`. Each site uses its recovered raw-word mapping rather than a floating-point adapter.
 
+The original shares this stream across its scene director, walking, island setup, ADS scripts, and ambient effects. Confirmed authored mappings are:
+
+| Decision | Original mapping |
+| --- | --- |
+| Day-keyframe gate | `word % 10 === 0` |
+| Finale and intermediate roulette | `word % totalWeight + 1` |
+| Idle-repeat and percentage buckets | successive `weight * 655` thresholds |
+| Walk-route choice | `word % 100` |
+| Opposite-heading turn | `word & 1` |
+| Island coordinates | separate `word % width` and `word % height` draws |
+| ADS `RANDOM` | `word % totalWeight + 1` |
+
+Island coordinates and timing-dependent ambient consumers remain outside the shared browser stream, so this does not reproduce the original draw order end to end.
+
 Other apparent randomness stays on the browser's cosmetic random source:
 
 | Feature | Why it is separate |
@@ -34,6 +48,7 @@ Other apparent randomness stays on the browser's cosmetic random source:
 | Opcode `0x2020` delay | Later emulator instrumentation contradicted the earlier decompile-based “no draw” finding. Its raw mapping and draw count must be captured again before it is connected to this stream. |
 | Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
+| Browser-created clouds | Their model and draw count differ from the original. |
 
 Island position is not connected yet. Its two coordinate mappings are known, but the current catalogue discards raw flag `0x0200`, which participates in choosing the layout and therefore its coordinate ranges. Restoring and validating that flag is required before consuming position words.
 
@@ -43,7 +58,15 @@ Keeping these separate makes the experimental path deterministic, but it also me
 
 The DOSBox-X trace patch records the generator's indexes, table inputs, and returned `AX`. The JavaScript implementation matched **20,000 of 20,000** consecutive draws across two clean boots, with no differences.
 
-`src/dgds/scripting/__tests__/faithful-rng.test.mjs` keeps the first 64 traced words as a compact CI check. It can also record each draw as an ordinal, call-site label, and raw word for comparison with emulator traces. `faithful-story.test.mjs` confirms that sampled streams complete, including the fishing return path.
+The patch also records the caller CS:IP. To summarize a raw local capture without committing it:
+
+```sh
+node tools/faithfulness-oracle/rng-consumer-report.mjs scratchpad/capture/trace.log
+```
+
+`rng-consumer-evidence.json` is the non-proprietary derived record from one normal boot. It observed 47,942 draws before the first director call; that number is deliberately recorded as a sample, not a stable offset.
+
+`src/dgds/scripting/__tests__/faithful-rng.test.mjs` keeps the first 64 traced words as a compact CI check. It can also record each JavaScript draw as an ordinal, call-site label, and raw word for comparison with emulator traces. `faithful-story.test.mjs` confirms that sampled story streams complete, including the fishing return path.
 
 ## Limit of exact replay
 

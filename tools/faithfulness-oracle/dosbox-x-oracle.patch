@@ -31,7 +31,7 @@ index 26d9f49..dea2978 100644
  Bits CPU_Core_Normal_Run(void) {
  	if (CPU_Cycles <= 0)
  		return CBRET_NONE;
-@@ -171,6 +186,302 @@ Bits CPU_Core_Normal_Run(void) {
+@@ -171,6 +186,303 @@ Bits CPU_Core_Normal_Run(void) {
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -143,10 +143,11 @@ index 26d9f49..dea2978 100644
 +						dbx_rng_reported = true;
 +						fprintf(dbx_fp, "#RESOLVE rng seg=4 in_off=1E86\n");
 +					}
-+					if (dbx_rng_count <= 20000ULL) {
++					if (dbx_rng_count <= 100000ULL) {
 +						fprintf(dbx_fp,
-+							"RNG %llu entry_ic=%llu i=%u j=%u ti=%04X tj=%04X sum=%04X ax=%04X\n",
++							"RNG %llu entry_ic=%llu caller=%04X:%04X i=%u j=%u ti=%04X tj=%04X sum=%04X ax=%04X\n",
 +							dbx_rng_count, rng_entry_icount,
++							(unsigned)rng_retcs, (unsigned)rng_retip,
 +							(unsigned)rng_i, (unsigned)rng_j,
 +							(unsigned)rng_ti, (unsigned)rng_tj,
 +							(unsigned)(uint16_t)(rng_ti + rng_tj), (unsigned)(uint16_t)reg_ax);
@@ -431,4 +432,3 @@ index b8335f6..e24e72d 100644
  	if (CaptureState & CAPTURE_RAWIMAGE) {
  		if (!rawshot.capturing) {
  			if (VGA_DrawRawLine != NULL) {
-
