@@ -9,6 +9,7 @@ import {
     FAITHFUL_RNG_SEED_OFFSET,
 } from '../faithful-rng.mjs';
 import { TTMDispatch } from '../script-runner.mjs';
+import { hasData } from './support/drive-gag.mjs';
 
 // Bit-faithful port of the original binary RNG `FUN_1018_1e86` (a 56-word
 // additive lagged-Fibonacci generator whose seed is baked into SCRANTIC.SCR).
@@ -33,9 +34,11 @@ const BINARY_FIRST_64 = [
 
 const here = dirname(fileURLToPath(import.meta.url));
 const scrPath = resolve(here, '../../../../public/data/SCRANTIC.SCR');
-const scr = readFileSync(scrPath);
+// Guarded: CI has no proprietary data. The describes below skipIf(!hasData), but a
+// module-level read would still run at import — so only read when the data exists.
+const scr = hasData ? readFileSync(scrPath) : null;
 
-describe('faithful RNG seed extraction', () => {
+describe.skipIf(!hasData)('faithful RNG seed extraction', () => {
     it('reads the baked lag indices and table from SCRANTIC.SCR @0x19ae2', () => {
         expect(FAITHFUL_RNG_SEED_OFFSET).toBe(0x19ae2);
         const seed = extractFaithfulSeed(scr);
@@ -52,7 +55,7 @@ describe('faithful RNG seed extraction', () => {
     });
 });
 
-describe('faithful RNG stream (validated against the binary)', () => {
+describe.skipIf(!hasData)('faithful RNG stream (validated against the binary)', () => {
     it('reproduces the binary word stream bit-for-bit from the baked seed', () => {
         const rng = createFaithfulRng(extractFaithfulSeed(scr));
         const got = Array.from({ length: BINARY_FIRST_64.length }, () => rng.nextWord());
@@ -160,7 +163,7 @@ describe('faithful RNG stream (validated against the binary)', () => {
     });
 });
 
-describe('faithful RNG wiring', () => {
+describe.skipIf(!hasData)('faithful RNG wiring', () => {
     it('faithfulRandomFromArchive builds the same stream as the raw path', () => {
         const a = faithfulRandomFromArchive(scr);
         const b = createFaithfulRng(extractFaithfulSeed(scr));
