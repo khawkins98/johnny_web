@@ -135,6 +135,13 @@ export class DgdsRuntime {
             // per-slot re-poll driver must not let a predecessor chunk with a
             // permanently-true IF_PLAYED guard resurrect a stopped scene.
             stoppedScenes: new Set(),
+            // True only for the remainder of an ADS slot pass in which an
+            // IF_PLAYED guard fired its once-per-completion handoff (see
+            // ads-opcodes.mjs); ADD_SCENE then restarts finished targets.
+            handoffEdge: false,
+            // Set when the current tag's F010 end-of-segment marker has been
+            // reached: ADS re-polling stops, live TTM threads drain (ads-slots.mjs).
+            adsSegmentEnded: false,
             orMode: false,
             orChainPassed: false,
             frameDelta: 0,
@@ -273,6 +280,7 @@ export class DgdsRuntime {
         if (this.#adsSlotsScene !== state.currentScene) {
             this.#adsSlotsScene = state.currentScene;
             this.#adsSlotsList = buildAdsSlots(this.#adsScripts[state.currentScene]).slots;
+            state.adsSegmentEnded = false;
         }
         state.activeAdsScript = this.#adsScripts[state.currentScene];
 

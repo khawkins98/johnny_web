@@ -129,42 +129,51 @@ const handleIfCondition = (state, conditionPassed) => {
  * IF_PLAYED's "present + finished" branch (the guard's scene is still in the
  * display list but has finished playing). The binary keeps the finished node
  * present until STOP/gag-clear, and the handoff to the successor fires
- * EDGE-TRIGGERED -- ONCE when the scene finishes -- NOT every tick while it
- * lingers played. Under the per-slot re-poll we must reproduce that edge for a
- * NON-IDEMPOTENT body:
+ * EDGE-TRIGGERED -- ONCE per COMPLETION of the guard scene -- NOT every tick
+ * while it lingers played (jc_reborn names 0x1350 IF_LASTPLAYED for this
+ * reason). Under the per-slot re-poll we reproduce that edge for EVERY body:
+ * fire once per finished instance and guard position (scene.handoffFiredAt),
+ * then evaluate false until the trigger re-arms (a re-armed scene is a NEW
+ * object with no flag, so its next completion is a new edge).
  *
- * A body containing a 0x3010 RANDOM block picks a DIFFERENT scene each time it
- * runs (RANDOM_END commits one of several staged ADDs). If the re-poll re-ran
- * it every tick while the trigger sits present-as-finished, it would spawn a
- * fresh pick per tick -- the FISHING action-loop pile-up (IF_PLAYED[1:10] OR
- * [21]OR[22]OR[23]OR[38] -> RANDOM{...}: once one action is played the
- * OR-guard is permanently true, so a naive re-poll fires a new random action
- * every tick). Fire it ONCE per finished instance (scene.handoffFired), then
- * skip until the trigger re-arms (a re-armed scene is a NEW object with no
- * flag).
+ * Why the edge must be explicit rather than "plain-ADD bodies are idempotent
+ * under presence-dedup": ADD_SCENE inside an edge-fired body RESTARTS a target
+ * whose previous instance has finished (see ADD_SCENE). That is what lets an
+ * authored cycle such as BUILDING.ADS tag 2's
+ *   IF_PLAYED 1:79 -> ADD 1:74;  IF_PLAYED 1:74 -> ADD 1:77;  IF_PLAYED 1:77 -> ADD 1:79
+ * keep cycling until the gag's fade, as the original does (reference lifespans
+ * for 1:74/1:77/1:70/1:75/1:72/1:76/1:73/1:78 are 185-306 ticks, i.e. 13-19
+ * repetitions of a 13-17 tick animation; the pre-edge port played each once).
+ * A level-triggered re-poll with restart-on-ADD would instead re-add the
+ * target every tick it sits finished (the FISHING action-loop pile-up:
+ * IF_PLAYED[1:10] OR [21]OR[22]OR[23]OR[38] -> RANDOM{...}), so the edge is
+ * the load-bearing half.
  *
- * A plain-ADD body is IDEMPOTENT (ADD_SCENE's presence-dedup makes a re-poll a
- * no-op while the target is present), so re-running it every tick is safe. A
- * genuine SELF-rearming plain-ADD chunk (IF_PLAYED[s,t] -> ADD s:t, the
- * campfire flame 3:44) MUST remove the finished instance so its ADD restarts
- * it -- that is how the flame keeps burning. STOP_SCENE's explicit-stop guard
- * still keeps a stopped flame dead.
+ * A genuine SELF-rearming chunk (IF_PLAYED[s,t] -> ADD s:t, the campfire flame
+ * 3:44) still removes the finished instance up front so ADD_SCENE's `rearmed`
+ * (KEEP_GOING) path sees the pending removal -- that is how the flame keeps
+ * burning. STOP_SCENE's explicit-stop guard still keeps a stopped flame dead.
  */
 const handleIfPlayedFinishedBranch = (state, script, scene, sceneIdx, tagId) => {
-    if (chunkBodyHasRandom(script, state.reentryNow)) {
-        if (scene.handoffFired) {
-            state.continue = true;
-            handleIfCondition(state, false); // already fired this instance -> skip the RANDOM body
-            return;
-        }
-        scene.handoffFired = true;
+    scene.handoffFiredAt ||= new Set();
+    if (scene.handoffFiredAt.has(state.reentryNow)) {
         state.continue = true;
-        handleIfCondition(state, true); // fire the RANDOM pick exactly once
+        handleIfCondition(state, false); // already fired for this instance -> skip the body
         return;
     }
-    if (isSelfRearmingSequence(state, sceneIdx, tagId)) {
+    scene.handoffFiredAt.add(state.reentryNow);
+    const bodyHasRandom = chunkBodyHasRandom(script, state.reentryNow);
+    if (!bodyHasRandom && isSelfRearmingSequence(state, sceneIdx, tagId)) {
         state.removeScenes.push({ sceneIdx, tagId });
     }
+    // The rest of this pass is an edge-fired handoff body: a PLAIN body's
+    // ADD_SCENE may restart a finished-present target (the authored chains).
+    // A RANDOM body keeps the presence-dedup for its re-pick: the reference data
+    // for ACTIVITY:7 (reading loop plays once, 0x1070 local override) and
+    // FISHING:2 (serial action loop) only pins the plain-chain behaviour, so the
+    // RANDOM re-add is left as is until it is grounded. Cleared at the start of
+    // every slot pass.
+    state.handoffEdge = !bodyHasRandom;
     state.continue = true;
     handleIfCondition(state, true);
 };

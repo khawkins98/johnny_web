@@ -11,7 +11,7 @@ import { getSceneState, isSelfRearmingSequence } from './scene-factory.mjs';
 import { sceneLabel, sceneLog, debugLog, verboseLog } from './scripting-log.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
-import { TtmRunMode } from './ttm-run-state.mjs';
+import { TtmRunMode, isTtmFinished } from './ttm-run-state.mjs';
 import { moveSequenceToBack } from './ttm-sequence-order.mjs';
 // runScript lives in script-runner.mjs; applySceneChanges calls it synchronously
 // to prime a freshly-added TTM environment's first frame. This is a deliberate
@@ -43,6 +43,8 @@ export const resetAdsDisplayList = (state) => {
     // new scene) starts with a clean display list, so a (slot,tag) stopped
     // here must not gate what comes next.
     state.stoppedScenes?.clear();
+    // A new display list is a new ADS segment: F010's end-of-program mark is per tag.
+    state.adsSegmentEnded = false;
     for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
         pruneEnvironmentBackground(state, sceneIdx);
     }
@@ -69,7 +71,10 @@ export const ADS_FADE_OUT = (state) => {
         if (state.lastCommand) clearAdsSceneBatch(state);
         return;
     }
-    if (state.continue) {
+    // "In progress" is keyed on fadingOut, not on state.continue: the per-slot
+    // driver parks on F010 and resets `continue` at the top of every pass, so a
+    // continue-keyed check would restart the fade each tick and never finish.
+    if (!state.fadingOut) {
         debugLog('FADE_OUT: starting');
         state.fadingOut = true;
         state.fadeOpacity = 0;
@@ -77,6 +82,12 @@ export const ADS_FADE_OUT = (state) => {
         return;
     }
     state.fadeOpacity = Math.min(1, state.fadeOpacity + state.frameDelta / 400);
+    // Still fading: keep the interpreter parked on this opcode (the slot driver
+    // resumes here next tick) instead of letting the pass run on to END_BRANCH.
+    if (state.fadeOpacity < 1) {
+        state.continue = false;
+        return;
+    }
     if (state.fadeOpacity >= 1) {
         // F010's signed segment argument is part of the opcode. For the common
         // current-segment form (-1), FADE_OUT is itself the final command.
@@ -94,8 +105,21 @@ export const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
     // removal as absent and queue the replacement for remove-before-add commit.
     const pendingRemoval = hasPendingSceneChange(state.removeScenes, sceneIdx, tagId);
     const rearmed = pendingRemoval && runCount === 0 && isSelfRearmingSequence(state, sceneIdx, tagId);
-    const inScenes =
-        !pendingRemoval && state.scenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    const present = state.scenes.find((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
+    // Inside an EDGE-fired IF_PLAYED handoff body (state.handoffEdge, set once
+    // per completion of the guard scene) an ADD of a target whose previous
+    // instance has FINISHED restarts it: stage a remove-before-add so the
+    // commit replaces the finished node with a fresh execution. This is what
+    // makes authored chains cycle (BUILDING.ADS tag 2: 79 -> 74 -> 77 -> 79 ...)
+    // and replay, matching the original's lifespans. RANDOM bodies never set
+    // handoffEdge (see handleIfPlayedFinishedBranch), so their re-picks still
+    // dedup against a finished-present target. Outside an edge body (level-triggered re-polls
+    // of IF_RUNNING/IF_NOT_RUNNING/IF_NOT_PLAYED chunks) a finished-present
+    // target still dedups, so a re-poll stays idempotent.
+    if (state.handoffEdge && !pendingRemoval && present !== undefined && isTtmFinished(present)) {
+        state.removeScenes.push({ sceneIdx, tagId });
+    }
+    const inScenes = !pendingRemoval && present !== undefined && !(state.handoffEdge && isTtmFinished(present));
     const inAddScenes = state.addScenes.some((s) => s.sceneIdx === sceneIdx && s.tagId === tagId);
     if (inScenes || inAddScenes) return;
 
