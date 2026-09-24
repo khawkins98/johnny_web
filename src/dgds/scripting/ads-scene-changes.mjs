@@ -111,8 +111,9 @@ export const ADD_SCENE = (state, sceneIdx, tagId, runCount, proportion) => {
     // instance has FINISHED restarts it: stage a remove-before-add so the
     // commit replaces the finished node with a fresh execution. This is what
     // makes authored chains cycle (BUILDING.ADS tag 2: 79 -> 74 -> 77 -> 79 ...)
-    // and the fire-retry RANDOM re-add 3:38 in tag 8 actually replay, matching
-    // the original's lifespans. Outside an edge body (level-triggered re-polls
+    // and replay, matching the original's lifespans. RANDOM bodies never set
+    // handoffEdge (see handleIfPlayedFinishedBranch), so their re-picks still
+    // dedup against a finished-present target. Outside an edge body (level-triggered re-polls
     // of IF_RUNNING/IF_NOT_RUNNING/IF_NOT_PLAYED chunks) a finished-present
     // target still dedups, so a re-poll stays idempotent.
     if (state.handoffEdge && !pendingRemoval && present !== undefined && isTtmFinished(present)) {

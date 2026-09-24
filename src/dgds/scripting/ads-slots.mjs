@@ -244,6 +244,9 @@ const stepChunk = (state, slot, script) => {
         //     running 206-315 ticks;
         //   - BUILDING_2.json: the STOP-less IF_PLAYED chains (79->74->77->79 ...)
         //     have FINITE lifespans, so re-polling must stop at the fade.
+        // Every F010 in the shipped ADS corpus (134) takes -1 (current segment),
+        // so the tag-wide stop is exact here; a cross-segment F010 would need
+        // its target checked first.
         if (command.opcode === FADE_OUT_OP) state.adsSegmentEnded = true;
         entry.callback(state, ...(command.params ?? []));
 
