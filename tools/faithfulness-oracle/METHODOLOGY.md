@@ -13,7 +13,7 @@ For each gag, both engines produce a timeline of the actors being drawn on every
 - actor lifespans, where reference data is available
 - whether every gag reaches its intended ending
 
-An "actor" is a live script thread, on both sides. On ours, a scene counts from the tick it starts until the tick after it finishes. It still counts if it never draws a pixel, because the original's traces also record loader threads that only load bitmaps (for example `SUZY:1`'s `1:1`). Filtering out scenes that never draw was tested and rejected: it removed 35 actors that appear in the references, pushed 20 gags below the reference's peak concurrency, and left `STAND:1-12` with nothing at all. The filter remains available as a diagnostic with `our-thread-timeline.mjs --drawn-only`.
+An "actor" is a live script thread, on both sides. The capture samples each thread's runstate at entry to the tick function (`FUN_1048_1acb`) and keeps runstates 1-3, so a thread that finishes during a tick (runstate 4) is not live at the next sample. On ours, a scene counts from the tick it is added until it finishes. The extra tick during which `composeTtmFrame` still draws a just-finished scene's last frame is not counted. A scene still counts if it never draws a pixel, because the original's traces also record loader threads that only load bitmaps (for example `SUZY:1`'s `1:1`). Filtering out scenes that never draw was tested and rejected: it removed 35 actors that appear in the references, pushed 20 gags below the reference's peak concurrency, and left `STAND:1-12` with nothing at all. The filter remains available as a diagnostic with `our-thread-timeline.mjs --drawn-only`.
 
 Peak concurrency is the hard gate. Actor coverage and duration are review signals because timing and random branch selection vary between captures. See [the generated coverage report](../../docs/oracle-coverage.md) for current results.
 
@@ -129,49 +129,33 @@ Two catalogue entries cannot be isolated: `STAND:14` is a shared setup macro, an
 - **One-shot scene handoff:** a reading sequence played twice because opcode `0x1070` was interpreted as a persistent condition.
 - **Random frame hold:** opcode `0x2020` was writing an unused timer, making some gags flash by too quickly.
 - **Duplicate Johnny:** restarting a whole script block created overlapping copies of Johnny; the engine now resumes the original script slots.
+- **PURGE ends the sequence:** opcode `0x0110` was a no-op. In the original it marks the end of the sequence. The thread ends when the PURGE frame's hold elapses, which is in the same tick when the delay is 0, and ops after that frame never run. Zero-delay loaders therefore never appear as live threads. Examples are `JOHNNY:6`'s `3:9`, `ACTIVITY:11`'s `5:20`/`5:42`, and every "establishing shot" key the harness used to filter (see below). `ACTIVITY:11`'s `5:24` "preen timer" had been playing four dead frames after its PURGE, which made the `5:23`/`5:24`/`5:30`/`5:36` chain run several times too long (`5:24`: 1038 to 207 engine ticks).
+- **Prologue is not a frame:** a TTM's first-added thread ran the resource prologue (the ops before the first SET_SCENE, ending in UPDATE) as its own first frame. Its siblings waited for it, so the whole group started a frame late. In the original, each thread node starts at its own SET_SCENE frame (`FUN_1050_04d6` / `FUN_1050_042a`). The setup ops still run when the thread is added, but they no longer take up a frame.
 
 One known scheduler issue remains: removing duplicates before staging a random branch needs a wider concurrency/completion change.
 
-## Test-harness artifact: establishing-shot peak-concurrency inflation
+## Former test-harness filter: establishing shots
 
-19 gags used to gate at `OVER+1` (our peak concurrency one above the reference).
-17 of those traced to a single test-harness artifact rather than an engine bug:
-many gags open with a one-time `IF_NOT_PLAYED[S,X] -> ADD_SCENE(S,X) + ADD_SCENE(S,Y)`
-"establishing shot" for a location, where `X` (a short location intro) and `Y`
-(the gag's real first actor) are added together, guarded on whether `X` has ever
-played. `driveGag()` (the sanctioned single-gag path used by the whole
-faithfulness suite) always builds a fresh runtime with empty
-`state.playedHistory`, so `X` always fires -- but the original-binary reference
-captures were taken mid-session, after `X` had already played once elsewhere, so
-a real capture never shows the `X`+`Y` overlap. Pre-seeding `playedHistory` with
-`X` to compensate was tried and is unsafe: `X` and `Y`'s `ADD_SCENE`s share the
-same guarded branch, so marking `X` "already played" up front skips the whole
-branch and the gag never runs (verified: this produced "zero live ticks" for 15
-of the 17 gags). Instead, `test/faithfulness-refs/establishing-shot-seeds.mjs`
-lists, per gag, the "sceneIdx:tagId" key(s) to drop from the **fingerprint only**
-(`tools/faithfulness-oracle/fingerprint.mjs`'s `establishingKeys` parameter) --
-the engine itself runs completely unseeded. This is verified behaviorally
-equivalent to a mid-session capture: the established key and the real actor
-co-occur only for a short natural window before the establishing shot finishes
-and drops out on its own (e.g. ACTIVITY:1's `1:12`/`1:13` overlap lasts 5 ticks
-of a 5000-tick run). `test/faithfulness-diff.mjs` looks up each gag's entry in
-that map and passes it through; all 17 listed gags now report `EXACT`.
+19 gags used to gate at `OVER+1`. Many open with a one-time
+`IF_NOT_PLAYED[S,X] -> ADD_SCENE(S,X) + ADD_SCENE(S,Y)`. The explanation was that the
+references were captured mid-session, after `X` had already played, so
+`test/faithfulness-refs/establishing-shot-seeds.mjs` dropped `X` from our fingerprint
+(fingerprint only; the engine was never seeded). That explanation was wrong for all but
+two gags. Every filtered `X` outside SUZY is a one-frame, zero-delay PURGE loader, and
+the original ends those in the tick they are added (see "PURGE ends the sequence"
+above). With that engine fix, the filter changes no fingerprint in any of the 64 gags
+(vocab, peak concurrency and per-actor ticks are all identical), so those entries were
+removed. The same bug produced the two gags that had been left at `OVER+1`, `JOHNNY:6`
+(`3:9`) and `ACTIVITY:11` (`5:20`, `5:42`).
 
-Two gags were investigated and deliberately left unseeded/`OVER+1` because
-seeding would mask a different, unexplained divergence instead of converging:
-
-- **ACTIVITY:11** -- removing its own establishing guard still leaves peak
-  concurrency one below the reference, and a second, unrelated actor (another
-  tag's own establishing-shot key) is also absent from the reference vocabulary.
-- **JOHNNY:6** -- its peak does not even involve its own establishing shot; the
-  extra actor there has no `IF_NOT_PLAYED` guard anywhere in `JOHNNY.ADS`, so
-  it is not an establishing-shot artifact at all.
-
+The map now keeps only `SUZY:1`/`SUZY:2`'s `3:1` (MEANWHIL, a 49-frame drawing
+animation). Each SUZY reference is sliced to one TTM slot (1 or 2), and `3:1` is on
+slot 3, so a reference cannot contain it.
 
 Open follow-ups:
 
-- **`JOHNNY:6` and `ACTIVITY:11` extras.** Our engine runs loader threads (`3:9`; `5:20` and `5:42`) that never appear in these references. They never draw, but references for other gags do include loader threads, so ignoring non-drawing scenes does not explain the gap. The cause is still unknown.
-- **`STAND:1-12` never pose.** In a single-gag drive, these gags run only the `1:42` init loader and never add a pose scene. They pass the peak-concurrency gate only because that loader counts as one live actor, so actor coverage for them is 0%.
+- **Slot slicing.** References are sliced to the gag's main TTM slot (`gen-refs.mjs`), but our fingerprint counts every slot. The remaining SUZY filter entries and review-only extras such as `JOHNNY:6`'s `4:1` come from this. Slicing ours the same way would be the principled replacement for the seed map.
+- **Lifespan sample cadence.** Reference lifespans count tick-function samples, about one per 50 ms WM_TIMER (`SUZY:1`'s `1:1`, SET_DELAY 10 = 200 ms, lives 4 samples). `actorTicks` on ours counts 20 ms engine ticks, so our lifespans read about 2.5x long. After that scaling, `ACTIVITY:11`'s `5:23`/`5:24`/`5:36` now fall inside the reference ranges.
 
 ## Random-number behavior
 

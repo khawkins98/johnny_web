@@ -53,8 +53,7 @@ const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf
 // The "drawing" predicate and the per-gag fingerprint accumulation
 // (isDrawing/fingerprintOursUnion) live in tools/faithfulness-oracle/fingerprint.mjs,
 // shared with our-thread-timeline.mjs and coverage-report.mjs. isDrawing counts
-// live TTM threads (composeTtmFrame's finished-and-aged-out skip), which is what the
-// original-binary refs record. Do NOT add composeTtmFrame's empty-frameOps skip, in
+// live (not yet finished) TTM threads, which is what the original-binary refs record. Do NOT add composeTtmFrame's empty-frameOps skip, in
 // either form:
 //   - per tick: frameOps is a per-tick transient, so live threads with an empty
 //     frame at sample time get dropped. Tried and reverted.
@@ -64,8 +63,8 @@ const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf
 //     with zero live ticks. Those STAND gags only run the 1:42 init loader under
 //     driveGag and never add a pose scene -- a real, separate issue that the current
 //     gate hides because 1:42 counts as live.
-// The JOHNNY:6 (3:9) / ACTIVITY:11 (5:20, 5:42) extras therefore need another
-// explanation (see scratchpad/findings/johnny6-activity11-rootcause.md).
+// The JOHNNY:6 (3:9) / ACTIVITY:11 (5:20, 5:42) extras were an engine bug instead:
+// zero-delay PURGE loaders end in the tick they are added (see ttm-opcodes PURGE).
 
 // Per-gag triage summary, collected across the describe block and printed once
 // at the end so a human sees "what we catch" at a glance (categories + the
@@ -82,10 +81,8 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
             `${entry.name}:${entry.tag}`,
             () => {
                 const runs = ref.runs || 3;
-                // TEST-HARNESS-ONLY compensation for the fresh-runtime-per-capture vs.
-                // mid-session-binary-capture establishing-shot asymmetry -- see
-                // establishing-shot-seeds.mjs for the full rationale and the two
-                // gags deliberately left unseeded (would mask other divergences).
+                // TEST-HARNESS-ONLY, fingerprint-only filter (now SUZY:1/2's 3:1, which is
+                // outside the ref's single-slot slice) -- see establishing-shot-seeds.mjs.
                 const seed = establishingShotSeeds[`${ref.name}:${ref.tag}`];
                 const establishingKeys = seed ? new Set(seed.keys) : null;
                 const ours = fingerprintOursUnion(ref.name, ref.tag, runs, { establishingKeys });

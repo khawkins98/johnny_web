@@ -25,12 +25,48 @@ export { debugLog, verboseLog, sceneLog, sceneLabel, applySceneChanges, clearAds
 // Script runner
 // ---------------------------------------------------------------------------
 
+/**
+ * Run a TTM prologue's setup ops (palette, screen, image slots) outside any frame.
+ * UPDATE is skipped: the prologue is not a frame of any thread (see
+ * applySceneChanges), so it must not produce a frame boundary.
+ */
+export const runSetupOps = (state, ops) => {
+    for (const c of ops) {
+        if (c.opcode === 0x0ff0) continue;
+        TTMDispatch.find((ct) => ct.opcode === c.opcode)?.callback(state, ...c.params);
+    }
+};
+
+const completeScript = (state, reason) => {
+    state.lastCommand = true;
+    state.reentry = 0;
+    state.runs++;
+    state.played = true;
+    if (state.type === 'TTM') {
+        if (state.sceneIdx !== undefined) {
+            sceneLog(state, 'TTM_DONE', sceneLabel(state.scenesRes, state.sceneIdx, state.tagId));
+        }
+    }
+    return executionOutcome(ExecutionStatus.COMPLETED, state, { reason });
+};
+
 export const runScript = (state, script) => {
     // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
     // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
     // TTM child scenes use their own state objects (each has its own reentry).
     if (script === undefined || state.reentry === -1) {
         return executionOutcome(ExecutionStatus.COMPLETED, state, { reason: 'no-script' });
+    }
+    // A PURGE frame (see ttm-opcodes PURGE) whose hold has elapsed ends the
+    // sequence here. Any ops after that frame (e.g. MJBATH 24 "preen timer"'s
+    // frames after its first PURGE) are dead code in the original.
+    if (state.endOfSequence) {
+        state.endOfSequence = false;
+        // The held frame's UPDATE is never resumed, so clear its pause here, as
+        // resuming it would have, so a retried or re-added pass runs again.
+        state.frameReady = false;
+        state.continue = true;
+        return completeScript(state, 'purge');
     }
     // GOTO sets gotoRestart=true to request a restart from index 0 on the NEXT call.
     // This cannot be done inside the GOTO callback itself because the for-loop below
@@ -66,23 +102,19 @@ export const runScript = (state, script) => {
         }
     }
     if (state.reentry === script.length - 1 && !state.gotoRestart && state.continue) {
-        state.lastCommand = true;
-        state.reentry = 0;
-        state.runs++;
-        state.played = true;
-        if (state.type === 'TTM') {
-            if (state.sceneIdx !== undefined) {
-                sceneLog(state, 'TTM_DONE', sceneLabel(state.scenesRes, state.sceneIdx, state.tagId));
-            }
-        }
-        return executionOutcome(ExecutionStatus.COMPLETED, state, { reason: 'end-of-script' });
+        state.endOfSequence = false;
+        return completeScript(state, 'end-of-script');
     }
     if (state.gotoRestart) {
+        state.endOfSequence = false;
         state.runs++;
         return executionOutcome(ExecutionStatus.LOOPED, state, { reason: 'goto' });
     }
     const frameBoundary = state.frameBoundary;
     state.frameBoundary = null;
+    // The end-of-sequence mark only matters at a frame boundary: that frame is held for
+    // its delay and then ends the sequence.
+    if (!frameBoundary) state.endOfSequence = false;
     return executionOutcome(
         ExecutionStatus.YIELDED,
         state,

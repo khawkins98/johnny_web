@@ -416,6 +416,14 @@ export class DgdsRuntime {
                 scene.needsFirstFrame = false;
                 scene.runState = TtmRunState.RUNNING;
                 scene.execution = runScript(scene.state, scene.state.script || scene.script);
+                // A PURGE frame with zero delay has no hold, so the sequence ends in the
+                // same tick (FUN_1048_196e passes at once with delay 0, and FUN_1048_1acb
+                // sets runstate 4 before the next tick). This is why the original
+                // never shows zero-delay loaders such as JOHNNY:6's 3:9 or ACTIVITY:11's
+                // 5:20/5:42 as live threads.
+                if (scene.execution.frameBoundary?.delayTicks === 0 && scene.state.endOfSequence) {
+                    scene.execution = runScript(scene.state, scene.state.script || scene.script);
+                }
                 if (scene.execution.frameBoundary) {
                     const mapped = rootState.timingCompatibility.mapFrameBoundary(scene.execution.frameBoundary, {
                         sceneIdx: scene.sceneIdx,

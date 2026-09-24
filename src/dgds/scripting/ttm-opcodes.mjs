@@ -27,7 +27,16 @@ export const FREE_SHAPE = (state) => {
     state.res[state.slot] = undefined;
 };
 
-export const PURGE = () => {};
+// PURGE (0x0110) marks the end of the sequence. The original binary does not
+// stop at the next op: it finishes the current frame, and once that frame's hold
+// has elapsed the thread ends. It does not run any ops that come after the PURGE
+// frame. In FUN_1048_1acb, an end-flagged run-once thread goes to runstate 4 when
+// FUN_1048_196e reports the delay elapsed. With a zero delay that happens in the
+// same tick. runScript acts on the flag on the next resume (see there), and the
+// runtime acts on it at once for a zero-delay frame.
+export const PURGE = (state) => {
+    state.endOfSequence = true;
+};
 
 export const UPDATE = (state) => {
     if (state.frameReady) {
