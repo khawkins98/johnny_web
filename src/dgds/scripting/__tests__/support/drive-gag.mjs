@@ -54,6 +54,13 @@ export const loadAds = (adsName) => archive().loadEntry(adsName);
  * @param {number} o.tag      the gag's ADS scene tagId (adsSceneTag).
  * @param {number} [o.seed]   RNG seed (default 1).
  * @param {number} [o.maxTicks] tick cap (default 5000).
+ * @param {boolean} [o.hostManagedTransitions] default true, matching the Johnny
+ *   browser host (browser-presentation.mjs passes `Boolean(selectScene)`, always
+ *   true for the Johnny app). Under it ADS F010 FADE_OUT is a non-blocking
+ *   end-of-segment marker; without it F010 takes the generic-DGDS alpha-fade path,
+ *   which blocks the pass and, e.g., strands every STAND pose chunk that follows an
+ *   inlined `RUN_SCRIPT 14` (its trailing FADE_OUT). Pass false only to probe the
+ *   non-Johnny path.
  * @param {(runtime, result, tick) => void} [o.onTick] per-tick observer.
  * @param {(type: string, data: object) => void} [o.onEvent] observer for canonical
  *   trace events (attaches an inert recorder to state.trace); use this to consume
@@ -70,6 +77,7 @@ export const driveGag = ({
     onTick = null,
     onEvent = null,
     faithfulPick = null,
+    hostManagedTransitions = true,
 }) => {
     const data = loadAds(adsName);
     const runtime = new DgdsRuntime({
@@ -84,6 +92,7 @@ export const driveGag = ({
         // production default). state.random stays the seeded LCG for cosmetic draws.
         ...(faithfulPick ? { faithfulPick } : {}),
         singleAdsScene: true,
+        hostManagedTransitions,
         adsSceneTag: tag,
     });
     // Minimal inert trace sink: the canonical traceEvent path is a no-op unless

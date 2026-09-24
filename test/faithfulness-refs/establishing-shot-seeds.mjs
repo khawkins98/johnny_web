@@ -94,6 +94,21 @@ export const establishingShotSeeds = {
         keys: ['2:29'],
         rationale: 'opening IF_NOT_PLAYED[2,29] -> ADD(2,29)+ADD(2,36); 2:29 is the one-time establishing shot',
     },
+    // STAND:1-12 open with RUN_SCRIPT 14 ("STAND INIT"): IF_NOT_PLAYED[1,42] ->
+    // ADD(1,42), a one-time MJAMBWLK loader that overlaps the first pose for ticks
+    // 1-5 only, then drops out. Absent from every STAND_1..12 ref (mid-session
+    // capture). Filtering it converges maxConc to the ref's 1; pose vocab is left
+    // unfiltered (STAND:1's 1:1 and STAND:12's 1:64 stay visible as `extra`: authored
+    // RANDOM picks the 3-run ref union did not happen to roll).
+    ...Object.fromEntries(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((tag) => [
+            `STAND:${tag}`,
+            {
+                keys: ['1:42'],
+                rationale: 'inlined STAND INIT IF_NOT_PLAYED[1,42] -> ADD(1,42); 1:42 is the one-time loader shot',
+            },
+        ]),
+    ),
     'STAND:15': {
         keys: ['2:27'],
         rationale: 'opening IF_NOT_PLAYED[2,27] -> ADD(2,27)+ADD(2,12); 2:27 is the one-time establishing shot',
