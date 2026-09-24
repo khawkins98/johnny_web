@@ -43,7 +43,8 @@ const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf
 
 // `isDrawing`/`fingerprintOursUnion` now live in ./fingerprint.mjs, shared with
 // test/faithfulness-diff.mjs (the CI gate) and our-thread-timeline.mjs -- see that
-// module for the full rationale/caveats (frameOps preload false-exclusion, etc.).
+// module for the full rationale/caveats (why frameOps is not checked, per tick or
+// per scene).
 
 const pct = (n, d) => (d === 0 ? 100 : Math.round((n / d) * 100));
 

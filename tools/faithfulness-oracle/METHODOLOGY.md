@@ -13,6 +13,8 @@ For each gag, both engines produce a timeline of the actors being drawn on every
 - actor lifespans, where reference data is available
 - whether every gag reaches its intended ending
 
+An "actor" is a live script thread, on both sides. On ours, a scene counts from the tick it starts until the tick after it finishes. It still counts if it never draws a pixel, because the original's traces also record loader threads that only load bitmaps (for example `SUZY:1`'s `1:1`). Filtering out scenes that never draw was tested and rejected: it removed 35 actors that appear in the references, pushed 20 gags below the reference's peak concurrency, and left `STAND:1-12` with nothing at all. The filter remains available as a diagnostic with `our-thread-timeline.mjs --drawn-only`.
+
 Peak concurrency is the hard gate. Actor coverage and duration are review signals because timing and random branch selection vary between captures. See [the generated coverage report](../../docs/oracle-coverage.md) for current results.
 
 ## Levels of evidence
@@ -165,9 +167,11 @@ seeding would mask a different, unexplained divergence instead of converging:
   extra actor there has no `IF_NOT_PLAYED` guard anywhere in `JOHNNY.ADS`, so
   it is not an establishing-shot artifact at all.
 
-Follow-up: JOHNNY:6's divergence and the pre-existing `BUILDING:2` under-shoot
-(a real, traced intra-tick controller-ordering gap between `#runAdsController`
-and `#runTtmController` in `runtime.mjs`, unrelated to this fix) remain open.
+
+Open follow-ups:
+
+- **`JOHNNY:6` and `ACTIVITY:11` extras.** Our engine runs loader threads (`3:9`; `5:20` and `5:42`) that never appear in these references. They never draw, but references for other gags do include loader threads, so ignoring non-drawing scenes does not explain the gap. The cause is still unknown.
+- **`STAND:1-12` never pose.** In a single-gag drive, these gags run only the `1:42` init loader and never add a pose scene. They pass the peak-concurrency gate only because that loader counts as one live actor, so actor coverage for them is 0%.
 
 ## Random-number behavior
 

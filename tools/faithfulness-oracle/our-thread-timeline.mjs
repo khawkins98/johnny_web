@@ -9,15 +9,18 @@
 // scenes in `runtime.state.scenes` that composeTtmFrame would actually paint this
 // tick. Each entry is `${scene.sceneIdx}:${scene.tagId}`.
 //
-// "Drawing" predicate: `!isTtmFinished(scene) || scene.agedOut === false`.
-// This is the EXACT skip-check composeTtmFrame uses (src/dgds/scripting/composition.mjs,
-// "if (isTtmFinished(scene) && scene.agedOut !== false) continue;" -- i.e. draw unless
-// finished-and-aged-out) and is the same predicate the building8-double-johnny
-// regression test uses to detect the two-Johnny overlap
-// (src/dgds/scripting/__tests__/building8-double-johnny.test.mjs).
+// "Drawing" predicate: `!isTtmFinished(scene) || scene.agedOut === false`, i.e.
+// composeTtmFrame's finished-and-aged-out skip (src/dgds/scripting/composition.mjs),
+// the same predicate the building8-double-johnny regression test uses. It counts live
+// threads, which is what the original-binary refs record.
+//
+// --drawn-only (diagnostic): additionally drop scene instances that never recorded
+// a draw op (non-empty frameOps) over their whole life -- asset-preload loaders.
+// NOT what the refs measure; see ./fingerprint.mjs's header. Lines are emitted after
+// the drive finishes (createLiveRecorder) since the filter needs the whole run.
 //
 // Usage:
-//   node tools/faithfulness-oracle/our-thread-timeline.mjs <ADS.NAME> <tag> [seed] [--free-run] [--out <file>]
+//   node tools/faithfulness-oracle/our-thread-timeline.mjs <ADS.NAME> <tag> [seed] [--free-run] [--drawn-only] [--out <file>]
 //
 // Modes:
 //   default     -- drives the gag on the real single-gag completion path via the
@@ -40,7 +43,7 @@ const { driveGag, hasData, loadAds, seededRandom } = await import(
     path.join(repoRoot, 'src/dgds/scripting/__tests__/support/drive-gag.mjs')
 );
 const { DGDS_TICK_MS } = await import(path.join(repoRoot, 'src/dgds/scripting/timing.mjs'));
-const { liveKeysFor } = await import(path.join(here, 'fingerprint.mjs'));
+const { createLiveRecorder } = await import(path.join(here, 'fingerprint.mjs'));
 
 // -- CLI parsing --------------------------------------------------------------
 
@@ -55,7 +58,7 @@ const [adsName, tagRaw, seedRaw] = positional;
 
 if (!adsName || tagRaw === undefined) {
     console.error(
-        'Usage: node our-thread-timeline.mjs <ADS.NAME> <tag> [seed] [--free-run] [--out <file>]',
+        'Usage: node our-thread-timeline.mjs <ADS.NAME> <tag> [seed] [--free-run] [--drawn-only] [--out <file>]',
     );
     process.exit(1);
 }
@@ -64,18 +67,13 @@ const tag = Number(tagRaw);
 const seed = seedRaw !== undefined ? Number(seedRaw) : 1;
 
 // -- Shared "drawing" predicate -----------------------------------------------
-// `liveKeysFor` (built on the isDrawing predicate: a scene draws unless it is
-// finished-and-aged-out) lives in ./fingerprint.mjs, shared with
-// test/faithfulness-diff.mjs and coverage-report.mjs.
-// (composeTtmFrame also skips empty-frameOps scenes, but frameOps is a per-tick
-// transient not reliably set at sample time -- testing it here regressed real
-// gags; the preload-exclusion fix needs a scene-level "ever drew" flag instead.
-// See johnny6-activity11-rootcause.md.)
+// `createLiveRecorder` (per-tick isDrawing, plus the opt-in scene-level "ever drew"
+// filter) lives in ./fingerprint.mjs, shared with test/faithfulness-diff.mjs and
+// coverage-report.mjs. See its header comment.
 
 // -- Output sink ---------------------------------------------------------------
 
-const lines = [];
-const emit = (t, live) => lines.push(JSON.stringify({ t, live }));
+const recorder = createLiveRecorder({ drawnOnly: args.includes('--drawn-only') });
 
 // -- Drive modes ----------------------------------------------------------------
 
@@ -84,14 +82,11 @@ const runSingleGagPath = () => {
         console.log('# no game data available (public/data missing) -- nothing to drive.');
         return;
     }
-    let snapIdx = 0;
     driveGag({
         adsName,
         tag,
         seed,
-        onTick: (runtime) => {
-            emit(snapIdx++, liveKeysFor(runtime));
-        },
+        onTick: (runtime) => recorder.sample(runtime),
     });
 };
 
@@ -139,11 +134,10 @@ const runFreeRunPath = async () => {
     }
 
     const startedAt = runtime.state.currentScene;
-    let snapIdx = 0;
     for (let tick = 1; tick <= 5000; tick++) {
         const result = runtime.tick(DGDS_TICK_MS);
         if (result.presentation.compose) {
-            emit(snapIdx++, liveKeysFor(runtime));
+            recorder.sample(runtime);
         }
         if (runtime.state.currentScene !== startedAt) return;
     }
@@ -158,6 +152,7 @@ if (freeRun) {
 
 // -- Output ---------------------------------------------------------------------
 
+const lines = recorder.finish().map((live, t) => JSON.stringify({ t, live }));
 const payload = lines.join('\n') + (lines.length ? '\n' : '');
 if (outFile) {
     mkdirSync(path.dirname(path.resolve(outFile)), { recursive: true });
