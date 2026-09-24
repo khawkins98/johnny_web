@@ -24,9 +24,9 @@ import { isTtmFinished } from '../ttm-run-state.mjs';
 // load-bearing against exactly this race -- it holds a thread live through
 // the retry until the fire lights.
 //
-// This test drives BUILDING.ADS gags 7 and 8 on the free-run path (mirroring
-// test/render-goldens.mjs's captureGag) and asserts the gag never advances
-// while only fire-retry tags are active, and that the fire actually lights.
+// This test drives BUILDING.ADS gags 7 and 8 on the free-run path and asserts
+// the gag never advances while only fire-retry tags are active, and that the
+// fire actually lights.
 
 const FIRE_TAG = 44;
 const FIRE_RETRY_TAGS = new Set([36, 38, 40, 51, 142, 80, 81]);
