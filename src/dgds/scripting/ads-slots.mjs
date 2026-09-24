@@ -90,6 +90,20 @@ const segmentHasWork = (script, start, end) => {
 const IF_PLAYED_OP = 0x1350;
 const IF_NOT_RUNNING_OP = 0x1360;
 const IF_RUNNING_OP = 0x1370;
+const FADE_OUT_OP = 0xf010;
+const OR_OP = 0x1430;
+
+/**
+ * Index of the last guard in the leading `IF_PLAYED (OR IF_PLAYED)*` run that
+ * starts at `chunkStart` (just `chunkStart` itself when the entry is a single
+ * guard or not an IF_PLAYED at all).
+ */
+const leadingOrChainEnd = (script, chunkStart) => {
+    let end = chunkStart;
+    if (script[chunkStart]?.opcode !== IF_PLAYED_OP) return end;
+    while (script[end + 1]?.opcode === OR_OP && script[end + 2]?.opcode === IF_PLAYED_OP) end += 2;
+    return end;
+};
 
 // The first guard opcode a segment leads with, or null if it carries none.
 const leadingGuard = (script, start, end) => {
@@ -181,6 +195,10 @@ const stepChunk = (state, slot, script) => {
         state.orMode = false;
         state.orChainPassed = false;
     }
+    // An edge-fired IF_PLAYED handoff (ads-opcodes handleIfPlayedFinishedBranch)
+    // marks the remainder of ITS pass so ADD_SCENE may restart finished targets;
+    // it must never leak into another slot's pass or a later re-poll.
+    state.handoffEdge = false;
     // The IF_PLAYED range scan (chunkBodyHasRandom / next-opcode lookahead)
     // reads state.activeAdsScript; bind it to the script this slot indexes.
     state.activeAdsScript = script;
@@ -202,6 +220,11 @@ const stepChunk = (state, slot, script) => {
     // F4.
     let skip = false;
 
+    // The slot's ENTRY guard may be an OR-chain (IF_PLAYED a OR IF_PLAYED b ...):
+    // every guard in that leading run is part of the entry, so a failure anywhere
+    // in it re-arms the slot the same way a failed single entry guard does.
+    const entryChainEnd = leadingOrChainEnd(script, chunkStart);
+
     for (let i = slot.ip; i <= chunkEnd; i++) {
         const command = script[i];
         const entry = ADSDispatch.find((e) => e.opcode === command.opcode);
@@ -209,6 +232,19 @@ const stepChunk = (state, slot, script) => {
 
         state.reentryNow = i;
         state.jumpTo = undefined;
+        // F010 is the binary's end-of-segment marker: once it is reached the tag's
+        // ADS program is over -- no further chunk re-polls -- while the live TTM
+        // threads run out on their own and the gag completes by draining. The
+        // display list is NOT cleared here. Grounded in the committed refs:
+        //   - ACTIVITY_1.json: the chunk AFTER F010 (IF_PLAYED 2:2 -> ADD 1:13) never
+        //     shows 2:2 in 8 binary runs (our pre-fix engine listed it as extra);
+        //   - ACTIVITY_12.json 4:107 / JOHNNY_2.json 2:28: the scene ADDed in the
+        //     F010 chunk still lives ~100 ticks, so nothing is cleared at F010;
+        //   - VISITOR_4.json: F010 fires under IF_RUNNING 4:19, and 4:19 keeps
+        //     running 206-315 ticks;
+        //   - BUILDING_2.json: the STOP-less IF_PLAYED chains (79->74->77->79 ...)
+        //     have FINITE lifespans, so re-polling must stop at the fade.
+        if (command.opcode === FADE_OUT_OP) state.adsSegmentEnded = true;
         entry.callback(state, ...(command.params ?? []));
 
         if (state.jumpTo !== undefined) {
@@ -216,15 +252,18 @@ const stepChunk = (state, slot, script) => {
             // chunk so a jump can never escape into a sibling chunk.
             const target = Math.min(state.jumpTo, chunkEnd + 1);
             state.jumpTo = undefined;
-            if (command.opcode === IF_PLAYED_OP && i === chunkStart) {
+            if (command.opcode === IF_PLAYED_OP && i <= entryChainEnd) {
                 // A FAILED ENTRY guard (IF_PLAYED false AT THE SLOT'S OWN ENTRY
-                // POSITION) must END the pass and re-arm -- NOT jump past its
-                // END_IF and walk into a merged slot's fall-through tail (which
-                // would fire the ladder's "else" arm before its entry scene has
-                // played -- the FISHING:3 over-draw). The entry re-polls from the
-                // top next tick.
+                // POSITION, or anywhere in its leading OR-chain) must END the pass
+                // and re-arm -- NOT jump past its END_IF and walk into a merged
+                // slot's fall-through tail (which would fire the ladder's "else"
+                // arm before its entry scene has played -- the FISHING:3
+                // over-draw), nor into a trailing F010 (FISHING.ADS tag 2's
+                // return-walk chunk: IF_PLAYED 34 OR 35 OR 30 OR 36 OR 37 -> ADD 39;
+                // F010 -- the fade must run only when the chunk actually fires).
+                // The entry re-polls from the top next tick.
                 //
-                // Gated on `i === chunkStart` (not just the opcode) so a NESTED,
+                // Gated on the entry position (not just the opcode) so a NESTED,
                 // non-leading IF_PLAYED inside a merged slot's fall-through arm --
                 // none exist in the current corpus, see
                 // scratchpad/findings/final-review-ads-fix.md F3 -- falls through
@@ -248,11 +287,14 @@ const stepChunk = (state, slot, script) => {
                 slot.ip = i;
                 return;
             }
-            // A non-guard block (ADS_FADE_OUT): the binary's F010 is an
-            // end-of-segment marker, not a pause. End this pass and re-arm so the
-            // chunk's guard re-polls next tick; any changes staged this pass
-            // (e.g. the terminal chunk's STOPs) flush at end of tick.
-            slot.ip = chunkStart;
+            // A non-guard block (ADS_FADE_OUT's interpreter-level alpha fade,
+            // the non-host-managed compatibility path): the binary's F010 is an
+            // end-of-segment marker, not a pause. Park ON the fade opcode so the
+            // fade keeps advancing every tick until it clears the display list --
+            // the chunk's IF_PLAYED guard fires once per completion, so re-arming
+            // to the top would never reach F010 again. Changes staged before it
+            // (the terminal chunk's STOPs) flush at end of tick.
+            slot.ip = i;
             return;
         }
 
@@ -291,6 +333,10 @@ export const stepAdsSlots = (state, slots, script) => {
     for (const slot of slots) {
         if (slot.flag === 'fresh') slot.flag = 'active';
         if (slot.flag !== 'active') continue;
+        // After F010 the tag's program is over (see stepChunk): nothing re-polls.
+        // The one exception is a slot parked ON the F010 itself, so the
+        // interpreter-level compatibility fade (non-host-managed) can finish.
+        if (state.adsSegmentEnded && script[slot.ip]?.opcode !== FADE_OUT_OP) continue;
         stepChunk(state, slot, script);
     }
     // A final safety flush: if any chunk parked with residual staged changes
