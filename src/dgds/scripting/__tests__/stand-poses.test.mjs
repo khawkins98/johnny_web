@@ -29,14 +29,27 @@ describe.skipIf(!hasData)('STAND.ADS pose gags add a pose scene (real-app transi
             const ref = JSON.parse(readFileSync(path.join(refsDir, `STAND_${tag}.json`), 'utf8'));
             const refVocab = new Set(ref.vocab);
             const vocab = new Set();
+            // The refs show several poses per run, so each seed must CYCLE through at
+            // least two distinct poses, not stop after one. This depends on the pose
+            // chunk re-polling while parked on its leading F010 after
+            // adsSegmentEnded (ads-slots.mjs stepAdsSlots); guard that here.
+            const refPoseCount = ref.vocab.filter((key) => key !== LOADER).length;
             for (let seed = 1; seed <= 3; seed++) {
+                const seedPoses = new Set();
                 const { completed } = driveGag({
                     adsName: 'STAND.ADS',
                     tag,
                     seed,
-                    onTick: (runtime) => liveKeysFor(runtime).forEach((key) => vocab.add(key)),
+                    onTick: (runtime) =>
+                        liveKeysFor(runtime).forEach((key) => {
+                            vocab.add(key);
+                            if (key !== LOADER) seedPoses.add(key);
+                        }),
                 });
                 expect(completed, `STAND:${tag} seed ${seed} completes`).toBe(true);
+                expect(seedPoses.size, `STAND:${tag} seed ${seed} cycles poses`).toBeGreaterThanOrEqual(
+                    Math.min(2, refPoseCount),
+                );
             }
             const poses = [...vocab].filter((key) => key !== LOADER);
             // At least one pose actually played, and it is one the original draws.
