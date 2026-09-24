@@ -351,6 +351,31 @@ describe('TTM frame timing', () => {
         expect(runScript(state, script)).toMatchObject({ status: 'completed' });
     });
 
+    it('PURGE ends the sequence at its frame boundary: later ops never run', () => {
+        const state = {
+            type: 'TTM',
+            reentry: 0,
+            continue: true,
+            delay: 4,
+            frameReady: false,
+            gotoRestart: false,
+            lastCommand: false,
+            runs: 0,
+            played: false,
+        };
+        // PURGE; UPDATE; SET_DELAY 99; UPDATE (like MJBATH 24's post-PURGE frames).
+        const script = [
+            { opcode: 0x0110, params: [] },
+            { opcode: 0x0ff0, params: [] },
+            { opcode: 0x1020, params: [99] },
+            { opcode: 0x0ff0, params: [] },
+        ];
+        expect(runScript(state, script)).toMatchObject({ status: 'yielded', frameBoundary: { delayTicks: 4 } });
+        state.frameReady = true; // the host's hold elapsed
+        expect(runScript(state, script)).toMatchObject({ status: 'completed', reason: 'purge' });
+        expect(state).toMatchObject({ delay: 4, played: true, runs: 1, reentry: 0, continue: true, endOfSequence: false });
+    });
+
     it('does not consult the browser wall clock', () => {
         const dateSpy = vi.spyOn(Date, 'now');
         const state = { continue: true, delay: 1, frameReady: false };

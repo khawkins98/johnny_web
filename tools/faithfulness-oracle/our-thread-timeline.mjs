@@ -9,10 +9,9 @@
 // scenes in `runtime.state.scenes` that composeTtmFrame would actually paint this
 // tick. Each entry is `${scene.sceneIdx}:${scene.tagId}`.
 //
-// "Drawing" predicate: `!isTtmFinished(scene) || scene.agedOut === false`, i.e.
-// composeTtmFrame's finished-and-aged-out skip (src/dgds/scripting/composition.mjs),
-// the same predicate the building8-double-johnny regression test uses. It counts live
-// threads, which is what the original-binary refs record.
+// "Drawing" predicate: `!isTtmFinished(scene)` (fingerprint.mjs isDrawing). It counts
+// live threads, which is what the original-binary refs record (runstates 1-3; a thread
+// that finished during the tick is runstate 4 at the next sample).
 //
 // --drawn-only (diagnostic): additionally drop scene instances that never recorded
 // a draw op (non-empty frameOps) over their whole life -- asset-preload loaders.

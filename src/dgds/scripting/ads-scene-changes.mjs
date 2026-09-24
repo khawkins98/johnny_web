@@ -13,13 +13,13 @@ import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
 import { TtmRunMode, isTtmFinished } from './ttm-run-state.mjs';
 import { moveSequenceToBack } from './ttm-sequence-order.mjs';
-// runScript lives in script-runner.mjs; applySceneChanges calls it synchronously
-// to prime a freshly-added TTM environment's first frame. This is a deliberate
+// runSetupOps lives in script-runner.mjs; applySceneChanges calls it synchronously
+// to run a freshly-added TTM environment's prologue setup. This is a deliberate
 // circular import (script-runner.mjs re-exports applySceneChanges/clearAdsSceneBatch
 // from this module) -- safe because both sides only touch the binding inside
 // function bodies invoked after both modules have finished loading, never at
 // module-evaluation time.
-import { runScript } from './script-runner.mjs';
+import { runSetupOps } from './script-runner.mjs';
 
 /**
  * Shared core of an ADS display-list reset: drop the staged/active scene
@@ -193,8 +193,15 @@ export const applySceneChanges = (state) => {
             state.playedHistory.delete(`${s.sceneIdx}:${s.tagId}`);
             if (scene.environment?.owner === scene && !scene.environment.ready) {
                 // Every TTM environment initializes independently of unrelated active resources.
-                scene.execution = runScript(scene.state, scene.script || scene.state.script);
-                if (scene.state.reentry >= (scene.prologueLength || 0)) scene.environment.ready = true;
+                // The prologue (the ops before the first SET_SCENE) is setup, not a
+                // frame of this thread. The original's frame-table build
+                // (FUN_1050_04d6) starts each thread node (FUN_1050_042a) at its own
+                // SET_SCENE frame, and frame 0 belongs to no thread. So we run the
+                // setup ops but not the prologue's UPDATE, and the owner draws its own
+                // first frame this tick, the same as its siblings.
+                runSetupOps(scene.state, (scene.script || scene.state.script).slice(0, scene.prologueLength || 0));
+                scene.state.reentry = scene.prologueLength || 0;
+                scene.environment.ready = true;
             }
             // Draw this scene's first frame on the tick it is added (the original
             // arms then draws within one tick), even if that tick is not a WM_TIMER
