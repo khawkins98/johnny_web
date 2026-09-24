@@ -27,8 +27,7 @@
 //                  sanctioned driveGag() helper (drive-gag.mjs), same path the
 //                  building8 test and sequencing-sweep use.
 //   --free-run  -- builds a runtime directly and free-runs via jumpToScene(tag,
-//                  { single: false }) until state.currentScene advances, matching
-//                  test/render-goldens.mjs's captureGag(). Useful because a trace
+//                  { single: false }) until state.currentScene advances. Useful because a trace
 //                  captured from the original binary is itself a free-run/forced
 //                  capture, not bounded by our single-gag completion semantics.
 

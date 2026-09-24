@@ -102,6 +102,16 @@ const compactPixels = (pixels) => [
 ];
 
 const captureGag = ({ archive, data, gag }) => {
+    // Construct the runtime the way the Johnny app does (browser-presentation.mjs ->
+    // process.mjs startProcess): a host-selected single gag (`adsSceneTag` +
+    // `singleAdsScene`) with `hostManagedTransitions` on, since the Johnny app always
+    // supplies `selectScene`. Under it ADS F010 is a non-blocking end-of-segment
+    // marker; without it F010 runs the generic-DGDS interpreter alpha fade, a path
+    // the app never takes. Deliberate differences from the app, all for
+    // determinism/isolation: a seeded `random` (the app uses Math.random), a fresh
+    // raster per gag (the app shares one across a story day), no `titleState` (so no
+    // per-day island offset / ocean / night), and the faithful RNG left off (it is
+    // opt-in via ?faithfulRng=on in the app too).
     const runtime = new DgdsRuntime({
         type: 'ADS',
         data,
@@ -110,18 +120,11 @@ const captureGag = ({ archive, data, gag }) => {
         surfaceFactory: createSoftwareSurface,
         timingCompatibility: createTimingCompatibility(),
         random: seededRandom(0x4a430000 + gag),
+        adsSceneTag: gag,
+        singleAdsScene: true,
+        hostManagedTransitions: true,
     });
-    // Fingerprint capture stays on the legacy free-run path (`single: false`) for
-    // now: the single-gag path replays a gag's full ambient loop, which for some
-    // gags includes long blank/ambient stretches whose per-gag faithfulness has not
-    // been verified -- baking those into stored fingerprints would certify unvetted
-    // behavior. The completion-path migration of the fingerprint harness is a tracked
-    // follow-up (verify each gag's real-path sequence, then switch + regenerate).
-    // NB: `jumpToScene`'s DEFAULT is now the real single-gag path -- the reachability
-    // and all-gags suites (and ad-hoc probes) deliberately use that.
-    if (!runtime.jumpToScene(gag, { single: false })) throw new Error(`Unknown Johnny gag ${gag}`);
 
-    const startedAt = runtime.state.currentScene;
     const changes = [];
     let previousRevision = null;
     for (let tick = 1; tick <= 5000; tick++) {
@@ -140,7 +143,7 @@ const captureGag = ({ archive, data, gag }) => {
                 });
             }
         }
-        if (runtime.state.currentScene !== startedAt) return changes;
+        if (result.completed) return changes;
     }
     throw new Error(`Gag ${gag} did not complete within 5000 logical ticks`);
 };

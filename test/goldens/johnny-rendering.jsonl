@@ -111,7 +111,7 @@
 {"type":"frame","scenario":"gull-landing","index":85,"frame":[848,"6fdd70f8d53255a7","ba3d1b7a",103,360,272,42,9]}
 {"type":"frame","scenario":"gull-landing","index":86,"frame":[858,"c7a697e7f93efd6e","fcb4a9a9",66,391,273,24,7]}
 {"type":"frame","scenario":"gull-landing","index":87,"frame":[868,"05e7756e738974cc","fcb4a9a9",66,391,273,24,7]}
-{"type":"scenario","id":"bathing","gag":11,"frameCount":799,"digest":"a64a0f19271a391f"}
+{"type":"scenario","id":"bathing","gag":11,"frameCount":798,"digest":"edc426cbc6354207"}
 {"type":"frame","scenario":"bathing","index":0,"frame":[1,"bb76fdcd0c47abd4","9be17165",0]}
 {"type":"frame","scenario":"bathing","index":1,"frame":[3,"41d1450bf13a1a01","b48372be",1651,230,143,410,202]}
 {"type":"frame","scenario":"bathing","index":2,"frame":[5,"986aa307b684c713","b48372be",1651,230,143,410,202]}
@@ -910,7 +910,6 @@
 {"type":"frame","scenario":"bathing","index":795,"frame":[2533,"3578c2bbc1b27d67","b3190702",1561,231,109,240,230]}
 {"type":"frame","scenario":"bathing","index":796,"frame":[2534,"c9a8e9837d71192e","9be17165",0]}
 {"type":"frame","scenario":"bathing","index":797,"frame":[2535,"68ea7b7fc9e7c9c3","9be17165",0]}
-{"type":"frame","scenario":"bathing","index":798,"frame":[2536,"f69415e7f5de248c","9be17165",0]}
 {"type":"scenario","id":"concurrent-bathing-layers","gag":11,"frameCount":435,"digest":"950eff380575f2e5"}
 {"type":"frame","scenario":"concurrent-bathing-layers","index":0,"frame":[3,"41d1450bf13a1a01","b48372be",1651,230,143,410,202]}
 {"type":"frame","scenario":"concurrent-bathing-layers","index":1,"frame":[10,"4286ca7c8ba680fb","b9ff762b",1667,226,143,414,199]}
