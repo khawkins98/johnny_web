@@ -52,17 +52,20 @@ const loadRef = (file) => JSON.parse(readFileSync(path.join(refsDir, file), 'utf
 
 // The "drawing" predicate and the per-gag fingerprint accumulation
 // (isDrawing/fingerprintOursUnion) live in tools/faithfulness-oracle/fingerprint.mjs,
-// shared with our-thread-timeline.mjs and coverage-report.mjs. NOTE: composeTtmFrame
-// ALSO skips scenes with empty frameOps, which would let us drop asset-preload
-// pseudo-scenes (load-only, no draw opcode) that inflate maxConc/vocab in a few
-// gags (JOHNNY:6, ACTIVITY:11 -- see
-// scratchpad/findings/johnny6-activity11-rootcause.md). But frameOps is a PER-TICK
-// transient populated during composition, so testing it here (at onTick time)
-// falsely excludes real scenes whose frameOps isn't built yet this tick -- it
-// regressed 12 STAND gags to "did not run". The faithful fix needs an "ever drew"
-// scene-level flag (a scene that NEVER populates frameOps across its whole life is
-// the true preload) rather than a per-tick check -- deferred as a follow-up. DO NOT
-// add the frameOps check to isDrawing; that was tried and reverted.
+// shared with our-thread-timeline.mjs and coverage-report.mjs. isDrawing counts
+// live TTM threads (composeTtmFrame's finished-and-aged-out skip), which is what the
+// original-binary refs record. Do NOT add composeTtmFrame's empty-frameOps skip, in
+// either form:
+//   - per tick: frameOps is a per-tick transient, so live threads with an empty
+//     frame at sample time get dropped. Tried and reverted.
+//   - per scene ("ever drew", fingerprintOursUnion's opt-in `drawnOnly`): the refs
+//     DO contain never-drawing loader threads (SUZY 1:1, BUILDING 3:81, ...), so it
+//     removed 35 ref actors, pushed 20 gags below ref maxConc, and left STAND:1-12
+//     with zero live ticks. Those STAND gags only run the 1:42 init loader under
+//     driveGag and never add a pose scene -- a real, separate issue that the current
+//     gate hides because 1:42 counts as live.
+// The JOHNNY:6 (3:9) / ACTIVITY:11 (5:20, 5:42) extras therefore need another
+// explanation (see scratchpad/findings/johnny6-activity11-rootcause.md).
 
 // Per-gag triage summary, collected across the describe block and printed once
 // at the end so a human sees "what we catch" at a glance (categories + the
@@ -85,7 +88,7 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                 // gags deliberately left unseeded (would mask other divergences).
                 const seed = establishingShotSeeds[`${ref.name}:${ref.tag}`];
                 const establishingKeys = seed ? new Set(seed.keys) : null;
-                const ours = fingerprintOursUnion(ref.name, ref.tag, runs, establishingKeys);
+                const ours = fingerprintOursUnion(ref.name, ref.tag, runs, { establishingKeys });
 
                 // Hard fail: the gag produced nothing at all.
                 expect(
