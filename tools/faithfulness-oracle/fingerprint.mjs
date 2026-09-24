@@ -35,7 +35,7 @@ export const liveKeysFor = (runtime) =>
  *
  * @param {Set<string>} [establishingKeys] TEST-HARNESS-ONLY, FINGERPRINT-ONLY:
  *   "sceneIdx:tagId" keys to drop from the fingerprint (vocab/maxConc/actorTicks)
- *   every tick, WITHOUT changing what the engine actually runs. This compensates
+ *   during their OPENING appearance only (until first drop-out), WITHOUT changing what the engine actually runs. This compensates
  *   for a driveGag harness artifact, not an engine bug: many gags open with a
  *   one-time `IF_NOT_PLAYED[S,X] -> ADD(S,X) + ADD(S,Y)` "establishing shot" for
  *   a location, where X and the gag's real first actor Y are added together in
@@ -56,6 +56,8 @@ export const liveKeysFor = (runtime) =>
  *   No effect when omitted.
  */
 export const fingerprintOurs = (adsName, tag, seed = 1, establishingKeys = null) => {
+    const suppressed = new Set(establishingKeys ?? []);
+    const openingSeen = new Set();
     const vocab = new Set();
     const actorTicks = {};
     let maxConc = 0;
@@ -65,9 +67,17 @@ export const fingerprintOurs = (adsName, tag, seed = 1, establishingKeys = null)
         tag,
         seed,
         onTick: (runtime) => {
-            const live = establishingKeys
-                ? liveKeysFor(runtime).filter((key) => !establishingKeys.has(key))
-                : liveKeysFor(runtime);
+            let live = liveKeysFor(runtime);
+            if (suppressed.size > 0) {
+                // Suppress each establishing key only for its OPENING appearance:
+                // once it has been live and then drops out, stop suppressing, so
+                // any later legitimate re-add is still counted.
+                for (const key of [...suppressed]) {
+                    if (live.includes(key)) openingSeen.add(key);
+                    else if (openingSeen.has(key)) suppressed.delete(key);
+                }
+                live = live.filter((key) => !suppressed.has(key));
+            }
             if (live.length > 0) liveTicks++;
             maxConc = Math.max(maxConc, live.length);
             for (const key of live) {
