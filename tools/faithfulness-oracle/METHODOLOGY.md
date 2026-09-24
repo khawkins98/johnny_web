@@ -130,6 +130,45 @@ Two catalogue entries cannot be isolated: `STAND:14` is a shared setup macro, an
 
 One known scheduler issue remains: removing duplicates before staging a random branch needs a wider concurrency/completion change.
 
+## Test-harness artifact: establishing-shot peak-concurrency inflation
+
+19 gags used to gate at `OVER+1` (our peak concurrency one above the reference).
+17 of those traced to a single test-harness artifact rather than an engine bug:
+many gags open with a one-time `IF_NOT_PLAYED[S,X] -> ADD_SCENE(S,X) + ADD_SCENE(S,Y)`
+"establishing shot" for a location, where `X` (a short location intro) and `Y`
+(the gag's real first actor) are added together, guarded on whether `X` has ever
+played. `driveGag()` (the sanctioned single-gag path used by the whole
+faithfulness suite) always builds a fresh runtime with empty
+`state.playedHistory`, so `X` always fires -- but the original-binary reference
+captures were taken mid-session, after `X` had already played once elsewhere, so
+a real capture never shows the `X`+`Y` overlap. Pre-seeding `playedHistory` with
+`X` to compensate was tried and is unsafe: `X` and `Y`'s `ADD_SCENE`s share the
+same guarded branch, so marking `X` "already played" up front skips the whole
+branch and the gag never runs (verified: this produced "zero live ticks" for 15
+of the 17 gags). Instead, `test/faithfulness-refs/establishing-shot-seeds.mjs`
+lists, per gag, the "sceneIdx:tagId" key(s) to drop from the **fingerprint only**
+(`tools/faithfulness-oracle/fingerprint.mjs`'s `establishingKeys` parameter) --
+the engine itself runs completely unseeded. This is verified behaviorally
+equivalent to a mid-session capture: the established key and the real actor
+co-occur only for a short natural window before the establishing shot finishes
+and drops out on its own (e.g. ACTIVITY:1's `1:12`/`1:13` overlap lasts 5 ticks
+of a 5000-tick run). `test/faithfulness-diff.mjs` looks up each gag's entry in
+that map and passes it through; all 17 listed gags now report `EXACT`.
+
+Two gags were investigated and deliberately left unseeded/`OVER+1` because
+seeding would mask a different, unexplained divergence instead of converging:
+
+- **ACTIVITY:11** -- removing its own establishing guard still leaves peak
+  concurrency one below the reference, and a second, unrelated actor (another
+  tag's own establishing-shot key) is also absent from the reference vocabulary.
+- **JOHNNY:6** -- its peak does not even involve its own establishing shot; the
+  extra actor there has no `IF_NOT_PLAYED` guard anywhere in `JOHNNY.ADS`, so
+  it is not an establishing-shot artifact at all.
+
+Follow-up: JOHNNY:6's divergence and the pre-existing `BUILDING:2` under-shoot
+(a real, traced intra-tick controller-ordering gap between `#runAdsController`
+and `#runTtmController` in `runtime.mjs`, unrelated to this fix) remain open.
+
 ## Random-number behavior
 
 The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port matches 20,000 traced values exactly. An opt-in experiment shares it across confirmed host, walking, ocean, and ADS choices. Ambient animation remains separate because its draw count depends on real-time DOSBox execution. See [rng-port.md](./rng-port.md).

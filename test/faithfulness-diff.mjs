@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { hasData } from '../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { compareLifespans } from '../tools/faithfulness-oracle/compare-lifespans.mjs';
 import { fingerprintOursUnion } from '../tools/faithfulness-oracle/fingerprint.mjs';
+import { establishingShotSeeds } from './faithfulness-refs/establishing-shot-seeds.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const refsDir = path.join(here, 'faithfulness-refs');
@@ -78,7 +79,13 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
             `${entry.name}:${entry.tag}`,
             () => {
                 const runs = ref.runs || 3;
-                const ours = fingerprintOursUnion(ref.name, ref.tag, runs);
+                // TEST-HARNESS-ONLY compensation for the fresh-runtime-per-capture vs.
+                // mid-session-binary-capture establishing-shot asymmetry -- see
+                // establishing-shot-seeds.mjs for the full rationale and the two
+                // gags deliberately left unseeded (would mask other divergences).
+                const seed = establishingShotSeeds[`${ref.name}:${ref.tag}`];
+                const establishingKeys = seed ? new Set(seed.keys) : null;
+                const ours = fingerprintOursUnion(ref.name, ref.tag, runs, establishingKeys);
 
                 // Hard fail: the gag produced nothing at all.
                 expect(
