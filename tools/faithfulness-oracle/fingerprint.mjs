@@ -32,8 +32,30 @@ export const liveKeysFor = (runtime) =>
  * compute its fingerprint: {vocab, maxConc, liveTicks, actorTicks}. `actorTicks`
  * maps "slot:tag" -> the number of ticks it was drawing this run (for the
  * lifespan/duration comparison).
+ *
+ * @param {Set<string>} [establishingKeys] TEST-HARNESS-ONLY, FINGERPRINT-ONLY:
+ *   "sceneIdx:tagId" keys to drop from the fingerprint (vocab/maxConc/actorTicks)
+ *   every tick, WITHOUT changing what the engine actually runs. This compensates
+ *   for a driveGag harness artifact, not an engine bug: many gags open with a
+ *   one-time `IF_NOT_PLAYED[S,X] -> ADD(S,X) + ADD(S,Y)` "establishing shot" for
+ *   a location, where X and the gag's real first actor Y are added together in
+ *   the SAME guarded branch. driveGag always builds a fresh runtime with EMPTY
+ *   `state.playedHistory`, so X always fires -- but the original-binary
+ *   reference fingerprints were captured mid-session, after X had already played
+ *   once elsewhere, so a real capture never shows it. Pre-seeding
+ *   `state.playedHistory` with X directly (tried first) is UNSAFE: X's guard
+ *   also gates Y's own ADD_SCENE in the same branch (confirmed by reading the
+ *   expanded ADS bytecode for e.g. ACTIVITY tag 1), so marking X "already
+ *   played" before tick 1 skips the whole branch and the gag never runs at all
+ *   (zero live ticks). Excluding X only from the fingerprint is behaviorally
+ *   equivalent to "counting started after X's brief natural overlap already
+ *   ended" (verified directly: X and Y co-occur for a short initial window,
+ *   then X drops out and Y continues alone for the rest of the run -- e.g.
+ *   ACTIVITY:1's 1:12/1:13 overlap only ticks 1-5 of a 5000-tick cap) -- without
+ *   touching engine state or requiring X to have actually "played" for real.
+ *   No effect when omitted.
  */
-export const fingerprintOurs = (adsName, tag, seed = 1) => {
+export const fingerprintOurs = (adsName, tag, seed = 1, establishingKeys = null) => {
     const vocab = new Set();
     const actorTicks = {};
     let maxConc = 0;
@@ -43,7 +65,9 @@ export const fingerprintOurs = (adsName, tag, seed = 1) => {
         tag,
         seed,
         onTick: (runtime) => {
-            const live = liveKeysFor(runtime);
+            const live = establishingKeys
+                ? liveKeysFor(runtime).filter((key) => !establishingKeys.has(key))
+                : liveKeysFor(runtime);
             if (live.length > 0) liveTicks++;
             maxConc = Math.max(maxConc, live.length);
             for (const key of live) {
@@ -61,14 +85,17 @@ export const fingerprintOurs = (adsName, tag, seed = 1) => {
  * runs). `vocab` unions; `maxConc` takes the MAX across seeds (worst-case
  * concurrency peak); `liveTicks` sums for visibility only (not gated on);
  * `actorTicks` takes the worst-case (max) drawn-tick count per actor across seeds.
+ *
+ * @param {Set<string>} [establishingKeys] TEST-HARNESS-ONLY, forwarded to
+ *   `fingerprintOurs` for every seed in the union -- see its doc.
  */
-export const fingerprintOursUnion = (adsName, tag, runs) => {
+export const fingerprintOursUnion = (adsName, tag, runs, establishingKeys = null) => {
     const vocab = new Set();
     const actorTicks = {};
     let maxConc = 0;
     let liveTicks = 0;
     for (let seed = 1; seed <= runs; seed++) {
-        const run = fingerprintOurs(adsName, tag, seed);
+        const run = fingerprintOurs(adsName, tag, seed, establishingKeys);
         for (const key of run.vocab) vocab.add(key);
         maxConc = Math.max(maxConc, run.maxConc);
         liveTicks += run.liveTicks;
