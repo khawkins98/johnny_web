@@ -30,7 +30,10 @@ const update = process.argv.includes('--update');
 const scenarioDefinitions = Object.freeze([
     {
         id: 'dive-walk-out',
-        gag: 1,
+        // 2:2 is the dive/walk-out. The original-binary refs show it only in
+        // ACTIVITY:4 (test/faithfulness-refs/ACTIVITY_4.json), never in gag 1,
+        // where our engine used to replay it after F010.
+        gag: 4,
         includes: (layers) => layers.some((layer) => layer[0] === 2 && layer[1] === 2),
     },
     {
