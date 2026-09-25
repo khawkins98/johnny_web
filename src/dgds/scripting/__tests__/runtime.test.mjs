@@ -109,17 +109,42 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.scenes).toEqual([expect.objectContaining({ sceneIdx: 1, tagId: 42 })]);
     });
 
-    it('rejects recursive ADS RUN_SCRIPT chains', () => {
-        expect(() =>
-            createRuntime({
-                type: 'ADS',
-                data: {
-                    name: 'recursive',
-                    resources: [],
-                    scenes: [{ tagId: { id: 1 }, script: [{ opcode: 0xf200, params: [1] }] }],
-                },
-            }),
-        ).toThrow('Recursive ADS RUN_SCRIPT chain');
+    it('a RUN_SCRIPT of the walking tag itself only re-wakes it (0xf200 sets the target flag; nothing recurses)', () => {
+        const ttm = {
+            name: 'INIT.TTM',
+            tags: [{ id: 42, description: 'initializer' }],
+            scenes: [
+                { tagId: 0, script: [] },
+                { tagId: 42, script: [{ opcode: 0x1200, params: [42] }] },
+            ],
+        };
+        const runtime = createRuntime({
+            type: 'ADS',
+            adsSceneTag: 1,
+            singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: {
+                name: 'self-gosub',
+                resources: [{ id: 1, name: 'INIT.TTM' }],
+                scenes: [
+                    {
+                        tagId: { id: 1 },
+                        script: [
+                            { opcode: 0xf200, params: [1] },
+                            { opcode: 0x1330, params: [1, 42] },
+                            { opcode: 0x2005, params: [1, 42, 0, 1] },
+                            { opcode: 0x1510, params: [] },
+                            { opcode: 0xffff, params: [] },
+                        ],
+                    },
+                ],
+            },
+        });
+
+        runtime.tick(20);
+        runtime.tick(20);
+
+        expect(runtime.state.scenes).toEqual([expect.objectContaining({ sceneIdx: 1, tagId: 42 })]);
     });
 
     it('advances only when the host supplies a logical tick', () => {
@@ -223,7 +248,12 @@ describe('DgdsRuntime', () => {
                 scenes: [
                     {
                         tagId: { id: 1, description: 'test scene' },
-                        script: [{ opcode: 0xffff, params: [] }],
+                        // Every shipped tag ends its program with F010 -1; a tag
+                        // without one is never "ended" (FUN_1048_0766) and never completes.
+                        script: [
+                            { opcode: 0xf010, params: [-1] },
+                            { opcode: 0xffff, params: [] },
+                        ],
                     },
                 ],
             },
@@ -248,9 +278,9 @@ describe('DgdsRuntime', () => {
                 name: 'test',
                 resources: [],
                 scenes: [
-                    { tagId: { id: 1, description: 'first' }, script: [{ opcode: 0xffff, params: [] }] },
-                    { tagId: { id: 2, description: 'selected' }, script: [{ opcode: 0xffff, params: [] }] },
-                    { tagId: { id: 3, description: 'third' }, script: [{ opcode: 0xffff, params: [] }] },
+                    { tagId: { id: 1, description: 'first' }, script: [{ opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] }] },
+                    { tagId: { id: 2, description: 'selected' }, script: [{ opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] }] },
+                    { tagId: { id: 3, description: 'third' }, script: [{ opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] }] },
                 ],
             },
         });
@@ -291,6 +321,7 @@ describe('DgdsRuntime', () => {
                             { opcode: 0x2005, params: [1, 1, 0, 1] },
                             { opcode: 0xfff0, params: [] },
                             { opcode: 0x1510, params: [] },
+                            { opcode: 0xf010, params: [-1] },
                             { opcode: 0xffff, params: [] },
                         ],
                     },
@@ -298,16 +329,16 @@ describe('DgdsRuntime', () => {
             },
         });
 
+        // Tick 1: ADD 1:1 then F010 ends the tag's program. The child is live, so
+        // the gag is not complete (FUN_1048_0766 needs every node idle); currentScene
+        // stays on the selected tag until completion.
         expect(runtime.tick(20).completed).toBe(false);
-        // The per-slot re-poll driver keeps interpreting the SELECTED tag every
-        // tick (currentScene stays on it); it does not advance into a stop-at-END
-        // hold. currentScene only jumps to adsSceneEnd on completion.
         expect(runtime.state.currentScene).toBe(0);
         expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
 
-        expect(runtime.tick(20).completed).toBe(false);
-        expect(runtime.tick(20).completed).toBe(false);
-        expect(runtime.tick(20).completed).toBe(true);
+        let completed = false;
+        for (let i = 0; i < 10 && !completed; i++) completed = runtime.tick(20).completed;
+        expect(completed).toBe(true);
         expect(runtime.state.scenes).toEqual([]);
         expect(runtime.state.playedHistory.has('1:1')).toBe(true);
     });
@@ -349,16 +380,16 @@ describe('DgdsRuntime', () => {
         const predecessor = getSceneState(runtime.state, 1, 1, 1, 1);
         predecessor.runState = 'finished';
         predecessor.state.played = true;
+        predecessor.playedPulse = true; // the node pass just set state 4
         runtime.state.scenes.push(predecessor);
 
         const result = runtime.tick(20);
 
         expect(result.presentation.compose).toBe(true);
-        // Under the per-slot re-poll driver IF_PLAYED leaves the finished
-        // predecessor PRESENT (present-as-finished, so a re-poll dedups on it)
-        // rather than removing it, and stages the successor. The predecessor
-        // lingers finished (composeTtmFrame ages it out so it stops drawing);
-        // the successor is added and running.
+        // IF_PLAYED sees the pulse and ADDs the successor. The predecessor's node
+        // is untouched (only STOP clears a node), so it lingers finished
+        // (composeTtmFrame ages it out so it stops drawing); the successor is
+        // added and running.
         const successorScene = runtime.state.scenes.find((scene) => scene.tagId === 2);
         expect(successorScene).toBeDefined();
         expect(isTtmFinished(successorScene)).toBe(false);
@@ -388,6 +419,8 @@ describe('DgdsRuntime', () => {
                             { opcode: 0x1350, params: [1, 1] },
                             { opcode: 0xfff0, params: [] },
                             { opcode: 0x1510, params: [] },
+                            { opcode: 0xf010, params: [-1] },
+                            { opcode: 0xffff, params: [] },
                         ],
                     },
                 ],
@@ -561,11 +594,16 @@ describe('DgdsRuntime', () => {
                 scenes: [
                     {
                         tagId: { id: 1 },
+                        // The corpus shape: a guarded opening ADD (an unconditional
+                        // top-level ADD would re-fire every tick), then the dependent
+                        // block whose body ends the tag.
                         script: [
+                            { opcode: 0x1330, params: [1, 1] },
                             { opcode: 0x2005, params: [1, 1, 1, 1] },
+                            { opcode: 0x1510, params: [] },
                             { opcode: 0x1360, params: [1, 1] },
                             { opcode: 0x2005, params: [1, 2, 1, 1] },
-                            { opcode: 0xfff0, params: [] },
+                            { opcode: 0xf010, params: [-1] },
                             { opcode: 0x1510, params: [] },
                             { opcode: 0xffff, params: [] },
                         ],
@@ -574,17 +612,16 @@ describe('DgdsRuntime', () => {
             },
         });
 
-        // Tick 1: ADD 1:1, then IF_NOT_RUNNING 1:1 -- 1:1 is now running, so the
-        // guard FAILS and the guarded ADD 1:2 is SKIPPED this tick (not parked on
-        // a wait-barrier). Only 1:1 is live.
+        // Tick 1: ADD 1:1 (state 1 at once), then IF_NOT_RUNNING 1:1 is FALSE and
+        // its body is SKIPPED this tick (not parked on a wait-barrier). Only 1:1 is live.
         expect(runtime.tick(20).completed).toBe(false);
         expect(runtime.state.currentScene).toBe(0);
         expect(runtime.state.scenes.map((scene) => scene.tagId)).toEqual([1]);
         expect(runtime.state.scenes.some((scene) => scene.tagId === 2)).toBe(false);
 
-        // The re-poll re-evaluates the guard every tick. Once 1:1 stops running,
-        // the guard passes and 1:2 is added; the gag then drains to completion
-        // (currentScene advances to adsSceneEnd = 1). It must not park forever.
+        // The whole tag is re-walked every tick. Once 1:1 stops running, the guard
+        // passes, 1:2 is added and the F010 ends the tag; the gag then drains to
+        // completion (currentScene advances to adsSceneEnd = 1).
         let completed = false;
         let saw2WhileChildRan = false;
         for (let i = 0; i < 50 && !completed; i++) {

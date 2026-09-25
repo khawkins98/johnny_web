@@ -30,12 +30,23 @@ const TERMINAL_TAGS = {
 const activity = hasData ? loadAds(johnnyCastaway.resources.activity) : null;
 const gagIds = activity ? [...new Set(activity.scenes.map((s) => s.tagId?.id).filter((id) => id != null))] : [];
 const SEEDS = 25;
+// ACTIVITY:1 is an authored re-entry loop (IF_PLAYED 1:14 -> ADD 2:2; IF_PLAYED 2:2 ->
+// ADD 1:13 -> dive -> RANDOM{1:14 w5 | exit w2}): the original-binary capture shows
+// three dives before the exit, and each pass is ~1000 of our ticks, so a geometric
+// tail of seeds legitimately runs past 5000 ticks. 25000 keeps "never completes"
+// detectable without failing the authored loop.
+const MAX_TICKS = 25000;
 
 describe.skipIf(!hasData)('gag terminal-drain seed sweep', () => {
-    it(`every ACTIVITY gag completes for seeds 1..${SEEDS}`, { timeout: 300000 }, () => {
+    it(`every ACTIVITY gag completes for seeds 1..${SEEDS}`, { timeout: 600000 }, () => {
         for (const gag of gagIds) {
             for (let seed = 1; seed <= SEEDS; seed++) {
-                const { completed } = driveGag({ adsName: johnnyCastaway.resources.activity, tag: gag, seed });
+                const { completed } = driveGag({
+                    adsName: johnnyCastaway.resources.activity,
+                    tag: gag,
+                    seed,
+                    maxTicks: MAX_TICKS,
+                });
                 expect(completed, `ACTIVITY gag ${gag} did not complete (seed ${seed})`).toBe(true);
             }
         }

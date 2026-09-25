@@ -4,7 +4,7 @@ import { extractSceneFlow, outlineSceneFlowSteps } from '../scene-flow.mjs';
 // A tiny fake label resolver for synthetic tests: slot:tag -> readable name.
 const label = (slot, tag) => `S${slot}T${tag}`;
 
-// Real ADS ops carry BOTH a numeric `opcode` (what ads-slots.mjs's slot model
+// Real ADS ops carry BOTH a numeric `opcode` (what scene-flow.mjs's outline grouping
 // reads) and a textual `line` (what the guard/body parser reads). The slot
 // classification only works if synthetic ops carry the right opcode, so map the
 // mnemonic to its real opcode here.
@@ -104,7 +104,7 @@ describe('extractSceneFlow', () => {
     it('classifies non-first IF_NOT_PLAYED / IF_RUNNING branches as fall-through arms of the preceding entry ladder', () => {
         // An IF_PLAYED entry followed by an IF_RUNNING arm and an IF_NOT_PLAYED
         // "else" arm — the octopus retry-ladder shape (FISHING:3). Per the
-        // engine's slot model (ads-slots.mjs) the entry is a slot boundary and
+        // outline grouping (scene-flow.mjs buildAdsSlots) the entry is a slot boundary and
         // the two later arms are fall-through continuations of that same slot,
         // NOT independent "at the start" entries.
         const scene = {

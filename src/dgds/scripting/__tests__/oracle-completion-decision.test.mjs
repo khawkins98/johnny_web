@@ -34,6 +34,8 @@ const collectDecisions = ({ adsName, tag, seed }) => {
         adsName,
         tag,
         seed,
+        // ACTIVITY:1's authored re-entry loop can legitimately outrun 5000 ticks.
+        maxTicks: 25000,
         onEvent: (type, data) => {
             if (type === 'ads-completion-decision') decisions.push(data);
         },

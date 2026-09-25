@@ -14,9 +14,9 @@ import { isTtmFinished } from '../ttm-run-state.mjs';
 // finished-present previous instance, so every cycle played exactly once, the
 // chain actors never overlapped the 1:46/1:50/1:51 body, and the peak stayed at 6.
 //
-// Faithful rule (ads-opcodes.mjs handleIfPlayedFinishedBranch + ADD_SCENE): an
-// IF_PLAYED handoff fires ONCE per completion of its guard scene, and an ADD in
-// that edge-fired body restarts a target whose previous instance has finished.
+// Faithful rule (ads-walker.mjs, from SCRANTIC.SCR 1048:13bd and FUN_1048_0db6):
+// IF_PLAYED is the one-tick state-4 pulse a completion leaves for the next walk,
+// and ADD never de-duplicates, so the ADD in that body restarts the finished target.
 describe.skipIf(!hasData)('BUILDING.ADS #2 -- authored IF_PLAYED chains replay until the fade', () => {
     const CHAIN_TAGS = [74, 77, 70, 75, 72, 76, 73, 78];
 

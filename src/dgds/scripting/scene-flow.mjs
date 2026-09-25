@@ -112,8 +112,8 @@ const guardRef = (op, label) => {
  *
  * A branch made up only of terminators (a lone END_IF, or the empty second half
  * of a doubled END_SCENE_BRANCH) carries no work and is dropped — matching
- * ads-slots.mjs's `segmentHasWork`, so the surviving branches align 1:1 with the
- * slot model's work-bearing segments.
+ * buildAdsSlots' `segmentHasWork`, so the surviving branches align 1:1 with the
+ * outline's work-bearing segments.
  * @returns {{ops:Array, start:number}[]}
  */
 const splitBranches = (script) => {
