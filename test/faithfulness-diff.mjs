@@ -81,8 +81,8 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
             `${entry.name}:${entry.tag}`,
             () => {
                 const runs = ref.runs || 3;
-                // TEST-HARNESS-ONLY, fingerprint-only filter (now SUZY:1/2's 3:1, which is
-                // outside the ref's single-slot slice) -- see establishing-shot-seeds.mjs.
+                // TEST-HARNESS-ONLY, fingerprint-only filter. Empty since the refs cover
+                // every slot (#25) -- see establishing-shot-seeds.mjs.
                 const seed = establishingShotSeeds[`${ref.name}:${ref.tag}`];
                 const establishingKeys = seed ? new Set(seed.keys) : null;
                 const ours = fingerprintOursUnion(ref.name, ref.tag, runs, { establishingKeys });
