@@ -28,7 +28,9 @@ const LOADER = '1:42';
 
 describe.skipIf(!hasData)('STAND.ADS pose gags add poses from the original-binary reference vocab', () => {
     for (let tag = 1; tag <= 12; tag++) {
-        it(`STAND:${tag} plays reference poses, never shows the 1:42 loader live, and completes`, () => {
+        // Six full gag drives per tag; explicit timeout like the sibling seed sweeps so
+        // it does not flake past the 5 s default under parallel load.
+        it(`STAND:${tag} plays reference poses, never shows the 1:42 loader live, and completes`, { timeout: 60000 }, () => {
             const ref = JSON.parse(readFileSync(path.join(refsDir, `STAND_${tag}.json`), 'utf8'));
             const refVocab = new Set(ref.vocab);
             expect(refVocab.has(LOADER)).toBe(false);
