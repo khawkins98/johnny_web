@@ -1,25 +1,23 @@
 /**
- * script-runner.mjs — runScript(), plus re-exports of the ADS/TTM opcode
- * layer's public surface so existing importers keep a stable path.
+ * script-runner.mjs — runScript(), the TTM frame interpreter, plus re-exports of
+ * the opcode layer's public surface so existing importers keep a stable path.
  *
- * The opcode callbacks and dispatch tables that used to live in this file
- * were split out by responsibility:
+ * The opcode callbacks and dispatch table that used to live in this file were
+ * split out by responsibility:
  *   - ./scripting-log.mjs      — sceneLog/sceneLabel/debugLog/verboseLog
  *   - ./ttm-opcodes.mjs        — TTM opcode callbacks
- *   - ./ads-opcodes.mjs        — ADS conditional opcode callbacks (IF_*, WHILE_RUNNING, AND/OR)
- *   - ./ads-scene-changes.mjs  — ADS display-list mutation opcodes (ADD/STOP/RANDOM/END*)
- *                                 and applySceneChanges/clearAdsSceneBatch
- *   - ./script-dispatch.mjs    — TTMDispatch / ADSDispatch tables
+ *   - ./script-dispatch.mjs    — TTMDispatch table
+ *   - ./ads-walker.mjs         — the ADS interpreter (not callback-dispatched)
+ *   - ./ads-scene-changes.mjs  — the ADS node table over the child-scene list
  *
  * All opcode callbacks are plain functions of the form (state, ...params).
  * They are kept as plain functions (not class methods) so tests can call them directly.
  */
 import { ExecutionStatus, executionOutcome } from './execution-outcome.mjs';
 import { debugLog, verboseLog, sceneLog, sceneLabel } from './scripting-log.mjs';
-import { applySceneChanges, clearAdsSceneBatch } from './ads-scene-changes.mjs';
-import { TTMDispatch, ADSDispatch } from './script-dispatch.mjs';
+import { TTMDispatch } from './script-dispatch.mjs';
 
-export { debugLog, verboseLog, sceneLog, sceneLabel, applySceneChanges, clearAdsSceneBatch, TTMDispatch, ADSDispatch };
+export { debugLog, verboseLog, sceneLog, sceneLabel, TTMDispatch };
 
 // ---------------------------------------------------------------------------
 // Script runner
@@ -28,7 +26,7 @@ export { debugLog, verboseLog, sceneLog, sceneLabel, applySceneChanges, clearAds
 /**
  * Run a TTM prologue's setup ops (palette, screen, image slots) outside any frame.
  * UPDATE is skipped: the prologue is not a frame of any thread (see
- * applySceneChanges), so it must not produce a frame boundary.
+ * addSceneNode), so it must not produce a frame boundary.
  */
 export const runSetupOps = (state, ops) => {
     for (const c of ops) {
@@ -52,8 +50,7 @@ const completeScript = (state, reason) => {
 
 export const runScript = (state, script) => {
     // NOTE: state.reentry acts as a "program counter" — index into script[] where execution
-    // resumes next frame. Shared at the top level because only one ADS scene runs at a time.
-    // TTM child scenes use their own state objects (each has its own reentry).
+    // resumes next frame. Each TTM child scene has its own state object with its own reentry.
     if (script === undefined || state.reentry === -1) {
         return executionOutcome(ExecutionStatus.COMPLETED, state, { reason: 'no-script' });
     }
@@ -77,20 +74,19 @@ export const runScript = (state, script) => {
         state.reentry = 0;
         state.continue = true;
     }
-    const dispatchTable = state.type === 'ADS' ? ADSDispatch : TTMDispatch;
     for (let i = state.reentry; i < script.length; i++) {
         const c = script[i];
-        const type = dispatchTable.find((ct) => ct.opcode === c.opcode);
+        const type = TTMDispatch.find((ct) => ct.opcode === c.opcode);
         if (!type) {
             continue;
         }
         if (i === script.length - 1) {
             state.lastCommand = true;
         }
-        state.reentryNow = i; // expose current index to callbacks (e.g. IF_NOT_PLAYED jump)
+        state.reentryNow = i; // expose current index to callbacks
         type.callback(state, ...c.params);
         if (state.jumpTo !== undefined) {
-            // Callback requested a forward jump (e.g. IF_NOT_PLAYED skipping a block).
+            // Callback requested a forward jump.
             i = state.jumpTo - 1; // -1 because the loop will i++ before next iteration
             state.reentry = i;
             state.jumpTo = undefined;

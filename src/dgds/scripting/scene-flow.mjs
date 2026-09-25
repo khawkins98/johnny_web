@@ -8,21 +8,83 @@
  * tools/faithfulness-oracle/scene-flow-doc.mjs for the real one, backed by
  * loadAds()); tests can pass any stub.
  *
- * The ADS bytecode this reads from is documented in ads-opcodes.mjs. A
+ * The ADS bytecode this reads from is documented in ads-walker.mjs. A
  * branch (one chunk between END_SCENE_BRANCH markers) is either:
  *   - unconditional (no leading IF): guard = 'always'
  *   - guarded by exactly one IF_* condition
- *   - guarded by a chain of IF_* conditions joined by OR / AND, compiled as
- *     nested IFs (see the FISHING.ADS OR-chain example in ads-opcodes.mjs's
- *     handleIfPlayedFinishedBranch doc comment) — represented here as a
- *     single step whose guard carries all joined conditions plus a
+ *   - guarded by a chain of IF_* conditions joined by OR / AND (e.g. FISHING.ADS
+ *     tag 2's `IF_PLAYED 34 OR 35 OR 30 OR 36 OR 37 -> ADD 39`) — represented
+ *     here as a single step whose guard carries all joined conditions plus a
  *     `combinator`.
  * A RANDOM_START..RANDOM_END block inside a branch's body means the engine
  * picks ONE of the ADD_SCENEs inside it at runtime — surfaced as
  * `random: true` on the step.
  */
 
-import { buildAdsSlots } from './ads-slots.mjs';
+// ---------------------------------------------------------------------------
+// Branch grouping for the flow panel.
+//
+// This is a PRESENTATION heuristic, not the engine's control model: the engine
+// (ads-walker.mjs, transliterated from FUN_1048_1acb) re-walks every top-level
+// block of an active tag on every tick, so no block is an "entry" or a
+// "fall-through arm" at run time. The panel still reads better when a ladder of
+// IF_RUNNING / IF_NOT_PLAYED arms that follows an IF_PLAYED entry (FISHING tag
+// 3's octopus retry ladder) is shown nested under that entry, so the grouping
+// rule below is kept for the outline only.
+// ---------------------------------------------------------------------------
+const END_BRANCH = 0x1510;
+const TERMINATORS = new Set([END_BRANCH, 0xffff, 0xfff0]);
+const GUARD_OPCODES = new Set([0x1330, 0x1350, 0x1360, 0x1370]);
+const IF_PLAYED_OP = 0x1350;
+const IF_NOT_RUNNING_OP = 0x1360;
+const IF_RUNNING_OP = 0x1370;
+
+const segmentHasWork = (script, start, end) => {
+    for (let i = start; i <= end; i++) {
+        if (!TERMINATORS.has(script[i].opcode)) return true;
+    }
+    return false;
+};
+
+const leadingGuard = (script, start, end) => {
+    for (let i = start; i <= end; i++) {
+        if (GUARD_OPCODES.has(script[i].opcode)) return script[i].opcode;
+    }
+    return null;
+};
+
+/**
+ * Group a tag's script into outline "slots": a segment led by an IF_PLAYED, by an
+ * IF_NOT_RUNNING that precedes the tag's first IF_PLAYED/IF_RUNNING, or the tag's
+ * opening segment starts a slot; a segment led by a non-first IF_NOT_PLAYED or
+ * IF_RUNNING is folded into the preceding slot as an arm. Terminator-only
+ * segments (a lone trailing END, the second of a doubled END_SCENE_BRANCH) are
+ * dropped.
+ * @param {{opcode:number, params?:number[]}[]} script
+ * @returns {{ script: object[], slots: {index:number, chunkStart:number, chunkEnd:number}[] }}
+ */
+export const buildAdsSlots = (script) => {
+    const slots = [];
+    let start = 0;
+    let bookmarking = true;
+    let sawFirst = false;
+    for (let i = 0; i < script.length; i++) {
+        if (script[i].opcode !== END_BRANCH) continue;
+        if (segmentHasWork(script, start, i)) {
+            const guard = leadingGuard(script, start, i);
+            const isEntry = !sawFirst || guard === IF_PLAYED_OP || (guard === IF_NOT_RUNNING_OP && bookmarking);
+            if (isEntry || slots.length === 0) {
+                slots.push({ index: slots.length, chunkStart: start, chunkEnd: i });
+            } else {
+                slots[slots.length - 1].chunkEnd = i;
+            }
+            sawFirst = true;
+            if (guard === IF_PLAYED_OP || guard === IF_RUNNING_OP) bookmarking = false;
+        }
+        start = i + 1;
+    }
+    return { script, slots };
+};
 
 const GUARD_KIND_BY_OPCODE_NAME = {
     IF_NOT_PLAYED: 'start',
@@ -169,13 +231,11 @@ export const buildSceneFlowLabelResolver = (ads, loadEntry, cache = new Map()) =
 export const extractSceneFlow = (scene, { label }) => {
     const branches = splitBranches(scene.script);
 
-    // The engine's REAL control model (ads-slots.mjs / the original binary): the
-    // script is split into resumable SLOTS whose ENTRY points are only an
-    // IF_PLAYED, a leading IF_NOT_RUNNING, or the tag's first segment. A non-first
-    // IF_NOT_PLAYED / IF_RUNNING segment is a FALL-THROUGH arm of the preceding
-    // slot's branch ladder, not an independent "at the start" entry. Reuse that
-    // exact boundary logic so the flow model reflects what actually runs — a
-    // branch is an ENTRY iff it begins a slot.
+    // Outline grouping (see buildAdsSlots above): a branch led by an IF_PLAYED, a
+    // leading IF_NOT_RUNNING, or the tag's first segment starts a step; a
+    // non-first IF_NOT_PLAYED / IF_RUNNING branch is shown as an arm of the
+    // preceding step (the octopus retry ladder). This is how the panel reads,
+    // not how the engine runs: every top-level branch is re-walked every tick.
     const { slots } = buildAdsSlots(scene.script);
     const slotStarts = new Set(slots.map((s) => s.chunkStart));
 
