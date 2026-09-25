@@ -15,9 +15,10 @@ import { liveKeysFor } from '../../../../tools/faithfulness-oracle/fingerprint.m
 //
 // The pose loop (`IF_NOT_RUNNING a AND b AND c AND d -> RANDOM{poses}`) is
 // re-walked every tick, so a finished pose is followed by a new pick. The exit is
-// the authored roll inside `IF_RUNNING 1:53 -> RANDOM{STOP 1:53 (w1); 3020 5}`
-// which fires with probability 1/6 on EVERY tick 1:53 runs, then `ADD 1:53;
-// F010`. A seed whose first pick is the stand-still pose (weight 5 of 14) can
+// the authored roll `IF_RUNNING 1:53 -> RANDOM{STOP 1:53 (w1); 3020 5}`, NESTED
+// inside that pose-loop body: it rolls (1/6 to exit) only on a tick where a pick
+// is made and 1:53 is running, then `ADD 1:53; F010`. A seed whose first pick is
+// the stand-still pose (weight 5 of 14) can
 // therefore end after a single pose, or after NO live pose at all when that pose
 // is a single no-delay PURGE frame (MJAMBWLK 1:64 in STAND:12 ends in the tick
 // it is added, purge-verification.md) and the exit roll wins on tick 1. The
@@ -35,15 +36,25 @@ describe.skipIf(!hasData)('STAND.ADS pose gags add poses from the original-binar
             const refVocab = new Set(ref.vocab);
             expect(refVocab.has(LOADER)).toBe(false);
             const vocab = new Set();
+            let mostPosesInOneSeed = 0;
             for (let seed = 1; seed <= 6; seed++) {
+                const seedPoses = new Set();
                 const { completed } = driveGag({
                     adsName: 'STAND.ADS',
                     tag,
                     seed,
-                    onTick: (runtime) => liveKeysFor(runtime).forEach((key) => vocab.add(key)),
+                    onTick: (runtime) =>
+                        liveKeysFor(runtime).forEach((key) => {
+                            vocab.add(key);
+                            seedPoses.add(key);
+                        }),
                 });
                 expect(completed, `STAND:${tag} seed ${seed} completes`).toBe(true);
+                mostPosesInOneSeed = Math.max(mostPosesInOneSeed, seedPoses.size);
             }
+            // The pose loop must actually cycle: some seed plays several distinct poses
+            // (an early exit on one seed is authored, but not on all six).
+            expect(mostPosesInOneSeed, 'some seed cycles through several poses').toBeGreaterThanOrEqual(3);
             expect(vocab.has(LOADER), 'the zero-delay loader is never a live thread').toBe(false);
             // Across the seeds we draw several of the poses the original draws (the
             // refs are 3-run unions, so they may miss an authored pose we hit).
