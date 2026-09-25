@@ -3,6 +3,9 @@
   "adsId": "0x65",
   "tag": 4,
   "slot": "2",
+  "slots": [
+    "2"
+  ],
   "runs": 8,
   "vocab": [
     "2:1",
@@ -13,16 +16,16 @@
   "states": 4,
   "lifespans": {
     "2:1": {
-      "min": 1071,
-      "max": 1080
+      "min": 1070,
+      "max": 1075
     },
     "2:3": {
-      "min": 185,
+      "min": 165,
       "max": 185
     },
     "2:2": {
-      "min": 295,
-      "max": 295
+      "min": 236,
+      "max": 238
     }
   },
   "drainTick": null

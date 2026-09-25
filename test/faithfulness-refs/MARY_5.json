@@ -3,6 +3,9 @@
   "adsId": "0x6a",
   "tag": 5,
   "slot": "6",
+  "slots": [
+    "6"
+  ],
   "runs": 8,
   "vocab": [
     "6:2",
@@ -13,16 +16,16 @@
   "states": 4,
   "lifespans": {
     "6:2": {
-      "min": 1071,
-      "max": 1212
+      "min": 925,
+      "max": 1008
     },
     "6:3": {
-      "min": 1069,
-      "max": 1209
+      "min": 923,
+      "max": 1006
     },
     "6:4": {
-      "min": 168,
-      "max": 252
+      "min": 165,
+      "max": 168
     }
   },
   "drainTick": null

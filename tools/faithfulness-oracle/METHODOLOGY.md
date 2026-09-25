@@ -38,6 +38,43 @@ Required assets:
 - a minimal Windows 3.1 installation
 - a DOSBox-X build with `dosbox-x-oracle.patch` applied
 
+### Where the assets come from
+
+None of these files are committed. Download them from the Internet Archive into `scratchpad/dosbox/` (gitignored):
+
+| Item | File | Used for |
+|---|---|---|
+| [`emularity_win31`](https://archive.org/details/emularity_win31) | [`win31_nonshell.zip`](https://archive.org/download/emularity_win31/win31_nonshell.zip) | drive D: a minimal real Windows 3.1 with `runapp.bat` at its root |
+| [`johnny-castaway-screensaver`](https://archive.org/details/johnny-castaway-screensaver) | [`scrantic-run.zip`](https://archive.org/download/johnny-castaway-screensaver/scrantic-run.zip) | optional reference only. Its `SCRANTIC.SCR` and `RESOURCE.001` are not byte-identical to ours, so drive C uses our `public/data` instead |
+
+Assemble the drives:
+
+```sh
+mkdir -p scratchpad/dosbox/dl scratchpad/dosbox/driveC scratchpad/dosbox/driveD
+curl -L -o scratchpad/dosbox/dl/win31_nonshell.zip \
+  https://archive.org/download/emularity_win31/win31_nonshell.zip
+unzip -q scratchpad/dosbox/dl/win31_nonshell.zip -d scratchpad/dosbox/driveD
+# drive C is OUR data, so the trace describes the same bytes the engine loads
+cp public/data/SCRANTIC.SCR scratchpad/dosbox/driveC/SCRANTIC.SCR
+cp public/data/SCRANTIC.SCR scratchpad/dosbox/driveC/SCRANTIC.EXE
+cp public/data/RESOURCE.001 public/data/RESOURCE.MAP scratchpad/dosbox/driveC/
+```
+
+`win31_nonshell.zip` supplies `runapp.bat`. It restores clean INI files, switches to drive C, and starts Windows with the program named on its command line:
+
+```bat
+@echo off
+path=c:\;d:\windows\;d:\;e:\
+copy d:\iniback\*.* d:\windows\
+c:
+cd \
+d:\windows\win %1 %2 %3 %4 %5 %6 %7 %8 %9
+```
+
+No `SCRANTIC.INI` is needed. With none present, the program uses its defaults.
+
+### Building DOSBox-X
+
 Use DOSBox-X commit `6676eb916c77c95bd235f9bfc9984684403598a4`. The patch is tied to that revision and contains the director injection, actor-thread trace, RNG trace, delay trace, and optional framebuffer capture:
 
 ```sh
@@ -46,14 +83,14 @@ git -C scratchpad/dosbox-x-src checkout 6676eb916c77c95bd235f9bfc9984684403598a4
 git -C scratchpad/dosbox-x-src apply "$PWD/tools/faithfulness-oracle/dosbox-x-oracle.patch"
 cd scratchpad/dosbox-x-src
 ./autogen.sh
-./configure
+./configure --enable-sdl2
 make -C src/cpu
 make -C src dosbox-x
 ```
 
-Platform packages required by `./configure` vary; follow DOSBox-X's build guide if it reports a missing library. A release build is sufficient. Captures must use the normal CPU core because the dynamic core bypasses the hook.
+`--enable-sdl2` is required with Homebrew's SDL2 on macOS. Without it, `configure` fails with "SDL 1.x or SDL 2.x is required" even when SDL2 is installed. A GitHub tarball of the same commit works as well as a clone. Other platform packages vary; follow DOSBox-X's build guide if `configure` reports a missing library. A release build is sufficient. Captures must use the normal CPU core because the dynamic core bypasses the hook.
 
-Create this local layout:
+The resulting layout:
 
 ```text
 scratchpad/dosbox/
@@ -64,10 +101,11 @@ scratchpad/dosbox/
 │   └── RESOURCE.MAP
 └── driveD/
     ├── runapp.bat
-    └── <minimal Windows 3.1 installation>
+    ├── iniback/
+    └── WINDOWS/
 ```
 
-`runapp.bat` must start the named Windows program. The repository's `dbx.conf` is an illustrative template; the capture script writes a per-run configuration with resolved paths.
+The repository's `dbx.conf` is an illustrative template; the capture script writes a per-run configuration with resolved paths.
 
 Example:
 
@@ -83,7 +121,7 @@ The patch identifies Win16 functions by unique, relocation-safe entry bytes rath
 
 For RNG-consumer discovery, run the program normally rather than forcing a gag. Each RNG line includes `caller=CS:IP`; summarize it with `rng-consumer-report.mjs`. The trace cap is 100,000 draws so a timing-heavy intro does not hide the first story window. Raw logs remain local; commit only compact derived evidence such as `rng-consumer-evidence.json`.
 
-For timing-opcode work, also set `DBX_DELAY=/absolute/delay.log`. This records each thread's delay and deadline at the tick hook. Correlate the RNG ordinal/caller in `DBX_TRACE` with the first changed thread field in `DBX_DELAY`; JOHNNY:2 is the compact `0x2020` probe used for the committed evidence.
+For timing-opcode work, also set `DBX_DELAY=/absolute/delay.log`. This records each thread's delay and deadline at the tick hook. Correlate the RNG ordinal/caller in `DBX_TRACE` with the first changed thread field in `DBX_DELAY`; JOHNNY:2 is the compact `0x2020` probe used for the committed evidence. Each `DELAY` line also carries `emu=` (emulated milliseconds, the clock the guest timer runs on) and `host=` (host wall-clock milliseconds), which is how the sample cadence below was measured.
 
 ## From capture to CI
 
@@ -101,6 +139,18 @@ browser engine
 ```
 
 A reference contains the union of several captures. It is a practical coverage sample, not a frame-perfect recording. The original program's intro and ambient animation consume random numbers according to wall-clock timing, so two otherwise identical captures can enter a gag at different points in the random stream.
+
+### Slots
+
+A reference covers every slot the gag runs, listed in its `slots` field. `slot` is the busiest one and is kept only for information. The trace's slot number is directly comparable with our `sceneIdx`, with no remapping:
+
+- The THREADS hook walks only the current ADS context's thread list, and a forced capture loads exactly one ADS. Every node therefore belongs to the gag's ADS. The list is preallocated per ADS; for FISHING it holds nodes for slots 1-4 even when tag 1 only runs slot 1.
+- The binary finds a node by the ADD op's own `(slot, tag)` arguments (`FUN_1048_0bf4` compares node `+0` and `+2`). So node `+0` is the ADS RES id, which is our `sceneIdx`.
+- The load-order-dependent index is the TTM's position in the global table, returned by `FUN_1050_0177` from `FUN_1048_0044`. It is never stored in a node.
+
+Before #25, references were sliced to the busiest slot, so actors on other slots could never appear. For example, ACTIVITY:1 reaches `ADD 2 2`. `gen-refs.mjs --dominant-slot` reproduces the old behaviour.
+
+The all-slot catalogue was captured with 8 runs per gag. BUILDING:7, FISHING:1, FISHING:2 and FISHING:7 use 16, because 8 runs missed random branches the older references had sampled. JOHNNY:4 and JOHNNY:5 use 7 because one capture each failed to arm. Each reference's `runs` field records its count. Exactly the eight gags whose tags ADD on more than one slot gained other-slot actors: ACTIVITY:1 and ACTIVITY:9, FISHING:3 and FISHING:5, JOHNNY:1 and JOHNNY:6, and SUZY:1 and SUZY:2.
 
 ## Running and updating the checks
 
@@ -140,22 +190,49 @@ One known scheduler issue remains: removing duplicates before staging a random b
 `IF_NOT_PLAYED[S,X] -> ADD_SCENE(S,X) + ADD_SCENE(S,Y)`. The explanation was that the
 references were captured mid-session, after `X` had already played, so
 `test/faithfulness-refs/establishing-shot-seeds.mjs` dropped `X` from our fingerprint
-(fingerprint only; the engine was never seeded). That explanation was wrong for all but
-two gags. Every filtered `X` outside SUZY is a one-frame, zero-delay PURGE loader, and
+(fingerprint only; the engine was never seeded). That explanation was wrong. Every filtered `X` outside SUZY is a one-frame, zero-delay PURGE loader, and
 the original ends those in the tick they are added (see "PURGE ends the sequence"
 above). With that engine fix, the filter changes no fingerprint in any of the 64 gags
 (vocab, peak concurrency and per-actor ticks are all identical), so those entries were
 removed. The same bug produced the two gags that had been left at `OVER+1`, `JOHNNY:6`
 (`3:9`) and `ACTIVITY:11` (`5:20`, `5:42`).
 
-The map now keeps only `SUZY:1`/`SUZY:2`'s `3:1` (MEANWHIL, a 49-frame drawing
-animation). Each SUZY reference is sliced to one TTM slot (1 or 2), and `3:1` is on
-slot 3, so a reference cannot contain it.
+The last entries were `SUZY:1`/`SUZY:2`'s `3:1` (MEANWHIL, a 49-frame drawing
+animation), kept only because references used to be sliced to one TTM slot and `3:1` is
+on slot 3. The all-slot references (#25) contain `3:1` at peak concurrency 2, so the map
+is now empty. The mid-session explanation was wrong for SUZY too. A forced capture
+reloads the ADS, which resets its nodes, so the `IF_NOT_PLAYED` guard is open on every
+loop. The same slicing produced the review-only extras on `ACTIVITY:1` (`2:2`),
+`ACTIVITY:9`, `FISHING:3`, `FISHING:5`, `JOHNNY:1` and `JOHNNY:6` (`4:1`); all of them
+now match.
+
+## Trace sample cadence (#26)
+
+One `THREADS`/`DELAY` sample is one call of the ADS tick function `FUN_1048_1acb`. It was
+measured on two forced FISHING:1 captures with `DBX_DELAY`, using the `emu=`/`host=` fields
+and the game clock `now` (`DAT_1068_2e72/2e74`). One capture ran alone (1,494 samples). The
+other ran alongside eight other captures, the load of a catalogue regeneration (1,416 samples).
+
+- **Game clock:** one `now` unit is exactly 16.0 ms of emulated time (15.996 under load).
+- **Sample cadence:** the median sample interval is 54 ms in both runs, which is one 18.2 Hz
+  PC timer tick (54.9 ms), the resolution of Windows 3.1's timer. The mean is 57 ms alone
+  and 58 ms under load, because some intervals are skipped. `now` advances 3 units at the
+  median (48 ms, quantized) and 3.56 to 3.65 on average. Emulated and host time agree to
+  within 3%, so `cycles=max` kept real time.
+- **TTM holds:** the per-thread delay field (`+0x29`) is in `now` units, and a hold is
+  rounded up to whole samples. `delay=7` (112 ms) lasts 2 to 3 samples (mean 124 ms);
+  `delay=8` lasts 3 samples (164 ms); `delay=12` lasts 4; `delay=16` lasts 5; `delay=209`
+  lasts 209 units (3347 ms) over 61 samples.
+
+So a reference lifespan of N samples is about N x 57 ms, and our `actorTicks` count 20 ms
+engine ticks. For the same duration, ours reads about 2.85x the reference value. The
+earlier "about 16 ms per sample" estimate was the `now` unit, not the sample. The
+"about 50 ms" estimate was close. The lifespan comparison stays warn-only until the gate
+applies this factor.
 
 Open follow-ups:
 
-- **Slot slicing.** References are sliced to the gag's main TTM slot (`gen-refs.mjs`), but our fingerprint counts every slot. The remaining SUZY filter entries and review-only extras such as `JOHNNY:6`'s `4:1` come from this. Slicing ours the same way would be the principled replacement for the seed map.
-- **Lifespan sample cadence.** Reference lifespans count tick-function samples, about one per 50 ms WM_TIMER (`SUZY:1`'s `1:1`, SET_DELAY 10 = 200 ms, lives 4 samples). `actorTicks` on ours counts 20 ms engine ticks, so our lifespans read about 2.5x long. After that scaling, `ACTIVITY:11`'s `5:23`/`5:24`/`5:36` now fall inside the reference ranges.
+- **Lifespan units.** Scale reference lifespans by the measured cadence above (about 2.85x) before promoting the lifespan check beyond warn-only.
 
 ## Random-number behavior
 

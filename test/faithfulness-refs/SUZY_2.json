@@ -3,31 +3,40 @@
   "adsId": "0x6d",
   "tag": 2,
   "slot": "2",
+  "slots": [
+    "2",
+    "3"
+  ],
   "runs": 8,
   "vocab": [
     "2:3",
     "2:4",
     "2:6",
-    "2:7"
+    "2:7",
+    "3:1"
   ],
-  "maxConc": 1,
-  "states": 5,
+  "maxConc": 2,
+  "states": 6,
   "lifespans": {
     "2:6": {
-      "min": 4,
+      "min": 3,
       "max": 4
     },
+    "3:1": {
+      "min": 144,
+      "max": 162
+    },
     "2:7": {
-      "min": 866,
-      "max": 964
+      "min": 723,
+      "max": 723
     },
     "2:3": {
       "min": 57,
-      "max": 76
+      "max": 59
     },
     "2:4": {
-      "min": 385,
-      "max": 467
+      "min": 372,
+      "max": 395
     }
   },
   "drainTick": null

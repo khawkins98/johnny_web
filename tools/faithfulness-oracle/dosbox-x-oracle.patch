@@ -1,16 +1,16 @@
 diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
-index 26d9f49..dea2978 100644
 --- a/src/cpu/core_normal.cpp
 +++ b/src/cpu/core_normal.cpp
-@@ -16,6 +16,7 @@
+@@ -16,6 +16,8 @@
   *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   */
  
 +#include <cstdlib> /* getenv - oracle trace */
++#include <chrono> /* steady_clock - oracle DBX_DELAY cadence */
  #include "cpu.h"
  #include "lazyflags.h"
  #include "callback.h"
-@@ -157,6 +158,20 @@ static INLINE uint32_t Fetchd() {
+@@ -157,6 +159,20 @@
  
  #define EALookupTable (core.ea_table)
  
@@ -31,7 +31,7 @@ index 26d9f49..dea2978 100644
  Bits CPU_Core_Normal_Run(void) {
  	if (CPU_Cycles <= 0)
  		return CBRET_NONE;
-@@ -171,6 +186,303 @@ Bits CPU_Core_Normal_Run(void) {
+@@ -171,6 +187,309 @@
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -277,7 +277,13 @@ index 26d9f49..dea2978 100644
 +							int16_t idx = (int16_t)mem_readw(dsb + 0x2608u); /* DAT_1068_2608 */
 +							uint16_t nowLo = mem_readw(dsb + 0x2e72u); /* DAT_1068_2e72 */
 +							uint16_t nowHi = mem_readw(dsb + 0x2e74u); /* DAT_1068_2e74 */
-+							fprintf(dbx_delay_fp, "DELAY %llu now=%u:%u |", dbx_delay_tick, (unsigned)nowLo, (unsigned)nowHi);
++							/* emu = emulated ms since power-on (PIC_FullIndex): the clock the
++							 * guest PIT, and so GetTickCount, runs on. host = host wall ms.
++							 * Both exist to measure the per-sample cadence. */
++							const double dbx_host_ms = std::chrono::duration<double, std::milli>(
++								std::chrono::steady_clock::now().time_since_epoch()).count();
++							fprintf(dbx_delay_fp, "DELAY %llu now=%u:%u emu=%.3f host=%.3f |", dbx_delay_tick,
++								(unsigned)nowLo, (unsigned)nowHi, (double)PIC_FullIndex(), dbx_host_ms);
 +							if (idx >= 0) {
 +								uint16_t ctxoff = mem_readw(dsb + (uint16_t)(idx * 4 + 0x460e));
 +								uint16_t ctxseg = mem_readw(dsb + (uint16_t)(idx * 4 + 0x4610));
@@ -336,13 +342,13 @@ index 26d9f49..dea2978 100644
  #if C_HEAVY_DEBUG
  		if (DEBUG_HeavyIsBreakpoint()) {
 diff --git a/src/hardware/vga_draw.cpp b/src/hardware/vga_draw.cpp
-index b8335f6..e24e72d 100644
 --- a/src/hardware/vga_draw.cpp
 +++ b/src/hardware/vga_draw.cpp
-@@ -195,6 +195,55 @@ void rawscreenshot::allocpalette2(unsigned int count) {
+@@ -194,6 +194,55 @@
+ }
  
  static rawscreenshot rawshot; // raw image data, translated palette
- 
++
 +/* --- BEGIN framebuffer oracle (rendering faithfulness) ---
 + * Dumps the EMULATED VGA framebuffer as a scene-labeled PPM by reusing the
 + * built-in raw-screenshot capture (VGA_DrawRawLine reads VGA memory directly +
@@ -391,11 +397,10 @@ index b8335f6..e24e72d 100644
 +	dbx_fb_shot_ctr++;
 +}
 +/* --- END framebuffer oracle --- */
-+
+ 
  struct debugline_event {
  	unsigned int	colorline = 0;
- 	int		event = -1;
-@@ -5960,6 +6009,15 @@ void WriteARawImage(rawscreenshot &rawimg,rawscreenshot &rawpal,const char *ext)
+@@ -5960,6 +6009,15 @@
  #endif
  
  void WriteRawImage(void) {
@@ -411,7 +416,7 @@ index b8335f6..e24e72d 100644
  #if !defined(C_EMSCRIPTEN)
  #if (C_SSHOT)
  	if (rawshot.image != NULL && rawshot.image_palette != NULL && rawshot.image_palette_size > 0)
-@@ -6012,6 +6070,20 @@ static void VGA_VerticalTimer(Bitu /*val*/) {
+@@ -6012,6 +6070,20 @@
  	}
  
  	is_vga_rendering_on_demand = vga_render_on_demand;
