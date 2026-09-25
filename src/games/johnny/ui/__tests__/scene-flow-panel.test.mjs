@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { setupSceneFlowPanel } from '../scene-flow-panel.mjs';
 
 // Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses. Real
-// ADS ops carry a numeric `opcode` (which the slot model in ads-slots.mjs reads
+// ADS ops carry a numeric `opcode` (which the outline grouping in scene-flow.mjs reads
 // to tell entry branches from fall-through arms), so map the mnemonic to it.
 const OPCODES = {
     IF_NOT_PLAYED: 0x1330,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RANDOM_END } from '../../../dgds/scripting/ads-scene-changes.mjs';
+import { createAdsProgram, resetAdsProgram, stepAdsProgram } from '../../../dgds/scripting/ads-walker.mjs';
 import { createFaithfulRng } from '../../../dgds/scripting/faithful-rng.mjs';
 import { SET_TIMER } from '../../../dgds/scripting/ttm-opcodes.mjs';
 import { createJohnnyStoryController } from '../story-controller.mjs';
@@ -31,18 +31,34 @@ describe('Johnny shared authored RNG', () => {
         const beforeTimer = draws.length;
         SET_TIMER({ storyRandom: source }, 60, 180);
         const beforeAds = draws.length;
-        RANDOM_END({
-            randomize: true,
-            random: () => { throw new Error('fallback random used'); },
-            faithfulPick: source.pick,
-            scenesRandom: [
-                { sceneIdx: 1, tagId: 1, proportion: 1 },
-                { sceneIdx: 2, tagId: 2, proportion: 1 },
+        // One ADS RANDOM block (0x3010 .. 0x30ff) with two weight-1 branches.
+        const program = createAdsProgram({
+            scenes: [
+                {
+                    tagId: { id: 1 },
+                    script: [
+                        { opcode: 0x3010, params: [] },
+                        { opcode: 0x2005, params: [1, 1, 0, 1] },
+                        { opcode: 0x2005, params: [2, 2, 0, 1] },
+                        { opcode: 0x30ff, params: [] },
+                        { opcode: 0xffff, params: [] },
+                    ],
+                },
             ],
-            scenes: [],
-            removeScenes: [],
-            addScenes: [],
         });
+        resetAdsProgram(program, 0);
+        stepAdsProgram(
+            {
+                random: () => { throw new Error('fallback random used'); },
+                faithfulPick: source.pick,
+                scenes: [],
+                adsAdded: new Set(),
+                scenesRes: { 1: { scenes: [{ tagId: 1, script: [] }] }, 2: { scenes: [{ tagId: 2, script: [] }] } },
+                surfaceFactory: () => ({}),
+                ttmSequenceOrder: [],
+            },
+            program,
+        );
 
         expect(draws[beforeWalk]).toMatchObject({ ordinal: beforeWalk, site: 'walk-route-segment' });
         expect(draws[beforeTimer]).toMatchObject({ ordinal: beforeTimer, site: 'ttm-random-delay' });

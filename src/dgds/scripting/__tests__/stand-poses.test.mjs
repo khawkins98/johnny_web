@@ -5,36 +5,39 @@ import { describe, expect, it } from 'vitest';
 import { driveGag, hasData } from './support/drive-gag.mjs';
 import { liveKeysFor } from '../../../../tools/faithfulness-oracle/fingerprint.mjs';
 
-// STAND.ADS gags 1-12 each open with `RUN_SCRIPT 14` ("STAND INIT"), which inlines
-// tag 14's `IF_NOT_PLAYED 1 42 -> ADD 1 42`, END_SCENE_BRANCH, then its trailing
-// `FADE_OUT -1`. After expansion that F010 is the FIRST opcode of the pose chunk
-// (`FADE_OUT; IF_NOT_RUNNING ... -> RANDOM ADD pose`).
+// STAND.ADS gags 1-12 each open with `RUN_SCRIPT 14` ("STAND INIT"). In the
+// original (0xf200 handler 1048:16c2) that only sets tag 14's flag to 4; tag 14
+// is walked in the same tick (it follows tags 1-12 in file order), ADDs the 1:42
+// asset loader once, and its own top-level `FADE_OUT -1` ends ONLY tag 14 (F010
+// handler 1048:1669 sets the flag of the tag being walked). Tags 1-12 keep being
+// walked and re-wake tag 14 every tick, which is a no-op after the first ADD
+// because IF_NOT_PLAYED reads the node's "ever ADDed" counter.
 //
-// The Johnny browser host always runs gags with `hostManagedTransitions: true`
-// (browser-presentation.mjs passes `Boolean(selectScene)`, and the Johnny app
-// always supplies selectScene), under which F010 is a non-blocking end-of-segment
-// marker, so the walk reaches the pose guard and a pose plays. driveGag used to
-// omit that flag, so F010 took the non-Johnny alpha-fade path, which parks the
-// pass on the F010 before the pose guard: every STAND pose gag ran only the
-// never-drawing 1:42 loader and finished in 6 ticks, while the original-binary
-// refs (test/faithfulness-refs/STAND_*.json) show poses drawn. This pins driveGag
-// to the real app path and the poses to the ref vocab.
-
+// The pose loop (`IF_NOT_RUNNING a AND b AND c AND d -> RANDOM{poses}`) is
+// re-walked every tick, so a finished pose is followed by a new pick. The exit is
+// the authored roll `IF_RUNNING 1:53 -> RANDOM{STOP 1:53 (w1); 3020 5}`, NESTED
+// inside that pose-loop body: it rolls (1/6 to exit) only on a tick where a pick
+// is made and 1:53 is running, then `ADD 1:53; F010`. A seed whose first pick is
+// the stand-still pose (weight 5 of 14) can
+// therefore end after a single pose, or after NO live pose at all when that pose
+// is a single no-delay PURGE frame (MJAMBWLK 1:64 in STAND:12 ends in the tick
+// it is added, purge-verification.md) and the exit roll wins on tick 1. The
+// original-binary refs (test/faithfulness-refs/STAND_*.json) are 3-run unions and
+// show 3-5 poses, never the 1:42 loader (also a zero-delay PURGE loader).
 const refsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../test/faithfulness-refs');
-const LOADER = '1:42'; // STAND INIT: loads MJAMBWLK assets, never draws
+const LOADER = '1:42';
 
-describe.skipIf(!hasData)('STAND.ADS pose gags add a pose scene (real-app transition path)', () => {
+describe.skipIf(!hasData)('STAND.ADS pose gags add poses from the original-binary reference vocab', () => {
     for (let tag = 1; tag <= 12; tag++) {
-        it(`STAND:${tag} draws a pose from the original-binary reference vocab`, () => {
+        // Six full gag drives per tag; explicit timeout like the sibling seed sweeps so
+        // it does not flake past the 5 s default under parallel load.
+        it(`STAND:${tag} plays reference poses, never shows the 1:42 loader live, and completes`, { timeout: 60000 }, () => {
             const ref = JSON.parse(readFileSync(path.join(refsDir, `STAND_${tag}.json`), 'utf8'));
             const refVocab = new Set(ref.vocab);
+            expect(refVocab.has(LOADER)).toBe(false);
             const vocab = new Set();
-            // The refs show several poses per run, so each seed must CYCLE through at
-            // least two distinct poses, not stop after one. This depends on the pose
-            // chunk re-polling while parked on its leading F010 after
-            // adsSegmentEnded (ads-slots.mjs stepAdsSlots); guard that here.
-            const refPoseCount = ref.vocab.filter((key) => key !== LOADER).length;
-            for (let seed = 1; seed <= 3; seed++) {
+            let mostPosesInOneSeed = 0;
+            for (let seed = 1; seed <= 6; seed++) {
                 const seedPoses = new Set();
                 const { completed } = driveGag({
                     adsName: 'STAND.ADS',
@@ -43,17 +46,20 @@ describe.skipIf(!hasData)('STAND.ADS pose gags add a pose scene (real-app transi
                     onTick: (runtime) =>
                         liveKeysFor(runtime).forEach((key) => {
                             vocab.add(key);
-                            if (key !== LOADER) seedPoses.add(key);
+                            seedPoses.add(key);
                         }),
                 });
                 expect(completed, `STAND:${tag} seed ${seed} completes`).toBe(true);
-                expect(seedPoses.size, `STAND:${tag} seed ${seed} cycles poses`).toBeGreaterThanOrEqual(
-                    Math.min(2, refPoseCount),
-                );
+                mostPosesInOneSeed = Math.max(mostPosesInOneSeed, seedPoses.size);
             }
-            const poses = [...vocab].filter((key) => key !== LOADER);
-            // At least one pose actually played, and it is one the original draws.
-            expect(poses.filter((key) => refVocab.has(key)).length).toBeGreaterThan(0);
+            // The pose loop must actually cycle: some seed plays several distinct poses
+            // (an early exit on one seed is authored, but not on all six).
+            expect(mostPosesInOneSeed, 'some seed cycles through several poses').toBeGreaterThanOrEqual(3);
+            expect(vocab.has(LOADER), 'the zero-delay loader is never a live thread').toBe(false);
+            // Across the seeds we draw several of the poses the original draws (the
+            // refs are 3-run unions, so they may miss an authored pose we hit).
+            const poses = [...vocab];
+            expect(poses.filter((key) => refVocab.has(key)).length).toBeGreaterThanOrEqual(2);
         });
     }
 });

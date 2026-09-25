@@ -47,31 +47,17 @@ const initialState = {
     clip: { x: 0, y: 0, width: 640, height: 480 },
 };
 
-/** True when the selected ADS program explicitly re-adds a sequence when it finishes. */
-export const isSelfRearmingSequence = (state, sceneIdx, tagId) => {
-    const script = state.activeAdsScript || state.data?.scenes?.[state.currentScene]?.script || [];
-    for (let index = 0; index < script.length; index++) {
-        const command = script[index];
-        if (command.opcode !== 0x1350 || command.params?.[0] !== sceneIdx || command.params?.[1] !== tagId) {
-            continue;
-        }
-        let depth = 1;
-        for (let body = index + 1; body < script.length && depth > 0; body++) {
-            const nested = script[body];
-            if ([0x1330, 0x1350, 0x1360, 0x1370].includes(nested.opcode)) depth++;
-            if (nested.opcode === 0xfff0) depth--;
-            if (
-                depth > 0 &&
-                nested.opcode === 0x2005 &&
-                nested.params?.[0] === sceneIdx &&
-                nested.params?.[1] === tagId
-            ) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
+/**
+ * ADS ADD's third argument (FUN_1048_0db6): 0 -> run once (state 1); >0 -> run
+ * that many times (state 2, count = arg-1 further passes); <0 -> loop until the
+ * timer of -arg DGDS ticks expires (state 3). The runtime stores only the
+ * additional passes remaining after the first execution.
+ */
+export const runCountToRunMode = (runCount) => ({
+    retries: runCount > 0 ? runCount - 1 : 0,
+    timeLimitTicks: runCount < 0 ? -runCount : null,
+    runMode: runCount < 0 ? TtmRunMode.TIME_LIMITED : runCount > 1 ? TtmRunMode.COUNTED : TtmRunMode.ONCE,
+});
 
 /**
  * Construct the explicit host/resource contract visible to a TTM interpreter.
@@ -182,25 +168,11 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
     }
     const sequenceOrder = ttm.scenes.findIndex((s) => s.tagId === tagId);
     const scene = ttm.scenes[sequenceOrder];
-    // ADS positive run counts include the initial pass. The runtime stores only
-    // the number of additional passes remaining after that first execution.
-    const retries = runCount > 0 ? runCount - 1 : 0;
-    // ADS negative run counts are lifetimes, in DGDS timer ticks, for TTM
-    // sequences that can otherwise GOTO-loop forever. They are not frame delays.
-    const timeLimitTicks = runCount < 0 ? -runCount : null;
-    const runMode =
-        runCount < 0
-            ? TtmRunMode.TIME_LIMITED
-            : runCount > 1
-              ? TtmRunMode.COUNTED
-              : TtmRunMode.ONCE;
 
     const s = Object.assign(
         {
             sceneIdx,
-            retries,
-            timeLimitTicks,
-            runMode,
+            ...runCountToRunMode(runCount),
             proportion,
             runState: TtmRunState.STARTING,
             sequenceKey: sequenceKey(sceneIdx, tagId),

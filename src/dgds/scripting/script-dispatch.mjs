@@ -1,8 +1,9 @@
 /**
- * script-dispatch.mjs — TTMDispatch / ADSDispatch opcode dispatch tables.
+ * script-dispatch.mjs — TTMDispatch opcode dispatch table.
  *
- * Split out of script-runner.mjs. runScript() (in script-runner.mjs) selects
- * one of these tables based on state.type and looks up each opcode's callback.
+ * Split out of script-runner.mjs. runScript() (in script-runner.mjs) looks each
+ * TTM opcode up here. ADS opcodes are not table-dispatched callbacks: the ADS
+ * interpreter is ads-walker.mjs, a transliteration of the original's tick driver.
  */
 import {
     SAVE_BACKGROUND,
@@ -45,21 +46,6 @@ import {
     LOAD_IMAGE,
     LOAD_PALETTE,
 } from './ttm-opcodes.mjs';
-import { WHILE_RUNNING, IF_NOT_PLAYED, IF_PLAYED, IF_NOT_RUNNING, IF_RUNNING, AND, OR } from './ads-opcodes.mjs';
-import {
-    END_SCENE_BRANCH,
-    END_WHILE,
-    ADD_SCENE,
-    STOP_SCENE,
-    RANDOM_START,
-    RANDOM_UNKNOWN_0,
-    RANDOM_END,
-    MOVE_SEQUENCE_TO_BACK,
-    ADS_FADE_OUT,
-    RUN_SCRIPT,
-    END,
-    END_IF,
-} from './ads-scene-changes.mjs';
 
 export const TTMDispatch = [
     { opcode: 0x0020, callback: SAVE_BACKGROUND },
@@ -101,30 +87,4 @@ export const TTMDispatch = [
     { opcode: 0xf010, callback: LOAD_SCREEN },
     { opcode: 0xf020, callback: LOAD_IMAGE },
     { opcode: 0xf050, callback: LOAD_PALETTE },
-];
-
-// ADS-only opcodes. Kept separate from TTMDispatch so that opcodes sharing hex values
-// with TTM entries (0x2010 STOP_SCENE, 0x4000 MOVE_SEQUENCE_TO_BACK, 0xf010 ADS_FADE_OUT) are
-// reachable. runScript() selects the correct table based on state.type.
-export const ADSDispatch = [
-    { opcode: 0x1070, callback: WHILE_RUNNING },
-    { opcode: 0x1330, callback: IF_NOT_PLAYED },
-    { opcode: 0x1350, callback: IF_PLAYED },
-    { opcode: 0x1360, callback: IF_NOT_RUNNING },
-    { opcode: 0x1370, callback: IF_RUNNING },
-    { opcode: 0x1420, callback: AND },
-    { opcode: 0x1430, callback: OR },
-    { opcode: 0x1510, callback: END_SCENE_BRANCH },
-    { opcode: 0x1520, callback: END_WHILE },
-    { opcode: 0x2005, callback: ADD_SCENE },
-    { opcode: 0x2010, callback: STOP_SCENE },
-    { opcode: 0x3010, callback: RANDOM_START },
-    { opcode: 0x3020, callback: RANDOM_UNKNOWN_0 },
-    { opcode: 0x30ff, callback: RANDOM_END },
-    { opcode: 0x4000, callback: MOVE_SEQUENCE_TO_BACK },
-    { opcode: 0xf010, callback: ADS_FADE_OUT },
-    { opcode: 0xf200, callback: RUN_SCRIPT },
-    { opcode: 0xffff, callback: END },
-    // CUSTOM: Added for text script
-    { opcode: 0xfff0, callback: END_IF },
 ];

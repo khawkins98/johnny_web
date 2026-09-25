@@ -56,11 +56,10 @@ export const loadAds = (adsName) => archive().loadEntry(adsName);
  * @param {number} [o.maxTicks] tick cap (default 5000).
  * @param {boolean} [o.hostManagedTransitions] default true, matching the Johnny
  *   browser host (browser-presentation.mjs passes `Boolean(selectScene)`, always
- *   true for the Johnny app). Under it ADS F010 FADE_OUT is a non-blocking
- *   end-of-segment marker; without it F010 takes the generic-DGDS alpha-fade path,
- *   which blocks the pass and, e.g., strands every STAND pose chunk that follows an
- *   inlined `RUN_SCRIPT 14` (its trailing FADE_OUT). Pass false only to probe the
- *   non-Johnny path.
+ *   true for the Johnny app). F010 ends only the tag being walked either way
+ *   (ads-walker.mjs, handler 1048:1669); without host-managed transitions the
+ *   generic-DGDS path additionally drives a cosmetic alpha fade. Pass false only to
+ *   probe the non-Johnny path.
  * @param {(runtime, result, tick) => void} [o.onTick] per-tick observer.
  * @param {(type: string, data: object) => void} [o.onEvent] observer for canonical
  *   trace events (attaches an inert recorder to state.trace); use this to consume
