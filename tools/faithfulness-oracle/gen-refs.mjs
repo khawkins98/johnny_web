@@ -14,19 +14,20 @@
  *
  * Usage:
  *   node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs \
- *       [--runs 3] [--conc 4] [--secs 90]
+ *       [--runs 3] [--conc 4] [--secs 90] [--dominant-slot]
  *
  * Per gag:
  *   1. Run capture-original-gag.mjs N times into <out>/.work/<NAME>_<tag>_r<i>/
  *      (concurrency-limited across the WHOLE batch, not just per gag).
- *   2. Resolve the gag's TTM slot from the N (unfiltered) timeline.jsonl files
- *      capture-original-gag.mjs already produces: pick the slot with the most
- *      "slot:tag" live-entries summed over all N runs (the isolated gag's own
- *      actors dominate; stray/system slots are a small minority).
- *   3. Re-slice each run's threads.log to that slot (threads-to-timeline.mjs
- *      --slot) and union all N sliced timelines with build-vocab.mjs.
+ *   2. From the N unfiltered timeline.jsonl files, record every slot seen
+ *      (`slots`) and the dominant one (`slot`, most live entries; informational).
+ *   3. Union all N timelines with build-vocab.mjs across ALL slots. A slot is an
+ *      ADS RES id (the ADD op's first argument), the same number as our
+ *      sceneIdx, so no remapping is needed; see the comment at step 3 below.
+ *      `--dominant-slot` restores the old behaviour (slice to `slot` only),
+ *      which hid actors the gag runs on other slots (e.g. ACTIVITY:1's 2:2).
  *   4. Write test/faithfulness-refs/<NAME>_<tag>.json:
- *      { name, adsId, tag, slot, runs, vocab, maxConc, states, drainTick }
+ *      { name, adsId, tag, slot, slots, runs, vocab, maxConc, states, lifespans, drainTick }
  *
  * Also writes/updates test/faithfulness-refs/index.json listing every ref.
  *
@@ -58,9 +59,10 @@ const outDir = path.resolve(repoRoot, flag('--out', 'test/faithfulness-refs'));
 const runs = Number(flag('--runs', '3'));
 const conc = Number(flag('--conc', '4'));
 const secs = Number(flag('--secs', '90'));
+const dominantSlotOnly = argv.includes('--dominant-slot');
 
 if (!gagsRaw) {
-    console.error('usage: node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs [--runs 3] [--conc 4] [--secs 90]');
+    console.error('usage: node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs [--runs 3] [--conc 4] [--secs 90] [--dominant-slot]');
     process.exit(2);
 }
 
@@ -155,11 +157,23 @@ for (const g of gags) {
         continue;
     }
     const slot = [...slotCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const slots = [...slotCounts.keys()].sort((a, b) => Number(a) - Number(b));
 
-    // re-slice each run's threads.log to the resolved slot
+    // Default: keep EVERY slot. The DBX_THREADS walk visits only the current ADS
+    // context's node list, and each node is keyed by its ADD op's own (slot, tag)
+    // arguments (FUN_1048_0bf4 matches node+0/+2 against them). So node+0 is the
+    // ADS RES id, which is our sceneIdx, and every node belongs to the injected
+    // gag's ADS. There are no system or ambient nodes to exclude. The global TTM
+    // table index (FUN_1050_0177's return value, which depends on load order) is
+    // never stored in a node. `--dominant-slot` restores the old one-slot slice.
+    const keepSlots = dominantSlotOnly ? [slot] : slots;
     const slicedTimelines = [];
     for (const r of okRuns) {
         const threadsLog = path.join(r.dir, 'threads.log');
+        if (!dominantSlotOnly) {
+            slicedTimelines.push(path.join(r.dir, 'timeline.jsonl'));
+            continue;
+        }
         const slicedPath = path.join(r.dir, `timeline.slot${slot}.jsonl`);
         const { stdout } = await runJob('node', [THREADS_TO_TIMELINE, threadsLog, '--slot', slot]);
         writeFileSync(slicedPath, stdout);
@@ -204,6 +218,7 @@ for (const g of gags) {
         adsId: g.hex,
         tag: g.tag,
         slot,
+        slots: keepSlots,
         runs: okRuns.length,
         vocab: vocab.actors,
         maxConc: vocab.maxConc,
