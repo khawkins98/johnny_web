@@ -155,8 +155,10 @@ const verifyCampfireContinuity = ({ archive }) => {
         gag: 7,
     });
     const bootRoutineTags = new Set([47, 75, 72, 144, 54, 79]);
+    const fireTags = [44, 82, 83];
     let fireStarted = false;
     let checkedFrames = 0;
+    let fireActiveLastFrame = false;
 
     for (const frame of frames) {
         // ACTIVE resource layers only (runState[0] !== 'f'). A finished scene lingers in
@@ -166,12 +168,21 @@ const verifyCampfireContinuity = ({ archive }) => {
         // is ACTIVELY drawing" (verified: 0 violations across the gag).
         const resourceLayers = frame.l.filter((layer) => layer[0] === 3 && layer[2] !== 'f');
         const tags = new Set(resourceLayers.map((layer) => layer[1]));
+        const finishedTags = new Set(frame.l.filter((layer) => layer[0] === 3 && layer[2] === 'f').map((layer) => layer[1]));
         if (tags.has(44)) fireStarted = true;
+        const fireActive = fireTags.some((tag) => tags.has(tag));
+        // The self-rearming fire (`IF_PLAYED 3:44 -> ADD 3:44`) has the original's
+        // one-tick gap: the node is in state 4 for one tick before the next walk re-ADDs
+        // it (FUN_1048_1acb walk order; visible in the binary captures). composeTtmFrame
+        // still draws the finished frame that tick, so a finished fire layer right after
+        // an active one is on screen.
+        const fireHeld = !fireActive && fireActiveLastFrame && fireTags.some((tag) => finishedTags.has(tag));
+        fireActiveLastFrame = fireActive;
         if (!fireStarted || ![...bootRoutineTags].some((tag) => tags.has(tag))) continue;
         checkedFrames++;
         // The campfire fire is on screen continuously as one of its three forms:
         // "very lrg fire" (44) -> "fire slowly dying" (82) -> "just ambers" (83).
-        if (!tags.has(44) && !tags.has(82) && !tags.has(83)) {
+        if (!fireActive && !fireHeld) {
             throw new Error(`campfire fire disappeared during the boot routine at logical tick ${frame.t}`);
         }
     }
