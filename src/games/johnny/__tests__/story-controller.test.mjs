@@ -62,7 +62,11 @@ describe('Johnny host story controller', () => {
 
     it('can attach the shared source before the first selection', () => {
         const sites = [];
-        const controller = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
+        const controller = createJohnnyStoryController({
+            random: () => 0,
+            storage: memoryStorage(),
+            now: () => new Date(2026, 6, 21, 12),
+        });
         controller.setRandomSource({
             modulo: (divisor, site) => (sites.push(site), divisor === 10 ? 0 : 0),
             weightedBucket: () => 1,

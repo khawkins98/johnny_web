@@ -82,7 +82,7 @@ export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { res
     state.adsAdded.add(key);
     const present = findSceneNode(state, sceneIdx, tagId);
     if (present !== undefined && !isTtmFinished(present) && !restart) {
-        Object.assign(present, runCountToRunMode(runCount));
+        Object.assign(present, runCountToRunMode(runCount, state.timingCompatibility));
         return present;
     }
     if (present !== undefined) {
@@ -93,7 +93,7 @@ export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { res
     if (stopped) {
         state.stoppedAdsNodes.delete(key);
         if (!restart) {
-            Object.assign(stopped, runCountToRunMode(runCount));
+            Object.assign(stopped, runCountToRunMode(runCount, state.timingCompatibility));
             stopped.proportion = proportion;
             stopped.runState = TtmRunState.STARTING;
             stopped.needsFirstFrame = true;

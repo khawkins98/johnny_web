@@ -201,8 +201,8 @@ export class DgdsRuntime {
         this.state.frameDelta = frameDelta;
         // Two-clock timing (faithful to the original): the fine tick above counts
         // down delays/time-limits every call, but animation frames only ADVANCE on
-        // the 50 ms WM_TIMER present (the #runTtmController gate). The HOST clock
-        // recovery of that ~50 ms cadence lives in the injected timing hook; the
+        // the effective ~55 ms WM_TIMER present (the #runTtmController gate). The
+        // HOST clock recovery of that cadence lives in the injected timing hook; the
         // canonical runtime only consumes the result. state.wmTimerMs overrides the
         // period (logical unit tests run per fine tick).
         const cadence = this.state.timingCompatibility.advancePresentCadence(
@@ -376,7 +376,7 @@ export class DgdsRuntime {
                 scene.state.frameReady = true;
             }
 
-            // Frame advancement is gated to the 50 ms WM_TIMER present. The fine-tick
+            // Frame advancement is gated to the effective ~55 ms WM_TIMER present. The fine-tick
             // delay countdown above runs every tick, but once a frame is ready we only
             // ADVANCE (run the script to emit the next frame) on a present tick;
             // otherwise hold the current frame untouched -- its recorded execution

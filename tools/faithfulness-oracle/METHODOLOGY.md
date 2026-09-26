@@ -276,43 +276,39 @@ After recapturing all 64 drivable gags, 199 complete original episodes yield
 contiguous-span data for 651 of 680 reference vocabulary keys. The earlier
 full-capture comparison flagged 136 spans beyond 3× (130 short, 6 long) and
 three vocabulary extras. Completed-gag spans, the one-sample phase allowance,
-the original fish-branch observation, and the TTM continuation fix reduce
-those to three long-span reviews and zero vocabulary extras. The remaining
-reviews are BUILDING:7/8 `3:83` and MARY:4 `5:37`. FISHING:7/8 `4:44` now
-continues through the following TTM frames as the original binary does;
-its browser span increased from 2 to 54 ticks versus 15–18 original samples.
-The BUILDING
-handoff has a paired timing analysis in
-[building-handoff-timing.md](../../docs/building-handoff-timing.md). Its global
-episode duration is close even though three local clock offsets make `3:83`
-overlap too long; changing timed ADDs alone worsens the whole episode.
+the original fish-branch observation, and the TTM continuation fix reduced
+those to three long-span reviews and zero vocabulary extras. FISHING:7/8
+`4:44` now continues through the following TTM frames as the original binary
+does; its browser span increased from 2 to 54 ticks versus 15–18 original
+samples.
 
-MARY:4 has a similar order-sensitive handoff. The original complete episode
-has `5:19` at samples 37–103, `5:33` at 37–133, `5:28` at 105–120, and
-`5:37` at 122–134 (13 samples); a second complete episode shows 12 samples
-for `5:37`. Browser seed 1 has `5:19` at ticks 85–313, `5:33` at 85–323,
-`5:28` at 315–356, and `5:37` at 358–613 (256 ticks). The original
-`IF_PLAYED 5:33` STOP catches `5:37` just after its ADD; the browser reaches
-that STOP 33 ticks before the ADD, leaving `5:37` to finish naturally.
-`5:19` is a negative timed ADD of `-230`, which the binary measures on its
-16 ms `now` clock and the browser currently counts in 20 ms ticks. An isolated
-16/20 scaling trial changed browser `5:19` from 229 to 183 ticks and `5:37`
-from 256 to 17, but also shortened BUILDING:7's full episode from 3405 to
-3215 ticks versus about 3420 ticks observed. That global patch was reverted;
-coordinated timed ADD and frame-delay calibration is still needed.
+Clock-instrumented BUILDING:7 and MARY:4 captures then resolved the three
+remaining reviews. Negative ADS ADD counts are 16 ms game-clock deadlines, as
+are TTM frame delays. The requested 50 ms Windows timer presents on the
+~55 ms PC timer sample. The browser now rounds both deadline classes up to
+20 ms fine ticks and uses a 55 ms present gate. In a fresh BUILDING:7 episode,
+`3:82` held 115 samples (6.25 s) with delay-8 frames advancing about every
+160 ms; the browser holds it 313 ticks (6.26 s). `3:83` held 10 original
+samples and now lasts 19 browser ticks. In a fresh MARY:4 episode, `5:37`
+held 14 samples and now lasts 30 browser ticks; its ADD precedes the `5:33`
+STOP pulse. The calibrated browser seed-1 BUILDING:7 episode takes 62.7 s,
+within the 61.0–68.4 s range of two complete original episodes whose random
+branches differ. An isolated timed-ADD correction had shortened the gag too
+far. See the paired [BUILDING handoff analysis](../../docs/building-handoff-timing.md).
+
+The regenerated coverage report has zero >3× lifespan reviews, zero
+vocabulary extras, and zero concurrency failures. The prior BUILDING:7/8
+`3:83` and MARY:4 `5:37` rows are resolved by the coordinated clock model.
 
 SUZY:1 `1:1` and SUZY:2 `2:6` each appeared in only one sample of the new
 complete episodes. The older eight-run reference fields recorded 3 and 3–4
 samples respectively, although those fields used the legacy full-capture
 aggregation and are only corroborating evidence. Both loaders have authored
-SET_DELAY (10 and 12) before PURGE. Their browser spans are 9 and 12 ticks;
+SET_DELAY (10 and 12) before PURGE. Their browser spans are 8 and 10 ticks;
 the one-sample phase allowance removes their >3× labels. No loader runtime
-change is supported by the new one-sample captures alone.
+change is supported by the one-sample captures alone.
 
-Duration and vocabulary remain advisory. The three duration outliers reflect
-real order-sensitive timing interactions, but changing the shared timed-ADD
-clock alone worsens full-gag alignment. A uniform duration failure would
-therefore fail known unresolved cases without identifying a safe local fix.
+Duration and vocabulary remain advisory despite zero current >3× reviews.
 Only 651/680 vocabulary keys have completed-episode span evidence, many gags
 have just one or two complete original episodes, and the browser uses up to
 33 deterministic seeds while the original branch sample is much smaller.

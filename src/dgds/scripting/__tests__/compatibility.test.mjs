@@ -30,17 +30,25 @@ describe('frame timing compatibility', () => {
     it('rescales the authored 16ms-unit delay to 20ms fine ticks, floored to one', () => {
         const timing = createTimingCompatibility();
 
-        // round(9 * 16 / 20) = round(7.2) = 7 fine ticks.
+        // ceil(9 * 16 / 20) = ceil(7.2) = 8 fine ticks: never advance
+        // before the authored deadline.
         expect(timing.mapFrameBoundary(createFrameBoundary(9))).toMatchObject({
             authoredDelayTicks: 9,
-            runtimeDelayTicks: 7,
+            runtimeDelayTicks: 8,
         });
         // A zero-delay frame still floors to one fine tick so the countdown arms
-        // frameReady; the 50ms WM_TIMER present gate provides the real minimum.
+        // frameReady; the ~55ms WM_TIMER present gate provides the real minimum.
         expect(timing.mapFrameBoundary(createFrameBoundary(0))).toMatchObject({
             authoredDelayTicks: 0,
             runtimeDelayTicks: 1,
         });
+    });
+
+    it('maps negative ADS ADD deadlines from the original 16ms clock', () => {
+        const timing = createTimingCompatibility();
+        expect(timing.mapTimeLimit(3)).toBe(3);
+        expect(timing.mapTimeLimit(180)).toBe(144);
+        expect(timing.mapTimeLimit(230)).toBe(184);
     });
 
     it('applies named compatibility patches outside the faithful directive', () => {
