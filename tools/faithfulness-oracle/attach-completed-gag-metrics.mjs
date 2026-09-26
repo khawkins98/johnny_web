@@ -21,9 +21,10 @@ const mergeRanges = (target, source) => {
     }
 };
 
-for (const name of readdirSync(rawDir).sort()) {
+for (const file of readdirSync(batchDir).filter((name) => name.endsWith('.json') && name !== 'index.json').sort()) {
+    const name = file.slice(0, -'.json'.length);
     const rawPath = path.join(rawDir, name);
-    const refPath = path.join(batchDir, `${name}.json`);
+    const refPath = path.join(batchDir, file);
     const ref = JSON.parse(readFileSync(refPath, 'utf8'));
     const observed = completedGagLifespans(
         readFileSync(path.join(rawPath, 'trace.log'), 'utf8'),
