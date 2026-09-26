@@ -1,5 +1,5 @@
 {"type":"header","schema":3,"game":{"id":"johnny-castaway","version":"1.01-international"},"timingProfile":"faithful-browser"}
-{"type":"scenario","id":"dive-walk-out","gag":4,"frameCount":21,"digest":"4171798852ceb63b"}
+{"type":"scenario","id":"dive-walk-out","gag":4,"frameCount":20,"digest":"effe2d343926b4b3"}
 {"type":"frame","scenario":"dive-walk-out","index":0,"frame":[649,"78b3d7973e5d0df0","9be17165",0]}
 {"type":"frame","scenario":"dive-walk-out","index":1,"frame":[650,"5db038d7fe7da845","b8c4dc10",41,404,276,17,4]}
 {"type":"frame","scenario":"dive-walk-out","index":2,"frame":[658,"43e8fcf92f940262","4c3d3a9a",130,403,271,19,9]}
@@ -20,8 +20,7 @@
 {"type":"frame","scenario":"dive-walk-out","index":17,"frame":[808,"6810e4f9a9eb7954","1162a0e8",1563,399,210,30,75]}
 {"type":"frame","scenario":"dive-walk-out","index":18,"frame":[818,"a6f23cc5476d11fc","52bf7585",1552,391,215,35,74]}
 {"type":"frame","scenario":"dive-walk-out","index":19,"frame":[828,"3597805c05641c65","3f4f2ffb",1590,395,213,36,75]}
-{"type":"frame","scenario":"dive-walk-out","index":20,"frame":[838,"41132320f991e3f5","9be17165",0]}
-{"type":"scenario","id":"gull-landing","gag":1,"frameCount":183,"digest":"3b343282b40639d8"}
+{"type":"scenario","id":"gull-landing","gag":1,"frameCount":182,"digest":"76c8cc7954b44613"}
 {"type":"frame","scenario":"gull-landing","index":0,"frame":[1,"361591280c1687a2","e9d1b556",1518,395,214,37,74]}
 {"type":"frame","scenario":"gull-landing","index":1,"frame":[2,"665893d6b5979e81","e9d1b556",1518,395,214,37,74]}
 {"type":"frame","scenario":"gull-landing","index":2,"frame":[10,"97c3529c1ede1b40","dbd30aee",1089,397,218,32,72]}
@@ -204,8 +203,7 @@
 {"type":"frame","scenario":"gull-landing","index":179,"frame":[1653,"e5dc10698da4fec2","315921a7",6951,291,254,296,66]}
 {"type":"frame","scenario":"gull-landing","index":180,"frame":[1663,"273c9dd4ea123ab2","70ea0c34",7935,293,245,289,75]}
 {"type":"frame","scenario":"gull-landing","index":181,"frame":[1763,"4a418239c5e43b58","70ea0c34",7935,293,245,289,75]}
-{"type":"frame","scenario":"gull-landing","index":182,"frame":[1764,"18587702f6af56ff","9be17165",0]}
-{"type":"scenario","id":"bathing","gag":11,"frameCount":438,"digest":"be9d0f80dc46797b"}
+{"type":"scenario","id":"bathing","gag":11,"frameCount":437,"digest":"5a9f045f66d4b9ad"}
 {"type":"frame","scenario":"bathing","index":0,"frame":[1,"f5d62963c9504bde","b48372be",1651,230,143,410,202]}
 {"type":"frame","scenario":"bathing","index":1,"frame":[2,"71942d58e7001dcc","b48372be",1651,230,143,410,202]}
 {"type":"frame","scenario":"bathing","index":2,"frame":[3,"986aa307b684c713","b48372be",1651,230,143,410,202]}
@@ -643,7 +641,6 @@
 {"type":"frame","scenario":"bathing","index":434,"frame":[1633,"ec20bcdc8a3a4995","d95739b8",1569,236,109,235,231]}
 {"type":"frame","scenario":"bathing","index":435,"frame":[1635,"b580c962c6d81ea6","b3190702",1561,231,109,240,230]}
 {"type":"frame","scenario":"bathing","index":436,"frame":[1638,"ffeec626d96d474d","b3190702",1561,231,109,240,230]}
-{"type":"frame","scenario":"bathing","index":437,"frame":[1639,"f64a1b5c94fbb6af","9be17165",0]}
 {"type":"scenario","id":"concurrent-bathing-layers","gag":11,"frameCount":201,"digest":"f51d1cda56289c6f"}
 {"type":"frame","scenario":"concurrent-bathing-layers","index":0,"frame":[1,"f5d62963c9504bde","b48372be",1651,230,143,410,202]}
 {"type":"frame","scenario":"concurrent-bathing-layers","index":1,"frame":[8,"4286ca7c8ba680fb","b9ff762b",1667,226,143,414,199]}
