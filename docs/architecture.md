@@ -218,15 +218,15 @@ per-region snapshot/restore machinery were removed once the shared raster became
 immediate-mode. (`STORE_AREA`, below, is a separate persistent mechanism and does still copy
 pixels.)
 
-**Frame cadence is gated to the original's 50 ms `WM_TIMER`.** The engine runs two clocks
+**Frame cadence is gated to the original's effective ~55 ms `WM_TIMER`.** The engine runs two clocks
 (`docs/scrantic-re-findings.md` frame-cadence findings): a fine ~20 ms tick that only counts
-down delays and ADS time-limits, and a 50 ms present cadence that advances animation frames —
-at most one TTM frame per sequence per 50 ms, as the original's `WM_TIMER`-driven render did.
+down delays and ADS time-limits, and a ~55 ms present cadence that advances animation frames —
+at most one TTM frame per sequence per timer sample, as the original's `WM_TIMER`-driven render did.
 `runtime.tick()` accumulates elapsed time into a present gate; countdowns run every fine tick,
 but the frame ADVANCE (running a scene's script to emit its next frame) only fires on a present
 tick. The authored `SET_DELAY` operand (in the original's ~16 ms game-tick unit) is rescaled to
-fine ticks by the injected `timing-compatibility` hook (`wm-timer-frame-cadence`), and the 50 ms
-gate supplies the minimum on-screen time — so a zero-delay animation plays at ~20 fps, not the
+fine ticks by the injected `timing-compatibility` hook (`wm-timer-frame-cadence`), and the ~55 ms
+gate supplies the minimum on-screen time — so a zero-delay animation plays at ~18 fps, not the
 fine tick's 50 fps.
 
 **Backgrounds are re-baked at the ADS-tag boundary, not per frame.** `clearAdsSceneBatch`
@@ -260,7 +260,7 @@ replaced with a single host-owned raster. An interim version of that shared-rast
 overwrote them, with a global rect-keyed save-under registry doing the per-sprite erase). A
 further reverse-engineering pass (the frame-cadence findings) established that the original is
 **immediate-mode** — it redraws every active actor and re-erases every drawn region on each
-50 ms `WM_TIMER` — so the retained model, the save-under registry, and the footprint machinery
+~55 ms effective `WM_TIMER` — so the retained model, the save-under registry, and the footprint machinery
 were all removed in favor of the clear+redraw-every-tick model described above (a finished
 scene simply stops being redrawn, so it ages out rather than persisting). `sequencePaintIndex`
 is retained as a name, but it now indexes into the mutable `ttmSequenceOrder` execution-order

@@ -40,7 +40,7 @@ export const OVERRIDES = [
         why:
             "Recovers the original's two-clock cadence on machine time: maps authored " +
             '16ms-unit delays onto the port fine-tick grid and gates frame advance to the ' +
-            '50ms WM_TIMER present cadence. Injected as `timingCompatibility`; the core never ' +
+            'effective ~55ms WM_TIMER present cadence. Injected as `timingCompatibility`; the core never ' +
             'imports it, so a build without it runs the raw authored values.',
     },
     {

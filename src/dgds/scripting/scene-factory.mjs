@@ -51,12 +51,13 @@ const initialState = {
 /**
  * ADS ADD's third argument (FUN_1048_0db6): 0 -> run once (state 1); >0 -> run
  * that many times (state 2, count = arg-1 further passes); <0 -> loop until the
- * timer of -arg DGDS ticks expires (state 3). The runtime stores only the
- * additional passes remaining after the first execution.
+ * timer of -arg original 16 ms clock units expires (state 3). The runtime
+ * converts that deadline to 20 ms fine ticks and stores only the additional
+ * passes remaining after the first execution.
  */
-export const runCountToRunMode = (runCount) => ({
+export const runCountToRunMode = (runCount, timingCompatibility = null) => ({
     retries: runCount > 0 ? runCount - 1 : 0,
-    timeLimitTicks: runCount < 0 ? -runCount : null,
+    timeLimitTicks: runCount < 0 ? (timingCompatibility?.mapTimeLimit?.(-runCount) ?? -runCount) : null,
     runMode: runCount < 0 ? TtmRunMode.TIME_LIMITED : runCount > 1 ? TtmRunMode.COUNTED : TtmRunMode.ONCE,
 });
 
@@ -173,7 +174,7 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
     const s = Object.assign(
         {
             sceneIdx,
-            ...runCountToRunMode(runCount),
+            ...runCountToRunMode(runCount, state.timingCompatibility),
             proportion,
             runState: TtmRunState.STARTING,
             sequenceKey: sequenceKey(sceneIdx, tagId),
