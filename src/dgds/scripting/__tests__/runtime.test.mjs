@@ -242,6 +242,7 @@ describe('DgdsRuntime', () => {
     it('returns host presentation intent instead of drawing to Canvas', () => {
         const runtime = createRuntime({
             type: 'ADS',
+            hostManagedTransitions: true,
             data: {
                 name: 'test',
                 resources: [],
@@ -288,6 +289,73 @@ describe('DgdsRuntime', () => {
         expect(runtime.state.currentScene).toBe(1);
         expect(runtime.tick(1000 / 60).completed).toBe(true);
         expect(runtime.state.currentScene).toBe(2);
+    });
+
+    it('keeps the free-run fade through drain and advances only at full opacity', () => {
+        const runtime = createRuntime({
+            type: 'ADS', hostManagedTransitions: false,
+            data: { name: 'fade', resources: [], scenes: [1, 2].map((id) => ({
+                tagId: { id }, script: [{ opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] }],
+            })) },
+        });
+        for (let i = 0; i < 3; i++) {
+            expect(runtime.tick(100).completed).toBe(false);
+            expect(runtime.state.currentScene).toBe(0);
+            expect(runtime.state.fadingOut).toBe(true);
+        }
+        expect(runtime.state.fadeOpacity).toBe(0.75);
+        runtime.tick(100);
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.state.fadingOut).toBe(false);
+        expect(runtime.state.fadingIn).toBe(true);
+        expect(runtime.state.fadeOpacity).toBe(1);
+    });
+
+    it('resets free-run and jump ADD history, ended flags, and WHILE resume state', () => {
+        const ttm = { scenes: [{ tagId: 0, script: [] }, { tagId: 1, script: [{ opcode: 0x1200, params: [1] }] }] };
+        const runtime = createRuntime({
+            type: 'ADS', hostManagedTransitions: true,
+            resourceProvider: { resolve: () => ttm },
+            data: { name: 'reset', resources: [{ id: 1, name: 'A.TTM' }], scenes: [
+                { tagId: { id: 1 }, script: [{ opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] }] },
+                { tagId: { id: 2 }, script: [
+                    { opcode: 0x2005, params: [1, 1, 0, 1] },
+                    { opcode: 0x1070, params: [1, 1] },
+                    { opcode: 0x1520, params: [] },
+                    { opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] },
+                ] },
+            ] },
+        });
+        runtime.state.adsAdded.add('9:9');
+        runtime.tick(20); // free-run advance to tag 2
+        expect(runtime.state.currentScene).toBe(1);
+        expect(runtime.state.adsAdded.size).toBe(0);
+        runtime.tick(20); // ADD and arm WHILE resume
+        expect(runtime.state.adsAdded.has('1:1')).toBe(true);
+        expect(runtime.state.scenes).toHaveLength(1);
+        expect(runtime.jumpToScene(2)).toBe(true);
+        expect(runtime.state.adsAdded.size).toBe(0);
+        runtime.tick(20); // must start at ADD, not stale WHILE resume
+        expect(runtime.state.scenes).toHaveLength(1);
+        expect(runtime.state.adsAdded.has('1:1')).toBe(true);
+
+        expect(runtime.jumpToScene(1)).toBe(true); // previously ended tag runs again
+        expect(runtime.tick(20).completed).toBe(true);
+    });
+
+    it('checks completion after a zero-delay exit loader has run in the node pass', () => {
+        const ttm = { scenes: [{ tagId: 0, script: [] }, { tagId: 1, script: [{ opcode: 0x0110, params: [] }] }] };
+        const runtime = createRuntime({
+            type: 'ADS', hostManagedTransitions: true, singleAdsScene: true,
+            resourceProvider: { resolve: () => ttm },
+            data: { name: 'exit-loader', resources: [{ id: 1, name: 'A.TTM' }], scenes: [{
+                tagId: { id: 1 }, script: [
+                    { opcode: 0x2005, params: [1, 1, 0, 1] },
+                    { opcode: 0xf010, params: [-1] }, { opcode: 0xffff, params: [] },
+                ],
+            }] },
+        });
+        expect(runtime.tick(20).completed).toBe(true);
     });
 
     it('waits for a concluding child added immediately before selected ADS END', () => {
@@ -408,6 +476,7 @@ describe('DgdsRuntime', () => {
         };
         const runtime = createRuntime({
             type: 'ADS',
+            hostManagedTransitions: true,
             resourceProvider: { resolve: (name) => (name === 'LOOP.TTM' ? ttm : undefined) },
             data: {
                 name: 'test',

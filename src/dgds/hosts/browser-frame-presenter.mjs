@@ -93,9 +93,7 @@ export const createBrowserFramePresenter = ({
             context.fillStyle = `rgba(0, 0, 0, ${state.fadeOpacity})`;
             context.fillRect(0, 0, 640, 480);
 
-            if (state.fadingOut && state.fadeOpacity >= 1) {
-                state.fadingOut = false;
-            } else if (state.fadingIn) {
+            if (state.fadingIn) {
                 state.fadeOpacity -= state.frameDelta / 400;
                 if (state.fadeOpacity <= 0) {
                     state.fadingIn = false;

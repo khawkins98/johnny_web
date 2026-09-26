@@ -26,8 +26,8 @@
  *   }
  *   return 1;                                   // a LIVE thread exists -> STILL RUNNING
  *
- * Distilled rule (phase11): a gag is COMPLETE iff its scene group holds no LIVE
- * thread -- i.e. every thread is finished (state 4) or stopped (state 0). A
+ * Distilled rule: a gag is COMPLETE iff its tag has ended and its scene group
+ * holds no LIVE thread -- i.e. every thread is finished (state 4) or stopped (state 0). A
  * running OR self-rearming ambient thread blocks completion simply by being
  * live; there is NO "unbounded loop that doesn't block" exception. This is a
  * linked-list form of jc_reborn's `while (numThreads)` (`ads.c:683`).
@@ -36,9 +36,8 @@
  * out, so "state 0" threads are simply absent) and thread state 4 as
  * `isTtmFinished(scene)`. So the faithful predicate over the port's state is:
  * a scene is a LIVE thread iff it is present and NOT finished -- with NO KEEP_GOING
- * / unbounded-loop exclusion (that exclusion is the port's divergence this oracle
- * exists to surface). A pending, not-yet-committed add is also a live thread the
- * next tick, so it counts too.
+ * / unbounded-loop exclusion. ADS ADD commits immediately in the walker, so
+ * there is no pending-add queue to consult.
  */
 
 import { isTtmFinished } from '../ttm-run-state.mjs';
@@ -52,23 +51,22 @@ export const isLiveThread = (scene) => scene != null && !isTtmFinished(scene);
 
 /**
  * Faithful completion for a gag's scene group, per FUN_1048_0766: COMPLETE iff no
- * live thread remains and nothing is staged to become one next tick.
- * @param {object} state a DgdsRuntime state (reads `scenes` + `addScenes`).
+ * live thread remains and the walking tag has ended.
+ * @param {object} state a DgdsRuntime state (reads `scenes` + `adsTagEnded`).
  * @returns {boolean}
  */
 export const isGagComplete = (state) => {
     const liveThreads = (state.scenes || []).filter(isLiveThread);
-    const pendingAdds = state.addScenes || [];
-    return liveThreads.length === 0 && pendingAdds.length === 0;
+    return state.adsTagEnded === true && liveThreads.length === 0;
 };
 
 /**
  * The oracle's per-tick view, for diffing against production. `oracleComplete` is
- * the binary rule; `liveThreads`/`pendingAdds` explain WHY (so a divergence report
+ * the binary rule; `liveThreads`/`tagEnded` explain WHY (so a divergence report
  * can name the thread that should still be blocking, e.g. a KEEP_GOING ambient).
  */
 export const completionView = (state) => {
     const liveThreads = (state.scenes || []).filter(isLiveThread).map((s) => `${s.sceneIdx}:${s.tagId}`);
-    const pendingAdds = (state.addScenes || []).map((s) => `${s.sceneIdx}:${s.tagId}`);
-    return { oracleComplete: liveThreads.length === 0 && pendingAdds.length === 0, liveThreads, pendingAdds };
+    const tagEnded = state.adsTagEnded === true;
+    return { oracleComplete: tagEnded && liveThreads.length === 0, tagEnded, liveThreads };
 };

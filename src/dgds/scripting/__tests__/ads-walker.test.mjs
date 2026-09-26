@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TagFlag, drawRandomPick, isAdsTagEnded, resetAdsProgram, skipBlock, stepAdsProgram } from '../ads-walker.mjs';
+import { resetAdsDisplayList } from '../ads-scene-changes.mjs';
 import { TtmRunMode, TtmRunState, isTtmRunning } from '../ttm-run-state.mjs';
 import { clearPulses, count, find, finishNode, makeAdsState, makeProgram, op } from './support/ads-stub-state.mjs';
 
@@ -17,6 +18,7 @@ const END_BRANCH = 0x1510;
 const END_WHILE = 0x1520;
 const ADD = 0x2005;
 const STOP = 0x2010;
+const MOVE_TO_BACK = 0x4000;
 const RANDOM_START = 0x3010;
 const RANDOM_WEIGHT = 0x3020;
 const RANDOM_END = 0x30ff;
@@ -30,6 +32,50 @@ const start = (program, index = 0) => {
 };
 
 describe('whole-tag walk (FUN_1048_1acb / FUN_1048_1925)', () => {
+    it('dispatches 0x4000 through the walker and moves the selected sequence behind its siblings', () => {
+        const program = start(makeProgram([op(MOVE_TO_BACK, 1, 2), op(END)]));
+        const state = makeAdsState({ 1: [1, 2, 3] });
+        state.ttmSequenceOrder = ['1:1', '1:2', '1:3'];
+        stepAdsProgram(state, program);
+        expect(state.ttmSequenceOrder).toEqual(['1:1', '1:3', '1:2']);
+    });
+
+    it('observes STOP in a later IF_NOT_RUNNING in the same walk', () => {
+        const program = start(makeProgram([
+            op(STOP, 1, 53),
+            op(IF_NOT_RUNNING, 1, 53),
+            op(ADD, 1, 54, 0, 1),
+            op(END_BRANCH),
+            op(END),
+        ]));
+        const state = makeAdsState({ 1: [53, 54] });
+        state.scenes.push({ sceneIdx: 1, tagId: 53, runState: TtmRunState.RUNNING });
+        stepAdsProgram(state, program);
+        expect(count(state, 1, 53)).toBe(0);
+        expect(count(state, 1, 54)).toBe(1);
+    });
+
+    it('resumes a stopped node on ADD, while 0x2000 restarts it', () => {
+        const program = start(makeProgram([
+            op(STOP, 1, 53), op(ADD, 1, 53, 0, 1), op(END),
+        ]));
+        const state = makeAdsState({ 1: [53] });
+        const scene = { sceneIdx: 1, tagId: 53, runState: TtmRunState.RUNNING, state: { reentry: 7 } };
+        state.scenes.push(scene);
+        stepAdsProgram(state, program);
+        expect(find(state, 1, 53)).toBe(scene);
+        expect(scene.state.reentry).toBe(7);
+
+        program.tags[0].script = [op(STOP, 1, 53), op(0x2000, 1, 53, 0, 1), op(END)];
+        stepAdsProgram(state, program);
+        expect(find(state, 1, 53)).not.toBe(scene);
+
+        program.tags[0].script = [op(STOP, 1, 53), op(END)];
+        stepAdsProgram(state, program);
+        expect(state.stoppedAdsNodes.has('1:53')).toBe(true);
+        resetAdsDisplayList(state);
+        expect(state.stoppedAdsNodes.size).toBe(0);
+    });
     it('evaluates every top-level block each tick, so a later block fires the tick its scene completes even while an earlier one is unmet', () => {
         // Mirrors BUILDING.ADS tag 5: IF_PLAYED 3:82 -> ADD 3:83 ; IF_PLAYED 3:141 -> ADD 3:140.
         const program = start(

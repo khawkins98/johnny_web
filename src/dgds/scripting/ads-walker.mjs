@@ -68,9 +68,8 @@
  * (sceneIdx, tagId). States 1-3 = isTtmRunning, state 4 = isTtmFinished with
  * `playedPulse` (stamped by the runtime's node pass), state 0 = finished without
  * the pulse, or absent. The `+0x2d` "ever ADDed" counter is `state.adsAdded`.
- * Known gap: STOP removes the scene object, so a STOP followed by a later ADD
- * restarts the TTM from its start frame; the binary resumes the frame it was
- * stopped on (0e9b writes only +0x2f).
+ * STOP removes the scene object from the display list but retains its execution
+ * state for a later ADD (0e9b writes only +0x2f).
  */
 import { isTtmFinished, isTtmRunning } from './ttm-run-state.mjs';
 import { addSceneNode, findSceneNode, resetSceneNode, stopSceneNode } from './ads-scene-changes.mjs';

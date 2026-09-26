@@ -167,6 +167,18 @@ describe('browser frame presenter', () => {
         expect(state.fadeOpacity).toBeCloseTo(0.25);
     });
 
+    it('keeps a completed fade-out drawn until the ADS controller advances', () => {
+        const context = createContext();
+        const presenter = createBrowserFramePresenter({ context, mainContext: createContext(), presentationPolicy });
+        const state = { ...createState(), fadingOut: true, fadeOpacity: 1 };
+        const directive = { clearForeground: false, backgroundOnly: false, compose: true };
+        presenter.present(state, directive);
+        presenter.present(state, directive);
+        expect(context.fillRect).toHaveBeenCalledTimes(2);
+        expect(state.fadingOut).toBe(true);
+        expect(state.fadeOpacity).toBe(1);
+    });
+
     it('decorates the background after drawing it', () => {
         const mainContext = createContext();
         const backgroundDecorator = vi.fn();
