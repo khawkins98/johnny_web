@@ -38,6 +38,18 @@ const scrPath = resolve(here, '../../../../public/data/SCRANTIC.SCR');
 // module-level read would still run at import — so only read when the data exists.
 const scr = hasData ? readFileSync(scrPath) : null;
 
+it('maps the traced BUILDING:8 draw 0xCF7C to bucket 2 (boot)', () => {
+    // Original DOSBox capture: 13DF:0D5C returned CF7C at the 3:140
+    // three-way choice, followed by 3:47 (boot). Signed-first modulo would
+    // incorrectly choose bucket 1 (3:49 fish).
+    const table = new Uint16Array(56);
+    table[1] = 0xcf7c;
+    table[2] = 5;
+    const rng = createFaithfulRng({ i: 0, j: 1, table });
+    expect(rng.pick(3)).toBe(2);
+    expect(rng.nextWord()).toBe(0xcf81); // the choice consumed exactly one raw word
+});
+
 describe.skipIf(!hasData)('faithful RNG seed extraction', () => {
     it('reads the baked lag indices and table from SCRANTIC.SCR @0x19ae2', () => {
         expect(FAITHFUL_RNG_SEED_OFFSET).toBe(0x19ae2);
@@ -86,16 +98,16 @@ describe.skipIf(!hasData)('faithful RNG stream (validated against the binary)', 
         }
     });
 
-    it('pick(total) reproduces the binary weighted draw abs((int16)word % total)+1', () => {
-        // FUN_1048_0cda: iVar3 = abs((int16)(rng() % total)) + 1, then walk weights.
+    it('pick(total) takes unsigned modulo before interpreting the remainder as signed', () => {
+        // FUN_1048_0cda: uVar2/uVar8 are unsigned, then iVar3 = abs((int16)(uVar2 % uVar8)) + 1.
         const seed = extractFaithfulSeed(scr);
         const rngA = createFaithfulRng(seed);
         const rngB = createFaithfulRng(seed);
         const total = 15;
         for (let n = 0; n < 256; n++) {
             const raw = rngB.nextWord();
-            const signed = (raw << 16) >> 16;
-            const expected = Math.abs(signed % total) + 1;
+            const signedRemainder = ((raw % total) << 16) >> 16;
+            const expected = Math.abs(signedRemainder) + 1;
             const picked = rngA.pick(total);
             expect(picked).toBe(expected);
             expect(picked).toBeGreaterThanOrEqual(1);

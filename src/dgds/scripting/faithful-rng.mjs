@@ -115,14 +115,16 @@ export function createFaithfulRng(seed, { onDraw = null } = {}) {
             return 0;
         },
         // Faithful weighted-index selection (binary FUN_1048_0cda):
-        //   iVar3 = abs((int16)(raw % total)) + 1   -> a value in 1..total
+        //   iVar3 = abs((int16)(raw % total)) + 1. The division uses unsigned
+        //   operands; only its remainder is interpreted as signed. For the
+        //   shipped ADS weights (small totals), this is raw % total + 1.
         // Consumes exactly one raw word, matching the binary's draw accounting.
         pick: (total, site = 'ads-random') => {
             const raw = nextWord(site);
             if (!(total > 0)) return 1;
-            const signed = (raw << 16) >> 16; // interpret the word as int16
-            const rem = signed % total; // C '%' truncates toward zero
-            return Math.abs(rem) + 1;
+            const remainder = raw % total;
+            const signedRemainder = (remainder << 16) >> 16;
+            return Math.abs(signedRemainder) + 1;
         },
         getState: () => ({ i, j, table: table.slice() }),
     };
