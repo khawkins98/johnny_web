@@ -9,14 +9,14 @@
 // Safe for CI -- no dosbox, no game-data dependency beyond the same gitignored
 // public/data assets the rest of the suite already guards with hasData.
 //
-// Refs are a COVERAGE LOWER-BOUND (RNG-tolerant union over 3 original-binary runs)
+// Refs are a COVERAGE LOWER-BOUND (RNG-tolerant union over original-binary runs)
 // for vocab, and a CONCURRENCY CEILING for maxConc. So the semantics here are
 // asymmetric -- see PM ruling below:
 //
 //   - HARD FAIL (assertion): ourMaxConc >= ref.maxConc + 2. This is an "extra body"
 //     regression -- the one reliable signal a vocab-union lower-bound can support
 //     as a hard gate. (A +1 slack is allowed: a single extra concurrent actor is
-//     within the noise of a 3-run union vs. our single deterministic run.)
+//     within the noise of a small random-run union vs. our deterministic seed union.)
 //   - REVIEW ONLY (console.warn, not a failed assertion): vocab set-differences.
 //     `missing` = ref.vocab \ ourVocab (behaviors the original shows we don't hit
 //     with this seed) and `extra` = ourVocab \ ref.vocab (behaviors we show that
@@ -131,17 +131,16 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                 );
 
                 // Duration/lifespan signal (complements maxConc, which only sees peak
-                // concurrency): does each actor we draw stay live for a tick-count within
-                // the binary's observed [min,max] range? Refs regenerated at N=8 carry a
-                // `lifespans` field; older N=3 refs don't -- compareLifespans returns empty
-                // for those (graceful). WARN-ONLY for now: this surfaces the new signal so
-                // we can validate it against the enriched refs before promoting egregious
-                // (>=3x) divergences to a hard gate (follow-up).
+                // concurrency): convert the binary's ~57 ms samples to our 20 ms ticks
+                // (2.85x) before comparing. Keep this review-only while the remaining
+                // hard differences are triaged; reference ranges come from few random
+                // runs and our actorTicks is the maximum across deterministic seeds.
                 if (ref.lifespans) {
                     const life = compareLifespans(ours.actorTicks, ref.lifespans);
                     if (life.hard.length || life.warnings.length) {
                         const fmt = (e) =>
-                            `${e.actor}(ours=${e.ourTicks} ref=[${e.refMin},${e.refMax}])`;
+                            `${e.actor}(ours=${e.ourTicks} refSamples=[${e.refSampleMin},${e.refSampleMax}] ` +
+                            `scaledTicks=[${e.refMin.toFixed(1)},${e.refMax.toFixed(1)}])`;
                         console.warn(
                             `[faithfulness-diff] ${gagId} lifespan diff -- ` +
                                 `hard(${life.hard.length}): [${life.hard.map(fmt).join(', ')}]; ` +
@@ -151,7 +150,7 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                 }
 
                 // Hard gate: extra-body regression. A single extra concurrent actor is
-                // within the noise of a 3-run union vs. our N-seed union; two or more
+                // within the noise of a small random-run union vs. our N-seed union; two or more
                 // extra is the reliable "double Johnny"-class signal.
                 expect(
                     ours.maxConc,

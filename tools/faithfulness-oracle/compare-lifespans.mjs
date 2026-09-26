@@ -12,23 +12,25 @@
 //   entire time, and maxConc alone will never notice.
 //
 //   This module fills that gap by comparing, per "slot:tag" actor, how many
-//   ticks OUR engine drew it against the [min, max] range of drawn-tick
+//   ticks OUR engine drew it against the [min, max] range of drawn-sample
 //   counts observed across the N original-binary reference runs
 //   (`ref.lifespans["slot:tag"] = { min, max }`).
+//   The binary is sampled about every 57 ms; our engine ticks every 20 ms.
+//   Convert reference samples to engine ticks before comparing (57/20 = 2.85).
 //
 // SMALL-N CAVEAT:
-//   The reference range comes from only a handful of original-binary runs
-//   (`runs` in the fingerprint, typically single digits). It is NOT a
-//   statistically tight bound — it's a small sample. Because of that, the
-//   thresholds here are deliberately loose/conservative to avoid false
-//   positives:
-//     - Only a large multiplicative deviation (default 3x) is treated as a
-//       HARD divergence (a likely real bug: stuck-on or dropped-early actor).
+//   The reference range comes from a limited number of original-binary runs
+//   (`runs` in the fingerprint). It is NOT a statistically tight bound.
+//   Our side also keeps each actor's maximum across deterministic seeds.
+//   Accordingly, these classifications are review signals, not test failures:
+//     - A large multiplicative deviation (default 3x) is a HARD review item.
 //     - Anything else outside the observed [min, max] range is only a WARN,
 //       not a failure.
 //   Actors that appear in only one of {ours, ref} are a VOCAB-level
 //   concern (wrong actor drawn at all / actor missing entirely) and are out
 //   of scope for this module — they are silently skipped here.
+
+export const REFERENCE_SAMPLE_TO_ENGINE_TICKS = 2.85;
 
 /**
  * Compare our engine's per-actor drawn-tick counts against a reference's
@@ -39,12 +41,11 @@
  *   May be undefined/null for older refs generated before this field existed.
  * @param {Object} [opts]
  * @param {number} [opts.hardFactor=3] - multiplicative threshold for a HARD divergence.
- * @param {number} [opts.warnFactor=1] - reserved; currently any out-of-range (but not hard)
- *   deviation is a WARN regardless of this value.
+ * @param {number} [opts.refSampleToOurTicks=2.85] - measured sample-cadence conversion.
  * @returns {{ warnings: Array<Object>, hard: Array<Object> }}
  */
 export function compareLifespans(ourActorTicks, refLifespans, opts = {}) {
-  const { hardFactor = 3, warnFactor = 1 } = opts;
+  const { hardFactor = 3, refSampleToOurTicks = REFERENCE_SAMPLE_TO_ENGINE_TICKS } = opts;
 
   const result = { warnings: [], hard: [] };
 
@@ -67,7 +68,8 @@ export function compareLifespans(ourActorTicks, refLifespans, opts = {}) {
     if (!range || typeof range.min !== 'number' || typeof range.max !== 'number') {
       continue;
     }
-    const { min: refMin, max: refMax } = range;
+    const refMin = range.min * refSampleToOurTicks;
+    const refMax = range.max * refSampleToOurTicks;
 
     // Within observed range -> OK, nothing to emit.
     if (ourTicks >= refMin && ourTicks <= refMax) {
@@ -86,6 +88,8 @@ export function compareLifespans(ourActorTicks, refLifespans, opts = {}) {
     const entry = {
       actor,
       ourTicks,
+      refSampleMin: range.min,
+      refSampleMax: range.max,
       refMin,
       refMax,
       factor: tooLong ? overFactor : (underFactor ?? null),

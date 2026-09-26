@@ -225,14 +225,50 @@ other ran alongside eight other captures, the load of a catalogue regeneration (
   lasts 209 units (3347 ms) over 61 samples.
 
 So a reference lifespan of N samples is about N x 57 ms, and our `actorTicks` count 20 ms
-engine ticks. For the same duration, ours reads about 2.85x the reference value. The
-earlier "about 16 ms per sample" estimate was the `now` unit, not the sample. The
-"about 50 ms" estimate was close. The lifespan comparison stays warn-only until the gate
-applies this factor.
+engine ticks. For the same duration, ours reads about 2.85x the reference value. Both
+side counts are live-thread observations, rather than rendered frames: the binary samples
+at tick entry and our engine samples after each tick. The one-sample phase difference is
+small for long actors but matters for short-lived loaders. The earlier "about 16 ms per
+sample" estimate was the `now` unit, not the sample. The "about 50 ms" estimate was close.
 
-Open follow-ups:
+The lifespan comparator now scales the reference range by 2.85. Its >=3x differences
+remain review-only: on the 2026-09-26 baseline there were 136 such actor differences in
+35 of 64 drivable gags. A failing lifespan assertion would currently reject many known
+gags, including short-lived loader threads and random branches. The report in
+`docs/oracle-coverage.md` gives the current counts and can be regenerated after engine
+changes. Peak concurrency remains the hard gate.
 
-- **Lifespan units.** Scale reference lifespans by the measured cadence above (about 2.85x) before promoting the lifespan check beyond warn-only.
+When supplementing a reference with new captures, generate the new batch into a separate
+directory and merge each JSON fingerprint with `merge-refs.mjs`. It unions vocabulary,
+sample ranges, slots, and the concurrency maximum while adding successful run counts.
+The `states` count becomes `null` because the old raw timelines are no longer available
+to calculate the exact number of distinct live sets across both batches; no gate uses it.
+
+For #29, two 60-second batches added 48 successful isolated captures, each validated by
+the forced-gag and single-ADS checks in `gen-refs.mjs`. The first added eight runs each
+for `BUILDING:7`, `BUILDING:8`, `FISHING:2`, and `FISHING:8`; the second added eight
+more for `BUILDING:8` and `FISHING:2`. Nine of the twelve vocabulary extras entered the
+reference union: `BUILDING:7` gained `3:72` and `3:75`; `BUILDING:8` gained `3:48`,
+`3:76`, and `3:78`; `FISHING:2` gained `1:28`, `1:30`, and `1:37`; and `FISHING:8`
+gained `4:62`. `BUILDING:8`'s `3:49`, `3:70`, and `3:74` remain unmatched after 24
+total reference runs. Their cause is still open; absence from this finite capture
+sample alone does not establish an engine bug.
+
+The three remaining keys are one authored branch, not three unrelated actors.
+`BUILDING.ADS` tag 8 has `IF_PLAYED 3:140` followed by a `RANDOM_START` with three
+equal-weight additions: fish `3:49`, boot `3:47`, or squid `3:48`. The fish path then
+has explicit `IF_PLAYED 3:49 -> ADD 3:74` and `IF_PLAYED 3:74 -> ADD 3:70`
+handoffs. The reference union contains the boot and squid paths and their successors,
+so the original captures reached this choice; none of the 24 sampled the fish path.
+Our engine reached the complete fish chain in 9 of seeds 1–24. Its control flow is
+therefore plausible from the authored ADS, but the difference in observed branch
+frequency remains unexplained. Further RNG or trace work should check whether the
+original choice distribution, capture startup state, or the port's choice timing
+accounts for it before treating these keys as a regression.
+
+Open follow-up: triage the scaled lifespan differences before promoting duration to a
+failing gate. The reference ranges are drawn from a small random sample; our side unions
+deterministic seeds and retains each actor's maximum count across them.
 
 ## Random-number behavior
 

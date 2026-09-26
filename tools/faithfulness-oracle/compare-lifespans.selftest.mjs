@@ -31,7 +31,7 @@ test('all actors within range -> no warnings, no hard', () => {
     '1:7': 15,
     '1:13': 5,
   };
-  const { warnings, hard } = compareLifespans(ours, ref);
+  const { warnings, hard } = compareLifespans(ours, ref, { refSampleToOurTicks: 1 });
   assert.deepEqual(warnings, []);
   assert.deepEqual(hard, []);
 });
@@ -44,7 +44,7 @@ test('mildly over refMax (within hardFactor) -> 1 warning, 0 hard', () => {
   const ours = {
     '1:7': 23, // refMax + 3, within 3x of 20 (60)
   };
-  const { warnings, hard } = compareLifespans(ours, ref);
+  const { warnings, hard } = compareLifespans(ours, ref, { refSampleToOurTicks: 1 });
   assert.equal(warnings.length, 1);
   assert.equal(hard.length, 0);
   assert.equal(warnings[0].actor, '1:7');
@@ -59,7 +59,7 @@ test('drawn ~4x refMax -> 1 hard', () => {
   const ours = {
     '1:7': 80, // 4x refMax
   };
-  const { warnings, hard } = compareLifespans(ours, ref);
+  const { warnings, hard } = compareLifespans(ours, ref, { refSampleToOurTicks: 1 });
   assert.equal(warnings.length, 0);
   assert.equal(hard.length, 1);
   assert.equal(hard[0].actor, '1:7');
@@ -73,7 +73,7 @@ test('drawn far too short (<= refMin/hardFactor) -> 1 hard', () => {
   const ours = {
     '1:7': 9, // <= 30 / 3 = 10
   };
-  const { warnings, hard } = compareLifespans(ours, ref);
+  const { warnings, hard } = compareLifespans(ours, ref, { refSampleToOurTicks: 1 });
   assert.equal(warnings.length, 0);
   assert.equal(hard.length, 1);
   assert.equal(hard[0].actor, '1:7');
@@ -98,9 +98,26 @@ test('actor only in ours -> ignored', () => {
     '1:7': 15,
     '2:99': 500, // not present in ref at all
   };
-  const { warnings, hard } = compareLifespans(ours, ref);
+  const { warnings, hard } = compareLifespans(ours, ref, { refSampleToOurTicks: 1 });
   assert.deepEqual(warnings, []);
   assert.deepEqual(hard, []);
+});
+
+test('reference sample counts use the measured 2.85 engine-tick conversion', () => {
+  const ref = { '1:7': { min: 10, max: 20 } };
+  assert.deepEqual(compareLifespans({ '1:7': 40 }, ref), { warnings: [], hard: [] });
+  assert.deepEqual(compareLifespans({ '1:7': 29 }, ref), { warnings: [], hard: [] });
+  assert.deepEqual(compareLifespans({ '1:7': 57 }, ref), { warnings: [], hard: [] });
+  assert.equal(compareLifespans({ '1:7': 28 }, ref).warnings.length, 1);
+  assert.equal(compareLifespans({ '1:7': 58 }, ref).warnings.length, 1);
+  assert.equal(compareLifespans({ '1:7': 9 }, ref).hard.length, 1);
+  assert.equal(compareLifespans({ '1:7': 171 }, ref).hard.length, 1);
+  const { warnings } = compareLifespans({ '1:7': 60 }, ref);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].refMin, 28.5);
+  assert.equal(warnings[0].refMax, 57);
+  assert.equal(warnings[0].refSampleMin, 10);
+  assert.equal(warnings[0].refSampleMax, 20);
 });
 
 console.log(`\n${passed} passed, ${failures} failed`);
