@@ -261,6 +261,48 @@ occurrence counts remain diagnostic for branch and retry frequency. Original
 episode counts can be much smaller than browser seed counts; the coverage report
 shows both counts alongside each duration result.
 
+The binary observes a live actor only at periodic sample instants. A span seen
+at N consecutive samples can begin just after an earlier sample and end just
+before a later one, so its actual duration can be roughly N−1 to N+1 sample
+intervals. V2 review comparisons expand the observed min/max by one original
+sample at each end (clamping the lower bound to zero), then apply the measured
+2.85 conversion. This is an uncertainty allowance for the coarse observation,
+not a change to the measured sample cadence or to the raw stored ranges. It
+prevents a one-sample loader from being called >3× long solely because the
+browser retained it for 9–12 short ticks. Skipped or uneven original samples
+still limit the precision of this advisory comparison.
+
+After recapturing all 64 drivable gags, 199 complete original episodes yield
+contiguous-span data for 651 of 680 reference vocabulary keys. With the phase
+allowance, five spans remain beyond 3×: BUILDING:7/8 `3:83` (both long),
+FISHING:7/8 `4:44` (both short), and MARY:4 `5:37` (long). The BUILDING
+handoff has a paired timing analysis in
+[building-handoff-timing.md](../../docs/building-handoff-timing.md). Its global
+episode duration is close even though three local clock offsets make `3:83`
+overlap too long; changing timed ADDs alone worsens the whole episode.
+
+MARY:4 has a similar order-sensitive handoff. The original complete episode
+has `5:19` at samples 37–103, `5:33` at 37–133, `5:28` at 105–120, and
+`5:37` at 122–134 (13 samples); a second complete episode shows 12 samples
+for `5:37`. Browser seed 1 has `5:19` at ticks 85–313, `5:33` at 85–323,
+`5:28` at 315–356, and `5:37` at 358–613 (256 ticks). The original
+`IF_PLAYED 5:33` STOP catches `5:37` just after its ADD; the browser reaches
+that STOP 33 ticks before the ADD, leaving `5:37` to finish naturally.
+`5:19` is a negative timed ADD of `-230`, which the binary measures on its
+16 ms `now` clock and the browser currently counts in 20 ms ticks. An isolated
+16/20 scaling trial changed browser `5:19` from 229 to 183 ticks and `5:37`
+from 256 to 17, but also shortened BUILDING:7's full episode from 3405 to
+3215 ticks versus about 3420 ticks observed. That global patch was reverted;
+coordinated timed ADD and frame-delay calibration is still needed.
+
+SUZY:1 `1:1` and SUZY:2 `2:6` each appeared in only one sample of the new
+complete episodes. The older eight-run reference fields recorded 3 and 3–4
+samples respectively, although those fields used the legacy full-capture
+aggregation and are only corroborating evidence. Both loaders have authored
+SET_DELAY (10 and 12) before PURGE. Their browser spans are 9 and 12 ticks;
+the one-sample phase allowance removes their >3× labels. No loader runtime
+change is supported by the new one-sample captures alone.
+
 When supplementing a reference with new captures, generate the new batch into a separate
 directory and merge each JSON fingerprint with `merge-refs.mjs`. It unions vocabulary,
 compatible sample ranges, slots, and the concurrency maximum while adding successful

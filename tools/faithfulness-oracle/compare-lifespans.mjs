@@ -42,10 +42,18 @@ export const REFERENCE_SAMPLE_TO_ENGINE_TICKS = 2.85;
  * @param {Object} [opts]
  * @param {number} [opts.hardFactor=3] - multiplicative threshold for a HARD divergence.
  * @param {number} [opts.refSampleToOurTicks=2.85] - measured sample-cadence conversion.
+ * @param {number} [opts.samplePhasePadding=0] - samples added at each end of a
+ *   sampled span when the actor's start/end phase is unknown. For v2 captures,
+ *   callers use 1: N observed samples can represent roughly N-1 to N+1
+ *   sample intervals of real duration.
  * @returns {{ warnings: Array<Object>, hard: Array<Object> }}
  */
 export function compareLifespans(ourActorTicks, refLifespans, opts = {}) {
-  const { hardFactor = 3, refSampleToOurTicks = REFERENCE_SAMPLE_TO_ENGINE_TICKS } = opts;
+  const {
+    hardFactor = 3,
+    refSampleToOurTicks = REFERENCE_SAMPLE_TO_ENGINE_TICKS,
+    samplePhasePadding = 0,
+  } = opts;
 
   const result = { warnings: [], hard: [] };
 
@@ -68,8 +76,8 @@ export function compareLifespans(ourActorTicks, refLifespans, opts = {}) {
     if (!range || typeof range.min !== 'number' || typeof range.max !== 'number') {
       continue;
     }
-    const refMin = range.min * refSampleToOurTicks;
-    const refMax = range.max * refSampleToOurTicks;
+    const refMin = Math.max(0, range.min - samplePhasePadding) * refSampleToOurTicks;
+    const refMax = (range.max + samplePhasePadding) * refSampleToOurTicks;
 
     // Within observed range -> OK, nothing to emit.
     if (ourTicks >= refMin && ourTicks <= refMax) {

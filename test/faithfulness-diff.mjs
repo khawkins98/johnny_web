@@ -141,7 +141,7 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                 if (ref.lifespanBasis === 'completed-gag-v2') {
                     const spans = Object.fromEntries(Object.entries(ours.actorSpanTicks)
                         .map(([key, range]) => [key, range.max]));
-                    const life = compareLifespans(spans, ref.lifespans);
+                    const life = compareLifespans(spans, ref.lifespans, { samplePhasePadding: 1 });
                     if (life.hard.length || life.warnings.length) {
                         const fmt = (e) =>
                             `${e.actor}(ours=${e.ourTicks} refSamples=[${e.refSampleMin},${e.refSampleMax}] ` +

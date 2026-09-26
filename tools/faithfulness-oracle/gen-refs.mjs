@@ -14,7 +14,7 @@
  *
  * Usage:
  *   node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs \
- *       [--runs 3] [--conc 4] [--secs 90] [--dominant-slot]
+ *       [--runs 3] [--conc 4] [--secs 90] [--dominant-slot] [--keep-work]
  *
  * Per gag:
  *   1. Run capture-original-gag.mjs N times into <out>/.work/<NAME>_<tag>_r<i>/
@@ -62,9 +62,10 @@ const runs = Number(flag('--runs', '3'));
 const conc = Number(flag('--conc', '4'));
 const secs = Number(flag('--secs', '90'));
 const dominantSlotOnly = argv.includes('--dominant-slot');
+const keepWork = argv.includes('--keep-work');
 
 if (!gagsRaw) {
-    console.error('usage: node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs [--runs 3] [--conc 4] [--secs 90] [--dominant-slot]');
+    console.error('usage: node gen-refs.mjs --gags NAME:tag,NAME:tag,... --out test/faithfulness-refs [--runs 3] [--conc 4] [--secs 90] [--dominant-slot] [--keep-work]');
     process.exit(2);
 }
 
@@ -254,7 +255,8 @@ const finalIndex = [...merged.values()].sort((a, b) => (a.name < b.name ? -1 : a
 writeFileSync(indexPath, JSON.stringify(finalIndex, null, 2) + '\n');
 console.error(`[gen-refs] wrote ${indexPath} (${finalIndex.length} refs total)`);
 
-// cleanup scratch capture dirs (driveC copies etc.) -- refs are self-contained JSON
-rmSync(workDir, { recursive: true, force: true });
+// Raw traces can be kept temporarily for episode audit; they are never
+// committed as refs. Default cleanup removes copied DOS drives and logs.
+if (!keepWork) rmSync(workDir, { recursive: true, force: true });
 
 if (refs.length < gags.length) process.exit(1);

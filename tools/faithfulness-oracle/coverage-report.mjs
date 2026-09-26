@@ -74,14 +74,19 @@ const computeRow = (entry) => {
     let allWithin3x = true;
     let hardShort = 0;
     let hardLong = 0;
+    let hardDetails = [];
     if (hasLifespans) {
         const refActors = Object.keys(ref.lifespans);
         const spans = Object.fromEntries(Object.entries(ours.actorSpanTicks)
             .map(([key, range]) => [key, range.max]));
         const bothActors = refActors.filter((a) => spans[a] !== undefined);
-        const life = compareLifespans(spans, ref.lifespans);
+        const life = compareLifespans(spans, ref.lifespans, { samplePhasePadding: 1 });
         hardShort = life.hard.filter((e) => e.ourTicks < e.refMin).length;
         hardLong = life.hard.length - hardShort;
+        hardDetails = life.hard.map((entry) => ({
+            ...entry,
+            direction: entry.ourTicks < entry.refMin ? 'short' : 'long',
+        }));
         const inBand = bothActors.length - life.warnings.length - life.hard.length;
         const within3x = bothActors.length - life.hard.length;
         allWithin3x = bothActors.length === 0 || within3x === bothActors.length;
@@ -118,12 +123,15 @@ const computeRow = (entry) => {
         maxConc: `${ours.maxConc}/${ref.maxConc} ${maxConcFlag}`,
         vocabOverlap: `${vocabOverlapPct}%`,
         vocabExtras,
-        durationSampling: hasLifespans ? `${ref.lifespanEpisodes} episodes / ${runs} seeds` : '—',
+        durationSampling: hasLifespans
+            ? `${ref.lifespanEpisodes} ${ref.lifespanEpisodes === 1 ? 'episode' : 'episodes'} / ${runs} seeds`
+            : '—',
         durationActors: hasLifespans ? `${durationActorCount}/${refVocab.length}` : '—',
         durationActorCount,
         duration: durationCell,
         hardShort,
         hardLong,
+        hardDetails,
         status,
     };
 };
@@ -144,6 +152,7 @@ const unisolableRows = [
         duration: '—',
         hardShort: 0,
         hardLong: 0,
+        hardDetails: [],
         status: 'Unisolable (sibling-covered)',
     },
     {
@@ -159,6 +168,7 @@ const unisolableRows = [
         duration: '—',
         hardShort: 0,
         hardLong: 0,
+        hardDetails: [],
         status: 'Unisolable (init macro, transitively covered)',
     },
 ];
@@ -210,6 +220,10 @@ const tableHeader = '| Gag | Ref data | maxConc (ours/ref) | Vocab overlap | Voc
 const tableRows = sorted
     .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.vocabExtras || '—'} | ${r.durationSampling} | ${r.durationActors} | ${r.duration} | ${r.status} |`)
     .join('\n');
+const reviewRows = sorted.flatMap((row) => row.hardDetails.map((entry) =>
+    `| ${row.gag} | ${entry.actor} | ${entry.direction} | ${entry.ourTicks} | ` +
+    `${entry.refSampleMin}–${entry.refSampleMax} | ${entry.factor.toFixed(2)}x | ` +
+    `${row.durationSampling} |`)).join('\n');
 
 const doc = `# Faithfulness coverage
 
@@ -237,10 +251,20 @@ ${summaryLine}
 
 ${tableHeader}${tableRows}
 
+## Contiguous-span reviews beyond 3x
+
+The factor uses a one-sample allowance at each observed span boundary to
+account for start/end phase between original samples. The table shows the raw
+sample range; the allowance is applied before the 2.85x cadence conversion.
+
+| Gag | Actor | Direction | Engine ticks | Original samples | Factor | Sampling |
+|-----|-------|-----------|--------------|------------------|--------|----------|
+${reviewRows || '| — | — | — | — | — | — | — |'}
+
 ## Reading the report
 
 - Peak concurrency is the hard check. A difference of one is allowed for capture variation; two or more fails.
-- Vocabulary and duration are review aids. Random branches differ between runs, and the reference range comes from a small sample. The duration column compares engine ticks with reference samples scaled by 2.85; the 3x band marks substantial differences for investigation.
+- Vocabulary and duration are review aids. Random branches differ between runs, and the reference range comes from a small sample. The duration column compares engine ticks with reference samples scaled by 2.85 and allows one sample at each span boundary for unknown sample phase; the 3x band marks substantial differences for investigation.
 - Only completed-gag-v2 contiguous actor spans are comparable. Legacy capture totals and captures without a complete gag are shown without a duration verdict.
 - Duration sampling shows complete original gag episodes versus deterministic browser seeds. Each actor's longest browser span is compared with the original span range. Gag occupancy and repeat counts are stored separately for branch frequency review. Duration keys counts actors with measured complete-gag spans against the full reference vocabulary.
 - \`VISITOR:3\` is orphaned content and \`STAND:14\` is a shared setup macro, so neither can be captured alone. Their callers cover them indirectly.
