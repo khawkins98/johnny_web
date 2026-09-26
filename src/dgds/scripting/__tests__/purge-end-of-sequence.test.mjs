@@ -3,8 +3,8 @@ import { driveGag, hasData } from './support/drive-gag.mjs';
 import { isTtmFinished } from '../ttm-run-state.mjs';
 
 // PURGE (0x0110) ends a TTM sequence once its frame's hold elapses. A zero-delay PURGE
-// frame therefore ends in the tick it runs. A TTM prologue is setup, not a frame of the
-// first-added thread.
+// frame therefore ends in the tick it runs. A separate TTM prologue is host setup,
+// not a frame of the first-added thread.
 //
 // Ground truth: the original-binary refs (test/faithfulness-refs/*.json, sampled at entry
 // to the tick function FUN_1048_1acb, counting runstates 1-3 only):
@@ -20,7 +20,7 @@ import { isTtmFinished } from '../ttm-run-state.mjs';
 // the same tick, after the ADS actions. When the end-of-sequence flag is set, it sets
 // runstate 4 as soon as FUN_1048_196e reports the delay elapsed, and with delay 0 that is
 // immediate. Thread nodes (FUN_1050_042a, built in FUN_1050_04d6) start at their own
-// SET_SCENE frame, so the prologue frame 0 belongs to no thread.
+// SET_SCENE frame, so a separate prologue frame 0 belongs to no thread.
 
 const liveKeysPerTick = (adsName, tag, seed) => {
     const ticks = [];
