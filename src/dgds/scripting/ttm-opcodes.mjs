@@ -16,6 +16,7 @@ import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { loadScreen } from './background-resources.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
 import { traceEvent } from './trace-event.mjs';
+import { getTtmThreadScript } from './ttm-thread-script.mjs';
 
 // ---------------------------------------------------------------------------
 // TTM opcode callbacks
@@ -73,7 +74,7 @@ export const GOTO = (state, tagId) => {
         if (state.scenesRes && state.sceneIdx !== undefined) {
             const newScene = state.scenesRes[state.sceneIdx].scenes.find((s) => s.tagId === tagId);
             if (newScene) {
-                state.script = newScene.script;
+                state.script = getTtmThreadScript(state.scenesRes[state.sceneIdx], tagId);
                 state.tagId = tagId;
                 state.reentry = 0;
             }

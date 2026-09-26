@@ -102,7 +102,7 @@ CLI extraction writes the three proprietary runtime archives under ignored `publ
 
 ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load assets and execute drawing, timing, sound, and control opcodes. ADS and TTM use separate dispatch tables because identical opcode values can mean different things in the two formats.
 
-TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` divides a TTM stream into a resource prologue and named sequences. In 40 of Johnny's 41 TTMs, the separate frame-zero prologue ends at `UPDATE` before the first `SET_SCENE`. `WOULDBE.TTM` begins with `SET_SCENE`, so its screen and palette setup belongs to the first named thread's frame and runs again when that thread loops.
+TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` marks the start of a named sequence; it does not terminate the preceding thread. A thread can keep reading frames across later `SET_SCENE` markers until `PURGE`, `GOTO`, or the resource end. Its ADS-visible tag remains the one it started with during that fallthrough. In 40 of Johnny's 41 TTMs, the separate frame-zero prologue ends at `UPDATE` before the first `SET_SCENE`. `WOULDBE.TTM` begins with `SET_SCENE`, so its screen and palette setup belongs to the first named thread's frame and runs again when that thread loops.
 
 ## Fidelity policy and patch surface
 

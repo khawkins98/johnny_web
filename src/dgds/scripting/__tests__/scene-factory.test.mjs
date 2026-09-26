@@ -148,9 +148,9 @@ describe('TTM runtime state boundary', () => {
         const ttm = (tag) => ({
             scenes: [
                 { tagId: 0, script: [command(0x0ff0)] },
-                { tagId: tag, script: [command(0xa500)] },
-                { tagId: tag + 1, script: [command(0xa500)] },
-                { tagId: tag + 2, script: [command(0xa500)] },
+                { tagId: tag, script: [command(0xa500), command(0x0110), command(0x0ff0)] },
+                { tagId: tag + 1, script: [command(0xa500), command(0x0110), command(0x0ff0)] },
+                { tagId: tag + 2, script: [command(0xa500), command(0x0110), command(0x0ff0)] },
             ],
         });
         const parent = {
@@ -179,8 +179,8 @@ describe('TTM runtime state boundary', () => {
         const sibling = getSceneState(parent, 1, 11, 0, 0);
         const otherResource = getSceneState(parent, 2, 20, 0, 0);
 
-        expect(first.script).toHaveLength(2);
-        expect(sibling.script).toHaveLength(1);
+        expect(first.script).toHaveLength(4);
+        expect(sibling.script).toHaveLength(3);
         expect(first.sequenceKey).toBe('1:10');
         expect(sibling.sequenceKey).toBe('1:11');
         expect(otherResource.sequenceKey).toBe('2:20');
