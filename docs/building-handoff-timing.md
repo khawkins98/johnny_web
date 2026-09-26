@@ -58,7 +58,7 @@ original per-frame traces, then a full-gag comparison across the other timed
 ADD users. No thread-specific timing patch is supported by this evidence.
 
 The source evidence is `BUILDING.ADS` tag 7/8 and `MJFIRE.TTM` in the local
-archive, `scratchpad/lifespan-triage-refs/.work/BUILDING_{7,8}_r1/timeline.jsonl`
+archive, `scratchpad/lifespan-triage-raw/BUILDING_{7,8}/timeline.jsonl`
 from fresh original captures, and the browser's `driveGag` helper with seed 1.
 The original sample duration and 16 ms `now` clock measurements are documented
 in [the faithfulness methodology](../tools/faithfulness-oracle/METHODOLOGY.md#trace-sample-cadence-26).
