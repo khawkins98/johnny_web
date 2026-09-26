@@ -13,7 +13,7 @@ import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { createAdsProgram, isAdsTagEnded, resetAdsProgram, stepAdsProgram } from './ads-walker.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
-import { clearAdsSceneBatch, resetAdsDisplayList } from './ads-scene-changes.mjs';
+import { addSceneNode, clearAdsSceneBatch, findSceneNode, resetAdsDisplayList } from './ads-scene-changes.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
@@ -223,6 +223,20 @@ export class DgdsRuntime {
 
     #runAdsController() {
         const state = this.state;
+        // Explorer preview: play one authored TTM child on the current island,
+        // without walking ADS guards or changing the saved story day. This is
+        // intentionally separate from the faithful normal-playback path.
+        if (state.childScenePreview) {
+            const preview = state.childScenePreview;
+            if (!preview.armed) {
+                preview.available = Boolean(addSceneNode(state, preview.slot, preview.tag, 0, 1));
+                preview.armed = true;
+            }
+            if (!preview.available) return true;
+            this.#runTtmController();
+            state.continue = false;
+            return isTtmFinished(findSceneNode(state, preview.slot, preview.tag));
+        }
         const scene = state.data.scenes[state.currentScene];
 
         if (scene === undefined) {

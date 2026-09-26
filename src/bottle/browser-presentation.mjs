@@ -286,6 +286,7 @@ export const runBrowserPresentation = async ({
                         audioManager,
                         adsSceneTag: tagId,
                         singleAdsScene: tagId !== null,
+                        ...(selection.childScenePreview ? { childScenePreview: selection.childScenePreview } : {}),
                         titleState: selection.titleState ?? null,
                         hostManagedTransitions: Boolean(selectScene),
                         presentationPolicy,

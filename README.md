@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog, or press `S`. Press `R` to return t
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, move the pointer to reveal the compass button and open its scene map. Click numbered scenes to trace possible branches, use Back and Forward to revisit your route, and drag or zoom the map. The side panel shows the current story day, gags seen in this sequence, and the next planned gag. The map shows scripted possibilities; Johnny's live random choices continue independently.
+While a gag is playing, move the pointer to reveal the compass button and open its scene map. The focused view shows the selected scene between the route before it and its possible next scenes. Select a scene to watch a silent preview, or choose **Play this scene now** to jump to its animation. Use Back and Forward to revisit your route, or switch to **All routes** to pan and zoom the full script graph. The side panel shows the current story day, gags seen in this sequence, and the next planned gag. The map shows scripted possibilities; Johnny's live random choices continue independently.
 
 ## Development
 
@@ -38,6 +38,8 @@ pnpm run preview  # Serve the production build locally
 ```
 
 Start with [Contributing](CONTRIBUTING.md) for the source layout, local data setup, and checks to run before a PR. The [architecture guide](docs/architecture.md) explains how the engine fits together.
+
+See the [changelog](CHANGELOG.md) for the v1 baseline and v1.1 scene flow explorer.
 
 For a specific task:
 

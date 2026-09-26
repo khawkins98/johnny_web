@@ -105,9 +105,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             letter-spacing: .04em;
         }
         .scene-flow-map-tools { display: flex; align-items: center; gap: 5px; color: #80e7ec; }
-        .scene-flow-map-tools button { width: 28px; height: 26px; border: 1px solid #3cb8e5; background: #123bb2; color: #fff8b5; font: 20px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-map-tools button { min-width: 40px; min-height: 40px; border: 1px solid #3cb8e5; background: #123bb2; color: #fff8b5; font: 20px/1 'VT323', monospace; cursor: pointer; }
         .scene-flow-map-tools button:hover { background: #2762cd; }
         .scene-flow-map-tools button:active { scale: .96; }
+        .scene-flow-map-tools .scene-flow-mode-button { min-width: 94px; padding: 0 6px; font-size: 17px; }
+        .scene-flow-map-main:not(.is-overview) .scene-flow-zoom-control { display: none; }
         .scene-flow-viewport {
             height: 390px;
             overflow: hidden;
@@ -117,6 +119,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             touch-action: none;
         }
         .scene-flow-viewport.is-dragging { cursor: grabbing; }
+        .scene-flow-viewport[data-mode="focus"] { cursor: default; }
         .scene-flow-viewport canvas,
         .scene-flow-map-labels { position: absolute; inset: 0; width: 100%; height: 100%; }
         .scene-flow-map-labels { pointer-events: none; }
@@ -163,7 +166,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
         .scene-map-node.is-route { border-color: #ffe32d; }
         .scene-map-node.is-selected { background: #ffdf28; color: #2c2514; border-color: #fff6a9; z-index: 2; }
+        .scene-map-node:hover, .scene-map-node:focus-visible { z-index: 20; }
         .scene-map-node.is-start { width: 110px; font-size: 18px; }
+        .scene-map-node.is-focus-node { width: 132px; min-height: 50px; font-size: 18px; }
+        .scene-map-node.is-focus-node.is-selected { width: 150px; }
+        .scene-map-node.is-focus-node::after { display: none; }
         .scene-flow-map-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 5px 8px 0; font-size: 15px; color: #b9eaf0; }
         .scene-flow-map-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; }
         .scene-flow-map-legend b { font-weight: normal; }
@@ -185,6 +192,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-inspector h3 { margin: 10px 0 0; font: 26px/1 'Caveat', cursive; }
         .scene-flow-inspector p { margin: 5px 0; line-height: 1.08; }
         .scene-flow-inspector .scene-flow-inspector-kicker { color: #795023; text-transform: uppercase; font-size: 15px; }
+        .scene-flow-preview-stage { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 8px 0 4px; overflow: hidden; background: #071998; border: 2px solid #8b5a2b; box-sizing: border-box; }
+        .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+        .scene-flow-preview-caption { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
+        .scene-flow-play-button { width: 100%; min-height: 42px; margin-top: 8px; padding: 5px 8px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-play-button:hover { background: #fff177; }
+        .scene-flow-play-button:active { scale: .96; }
+        .scene-flow-preview-note { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
         .scene-flow-route-controls { display: flex; gap: 5px; margin-top: 10px; }
         .scene-flow-route-controls button, .scene-flow-next button {
             border: 2px solid #8b5a2b; background: #ffefce; color: #4a3520;
@@ -207,6 +221,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             .scene-flow-map-aside { min-height: 160px; }
             #scene-flow-modal { padding: 14px 12px; }
             .scene-flow-map-hint { display: none; }
+            .scene-map-node.is-focus-node { width: 88px; font-size: 15px; }
+            .scene-map-node.is-focus-node.is-selected { width: 98px; }
+            .scene-flow-map-tools .scene-flow-mode-button { min-width: 84px; }
         }
 
         .scene-flow-close {
@@ -366,6 +383,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let isOpen = false;
     const close = () => {
         isOpen = false;
+        previewGeneration++;
+        mountedPreview?.destroy();
+        mountedPreview = null;
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
         previousFocus?.focus?.();
@@ -389,6 +409,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let trailIndex = -1;
     let seenGags = [];
     let mapGeneration = 0;
+    let mountedPreview = null;
+    let previewGeneration = 0;
 
     const links = document.createElement('div');
     links.className = 'scene-flow-links';
@@ -452,6 +474,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     const renderEmpty = (message) => {
         mapGeneration++;
+        previewGeneration++;
+        mountedPreview?.destroy();
+        mountedPreview = null;
         mountedMap?.destroy();
         mountedMap = null;
         title.textContent = 'How it works';
@@ -506,6 +531,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const outline = outlineSceneFlowSteps(flow);
         const graph = buildSceneFlowMap(flow);
         const generation = ++mapGeneration;
+        previewGeneration++;
+        mountedPreview?.destroy();
+        mountedPreview = null;
         mountedMap?.destroy();
         mountedMap = null;
         selectedKey = graph.start;
@@ -523,28 +551,46 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const heading = document.createElement('div');
         heading.className = 'scene-flow-map-heading';
         const headingTitle = document.createElement('span');
-        headingTitle.textContent = 'POSSIBLE TIMELINES';
+        headingTitle.textContent = 'CURRENT ROUTE';
         const tools = document.createElement('div');
         tools.className = 'scene-flow-map-tools';
         const headingHint = document.createElement('span');
         headingHint.className = 'scene-flow-map-hint';
-        headingHint.textContent = 'drag to pan · wheel to zoom';
+        headingHint.textContent = 'left: before · right: possible next';
+        const modeButton = document.createElement('button');
+        modeButton.type = 'button';
+        modeButton.className = 'scene-flow-mode-button';
+        modeButton.textContent = 'All routes';
+        modeButton.setAttribute('aria-label', 'Show all routes');
+        let overview = false;
+        modeButton.addEventListener('click', () => {
+            overview = !overview;
+            main.classList.toggle('is-overview', overview);
+            headingTitle.textContent = overview ? 'ALL ROUTES' : 'CURRENT ROUTE';
+            headingHint.textContent = overview ? 'drag to pan · wheel to zoom' : 'left: before · right: possible next';
+            modeButton.textContent = overview ? 'Focus route' : 'All routes';
+            modeButton.setAttribute('aria-label', overview ? 'Focus on selected scene' : 'Show all routes');
+            mountedMap?.setOverview(overview);
+        });
         const zoomOut = document.createElement('button');
         zoomOut.type = 'button';
+        zoomOut.className = 'scene-flow-zoom-control';
         zoomOut.textContent = '−';
         zoomOut.setAttribute('aria-label', 'Zoom out of map');
         const zoomIn = document.createElement('button');
         zoomIn.type = 'button';
+        zoomIn.className = 'scene-flow-zoom-control';
         zoomIn.textContent = '+';
         zoomIn.setAttribute('aria-label', 'Zoom into map');
         const resetView = document.createElement('button');
         resetView.type = 'button';
+        resetView.className = 'scene-flow-zoom-control';
         resetView.textContent = '⌖';
         resetView.setAttribute('aria-label', 'Fit map to view');
         zoomOut.addEventListener('click', () => mountedMap?.zoom(-1));
         zoomIn.addEventListener('click', () => mountedMap?.zoom(1));
         resetView.addEventListener('click', () => mountedMap?.fit());
-        tools.append(headingHint, zoomOut, zoomIn, resetView);
+        tools.append(headingHint, modeButton, zoomOut, zoomIn, resetView);
         heading.append(headingTitle, tools);
         main.appendChild(heading);
         const viewport = document.createElement('div');
@@ -558,7 +604,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         main.appendChild(viewport);
         const footer = document.createElement('div');
         footer.className = 'scene-flow-map-footer';
-        footer.innerHTML = '<span class="scene-flow-map-legend"><b class="route">● traced route</b><b>● possible</b><b class="random">● random pick</b></span><span>Click a numbered scene · script paths, not exact timing</span>';
+        footer.innerHTML = '<span class="scene-flow-map-legend"><b class="route">● selected route</b><b>● possible</b><b class="random">● random pick</b></span><span>Select a scene to see its choices</span>';
         main.appendChild(footer);
         const aside = document.createElement('aside');
         aside.className = 'scene-flow-map-aside';
@@ -626,6 +672,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         };
         const select = (key, record = true) => {
             selectedKey = key;
+            const previewRequest = ++previewGeneration;
+            mountedPreview?.destroy();
+            mountedPreview = null;
             if (record && trail[trailIndex] !== key) {
                 trail = trail.slice(0, trailIndex + 1);
                 trail.push(key);
@@ -649,8 +698,51 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 inspector.appendChild(explanation);
             } else {
                 const explanation = document.createElement('p');
-                explanation.textContent = 'Explore a possible next scene. The live screensaver chooses its own path.';
+                explanation.textContent = 'The current gag starts here. Choose a scene on the right to follow a route.';
                 inspector.appendChild(explanation);
+            }
+            if (key !== graph.start) {
+                const [slot, childTag] = key.split(':').map(Number);
+                const stage = document.createElement('div');
+                stage.className = 'scene-flow-preview-stage';
+                stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
+                const caption = document.createElement('small');
+                caption.className = 'scene-flow-preview-caption';
+                caption.textContent = 'Preparing silent scene preview…';
+                inspector.append(stage, caption);
+                import('./scene-flow-preview.mjs').then(({ mountSceneFlowPreview }) => {
+                    if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
+                    mountedPreview = mountSceneFlowPreview({
+                        host: stage, resolveEntry, sequenceTools, script: adsName,
+                        gagTag: flow.gag.tag, slot, tag: childTag, storyDay: storyDay || 1,
+                        onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
+                    });
+                    caption.textContent = 'Silent preview of this animation';
+                }).catch(() => {
+                    if (previewRequest === previewGeneration) caption.textContent = 'Preview unavailable for this scene.';
+                });
+            }
+            if (key !== graph.start && typeof sequenceTools?.startRun === 'function') {
+                const [slot, childTag] = key.split(':').map(Number);
+                const play = document.createElement('button');
+                play.type = 'button';
+                play.className = 'scene-flow-play-button';
+                play.textContent = '▶ Play this scene now';
+                const note = document.createElement('small');
+                note.className = 'scene-flow-preview-note';
+                note.textContent = 'Previews this animation, then resumes the planned sequence.';
+                play.addEventListener('click', () => {
+                    try {
+                        sequenceTools.startRun({
+                            mode: 'preview-child', script: adsName, tagId: flow.gag.tag,
+                            storyDay: storyDay || 1, slot, childTag,
+                        });
+                        close();
+                    } catch {
+                        note.textContent = 'This scene could not be started. Try another one.';
+                    }
+                });
+                inspector.append(play, note);
             }
             previous.disabled = trailIndex <= 0;
             next.disabled = trailIndex >= trail.length - 1 && !outgoing.length;
@@ -687,6 +779,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         import('./scene-flow-map.mjs').then(({ mountSceneFlowMap }) => {
             if (generation !== mapGeneration || !isOpen || !viewport.isConnected) return;
             mountedMap = mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect: select });
+            mountedMap.setOverview(overview);
             mountedMap.select(selectedKey, routeTo(selectedKey));
             mountedMap.fit();
         }).catch(() => {
@@ -805,6 +898,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // or a future multi-instance host) without leaking listeners.
     const destroy = () => {
         mapGeneration++;
+        previewGeneration++;
+        mountedPreview?.destroy();
+        mountedPreview = null;
         mountedMap?.destroy();
         mountedMap = null;
         window.removeEventListener('keydown', onKeydown);

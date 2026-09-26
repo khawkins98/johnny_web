@@ -41,6 +41,26 @@ const color = {
     stop: 0xffa15c,
 };
 
+function focusLayout(graph, selected, width, height) {
+    const positions = new Map([[selected, { x: 0, y: 0 }]]);
+    const next = [...new Set(graph.edges.filter((edge) => edge.from === selected && edge.to !== selected)
+        .map((edge) => edge.to))];
+    const previous = [...new Set(graph.edges.filter((edge) => edge.to === selected && edge.from !== selected)
+        .map((edge) => edge.from))].filter((key) => !next.includes(key));
+    const column = Math.min(220, Math.max(90, width * 0.28));
+    const place = (keys, x) => {
+        const visible = keys.slice(0, 6);
+        const gap = Math.min(64, (height - 78) / Math.max(1, visible.length));
+        visible.forEach((key, index) => positions.set(key, {
+            x,
+            y: (index - (visible.length - 1) / 2) * gap,
+        }));
+    };
+    place(previous, -column);
+    place(next, column);
+    return positions;
+}
+
 /** WebGL drawing layer. The positioned HTML buttons above it provide labels and input. */
 export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect }) {
     const positions = layoutMap(graph);
@@ -58,15 +78,11 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
         scene?.add(object);
         resources.push(object.geometry, object.material);
     };
-    const line = (a, b, tint, opacity = 1, width = 1.5) => {
-        if (!scene || !a || !b) return;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const geometry = new THREE.PlaneGeometry(Math.hypot(dx, dy), width);
-        const material = new THREE.MeshBasicMaterial({ color: tint, transparent: opacity < 1, opacity, depthWrite: false });
+    const line = (tint, opacity = 1, width = 1.5) => {
+        if (!scene) return;
+        const geometry = new THREE.PlaneGeometry(1, width);
+        const material = new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity, depthWrite: false });
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set((a.x + b.x) / 2, (a.y + b.y) / 2, 0);
-        mesh.rotation.z = Math.atan2(dy, dx);
         add(mesh);
         return mesh;
     };
@@ -85,8 +101,8 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
             rings.push(ring);
         }
     }
-    const edgeMeshes = graph.edges.map((edge) => line(positions.get(edge.from), positions.get(edge.to),
-        edge.random ? color.random : color.possible, 0.65, 2));
+    const edgeMeshes = graph.edges.map((edge) => line(edge.random ? color.random : color.possible, 0.65, 2));
+    const nodeMeshes = new Map();
     graph.nodes.forEach((node) => {
         const point = positions.get(node.key);
         if (!scene || !point) return;
@@ -95,6 +111,7 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(point.x, point.y, 1);
         add(mesh);
+        nodeMeshes.set(node.key, mesh);
     });
 
     const buttons = new Map();
@@ -118,10 +135,13 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
     let height = 0;
     let selected = START;
     let route = new Set([START]);
+    let overview = false;
     const render = () => {
         width = viewport.clientWidth;
         height = viewport.clientHeight;
         if (!width || !height) return;
+        const visible = overview ? positions : focusLayout(graph, selected, width, height);
+        viewport.dataset.mode = overview ? 'overview' : 'focus';
         if (renderer) {
             renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
             renderer.setSize(width, height, false);
@@ -130,24 +150,47 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
             camera.top = height / 2;
             camera.bottom = -height / 2;
             camera.updateProjectionMatrix();
+            rings.forEach((ring) => { ring.visible = overview; });
             for (const [index, edge] of graph.edges.entries()) {
-                if (!edgeMeshes[index]) continue;
+                const mesh = edgeMeshes[index];
+                if (!mesh) continue;
+                const from = visible.get(edge.from);
+                const to = visible.get(edge.to);
+                mesh.visible = Boolean(from && to) && (overview || edge.from === selected || edge.to === selected);
+                if (!mesh.visible) continue;
+                const dx = to.x - from.x;
+                const dy = to.y - from.y;
+                mesh.position.set((from.x + to.x) / 2, (from.y + to.y) / 2, 0);
+                mesh.rotation.z = Math.atan2(dy, dx);
+                mesh.scale.x = Math.hypot(dx, dy);
                 const active = route.has(edge.from) && route.has(edge.to);
-                edgeMeshes[index].material.color.setHex(active ? color.route : edge.random ? color.random : color.possible);
-                edgeMeshes[index].material.opacity = active ? 1 : 0.55;
+                mesh.material.color.setHex(active ? color.route : edge.random ? color.random : color.possible);
+                mesh.material.opacity = active ? 1 : overview ? 0.45 : 0.82;
             }
-            scene.position.set(panX, -panY, 0);
-            scene.scale.setScalar(scale);
+            for (const node of graph.nodes) {
+                const point = visible.get(node.key);
+                const mesh = nodeMeshes.get(node.key);
+                if (!mesh) continue;
+                mesh.visible = Boolean(point);
+                if (point) mesh.position.set(point.x, point.y, 1);
+            }
+            scene.position.set(overview ? panX : 0, overview ? -panY : 0, 0);
+            scene.scale.setScalar(overview ? scale : 1);
             renderer.render(scene, camera);
         }
         for (const node of graph.nodes) {
-            const point = positions.get(node.key);
+            const point = visible.get(node.key);
             const button = buttons.get(node.key);
-            button.style.left = `${width / 2 + panX + point.x * scale}px`;
-            button.style.top = `${height / 2 + panY - point.y * scale}px`;
+            button.style.display = point ? 'block' : 'none';
+            if (!point) continue;
+            button.style.left = `${width / 2 + (overview ? panX + point.x * scale : point.x)}px`;
+            button.style.top = `${height / 2 + (overview ? panY - point.y * scale : -point.y)}px`;
+            button.textContent = overview && node.key !== START
+                ? String(graph.nodes.indexOf(node)).padStart(2, '0') : node.name;
             button.classList.toggle('is-selected', node.key === selected);
             button.classList.toggle('is-route', route.has(node.key));
             button.classList.toggle('is-start', node.key === START);
+            button.classList.toggle('is-focus-node', !overview);
         }
     };
     const fit = () => {
@@ -166,6 +209,7 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
     };
     let drag = null;
     const onDown = (event) => {
+        if (!overview) return;
         if (event.target.closest('button')) return;
         drag = { x: event.clientX, y: event.clientY, panX, panY };
         viewport.setPointerCapture(event.pointerId);
@@ -179,6 +223,7 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
     };
     const onUp = () => { drag = null; viewport.classList.remove('is-dragging'); };
     const onWheel = (event) => {
+        if (!overview) return;
         event.preventDefault();
         scale = Math.max(0.4, Math.min(2.2, scale * (event.deltaY > 0 ? 0.9 : 1.1)));
         render();
@@ -193,7 +238,12 @@ export function mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect })
     fit();
     return {
         fit, select,
+        setOverview(enabled) {
+            overview = Boolean(enabled);
+            fit();
+        },
         zoom(direction) {
+            if (!overview) return;
             scale = Math.max(0.4, Math.min(2.2, scale * (direction > 0 ? 1.2 : 1 / 1.2)));
             render();
         },
