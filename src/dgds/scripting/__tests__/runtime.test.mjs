@@ -761,8 +761,16 @@ describe('DgdsRuntime', () => {
             ],
             scenes: [
                 { tagId: 0, script: [] },
-                { tagId: 3, script: [{ opcode: 0xa100, params: [10, 10, 5, 5] }] },
-                { tagId: 21, script: [{ opcode: 0xa100, params: [50, 50, 5, 5] }] },
+                { tagId: 3, script: [
+                    { opcode: 0xa100, params: [10, 10, 5, 5] },
+                    { opcode: 0x0110, params: [] },
+                    { opcode: 0x0ff0, params: [] },
+                ] },
+                { tagId: 21, script: [
+                    { opcode: 0xa100, params: [50, 50, 5, 5] },
+                    { opcode: 0x0110, params: [] },
+                    { opcode: 0x0ff0, params: [] },
+                ] },
             ],
         };
         const surface = createRecordingSurface();

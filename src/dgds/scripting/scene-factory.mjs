@@ -26,6 +26,7 @@
 import { pendingExecution } from './execution-outcome.mjs';
 import { TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey } from './ttm-sequence-order.mjs';
+import { getTtmThreadScript } from './ttm-thread-script.mjs';
 
 /**
  * Default runtime fields reset for every new scene execution.
@@ -183,6 +184,10 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
         console.log('add failed script', sceneIdx, tagId, scene, ttm);
         return;
     }
+    // A named SET_SCENE begins this node's first frame, but does not bound its
+    // execution. A node with no PURGE/GOTO runs into later named frames while
+    // retaining its own ADS-visible tag (MJFISHC 4:44 -> 4:45, for example).
+    s.script = getTtmThreadScript(ttm, tagId);
     state.ttmEnvironments ||= new Map();
     let environment = state.ttmEnvironments.get(sceneIdx);
     if (!environment) {

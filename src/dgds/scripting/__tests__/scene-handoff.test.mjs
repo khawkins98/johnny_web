@@ -91,7 +91,14 @@ describe('faithful scene handoff: no background-only frame between sub-scenes', 
             ],
             scenes: [
                 { tagId: 0, script: [] },
-                { tagId: 1, script: [...drawFrame(100), { opcode: 0x1120, params: [] }] },
+                // PURGE ends this thread before the following SET_SCENE. A
+                // bare UPDATE would intentionally fall through into tag 2.
+                { tagId: 1, script: [
+                    { opcode: 0x2000, params: [RED, 0] },
+                    { opcode: 0xa100, params: [100, 100, 10, 10] },
+                    { opcode: 0x0110, params: [] },
+                    { opcode: 0x0ff0, params: [] },
+                ] },
                 { tagId: 2, script: [...drawFrame(200), { opcode: 0x1200, params: [1] }] },
             ],
         };
