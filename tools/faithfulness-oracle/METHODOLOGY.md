@@ -273,9 +273,15 @@ browser retained it for 9–12 short ticks. Skipped or uneven original samples
 still limit the precision of this advisory comparison.
 
 After recapturing all 64 drivable gags, 199 complete original episodes yield
-contiguous-span data for 651 of 680 reference vocabulary keys. With the phase
-allowance, five spans remain beyond 3×: BUILDING:7/8 `3:83` (both long),
-FISHING:7/8 `4:44` (both short), and MARY:4 `5:37` (long). The BUILDING
+contiguous-span data for 651 of 680 reference vocabulary keys. The earlier
+full-capture comparison flagged 136 spans beyond 3× (130 short, 6 long) and
+three vocabulary extras. Completed-gag spans, the one-sample phase allowance,
+the original fish-branch observation, and the TTM continuation fix reduce
+those to three long-span reviews and zero vocabulary extras. The remaining
+reviews are BUILDING:7/8 `3:83` and MARY:4 `5:37`. FISHING:7/8 `4:44` now
+continues through the following TTM frames as the original binary does;
+its browser span increased from 2 to 54 ticks versus 15–18 original samples.
+The BUILDING
 handoff has a paired timing analysis in
 [building-handoff-timing.md](../../docs/building-handoff-timing.md). Its global
 episode duration is close even though three local clock offsets make `3:83`
@@ -302,6 +308,17 @@ aggregation and are only corroborating evidence. Both loaders have authored
 SET_DELAY (10 and 12) before PURGE. Their browser spans are 9 and 12 ticks;
 the one-sample phase allowance removes their >3× labels. No loader runtime
 change is supported by the new one-sample captures alone.
+
+Duration and vocabulary remain advisory. The three duration outliers reflect
+real order-sensitive timing interactions, but changing the shared timed-ADD
+clock alone worsens full-gag alignment. A uniform duration failure would
+therefore fail known unresolved cases without identifying a safe local fix.
+Only 651/680 vocabulary keys have completed-episode span evidence, many gags
+have just one or two complete original episodes, and the browser uses up to
+33 deterministic seeds while the original branch sample is much smaller.
+The fish branch was absent from 24 valid original runs before a later capture
+found it, demonstrating why an unobserved vocabulary key cannot yet be a
+hard failure. Peak concurrency retains its existing failing check.
 
 When supplementing a reference with new captures, generate the new batch into a separate
 directory and merge each JSON fingerprint with `merge-refs.mjs`. It unions vocabulary,
