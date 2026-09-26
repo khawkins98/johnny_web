@@ -1,73 +1,71 @@
 # Contributing
 
-A public reference for contributing to johnny_web. Follow these guidelines to keep the project clean and easy to navigate.
-
-## Getting started
-
-```bash
-pnpm install
-pnpm run dev       # http://localhost:5173
-```
-
-The data is proprietary and not committed. See the [README](README.md) for the supported download and extractor prerequisites.
-
-## Pull requests
-
-- All changes must come in via a pull request — no direct commits to `main`.
-- Keep PRs focused — one logical change per PR. Split unrelated work into separate PRs.
-- Provide a clear description of _what_ changed and _why_.
-- Link any related issues in the PR description.
-
-## Commit style
-
-- **Squash your commits** before merging. Each PR should land as a single, well-described commit on `main`.
-- Use **[Conventional Commits](https://www.conventionalcommits.org)** format:
-    ```
-    <type>(<optional scope>): <description>
-
-    [optional body]
-    ```
-    Common types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`
-- Keep the subject line under 72 characters.
-
-Examples:
-
-```
-feat(audio): support stereo sample playback
-fix(resource): handle missing PAL entries gracefully
-docs: update setup instructions for Vite
-```
-
-
-
-## Code style
-
-- Use ES modules (`.mjs` or `type="module"`) throughout — no CommonJS.
-- Prefer native Web APIs over third-party libraries where reasonable.
-- Run the project locally and verify your change works before opening a PR.
+Follow the [README setup](README.md#run-locally) to get the app running. You can run the unit tests and build without the original game data; playback and fidelity checks need it.
 
 ## Finding your way around
 
-Start with [`docs/architecture.md`](docs/architecture.md), which describes the execution model and links code to responsibilities. The main boundaries are:
+| Path | What lives here |
+| --- | --- |
+| `src/games/johnny/` | Johnny's scene selection, story, settings, and UI |
+| `src/dgds/` | Resource parsers and the DGDS script runtime |
+| `src/dgds/hosts/` | Browser scheduling, audio, and frame presentation |
+| `src/bottle/` | Shared application startup, package APIs, and developer panel |
+| `test/` | Rendering goldens and comparisons with the original program |
 
-- `src/dgds/` — reusable resource parsing and faithful DGDS execution
-- `src/dgds/hosts/` — browser scheduling, audio, and presentation adapters
-- `src/bottle/` — experimental package and browser-presentation APIs
-- `src/games/johnny/` — Johnny-specific resources, startup composition, and UI
+Unit tests also live alongside the source in `__tests__/` directories. Read the [architecture guide](docs/architecture.md) when working on execution or rendering, and use the [diagnostics guide](docs/diagnostics.md) to investigate playback bugs.
 
-Keep DGDS behavior, title-specific compatibility, browser accommodation, and optional enhancements in their respective layers. New compatibility rules should be named, scoped, and covered by a focused test.
+## Local game data
 
-When consulting another implementation, record the exact upstream file and the behavior being cross-checked in the relevant test or document. The ScummVM DGDS engine is a frequent GPL-3.0-or-later behavioral reference; see [NOTICE](NOTICE). Do not copy or adapt upstream source into this MIT-licensed tree without explicitly identifying its provenance and satisfying the applicable license and copyright requirements.
+Browser imports stay in IndexedDB. To make the data available to tests and command-line tools, extract the downloaded floppy ZIP into `public/data/`:
 
-## Verification and diagnostics
+```bash
+pnpm run extract "<path-to-zip>"
+```
 
-### What CI verifies — and what it does not
+The extractor requires `unzip` and `mcopy` on your PATH. On macOS, `unzip` is built in and `brew install mtools` provides `mcopy`. On Debian/Ubuntu, install both with `apt install unzip mtools`.
 
-CI (`.github/workflows/pr.yml`) runs `pnpm install`, `pnpm test`, and `pnpm run build`. Because the game data under `public/data/` is proprietary and gitignored, **CI runs with no data**, so every data-gated check — the end-to-end gag tests, the binary-faithfulness oracle (`test/faithfulness-diff.mjs`), and the render goldens — **silently does not run there** (`describe.skipIf(!hasData)` blocks simply don't enumerate). A green PR therefore verifies the codecs, parsers, VM, timing, composition, and UI, but **not** render/timing fidelity against the original. The fidelity net (`pnpm run test:golden` and `pnpm test` with data present) only runs locally, on a machine that has the extracted data — treat that as a manual gate for any rendering or scheduling change. The reverse-engineering behind those checks lives in `tools/faithfulness-oracle/METHODOLOGY.md`; regenerating references additionally needs an out-of-repo patched `dosbox-x` (documented there). Getting the data-gated tests running in CI against committed non-proprietary fixtures is the single highest-value hardening this project is missing.
+This creates `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`. Keep these proprietary files out of Git. The output directories `public/data/`, `dumps/`, and `traces/` are ignored; save lasting reverse-engineering findings in tests or documentation instead of committing generated asset dumps or inventories.
 
-- Run `pnpm test` and `pnpm run build` before opening a PR.
-- Rendering changes also require extracted local data and `pnpm run test:golden` (which skips with a message when data is absent, so it is safe to run anywhere). Use `pnpm run test:golden:update` only after visually reviewing an intentional logical-frame change.
-- Use `pnpm run dump` to regenerate ignored inspection output under `dumps/`. Do not commit proprietary files from `public/data/`, derived dumps, asset inventories, or ad hoc root-level extraction scripts.
-- Preserve findings that need to survive regeneration in parser/runtime tests and the relevant document under `docs/`.
-- Press `S` to open Settings and enable diagnostics, or press `D` to open the developer panel and enable them immediately.
-- For rendering bugs, reproduce after enabling diagnostics and attach the downloaded JSONL trace. Use `?debug=verbose` only when live sprite logs help.
+To test the first-run import screen, use `pnpm run dev:empty`. It hides local assets and opens `/?reset`, which clears the browser's imported data.
+
+## Making changes
+
+Use ES modules and prefer native Web APIs where practical. Keep script behavior in the DGDS runtime, browser adaptations in the host modules, and Johnny-specific behavior in `src/games/johnny/`. Give compatibility fixes a descriptive name and a focused test.
+
+If you consult another implementation, record the upstream file and the behavior you checked in a test or document. ScummVM's DGDS engine is a GPL-3.0-or-later reference; see [NOTICE](NOTICE). Copying or adapting its source into this MIT-licensed project requires identifying its provenance and satisfying the applicable license and copyright requirements.
+
+## Checking your work
+
+Before opening a PR, run:
+
+```bash
+pnpm test
+pnpm run build
+```
+
+For app changes, also check the affected behavior in the browser. Use `pnpm run test:watch` while developing, or `pnpm run test:coverage` for a coverage report.
+
+For rendering or scheduling changes, extract the game data first, then run:
+
+```bash
+pnpm test
+pnpm run test:golden
+```
+
+**CI has no game data.** It runs the test suite and build, but skips data-dependent gag, faithfulness, and rendering checks. A green CI run therefore doesn't establish fidelity to the original. Run those checks locally with data present; `test:golden` also skips when data is absent.
+
+Only run `pnpm run test:golden:update` after visually reviewing an intentional rendering change. To run just the comparison with the original program, use `pnpm run test:faithful`. Regenerating its reference recordings requires a patched DOSBox-X build; see the [oracle methodology](tools/faithfulness-oracle/METHODOLOGY.md).
+
+For rendering bugs, enable [diagnostics](docs/diagnostics.md), reproduce the issue, and attach a downloaded JSONL trace.
+
+## Pull requests
+
+Keep each PR to one logical change. Describe what changed, why, and how you checked it; link related issues. All changes go through a PR rather than directly to `main`, and each PR should be squash-merged as one commit.
+
+Use [Conventional Commits](https://www.conventionalcommits.org) with a subject under 72 characters, for example:
+
+```text
+feat(audio): support stereo sample playback
+fix(resource): handle missing PAL entries gracefully
+docs: clarify local setup
+```
