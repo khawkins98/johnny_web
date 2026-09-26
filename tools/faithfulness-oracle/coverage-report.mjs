@@ -16,7 +16,6 @@
 //
 // Usage: node tools/faithfulness-oracle/coverage-report.mjs
 
-import { execSync } from 'node:child_process';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,6 +56,7 @@ const computeRow = (entry) => {
     const refVocab = ref.vocab || [];
     const overlapCount = refVocab.filter((k) => ours.vocab.has(k)).length;
     const vocabOverlapPct = pct(overlapCount, refVocab.length);
+    const vocabExtras = [...ours.vocab].filter((k) => !refVocab.includes(k)).length;
 
     const delta = ours.maxConc - ref.maxConc;
     let maxConcFlag;
@@ -68,19 +68,16 @@ const computeRow = (entry) => {
     const hasLifespans = Boolean(ref.lifespans);
     let durationCell = '—'; // em dash
     let allWithin3x = true;
+    let hardShort = 0;
+    let hardLong = 0;
     if (hasLifespans) {
         const refActors = Object.keys(ref.lifespans);
         const bothActors = refActors.filter((a) => ours.actorTicks[a] !== undefined);
-        let inBand = 0;
-        let within3x = 0;
-        for (const actor of bothActors) {
-            const { min, max } = ref.lifespans[actor];
-            const t = ours.actorTicks[actor];
-            if (t >= min && t <= max) inBand++;
-            const lo = min / 3;
-            const hi = max * 3;
-            if (t >= lo && t <= hi) within3x++;
-        }
+        const life = compareLifespans(ours.actorTicks, ref.lifespans);
+        hardShort = life.hard.filter((e) => e.ourTicks < e.refMin).length;
+        hardLong = life.hard.length - hardShort;
+        const inBand = bothActors.length - life.warnings.length - life.hard.length;
+        const within3x = bothActors.length - life.hard.length;
         allWithin3x = bothActors.length === 0 || within3x === bothActors.length;
         durationCell =
             bothActors.length === 0
@@ -95,6 +92,8 @@ const computeRow = (entry) => {
         status = 'Review';
     } else if (vocabOverlapPct < 80) {
         status = 'Review';
+    } else if (vocabExtras > 0) {
+        status = 'Review';
     } else if ((delta === 0 || delta === 1) && (!hasLifespans || allWithin3x)) {
         status = hasLifespans ? 'Aligned' : 'No-duration-data';
     } else {
@@ -107,7 +106,10 @@ const computeRow = (entry) => {
         refData: hasLifespans ? '+lifespans' : 'maxConc-only',
         maxConc: `${ours.maxConc}/${ref.maxConc} ${maxConcFlag}`,
         vocabOverlap: `${vocabOverlapPct}%`,
+        vocabExtras,
         duration: durationCell,
+        hardShort,
+        hardLong,
         status,
     };
 };
@@ -121,7 +123,10 @@ const unisolableRows = [
         refData: '—',
         maxConc: '—',
         vocabOverlap: '—',
+        vocabExtras: 0,
         duration: '—',
+        hardShort: 0,
+        hardLong: 0,
         status: 'Unisolable (sibling-covered)',
     },
     {
@@ -130,7 +135,10 @@ const unisolableRows = [
         refData: '—',
         maxConc: '—',
         vocabOverlap: '—',
+        vocabExtras: 0,
         duration: '—',
+        hardShort: 0,
+        hardLong: 0,
         status: 'Unisolable (init macro, transitively covered)',
     },
 ];
@@ -148,11 +156,17 @@ const total = rows.length;
 const concurrencyCovered = rows.filter((r) => r.maxConc !== '—').length;
 const durationCovered = rows.filter((r) => r.duration !== '—').length;
 const hardDivergences = rows.filter((r) => r.status === 'FAIL').length;
+const lifespanShort = rows.reduce((n, r) => n + r.hardShort, 0);
+const lifespanLong = rows.reduce((n, r) => n + r.hardLong, 0);
+const vocabExtras = rows.reduce((n, r) => n + r.vocabExtras, 0);
 const unisolableCount = rows.filter((r) => r.status.startsWith('Unisolable')).length;
 
 const summaryLine =
     `Catalogue: ${total} gags · concurrency-covered: ${concurrencyCovered}/${index.length} · ` +
-    `duration-covered (lifespans): ${durationCovered}/${index.length} · hard divergences: ${hardDivergences} · ` +
+    `duration-covered (lifespans): ${durationCovered}/${index.length} · ` +
+    `hard concurrency divergences: ${hardDivergences} · ` +
+    `lifespan reviews beyond 3x: ${lifespanShort + lifespanLong} (${lifespanShort} short, ${lifespanLong} long) · ` +
+    `vocab extras: ${vocabExtras} · ` +
     `unisolable: ${unisolableCount} (explained).`;
 
 // Sort by ADS file name, then gag tag numerically, for a stable/readable grouping.
@@ -163,18 +177,12 @@ const sorted = [...rows].sort((a, b) => {
     return tagA - tagB;
 });
 
-let headSha = 'unknown';
-try {
-    headSha = execSync('git rev-parse --short HEAD', { cwd: repoRoot }).toString().trim();
-} catch {
-    // best-effort only
-}
 const today = new Date().toISOString().slice(0, 10);
 
-const tableHeader = '| Gag | Ref data | maxConc (ours/ref) | Vocab overlap | Duration in-band | Status |\n' +
-    '|-----|----------|---------------------|---------------|-------------------|--------|\n';
+const tableHeader = '| Gag | Ref data | maxConc (ours/ref) | Vocab overlap | Vocab extras | Duration in-band | Status |\n' +
+    '|-----|----------|---------------------|---------------|--------------|-------------------|--------|\n';
 const tableRows = sorted
-    .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.duration} | ${r.status} |`)
+    .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.vocabExtras || '—'} | ${r.duration} | ${r.status} |`)
     .join('\n');
 
 const doc = `# Faithfulness coverage
@@ -182,7 +190,8 @@ const doc = `# Faithfulness coverage
 This generated report compares each browser-engine gag with recordings from the
 original program. \`maxConc\` is the largest number of actors drawn together;
 vocabulary is the set of actor combinations seen; duration compares how long
-matching actors remain visible.
+matching actors remain visible. Original samples are converted to engine ticks
+using the measured 2.85x cadence ratio before comparison.
 
 Regenerate with:
 
@@ -190,7 +199,7 @@ Regenerate with:
 node tools/faithfulness-oracle/coverage-report.mjs
 \`\`\`
 
-Reflects HEAD \`${headSha}\`, generated ${today}.
+Generated from the current checkout on ${today}.
 
 ## Summary
 
@@ -203,7 +212,7 @@ ${tableHeader}${tableRows}
 ## Reading the report
 
 - Peak concurrency is the hard check. A difference of one is allowed for capture variation; two or more fails.
-- Vocabulary and duration are review aids. Random branches differ between runs, and DOSBox timing makes precise duration comparisons unreliable. The 3x band is intended to catch actors that vanish early or remain stuck on screen.
+- Vocabulary and duration are review aids. Random branches differ between runs, and the reference range comes from a small sample. The duration column compares engine ticks with reference samples scaled by 2.85; the 3x band marks substantial differences for investigation.
 - \`VISITOR:3\` is orphaned content and \`STAND:14\` is a shared setup macro, so neither can be captured alone. Their callers cover them indirectly.
 - The \`STAND:1-12\` vocabulary comparison is not meaningful. The browser test and original capture reach these idle poses through different paths; matching concurrency does not yet prove that the pose itself is correct.
 `;
