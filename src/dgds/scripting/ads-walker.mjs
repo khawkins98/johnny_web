@@ -34,8 +34,9 @@
  *   0x2015 -> 0e6e: state 5.   0x2020 -> 0ec8: full node reset.
  *   0x3010 RANDOM -> FUN_1048_0cda: sum the block's weights (FUN_1048_0c8d:
  *     ADD/0x2000 use param 4, 0x3020 param 1, anything else param 3), draw ONE
- *     word, pick = abs(word % total) + 1, walk subtracting weights, execute the
- *     picked op through 1519 unless it is 0x3020; total 0 -> no draw.
+ *     unsigned word, pick = abs((int16)(word % total)) + 1, walk subtracting
+ *     weights, execute the picked op through 1519 unless it is 0x3020;
+ *     total 0 -> no draw.
  *   0x4000 -> FUN_1048_0f8c (sequence to back).   0x4010 -> 0ef2 (unused).
  *   0xf010 -> 1669: arg -1 = the tag being walked, else look the tag up by id;
  *     set its flag to 2; if it is the current tag return null (abort the walk),

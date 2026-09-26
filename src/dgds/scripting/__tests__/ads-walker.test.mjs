@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TagFlag, drawRandomPick, isAdsTagEnded, resetAdsProgram, skipBlock, stepAdsProgram } from '../ads-walker.mjs';
+import { createFaithfulRng } from '../faithful-rng.mjs';
 import { resetAdsDisplayList } from '../ads-scene-changes.mjs';
 import { TtmRunMode, TtmRunState, isTtmRunning } from '../ttm-run-state.mjs';
 import { clearPulses, count, find, finishNode, makeAdsState, makeProgram, op } from './support/ads-stub-state.mjs';
@@ -438,6 +439,23 @@ describe('WHILE 0x1070 (asm 17a0): the only mid-script resume', () => {
 });
 
 describe('RANDOM (FUN_1048_0cda / 0c8d)', () => {
+    it('dispatches the original BUILDING:8 CF7C choice to 3:47 boot', () => {
+        const table = new Uint16Array(56);
+        table[1] = 0xcf7c;
+        const rng = createFaithfulRng({ i: 0, j: 1, table });
+        const state = makeAdsState({ 3: [49, 47, 48] }, { faithfulPick: rng.pick });
+        const program = start(makeProgram([
+            op(RANDOM_START),
+            op(ADD, 3, 49, 0, 1),
+            op(ADD, 3, 47, 0, 1),
+            op(ADD, 3, 48, 0, 1),
+            op(RANDOM_END),
+            op(END),
+        ]));
+        stepAdsProgram(state, program);
+        expect(state.scenes.map((scene) => scene.tagId)).toEqual([47]);
+    });
+
     it('weights: ADD uses its 4th param, STOP its 3rd, 0x3020 its 1st; the pick is executed unless it is 0x3020', () => {
         // STAND tag 1 exit roll: RANDOM{ STOP 1:53 (w1) ; 3020 5 } -> total 6.
         const program = start(

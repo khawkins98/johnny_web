@@ -40,6 +40,44 @@ The original shares this stream across its scene director, walking, island setup
 | TTM opcode `0x2020` | `minimum + word % (maximum - minimum)` |
 | ADS `RANDOM` | `word % totalWeight + 1` |
 
+For ADS `RANDOM`, `FUN_1048_0cda` divides the **unsigned** raw word by the
+unsigned sum of weights, then takes the absolute value of the signed 16-bit
+remainder. The largest shipped ADS block total is 7, so the last step does not
+change the result. The port previously signed the raw word *before* dividing,
+which could send a choice to a different branch without changing the draw count.
+
+Forced BUILDING:8 captures of the original show ADS caller `13DF:0D5C` drawing
+at the three-way choice after `3:140`. Counting completion calls before each
+draw aligns it to the first live frame of the selected branch:
+
+| Isolated capture | Choice sample | Raw word | `raw % 3 + 1` | Next live branch |
+| --- | ---: | ---: | ---: | --- |
+| 120-second probe | 452 | `0xCF7C` | 2 | `3:47` boot |
+| 150-second probe A | 635, 1587 | `0x0328`, `0x4F1F` | 2, 3 | `3:47` boot, `3:48` squid |
+| 150-second probe B | 633, 1585 | `0x0328`, `0x4F1F` | 2, 3 | `3:47` boot, `3:48` squid |
+| First fish probe | 487 | `0xA74F` | 1 | `3:49` fish |
+| Fish-chain probe | 801 | `0xDD22` | 1 | `3:49` fish, then `3:74` and `3:70` |
+
+The `0xCF7C` draw is decisive for operation order: signing the raw word first
+would give bucket 1 (`3:49`, fish), contrary to the observed boot. The raw word
+stream and draw count were already correct; only `pick(total)` needed changing.
+Across 18 new starts, 17 reached the choice and made 19 choices: 10 boot,
+7 squid, and 2 fish. There were **17 distinct choice words**; the two
+150-second boots repeated the same ADS draw sequence. The fish-chain capture
+shows `3:49` live at samples 801–866, `3:74` starting at 868, and `3:70`
+starting at 952. It stopped while `3:70` was still live, so that actor's
+duration is censored. The 24-run reference union's lack of BUILDING:8 fish
+actors was a coverage gap, not evidence that the original cannot take fish:
+those old captures kept only their union, without per-run reached-choice counts.
+BUILDING:7 has the same authored choice and also reaches fish in original captures.
+
+In deterministic engine probes, faithful-stream offsets 0–23 produced the full
+BUILDING:8 fish chain in 14/24 runs with the old signed-first mapping and 7/24
+with the corrected mapping. The default seeded-LCG path remains 9/24 for seeds
+1–24 because it does not call `faithful-rng.pick()`. These engine seed counts
+cannot be compared as independent trials with the original capture union: the
+intro and ambient draws put the binary at different, often repeated stream phases.
+
 Opcode `0x2020` is an RNG consumer. Its actual TTM handler is `1058:0e08` (the earlier `1048:0ec8` attribution was an unrelated ADS reinitialization path). On an active interpreter pass it consumes one word and sets the delay staging global to `minimum + (word % (maximum - minimum))`; the maximum is exclusive. The tick driver copies a changed staged value into the thread delay and sets its deadline before deciding whether the current frame may advance. If the interpreter's execution gate is inactive, the handler exits without drawing.
 
 A focused JOHNNY:2 capture observed arguments `(60,180)`, RNG ordinal 49,533 with word `0x1f2f`, and thread delay 123: `60 + (0x1f2f % 120) = 123`. This confirms both the machine-code formula and the live state transition.
