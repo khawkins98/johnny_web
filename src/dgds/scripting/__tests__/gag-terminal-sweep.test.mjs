@@ -33,9 +33,9 @@ const SEEDS = 25;
 // ACTIVITY:1 is an authored re-entry loop (IF_PLAYED 1:14 -> ADD 2:2; IF_PLAYED 2:2 ->
 // ADD 1:13 -> dive -> RANDOM{1:14 w5 | exit w2}): the original-binary capture shows
 // three dives before the exit, and each pass is ~1000 of our ticks, so a geometric
-// tail of seeds legitimately runs past 5000 ticks. 25000 keeps "never completes"
-// detectable without failing the authored loop.
-const MAX_TICKS = 25000;
+// tail of seeds legitimately runs past 5000 ticks. Give only this gag the longer
+// cap so stalls in the other gags fail sooner.
+const maxTicksForGag = (gag) => gag === 1 ? 25000 : 5000;
 
 describe.skipIf(!hasData)('gag terminal-drain seed sweep', () => {
     it(`every ACTIVITY gag completes for seeds 1..${SEEDS}`, { timeout: 600000 }, () => {
@@ -45,9 +45,9 @@ describe.skipIf(!hasData)('gag terminal-drain seed sweep', () => {
                     adsName: johnnyCastaway.resources.activity,
                     tag: gag,
                     seed,
-                    maxTicks: MAX_TICKS,
+                    maxTicks: maxTicksForGag(gag),
                 });
-                expect(completed, `ACTIVITY gag ${gag} did not complete (seed ${seed})`).toBe(true);
+                expect(completed, `ACTIVITY gag ${gag} did not complete within ${maxTicksForGag(gag)} ticks (seed ${seed})`).toBe(true);
             }
         }
     });

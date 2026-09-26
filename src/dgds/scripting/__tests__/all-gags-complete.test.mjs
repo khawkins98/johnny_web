@@ -17,16 +17,17 @@ const gagIds = activity ? [...new Set(activity.scenes.map((s) => s.tagId?.id).fi
 
 describe.skipIf(!hasData)('every ADS gag runs to completion', () => {
     for (const gag of gagIds) {
-        // ACTIVITY:1 is an authored re-entry loop (mean ~3.5 dives, ~1000 ticks each on
-        // our engine); 25000 ticks keeps a true stall detectable without failing it.
-        it(`gag ${gag} completes within 25000 ticks (no stall / infinite loop)`, { timeout: 60000 }, () => {
+        // ACTIVITY:1 has an authored re-entry loop; other gags should stall out
+        // much sooner if a handoff stops progressing.
+        const maxTicks = gag === 1 ? 25000 : 5000;
+        it(`gag ${gag} completes within ${maxTicks} ticks (no stall / infinite loop)`, { timeout: 60000 }, () => {
             const { completed } = driveGag({
                 adsName: johnnyCastaway.resources.activity,
                 tag: gag,
                 seed: 0x4a430000 + gag,
-                maxTicks: 25000,
+                maxTicks,
             });
-            expect(completed, `gag ${gag} did not complete within 25000 ticks`).toBe(true);
+            expect(completed, `gag ${gag} did not complete within ${maxTicks} ticks`).toBe(true);
         });
     }
 });

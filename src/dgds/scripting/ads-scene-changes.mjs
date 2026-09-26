@@ -6,7 +6,8 @@
  * (+0x2f: 0 idle, 1 run-once, 2 counted, 3 timed, 4 just-finished, 5 held) and an
  * "ever ADDed" counter (+0x2d). The port models a node as a scene object in
  * `state.scenes`: states 1-3 = isTtmRunning, state 4 = isTtmFinished carrying the
- * one-tick `playedPulse`, state 0 = finished without the pulse or absent. The
+ * one-tick `playedPulse`, state 0 = finished without the pulse, absent, or
+ * STOPped outside the display list with its execution position retained. The
  * +0x2d counter is the `state.adsAdded` key set. ads-walker.mjs is the only
  * caller of the node operations; the display-list resets are shared with the
  * runtime.
@@ -15,7 +16,7 @@ import { getSceneState, runCountToRunMode } from './scene-factory.mjs';
 import { sceneLabel, sceneLog, verboseLog } from './scripting-log.mjs';
 import { emitFrameOperation, FrameOperationType } from './frame-operation.mjs';
 import { pruneEnvironmentBackground } from './composition.mjs';
-import { isTtmFinished } from './ttm-run-state.mjs';
+import { isTtmFinished, TtmRunState } from './ttm-run-state.mjs';
 // runSetupOps lives in script-runner.mjs; addSceneNode calls it synchronously to
 // run a freshly-added TTM environment's prologue setup.
 import { runSetupOps } from './script-runner.mjs';
@@ -33,6 +34,7 @@ const keyOf = (sceneIdx, tagId) => `${sceneIdx}:${tagId}`;
 export const resetAdsDisplayList = (state) => {
     state.scenes = [];
     state.adsAdded = new Set();
+    state.stoppedAdsNodes = new Map();
     for (const sceneIdx of state.ttmEnvironments?.keys?.() || []) {
         pruneEnvironmentBackground(state, sceneIdx);
     }
@@ -65,9 +67,9 @@ const removeSceneNode = (state, sceneIdx, tagId) => {
 
 /**
  * ADD (0x2005 -> FUN_1048_0db6). Never de-duplicates:
- *   - a node in state 0/4 (finished, or stopped) is set back to 1/2/3, so the TTM
- *     runs again from its start frame (a finished thread's next-frame pointer was
- *     already reset to its start by the PURGE path, dc:15021) -- a fresh instance;
+ *   - a finished node (state 4/0) starts a fresh execution: its next-frame
+ *     pointer was already reset by the PURGE path (dc:15021);
+ *   - a STOPped node (state 0) resumes its retained frame position;
  *   - a RUNNING node keeps its frame position; only mode/count/timer are
  *     overwritten (0db6 never writes +8);
  *   - +0x2d is bumped either way (IF_NOT_PLAYED goes false the moment ADD runs).
@@ -75,8 +77,9 @@ const removeSceneNode = (state, sceneIdx, tagId) => {
  * restarts too.
  */
 export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { restart = false } = {}) => {
+    const key = keyOf(sceneIdx, tagId);
     state.adsAdded ||= new Set();
-    state.adsAdded.add(keyOf(sceneIdx, tagId));
+    state.adsAdded.add(key);
     const present = findSceneNode(state, sceneIdx, tagId);
     if (present !== undefined && !isTtmFinished(present) && !restart) {
         Object.assign(present, runCountToRunMode(runCount));
@@ -85,6 +88,18 @@ export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { res
     if (present !== undefined) {
         // A node that finished (state 4/0) restarts as a fresh execution.
         removeSceneNode(state, sceneIdx, tagId);
+    }
+    const stopped = state.stoppedAdsNodes?.get(key);
+    if (stopped) {
+        state.stoppedAdsNodes.delete(key);
+        if (!restart) {
+            Object.assign(stopped, runCountToRunMode(runCount));
+            stopped.proportion = proportion;
+            stopped.runState = TtmRunState.STARTING;
+            stopped.needsFirstFrame = true;
+            state.scenes.push(stopped);
+            return stopped;
+        }
     }
     const scene = getSceneState(state, sceneIdx, tagId, runCount, proportion);
     if (scene === undefined) return undefined;
@@ -112,12 +127,14 @@ export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { res
 };
 
 /**
- * STOP (0x2010 -> FUN_1048_0e9b): node state := 0. The port removes the scene
- * object, which also drops its frame position (the binary keeps it, so a later
- * ADD of a stopped node resumes mid-sequence there; here it restarts).
+ * STOP (0x2010 -> FUN_1048_0e9b): node state := 0. Keep its execution position
+ * outside the visible display list so a later ADD resumes the same frame.
  */
 export const stopSceneNode = (state, sceneIdx, tagId) => {
+    const scene = findSceneNode(state, sceneIdx, tagId);
     if (removeSceneNode(state, sceneIdx, tagId)) {
+        state.stoppedAdsNodes ||= new Map();
+        state.stoppedAdsNodes.set(keyOf(sceneIdx, tagId), scene);
         sceneLog(state, 'STOP_SCENE', sceneLabel(state.scenesRes, sceneIdx, tagId));
         return;
     }
@@ -129,5 +146,6 @@ export const stopSceneNode = (state, sceneIdx, tagId) => {
 /** 0x2020 -> FUN_1048_0ec8 -> FUN_1048_0b3e: full node reset (state 0, +0x2d = 0). */
 export const resetSceneNode = (state, sceneIdx, tagId) => {
     removeSceneNode(state, sceneIdx, tagId);
+    state.stoppedAdsNodes?.delete(keyOf(sceneIdx, tagId));
     state.adsAdded?.delete(keyOf(sceneIdx, tagId));
 };

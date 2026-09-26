@@ -44,8 +44,8 @@ const runGagDiff = ({ adsName, tag, seed }) => {
     const preCompletion = completedAt > 0 ? snapshots[completedAt - 1] : null;
     const earlyCompletionThreads = preCompletion ? preCompletion.unbounded : [];
 
-    // NOTE: mid-gag ticks where all threads are momentarily finished but no add is
-    // pending are NOT a divergence -- they are the port's finish->handoff latency
+    // NOTE: mid-gag ticks where all threads are momentarily finished but the tag
+    // has not ended are NOT a divergence -- they are the port's finish->handoff latency
     // (the successor is fired on a later present tick), a benign window the binary
     // does not have because it fires handoffs synchronously on the finish event.
     // The longest such window is reported (not asserted) as a Phase-2 timing signal.

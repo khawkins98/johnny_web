@@ -71,6 +71,7 @@ export class DgdsRuntime {
             // The binary's per-node "ever ADDed" counter (+0x2d), as the set of
             // (slot:tag) keys ADDed since the gag started; IF_NOT_PLAYED reads it.
             adsAdded: new Set(),
+            adsTagEnded: false,
             bkgScreen: null,
             bkgRes: null,
             bkgOcean: [],
@@ -163,6 +164,7 @@ export class DgdsRuntime {
             throw new RangeError(`ADS scene ${state.adsSceneTag} does not exist in "${state.data.name}"`);
         }
         state.currentScene = sceneIndex;
+        state.adsTagEnded = false;
         state.adsSceneEnd = state.singleAdsScene ? sceneIndex + 1 : null;
     }
 
@@ -247,6 +249,10 @@ export class DgdsRuntime {
         // a thread added here runs its first frame in this same tick.
         stepAdsProgram(state, this.#adsProgram);
 
+        // The binary checks completion after the node pass. A zero-delay ADD in
+        // the exit body can therefore finish before this tick's decision.
+        this.#runTtmController();
+
         // Non-Johnny hosts: the cosmetic alpha fade an F010 starts advances while
         // the live threads drain (the browser presenter draws it).
         if (!state.hostManagedTransitions && state.fadingOut && state.fadeOpacity < 1) {
@@ -260,8 +266,10 @@ export class DgdsRuntime {
         // KEEP_GOING/unbounded-loop exclusion. An active tag with idle nodes is
         // NOT complete: it keeps being walked until its F010.
         const tagEnded = isAdsTagEnded(this.#adsProgram.tags[state.currentScene]);
+        state.adsTagEnded = tagEnded;
         const blockers = state.scenes.filter((s) => !isTtmFinished(s));
-        const willComplete = tagEnded && blockers.length === 0;
+        const willComplete = tagEnded && blockers.length === 0 &&
+            (state.singleAdsScene || state.hostManagedTransitions || state.fadeOpacity >= 1);
         // INERT observability hook (no behavior change): emit the completion
         // decision -- the live-thread set + the verdict -- for the differential
         // faithfulness oracle. No-op unless a trace sink is attached.
@@ -302,6 +310,7 @@ export class DgdsRuntime {
             // slots (the debug/preview cycle the browser scene-stepper drives).
             clearAdsSceneBatch(state);
             state.currentScene++;
+            state.adsTagEnded = false;
             const tagInfo = state.data.scenes[state.currentScene]?.tagId;
             debugLog(
                 `Scene ${state.currentScene}/${state.data.scenes.length} started (${
@@ -461,7 +470,7 @@ export class DgdsRuntime {
             const completed = this.#runAdsController();
             const scene = state.data.scenes[state.currentScene];
             const compose = !state.continue || scene === undefined;
-            if (compose) {
+            if (compose && scene === undefined) {
                 this.#runTtmController();
             }
             return {
