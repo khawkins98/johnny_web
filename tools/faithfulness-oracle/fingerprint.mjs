@@ -81,9 +81,9 @@ export const createLiveRecorder = ({ drawnOnly = false } = {}) => {
 
 /**
  * Drive one gag on our engine (via the sanctioned driveGag() single-gag path) and
- * compute its fingerprint: {vocab, maxConc, liveTicks, actorTicks}. `actorTicks`
- * maps "slot:tag" -> the number of ticks it was drawing this run (for the
- * lifespan/duration comparison). `drawnOnly` is the opt-in diagnostic filter.
+ * compute its fingerprint. `actorTicks` counts all live ticks in one gag;
+ * `actorSpanTicks` measures each contiguous appearance of an actor key, and
+ * `actorOccurrences` counts those appearances. A key can appear repeatedly.
  *
  * @param {Set<string>} [establishingKeys] TEST-HARNESS-ONLY, FINGERPRINT-ONLY:
  *   "sceneIdx:tagId" keys to drop from the fingerprint (vocab/maxConc/actorTicks)
@@ -93,21 +93,26 @@ export const createLiveRecorder = ({ drawnOnly = false } = {}) => {
  *   listed.
  *   No effect when omitted.
  */
-export const fingerprintOurs = (adsName, tag, seed = 1, { drawnOnly = false, establishingKeys = null } = {}) => {
-    const recorder = createLiveRecorder({ drawnOnly });
-    driveGag({
-        adsName: `${adsName}.ADS`,
-        tag,
-        seed,
-        onTick: (runtime) => recorder.sample(runtime),
-    });
+export const summarizeLiveSamples = (samples, establishingKeys = null) => {
     const vocab = new Set();
     const actorTicks = {};
+    const actorSpanTicks = {};
+    const actorOccurrences = {};
+    const activeSpans = new Map();
     let maxConc = 0;
     let liveTicks = 0;
     const suppressed = new Set(establishingKeys ?? []);
     const openingSeen = new Set();
-    for (let live of recorder.finish()) {
+    const closeSpan = (key) => {
+        const ticks = activeSpans.get(key);
+        const range = actorSpanTicks[key];
+        actorSpanTicks[key] = range
+            ? { min: Math.min(range.min, ticks), max: Math.max(range.max, ticks) }
+            : { min: ticks, max: ticks };
+        actorOccurrences[key] = (actorOccurrences[key] || 0) + 1;
+        activeSpans.delete(key);
+    };
+    for (let live of samples) {
         if (suppressed.size > 0) {
             // Suppress each establishing key only for its OPENING appearance:
             // once it has been live and then drops out, stop suppressing, so
@@ -120,12 +125,30 @@ export const fingerprintOurs = (adsName, tag, seed = 1, { drawnOnly = false, est
         }
         if (live.length > 0) liveTicks++;
         maxConc = Math.max(maxConc, live.length);
-        for (const key of live) {
+        const present = new Set(live);
+        for (const key of activeSpans.keys()) if (!present.has(key)) closeSpan(key);
+        // The original timeline stores actor keys as a set. Multiple live
+        // instances with the same key still contribute one sample to that key's
+        // duration, while maxConc above retains the instance count.
+        for (const key of present) {
             vocab.add(key);
             actorTicks[key] = (actorTicks[key] || 0) + 1;
+            activeSpans.set(key, (activeSpans.get(key) || 0) + 1);
         }
     }
-    return { vocab, maxConc, liveTicks, actorTicks };
+    for (const key of [...activeSpans.keys()]) closeSpan(key);
+    return { vocab, maxConc, liveTicks, actorTicks, actorSpanTicks, actorOccurrences };
+};
+
+export const fingerprintOurs = (adsName, tag, seed = 1, { drawnOnly = false, establishingKeys = null } = {}) => {
+    const recorder = createLiveRecorder({ drawnOnly });
+    driveGag({
+        adsName: `${adsName}.ADS`,
+        tag,
+        seed,
+        onTick: (runtime) => recorder.sample(runtime),
+    });
+    return summarizeLiveSamples(recorder.finish(), establishingKeys);
 };
 
 /**
@@ -133,7 +156,8 @@ export const fingerprintOurs = (adsName, tag, seed = 1, { drawnOnly = false, est
  * themselves were built (an RNG-tolerant union over `ref.runs` original-binary
  * runs). `vocab` unions; `maxConc` takes the MAX across seeds (worst-case
  * concurrency peak); `liveTicks` sums for visibility only (not gated on);
- * `actorTicks` takes the worst-case (max) drawn-tick count per actor across seeds.
+ * `actorTicks` and `actorOccurrences` take the maximum across seeds;
+ * `actorSpanTicks` unions the individual contiguous-appearance ranges.
  *
  * @param {Set<string>} [establishingKeys] TEST-HARNESS-ONLY, forwarded to
  *   `fingerprintOurs` for every seed in the union -- see its doc.
@@ -141,6 +165,8 @@ export const fingerprintOurs = (adsName, tag, seed = 1, { drawnOnly = false, est
 export const fingerprintOursUnion = (adsName, tag, runs, { drawnOnly = false, establishingKeys = null } = {}) => {
     const vocab = new Set();
     const actorTicks = {};
+    const actorSpanTicks = {};
+    const actorOccurrences = {};
     let maxConc = 0;
     let liveTicks = 0;
     for (let seed = 1; seed <= runs; seed++) {
@@ -151,6 +177,15 @@ export const fingerprintOursUnion = (adsName, tag, runs, { drawnOnly = false, es
         for (const [key, ticks] of Object.entries(run.actorTicks)) {
             actorTicks[key] = Math.max(actorTicks[key] || 0, ticks);
         }
+        for (const [key, range] of Object.entries(run.actorSpanTicks)) {
+            const old = actorSpanTicks[key];
+            actorSpanTicks[key] = old
+                ? { min: Math.min(old.min, range.min), max: Math.max(old.max, range.max) }
+                : range;
+        }
+        for (const [key, count] of Object.entries(run.actorOccurrences)) {
+            actorOccurrences[key] = Math.max(actorOccurrences[key] || 0, count);
+        }
     }
-    return { vocab, maxConc, liveTicks, actorTicks };
+    return { vocab, maxConc, liveTicks, actorTicks, actorSpanTicks, actorOccurrences };
 };

@@ -6,27 +6,57 @@
   "slots": [
     "4"
   ],
-  "runs": 8,
+  "runs": 9,
   "vocab": [
     "4:2",
     "4:17",
     "4:42"
   ],
   "maxConc": 1,
-  "states": 4,
+  "states": null,
   "lifespans": {
-    "4:17": {
-      "min": 174,
-      "max": 178
-    },
     "4:2": {
-      "min": 305,
-      "max": 305
+      "min": 56,
+      "max": 68
+    },
+    "4:17": {
+      "min": 43,
+      "max": 45
     },
     "4:42": {
-      "min": 636,
-      "max": 656
+      "min": 150,
+      "max": 163
     }
   },
-  "drainTick": null
+  "drainTick": null,
+  "occupancy": {
+    "4:2": {
+      "min": 56,
+      "max": 68
+    },
+    "4:17": {
+      "min": 43,
+      "max": 45
+    },
+    "4:42": {
+      "min": 150,
+      "max": 163
+    }
+  },
+  "occurrences": {
+    "4:2": {
+      "min": 1,
+      "max": 1
+    },
+    "4:17": {
+      "min": 1,
+      "max": 1
+    },
+    "4:42": {
+      "min": 1,
+      "max": 1
+    }
+  },
+  "lifespanBasis": "completed-gag-v2",
+  "lifespanEpisodes": 4
 }

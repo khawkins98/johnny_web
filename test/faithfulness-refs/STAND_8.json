@@ -6,7 +6,7 @@
   "slots": [
     "1"
   ],
-  "runs": 8,
+  "runs": 9,
   "vocab": [
     "1:37",
     "1:38",
@@ -15,28 +15,74 @@
     "1:62"
   ],
   "maxConc": 1,
-  "states": 6,
+  "states": null,
   "lifespans": {
+    "1:37": {
+      "min": 24,
+      "max": 24
+    },
+    "1:38": {
+      "min": 15,
+      "max": 15
+    },
+    "1:39": {
+      "min": 9,
+      "max": 9
+    },
+    "1:40": {
+      "min": 20,
+      "max": 20
+    },
     "1:62": {
-      "min": 809,
-      "max": 1013
+      "min": 37,
+      "max": 69
+    }
+  },
+  "drainTick": null,
+  "occupancy": {
+    "1:37": {
+      "min": 24,
+      "max": 96
     },
     "1:38": {
       "min": 60,
-      "max": 120
+      "max": 60
     },
     "1:39": {
-      "min": 81,
-      "max": 81
-    },
-    "1:37": {
-      "min": 72,
-      "max": 325
+      "min": 18,
+      "max": 18
     },
     "1:40": {
-      "min": 100,
-      "max": 100
+      "min": 20,
+      "max": 80
+    },
+    "1:62": {
+      "min": 54,
+      "max": 344
     }
   },
-  "drainTick": null
+  "occurrences": {
+    "1:37": {
+      "min": 1,
+      "max": 4
+    },
+    "1:38": {
+      "min": 4,
+      "max": 4
+    },
+    "1:39": {
+      "min": 2,
+      "max": 2
+    },
+    "1:40": {
+      "min": 1,
+      "max": 4
+    },
+    "1:62": {
+      "min": 1,
+      "max": 7
+    }
+  },
+  "lifespanBasis": "completed-gag-v2",
+  "lifespanEpisodes": 4
 }

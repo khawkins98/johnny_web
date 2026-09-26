@@ -134,9 +134,14 @@ describe.skipIf(!hasData)('faithfulness oracle: our engine vs. original-binary r
                 // concurrency): convert the binary's ~57 ms samples to our 20 ms ticks
                 // (2.85x) before comparing. Keep this review-only while the remaining
                 // hard differences are triaged; reference ranges come from few random
-                // runs and our actorTicks is the maximum across deterministic seeds.
-                if (ref.lifespans) {
-                    const life = compareLifespans(ours.actorTicks, ref.lifespans);
+                // runs and our longest contiguous span is the maximum across seeds.
+                // Older refs summed every repeat of the forced gag over the
+                // capture window. V2 compares individual contiguous actor
+                // appearances, not repeat counts or total gag occupancy.
+                if (ref.lifespanBasis === 'completed-gag-v2') {
+                    const spans = Object.fromEntries(Object.entries(ours.actorSpanTicks)
+                        .map(([key, range]) => [key, range.max]));
+                    const life = compareLifespans(spans, ref.lifespans, { samplePhasePadding: 1 });
                     if (life.hard.length || life.warnings.length) {
                         const fmt = (e) =>
                             `${e.actor}(ours=${e.ourTicks} refSamples=[${e.refSampleMin},${e.refSampleMax}] ` +

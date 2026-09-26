@@ -65,17 +65,28 @@ const computeRow = (entry) => {
     else if (delta >= 2) maxConcFlag = `FAIL(+${delta})`;
     else maxConcFlag = `${delta}`; // negative (under)
 
-    const hasLifespans = Boolean(ref.lifespans);
+    const hasLifespans = ref.lifespanBasis === 'completed-gag-v2' &&
+        Object.keys(ref.lifespans || {}).length > 0;
+    const hasLegacyTotals = Boolean(ref.lifespans) && ref.lifespanBasis !== 'completed-gag-v2';
+    const hasNoCompletedGag = ref.lifespanBasis === 'completed-gag-v2' && !hasLifespans;
+    const durationActorCount = hasLifespans ? Object.keys(ref.lifespans).length : 0;
     let durationCell = '—'; // em dash
     let allWithin3x = true;
     let hardShort = 0;
     let hardLong = 0;
+    let hardDetails = [];
     if (hasLifespans) {
         const refActors = Object.keys(ref.lifespans);
-        const bothActors = refActors.filter((a) => ours.actorTicks[a] !== undefined);
-        const life = compareLifespans(ours.actorTicks, ref.lifespans);
+        const spans = Object.fromEntries(Object.entries(ours.actorSpanTicks)
+            .map(([key, range]) => [key, range.max]));
+        const bothActors = refActors.filter((a) => spans[a] !== undefined);
+        const life = compareLifespans(spans, ref.lifespans, { samplePhasePadding: 1 });
         hardShort = life.hard.filter((e) => e.ourTicks < e.refMin).length;
         hardLong = life.hard.length - hardShort;
+        hardDetails = life.hard.map((entry) => ({
+            ...entry,
+            direction: entry.ourTicks < entry.refMin ? 'short' : 'long',
+        }));
         const inBand = bothActors.length - life.warnings.length - life.hard.length;
         const within3x = bothActors.length - life.hard.length;
         allWithin3x = bothActors.length === 0 || within3x === bothActors.length;
@@ -88,6 +99,10 @@ const computeRow = (entry) => {
     let status;
     if (delta >= 2) {
         status = 'FAIL';
+    } else if (hasLegacyTotals) {
+        status = 'Legacy duration';
+    } else if (hasNoCompletedGag) {
+        status = 'No completed gag';
     } else if (hasLifespans && !allWithin3x) {
         status = 'Review';
     } else if (vocabOverlapPct < 80) {
@@ -103,13 +118,20 @@ const computeRow = (entry) => {
     return {
         gag: `${ref.name}:${ref.tag}`,
         adsName: ref.name,
-        refData: hasLifespans ? '+lifespans' : 'maxConc-only',
+        refData: hasLifespans ? '+completed-gag' : hasLegacyTotals ? 'legacy totals' :
+            hasNoCompletedGag ? 'no completed gag' : 'maxConc-only',
         maxConc: `${ours.maxConc}/${ref.maxConc} ${maxConcFlag}`,
         vocabOverlap: `${vocabOverlapPct}%`,
         vocabExtras,
+        durationSampling: hasLifespans
+            ? `${ref.lifespanEpisodes} ${ref.lifespanEpisodes === 1 ? 'episode' : 'episodes'} / ${runs} seeds`
+            : '—',
+        durationActors: hasLifespans ? `${durationActorCount}/${refVocab.length}` : '—',
+        durationActorCount,
         duration: durationCell,
         hardShort,
         hardLong,
+        hardDetails,
         status,
     };
 };
@@ -124,9 +146,13 @@ const unisolableRows = [
         maxConc: '—',
         vocabOverlap: '—',
         vocabExtras: 0,
+        durationSampling: '—',
+        durationActors: '—',
+        durationActorCount: 0,
         duration: '—',
         hardShort: 0,
         hardLong: 0,
+        hardDetails: [],
         status: 'Unisolable (sibling-covered)',
     },
     {
@@ -136,9 +162,13 @@ const unisolableRows = [
         maxConc: '—',
         vocabOverlap: '—',
         vocabExtras: 0,
+        durationSampling: '—',
+        durationActors: '—',
+        durationActorCount: 0,
         duration: '—',
         hardShort: 0,
         hardLong: 0,
+        hardDetails: [],
         status: 'Unisolable (init macro, transitively covered)',
     },
 ];
@@ -155,6 +185,10 @@ rows.push(...unisolableRows);
 const total = rows.length;
 const concurrencyCovered = rows.filter((r) => r.maxConc !== '—').length;
 const durationCovered = rows.filter((r) => r.duration !== '—').length;
+const durationActorsCovered = rows.reduce((n, r) => n + r.durationActorCount, 0);
+const durationVocabActors = rows.filter((r) => r.durationActorCount > 0)
+    .reduce((n, r) => n + Number(r.durationActors.split('/')[1]), 0);
+const legacyDurationCount = rows.filter((r) => r.refData === 'legacy totals').length;
 const hardDivergences = rows.filter((r) => r.status === 'FAIL').length;
 const lifespanShort = rows.reduce((n, r) => n + r.hardShort, 0);
 const lifespanLong = rows.reduce((n, r) => n + r.hardLong, 0);
@@ -163,7 +197,9 @@ const unisolableCount = rows.filter((r) => r.status.startsWith('Unisolable')).le
 
 const summaryLine =
     `Catalogue: ${total} gags · concurrency-covered: ${concurrencyCovered}/${index.length} · ` +
-    `duration-covered (lifespans): ${durationCovered}/${index.length} · ` +
+    `duration-covered (completed gags): ${durationCovered}/${index.length} · ` +
+    `duration actor coverage: ${durationActorsCovered}/${durationVocabActors} · ` +
+    `legacy duration refs: ${legacyDurationCount} · ` +
     `hard concurrency divergences: ${hardDivergences} · ` +
     `lifespan reviews beyond 3x: ${lifespanShort + lifespanLong} (${lifespanShort} short, ${lifespanLong} long) · ` +
     `vocab extras: ${vocabExtras} · ` +
@@ -179,11 +215,15 @@ const sorted = [...rows].sort((a, b) => {
 
 const today = new Date().toISOString().slice(0, 10);
 
-const tableHeader = '| Gag | Ref data | maxConc (ours/ref) | Vocab overlap | Vocab extras | Duration in-band | Status |\n' +
-    '|-----|----------|---------------------|---------------|--------------|-------------------|--------|\n';
+const tableHeader = '| Gag | Ref data | maxConc (ours/ref) | Vocab overlap | Vocab extras | Duration sampling | Duration keys | Duration in-band | Status |\n' +
+    '|-----|----------|---------------------|---------------|--------------|-------------------|---------------|-------------------|--------|\n';
 const tableRows = sorted
-    .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.vocabExtras || '—'} | ${r.duration} | ${r.status} |`)
+    .map((r) => `| ${r.gag} | ${r.refData} | ${r.maxConc} | ${r.vocabOverlap} | ${r.vocabExtras || '—'} | ${r.durationSampling} | ${r.durationActors} | ${r.duration} | ${r.status} |`)
     .join('\n');
+const reviewRows = sorted.flatMap((row) => row.hardDetails.map((entry) =>
+    `| ${row.gag} | ${entry.actor} | ${entry.direction} | ${entry.ourTicks} | ` +
+    `${entry.refSampleMin}–${entry.refSampleMax} | ${entry.factor.toFixed(2)}x | ` +
+    `${row.durationSampling} |`)).join('\n');
 
 const doc = `# Faithfulness coverage
 
@@ -192,6 +232,8 @@ original program. \`maxConc\` is the largest number of actors drawn together;
 vocabulary is the set of actor combinations seen; duration compares how long
 matching actors remain visible. Original samples are converted to engine ticks
 using the measured 2.85x cadence ratio before comparison.
+Legacy full-capture totals are marked separately and excluded from duration
+comparison because the original capture loops the gag repeatedly.
 
 Regenerate with:
 
@@ -209,10 +251,23 @@ ${summaryLine}
 
 ${tableHeader}${tableRows}
 
+## Contiguous-span reviews beyond 3x
+
+The factor uses a one-sample allowance at each observed span boundary to
+account for start/end phase between original samples. The table shows the raw
+sample range; the allowance is applied before the 2.85x cadence conversion.
+
+| Gag | Actor | Direction | Engine ticks | Original samples | Factor | Sampling |
+|-----|-------|-----------|--------------|------------------|--------|----------|
+${reviewRows || '| — | — | — | — | — | — | — |'}
+
 ## Reading the report
 
 - Peak concurrency is the hard check. A difference of one is allowed for capture variation; two or more fails.
-- Vocabulary and duration are review aids. Random branches differ between runs, and the reference range comes from a small sample. The duration column compares engine ticks with reference samples scaled by 2.85; the 3x band marks substantial differences for investigation.
+- Vocabulary and duration are review aids. Random branches differ between runs, and the reference range comes from a small sample. The duration column compares engine ticks with reference samples scaled by 2.85 and allows one sample at each span boundary for unknown sample phase; the 3x band marks substantial differences for investigation.
+- Only completed-gag-v2 contiguous actor spans are comparable. Legacy capture totals and captures without a complete gag are shown without a duration verdict.
+- Duration sampling shows complete original gag episodes versus deterministic browser seeds. Each actor's longest browser span is compared with the original span range. Gag occupancy and repeat counts are stored separately for branch frequency review. Duration keys counts actors with measured complete-gag spans against the full reference vocabulary.
+- Duration and vocabulary remain advisory. The original branch sample is small (some gags have only one complete episode), 29 vocabulary keys still lack completed-episode span evidence, and the three remaining long-span reviews need coordinated timing fixes. The fish branch appeared only after 24 earlier original captures, so an unobserved actor key alone cannot justify a failing assertion. Peak concurrency retains its failing check.
 - \`VISITOR:3\` is orphaned content and \`STAND:14\` is a shared setup macro, so neither can be captured alone. Their callers cover them indirectly.
 - The \`STAND:1-12\` vocabulary comparison is not meaningful. The browser test and original capture reach these idle poses through different paths; matching concurrency does not yet prove that the pose itself is correct.
 `;

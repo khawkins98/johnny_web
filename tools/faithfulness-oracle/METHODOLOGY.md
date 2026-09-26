@@ -224,23 +224,107 @@ other ran alongside eight other captures, the load of a catalogue regeneration (
   `delay=8` lasts 3 samples (164 ms); `delay=12` lasts 4; `delay=16` lasts 5; `delay=209`
   lasts 209 units (3347 ms) over 61 samples.
 
-So a reference lifespan of N samples is about N x 57 ms, and our `actorTicks` count 20 ms
+So a reference span of N samples is about N x 57 ms, and our actor spans count 20 ms
 engine ticks. For the same duration, ours reads about 2.85x the reference value. Both
 side counts are live-thread observations, rather than rendered frames: the binary samples
 at tick entry and our engine samples after each tick. The one-sample phase difference is
 small for long actors but matters for short-lived loaders. The earlier "about 16 ms per
 sample" estimate was the `now` unit, not the sample. The "about 50 ms" estimate was close.
 
-The lifespan comparator now scales the reference range by 2.85. Its >=3x differences
-remain review-only: on the 2026-09-26 baseline there were 136 such actor differences in
-35 of 64 drivable gags. A failing lifespan assertion would currently reject many known
-gags, including short-lived loader threads and random branches. The report in
-`docs/oracle-coverage.md` gives the current counts and can be regenerated after engine
-changes. Peak concurrency remains the hard gate.
+The lifespan comparator scales the reference range by 2.85. The 2026-09-26 report
+showed 136 >=3x differences in 35 gags, but these were based on incompatible units:
+the original director repeats the forced gag throughout each capture, and the old
+`gen-refs.mjs` summed an actor's samples over every repeat. Our side drives one gag.
+For example, a fresh 90-second ACTIVITY:4 capture contained 1,292 timeline samples.
+Its ADS reloads began at sample indices 0, 314, 627, 940 and 1,252. Actor `2:1`
+lasted 213–215 samples in each completed gag, while it totaled 895 samples across
+the capture including a 39-sample unfinished tail. The old committed range was
+1,070–1,075 samples from longer captures. Our engine counted 554 ticks for `2:1`;
+214 original samples × 2.85 = 610 engine ticks, much closer than the old aggregate
+comparison suggested.
+
+New `completed-gag-v2` references use ADS reload markers in the original trace to
+split full gag episodes and exclude the final episode when capture timeout
+right-censors it. Within each complete episode they record three separate
+observations: `lifespans` is the min/max length of each contiguous actor-live span;
+`occupancy` is the total samples the actor was live in the episode; and
+`occurrences` is how many spans that actor had in the episode. A gap in one
+actor's presence closes its span, but never ends the gag episode. These are
+observable live-key spans, so two distinct instances of the same key without
+an intervening absent sample would count as one span.
+The old full-capture totals have no `lifespanBasis` label and are excluded from
+duration comparison until recaptured. Peak concurrency remains the hard gate; the
+new span-duration metric remains advisory while its coverage and residuals are
+reviewed. The browser fingerprint compares its longest contiguous span over
+`ref.runs` deterministic seeds with the original span range. Occupancy and
+occurrence counts remain diagnostic for branch and retry frequency. Original
+episode counts can be much smaller than browser seed counts; the coverage report
+shows both counts alongside each duration result.
+
+The binary observes a live actor only at periodic sample instants. A span seen
+at N consecutive samples can begin just after an earlier sample and end just
+before a later one, so its actual duration can be roughly N−1 to N+1 sample
+intervals. V2 review comparisons expand the observed min/max by one original
+sample at each end (clamping the lower bound to zero), then apply the measured
+2.85 conversion. This is an uncertainty allowance for the coarse observation,
+not a change to the measured sample cadence or to the raw stored ranges. It
+prevents a one-sample loader from being called >3× long solely because the
+browser retained it for 9–12 short ticks. Skipped or uneven original samples
+still limit the precision of this advisory comparison.
+
+After recapturing all 64 drivable gags, 199 complete original episodes yield
+contiguous-span data for 651 of 680 reference vocabulary keys. The earlier
+full-capture comparison flagged 136 spans beyond 3× (130 short, 6 long) and
+three vocabulary extras. Completed-gag spans, the one-sample phase allowance,
+the original fish-branch observation, and the TTM continuation fix reduce
+those to three long-span reviews and zero vocabulary extras. The remaining
+reviews are BUILDING:7/8 `3:83` and MARY:4 `5:37`. FISHING:7/8 `4:44` now
+continues through the following TTM frames as the original binary does;
+its browser span increased from 2 to 54 ticks versus 15–18 original samples.
+The BUILDING
+handoff has a paired timing analysis in
+[building-handoff-timing.md](../../docs/building-handoff-timing.md). Its global
+episode duration is close even though three local clock offsets make `3:83`
+overlap too long; changing timed ADDs alone worsens the whole episode.
+
+MARY:4 has a similar order-sensitive handoff. The original complete episode
+has `5:19` at samples 37–103, `5:33` at 37–133, `5:28` at 105–120, and
+`5:37` at 122–134 (13 samples); a second complete episode shows 12 samples
+for `5:37`. Browser seed 1 has `5:19` at ticks 85–313, `5:33` at 85–323,
+`5:28` at 315–356, and `5:37` at 358–613 (256 ticks). The original
+`IF_PLAYED 5:33` STOP catches `5:37` just after its ADD; the browser reaches
+that STOP 33 ticks before the ADD, leaving `5:37` to finish naturally.
+`5:19` is a negative timed ADD of `-230`, which the binary measures on its
+16 ms `now` clock and the browser currently counts in 20 ms ticks. An isolated
+16/20 scaling trial changed browser `5:19` from 229 to 183 ticks and `5:37`
+from 256 to 17, but also shortened BUILDING:7's full episode from 3405 to
+3215 ticks versus about 3420 ticks observed. That global patch was reverted;
+coordinated timed ADD and frame-delay calibration is still needed.
+
+SUZY:1 `1:1` and SUZY:2 `2:6` each appeared in only one sample of the new
+complete episodes. The older eight-run reference fields recorded 3 and 3–4
+samples respectively, although those fields used the legacy full-capture
+aggregation and are only corroborating evidence. Both loaders have authored
+SET_DELAY (10 and 12) before PURGE. Their browser spans are 9 and 12 ticks;
+the one-sample phase allowance removes their >3× labels. No loader runtime
+change is supported by the new one-sample captures alone.
+
+Duration and vocabulary remain advisory. The three duration outliers reflect
+real order-sensitive timing interactions, but changing the shared timed-ADD
+clock alone worsens full-gag alignment. A uniform duration failure would
+therefore fail known unresolved cases without identifying a safe local fix.
+Only 651/680 vocabulary keys have completed-episode span evidence, many gags
+have just one or two complete original episodes, and the browser uses up to
+33 deterministic seeds while the original branch sample is much smaller.
+The fish branch was absent from 24 valid original runs before a later capture
+found it, demonstrating why an unobserved vocabulary key cannot yet be a
+hard failure. Peak concurrency retains its existing failing check.
 
 When supplementing a reference with new captures, generate the new batch into a separate
 directory and merge each JSON fingerprint with `merge-refs.mjs`. It unions vocabulary,
-sample ranges, slots, and the concurrency maximum while adding successful run counts.
+compatible sample ranges, slots, and the concurrency maximum while adding successful
+run counts. A completed-gag-v2 batch replaces an incompatible legacy duration range;
+it still preserves the older capture's vocabulary and concurrency evidence.
 The `states` count becomes `null` because the old raw timelines are no longer available
 to calculate the exact number of distinct live sets across both batches; no gate uses it.
 
@@ -250,9 +334,9 @@ for `BUILDING:7`, `BUILDING:8`, `FISHING:2`, and `FISHING:8`; the second added e
 more for `BUILDING:8` and `FISHING:2`. Nine of the twelve vocabulary extras entered the
 reference union: `BUILDING:7` gained `3:72` and `3:75`; `BUILDING:8` gained `3:48`,
 `3:76`, and `3:78`; `FISHING:2` gained `1:28`, `1:30`, and `1:37`; and `FISHING:8`
-gained `4:62`. `BUILDING:8`'s `3:49`, `3:70`, and `3:74` remain unmatched after 24
-total reference runs. Their cause is still open; absence from this finite capture
-sample alone does not establish an engine bug.
+gained `4:62`. At that point, `BUILDING:8`'s `3:49`, `3:70`, and `3:74` remained
+unmatched after 24 total reference runs. Absence from that finite sample alone
+did not establish an engine bug.
 
 The three remaining keys are one authored branch, not three unrelated actors.
 `BUILDING.ADS` tag 8 has `IF_PLAYED 3:140` followed by a `RANDOM_START` with three
@@ -260,15 +344,25 @@ equal-weight additions: fish `3:49`, boot `3:47`, or squid `3:48`. The fish path
 has explicit `IF_PLAYED 3:49 -> ADD 3:74` and `IF_PLAYED 3:74 -> ADD 3:70`
 handoffs. The reference union contains the boot and squid paths and their successors,
 so the original captures reached this choice; none of the 24 sampled the fish path.
-Our engine reached the complete fish chain in 9 of seeds 1–24. Its control flow is
-therefore plausible from the authored ADS, but the difference in observed branch
-frequency remains unexplained. Further RNG or trace work should check whether the
-original choice distribution, capture startup state, or the port's choice timing
-accounts for it before treating these keys as a regression.
+Our engine reached the complete fish chain in 9 of seeds 1–24. Its control flow
+was plausible from the authored ADS, and the different observed frequency led
+to the RNG investigation described below.
 
-Open follow-up: triage the scaled lifespan differences before promoting duration to a
-failing gate. The reference ranges are drawn from a small random sample; our side unions
-deterministic seeds and retains each actor's maximum count across them.
+The follow-up investigation found an unsigned modulo bug in the browser ADS
+choice path. An additional isolated original BUILDING:8 capture reached the
+fish branch: trace `#FORCE ads=66 tag=8`, only ADS `0x66` loaded, and only
+tag 8 completed. The capture at `/tmp/building8-fish-probe18` observed
+`3:49` at sample 801, `3:74` at 868, and `3:70` at 952. Its raw trace and
+timeline were copied to ignored
+`scratchpad/lifespan-triage-raw/BUILDING_8_fish_censored/`. The vocabulary
+union gained `3:49`, `3:74`, and `3:70`, clearing the last three extras.
+This capture was stopped 18 samples into `3:70`; it contributes vocabulary
+and peak concurrency but no completed-gag span, occupancy, or occurrence
+range. Those three keys therefore still lack completed-episode duration data.
+
+Open follow-up: triage residual contiguous-span differences before promoting
+duration to a failing gate. The reference ranges are drawn from a small random
+sample, and sample phase matters most for short spans.
 
 ## Random-number behavior
 

@@ -120,6 +120,26 @@ test('reference sample counts use the measured 2.85 engine-tick conversion', () 
   assert.equal(warnings[0].refSampleMax, 20);
 });
 
+test('v2 phase envelope treats one sampled instant as up to two cadence intervals', () => {
+  const ref = { '1:1': { min: 1, max: 1 } };
+  const opts = { samplePhasePadding: 1 };
+  assert.equal(compareLifespans({ '1:1': 9 }, ref, opts).hard.length, 0);
+  assert.equal(compareLifespans({ '1:1': 12 }, ref, opts).hard.length, 0);
+  assert.equal(compareLifespans({ '1:1': 18 }, ref, opts).hard.length, 1);
+  const { warnings } = compareLifespans({ '1:1': 9 }, ref, opts);
+  assert.equal(warnings[0].refMin, 0);
+  assert.equal(warnings[0].refMax, 5.7);
+});
+
+test('v2 phase envelope applies before the threefold threshold at both ends', () => {
+  const ref = { '3:83': { min: 10, max: 10 } };
+  const opts = { samplePhasePadding: 1 };
+  assert.equal(compareLifespans({ '3:83': 94 }, ref, opts).hard.length, 0);
+  assert.equal(compareLifespans({ '3:83': 95 }, ref, opts).hard.length, 1);
+  assert.equal(compareLifespans({ '3:83': 9 }, ref, opts).hard.length, 0);
+  assert.equal(compareLifespans({ '3:83': 8 }, ref, opts).hard.length, 1);
+});
+
 console.log(`\n${passed} passed, ${failures} failed`);
 if (failures > 0) {
   process.exit(1);
