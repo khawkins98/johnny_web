@@ -102,7 +102,7 @@ CLI extraction writes the three proprietary runtime archives under ignored `publ
 
 ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load assets and execute drawing, timing, sound, and control opcodes. ADS and TTM use separate dispatch tables because identical opcode values can mean different things in the two formats.
 
-TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` divides a TTM stream into a resource prologue and named sequences.
+TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` divides a TTM stream into a resource prologue and named sequences. In 40 of Johnny's 41 TTMs, the separate frame-zero prologue ends at `UPDATE` before the first `SET_SCENE`. `WOULDBE.TTM` begins with `SET_SCENE`, so its screen and palette setup belongs to the first named thread's frame and runs again when that thread loops.
 
 ## Fidelity policy and patch surface
 
@@ -153,7 +153,7 @@ The interpreter and runtime never inspect raw archive entries or invoke parser d
 
 A TTM resource owns one environment containing its decoded image slots, background assets, palette-related values, stored areas, and initial GET/PUT templates. Environments are keyed by ADS resource ID.
 
-The first requested scene for a resource owns its prologue. Siblings wait until that setup completes, then share decoded assets. Each scene gets fresh execution state, but all scenes in a sequence draw into the same shared, host-owned raster (see [Frame composition](#frame-composition)); there is no per-scene surface. Sprite save-under (GET/PUT) has no pixel effect under the immediate-mode renderer — the per-tick clear+redraw is the erase — so overlapping scenes can never collide over a shared save slot; there is no save-under registry.
+The first requested scene for a resource owns any separate prologue. Siblings wait until its host asset setup completes, then share decoded assets. The original's TTM thread interpreter starts at each thread's `SET_SCENE` frame; it does not execute the separate prologue frame. The browser host executes its screen and palette setup without its `UPDATE` because those assets supply the visible background. In the shipped `MJJOG.TTM`, for example, `LOAD_SCREEN ISLETEMP.SCR` is in the separate prologue; running its setup sets both the child and root `bkgScreen`. The browser presenter selects the child screen or falls back to the root, and `drawBackground` draws its pixels. Omitting setup would leave that screen absent before the first named frame. Each scene gets fresh execution state, but all scenes in a sequence draw into the same shared, host-owned raster (see [Frame composition](#frame-composition)); there is no per-scene surface. Sprite save-under (GET/PUT) has no pixel effect under the immediate-mode renderer — the per-tick clear+redraw is the erase — so overlapping scenes can never collide over a shared save slot; there is no save-under registry.
 
 ADS condition branches stage scene additions and removals:
 

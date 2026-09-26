@@ -24,9 +24,10 @@ export { debugLog, verboseLog, sceneLog, sceneLabel, TTMDispatch };
 // ---------------------------------------------------------------------------
 
 /**
- * Run a TTM prologue's setup ops (palette, screen, image slots) outside any frame.
- * UPDATE is skipped: the prologue is not a frame of any thread (see
- * addSceneNode), so it must not produce a frame boundary.
+ * Initialize host assets from a separate TTM frame-zero prologue. Original
+ * thread nodes start at SET_SCENE and never interpret that frame, but these
+ * screen/palette ops establish the background used by our presenter. UPDATE
+ * must not produce a frame boundary (see addSceneNode).
  */
 export const runSetupOps = (state, ops) => {
     for (const c of ops) {

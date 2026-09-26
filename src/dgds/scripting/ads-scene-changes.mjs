@@ -90,12 +90,13 @@ export const addSceneNode = (state, sceneIdx, tagId, runCount, proportion, { res
     if (scene === undefined) return undefined;
     if (scene.environment?.owner === scene && !scene.environment.ready) {
         // Every TTM environment initializes independently of unrelated active resources.
-        // The prologue (the ops before the first SET_SCENE) is setup, not a
-        // frame of this thread. The original's frame-table build
-        // (FUN_1050_04d6) starts each thread node (FUN_1050_042a) at its own
-        // SET_SCENE frame, and frame 0 belongs to no thread. So we run the
-        // setup ops but not the prologue's UPDATE, and the owner draws its own
-        // first frame this tick, the same as its siblings.
+        // For the 40 TTMs with a separate frame-zero prologue, the original
+        // frame-table build (FUN_1050_04d6) starts each node at its SET_SCENE;
+        // frame 0 is not interpreted by a thread. The browser host still needs
+        // its LOAD_SCREEN/palette setup to establish the visible background.
+        // Run those ops without UPDATE, so no thread consumes an extra frame.
+        // WOULDBE.TTM has an empty prologue: its tagged first frame performs
+        // screen/palette setup and replays it when that thread loops.
         runSetupOps(scene.state, (scene.script || scene.state.script).slice(0, scene.prologueLength || 0));
         scene.state.reentry = scene.prologueLength || 0;
         scene.environment.ready = true;

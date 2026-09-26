@@ -6,8 +6,8 @@
  *  SHARED within one TTM resource environment (prologue-loaded assets):
  *    res[], bkgScreen, bkgRes, bkgRaft, bkgOcean, saveBkg,
  *    foregroundColor, backgroundColor.
- *    The first scene for a resource owns its prologue. Siblings inherit its assets only
- *    after that prologue has finished; a different TTM resource gets a different environment.
+ *    The first scene for a resource owns any separate frame-zero prologue. Siblings
+ *    inherit its assets after host setup; a different TTM gets a different environment.
  *
  *  FRESH per scene (from initialState):
  *    reentry, played, runs, continue, delay, lastCommand, skip.
@@ -189,6 +189,9 @@ export const getSceneState = (state, sceneIdx, tagId, runCount, proportion) => {
         // A TTM environment owns decoded assets and initial GET/PUT templates.
         // Running siblings receive private working copies after setup completes.
         const assets = createTtmEnvironmentAssets(state);
+        // WOULDBE.TTM starts with SET_SCENE in frame 0, so this length is zero.
+        // Its first thread owns the screen/palette ops in its tagged first frame
+        // and targetStart=0 replays them on every counted/timed loop.
         const prologueLength = ttm.scenes[0].script.length;
         s.script = [...ttm.scenes[0].script, ...s.script];
         s.prologueLength = prologueLength;
