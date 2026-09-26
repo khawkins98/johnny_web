@@ -6,7 +6,8 @@
  * (+0x2f: 0 idle, 1 run-once, 2 counted, 3 timed, 4 just-finished, 5 held) and an
  * "ever ADDed" counter (+0x2d). The port models a node as a scene object in
  * `state.scenes`: states 1-3 = isTtmRunning, state 4 = isTtmFinished carrying the
- * one-tick `playedPulse`, state 0 = finished without the pulse or absent. The
+ * one-tick `playedPulse`, state 0 = finished without the pulse, absent, or
+ * STOPped outside the display list with its execution position retained. The
  * +0x2d counter is the `state.adsAdded` key set. ads-walker.mjs is the only
  * caller of the node operations; the display-list resets are shared with the
  * runtime.
@@ -66,9 +67,9 @@ const removeSceneNode = (state, sceneIdx, tagId) => {
 
 /**
  * ADD (0x2005 -> FUN_1048_0db6). Never de-duplicates:
- *   - a node in state 0/4 (finished, or stopped) is set back to 1/2/3, so the TTM
- *     runs again from its start frame (a finished thread's next-frame pointer was
- *     already reset to its start by the PURGE path, dc:15021) -- a fresh instance;
+ *   - a finished node (state 4/0) starts a fresh execution: its next-frame
+ *     pointer was already reset by the PURGE path (dc:15021);
+ *   - a STOPped node (state 0) resumes its retained frame position;
  *   - a RUNNING node keeps its frame position; only mode/count/timer are
  *     overwritten (0db6 never writes +8);
  *   - +0x2d is bumped either way (IF_NOT_PLAYED goes false the moment ADD runs).
