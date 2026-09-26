@@ -11,17 +11,17 @@
 //   (dropped/skipped early) can have a perfectly normal maxConc of 1 the
 //   entire time, and maxConc alone will never notice.
 //
-//   This module fills that gap by comparing, per "slot:tag" actor, how many
-//   ticks OUR engine drew it against the [min, max] range of drawn-sample
-//   counts observed across the N original-binary reference runs
-//   (`ref.lifespans["slot:tag"] = { min, max }`).
+//   This module compares one actor-duration value in engine ticks with the
+//   [min, max] range observed in original-binary samples. Current callers use
+//   the longest contiguous live span of each actor key, from completed gag
+//   episodes (`ref.lifespans["slot:tag"] = { min, max }`).
 //   The binary is sampled about every 57 ms; our engine ticks every 20 ms.
 //   Convert reference samples to engine ticks before comparing (57/20 = 2.85).
 //
 // SMALL-N CAVEAT:
-//   The reference range comes from a limited number of original-binary runs
-//   (`runs` in the fingerprint). It is NOT a statistically tight bound.
-//   Our side also keeps each actor's maximum across deterministic seeds.
+//   The reference range comes from a limited number of completed original
+//   episodes. It is NOT a statistically tight bound. Our side keeps the
+//   longest span across deterministic seeds.
 //   Accordingly, these classifications are review signals, not test failures:
 //     - A large multiplicative deviation (default 3x) is a HARD review item.
 //     - Anything else outside the observed [min, max] range is only a WARN,
@@ -33,8 +33,8 @@
 export const REFERENCE_SAMPLE_TO_ENGINE_TICKS = 2.85;
 
 /**
- * Compare our engine's per-actor drawn-tick counts against a reference's
- * lifespans range.
+ * Compare our engine's per-actor contiguous-span ticks against a reference's
+ * span-lifespan range.
  *
  * @param {Object|Map<string, number>} ourActorTicks - "slot:tag" -> drawn-tick count (ours).
  * @param {Object|undefined|null} refLifespans - ref's `lifespans` object: "slot:tag" -> {min, max}.

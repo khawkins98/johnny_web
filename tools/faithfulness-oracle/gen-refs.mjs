@@ -27,7 +27,8 @@
  *      `--dominant-slot` restores the old behaviour (slice to `slot` only),
  *      which hid actors the gag runs on other slots (e.g. ACTIVITY:1's 2:2).
  *   4. Write test/faithfulness-refs/<NAME>_<tag>.json:
- *      { name, adsId, tag, slot, slots, runs, vocab, maxConc, states, lifespans, drainTick }
+ *      { name, adsId, tag, slot, slots, runs, vocab, maxConc, states,
+ *        lifespans, occupancy, occurrences, lifespanBasis, lifespanEpisodes, drainTick }
  *
  * Also writes/updates test/faithfulness-refs/index.json listing every ref.
  *
@@ -39,6 +40,7 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { completedGagLifespans } from './completed-gag-lifespans.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -187,30 +189,34 @@ for (const g of gags) {
         continue;
     }
 
-    // lifespans: per-actor DRAWN-TICK COUNT (ticks "slot:tag" appears live) per
-    // run, then min/max over the runs it appeared in at all. Derived from the
-    // same sliced per-run timelines used for the vocab union above.
-    const perActorCountsByRun = new Map(); // actor -> [count per run it appeared in]
-    for (const sliced of slicedTimelines) {
-        let text;
-        try { text = readFileSync(sliced, 'utf8'); } catch { continue; }
-        const runCounts = new Map();
-        for (const line of text.split('\n')) {
-            if (!line.trim()) continue;
-            let rec;
-            try { rec = JSON.parse(line); } catch { continue; }
-            for (const a of rec.live || []) {
-                runCounts.set(a, (runCounts.get(a) || 0) + 1);
-            }
-        }
-        for (const [actor, count] of runCounts) {
-            if (!perActorCountsByRun.has(actor)) perActorCountsByRun.set(actor, []);
-            perActorCountsByRun.get(actor).push(count);
-        }
-    }
+    // The forced director loops a gag throughout the capture. Use ADS reloads
+    // to split complete gag episodes; summing a full capture against our one-gag
+    // drive produced spurious 3-10x short divergences. Exclude the unbounded
+    // final episode, which is right-censored by the capture timeout.
     const lifespans = {};
-    for (const [actor, counts] of perActorCountsByRun) {
-        lifespans[actor] = { min: Math.min(...counts), max: Math.max(...counts) };
+    const occupancy = {};
+    const occurrences = {};
+    let lifespanEpisodes = 0;
+    const mergeRanges = (target, source) => {
+        for (const [actor, range] of Object.entries(source)) {
+            const old = target[actor];
+            target[actor] = old
+                ? { min: Math.min(old.min, range.min), max: Math.max(old.max, range.max) }
+                : range;
+        }
+    };
+    for (let i = 0; i < okRuns.length; i++) {
+        try {
+            const trace = readFileSync(path.join(okRuns[i].dir, 'trace.log'), 'utf8');
+            const timeline = readFileSync(slicedTimelines[i], 'utf8');
+            const observed = completedGagLifespans(trace, timeline, Number.parseInt(g.hex, 16));
+            lifespanEpisodes += observed.completedEpisodes;
+            mergeRanges(lifespans, observed.spanLifespans);
+            mergeRanges(occupancy, observed.occupancy);
+            mergeRanges(occurrences, observed.occurrences);
+        } catch (error) {
+            console.error(`[gen-refs] WARN ${g.name}:${g.tag} run ${i + 1}: lifespan segmentation failed: ${error.message}`);
+        }
     }
 
     const ref = {
@@ -224,6 +230,10 @@ for (const g of gags) {
         maxConc: vocab.maxConc,
         states: vocab.states,
         lifespans,
+        occupancy,
+        occurrences,
+        lifespanBasis: 'completed-gag-v2',
+        lifespanEpisodes,
         drainTick: null,
     };
     const refPath = path.join(outDir, `${g.name}_${g.tag}.json`);
