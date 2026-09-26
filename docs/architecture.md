@@ -1,13 +1,8 @@
 # Architecture
 
-A public reference outlining the execution model, module boundaries, and known compatibility gaps of the johnny_web engine.
+Bottle DGDS reads the original resources and runs their animation scripts. Johnny's application supplies scene selection and UI; browser adapters handle scheduling, audio, and display.
 
-**tl;dr**
-
-- johnny_web runs original DGDS resources through an experimental engine called Bottle DGDS.
-- Logical execution runs at a fixed 50 Hz tick recovered from the host's 20 ms timer unit, decoupled from browser wall time and presentation logic.
-- Background canvases handle enhancements (like moving clouds) independently of the faithful DGDS software surface.
-- Runtime patches are allowed when they are isolated as host-compatibility adapters, not as changes to authored opcode semantics.
+For a first pass, read the [system overview](#system-overview), [repository map](#repository-map), and [startup flow](#startup). The remaining sections cover [script execution](#logical-execution), [scene lifecycles](#ttm-environments-and-scenes), and [frame composition](#frame-composition). For hands-on debugging, see [Debugging playback](diagnostics.md).
 
 ## System overview
 
@@ -37,44 +32,21 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 
 ## Repository map
 
-| Path                                             | Responsibility                                                                                       |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `src/bottle/browser-presentation.mjs`            | Browser startup, resource fetch, audio gate, and repeated ADS presentation cycles                    |
-| `src/bottle/game-package.mjs`                    | Validates and freezes base title identity and archive metadata; hosts validate optional capabilities |
-| `src/bottle/debug-ui.mjs`                        | Generic active-session diagnostics and developer controls                                            |
-| `src/dgds/resource.mjs`                          | `RESOURCE.MAP`/`.001` index and loader dispatch                                                      |
-| `src/dgds/palette.mjs`                           | Default DGDS palette pending complete authored PAL switching                                         |
-| `src/dgds/resource-provider.mjs`                 | Adapts archive entries to synchronous named-resource resolution                                      |
-| `src/dgds/resources/`                            | ADS, TTM, BMP, SCR, and PAL parsers                                                                  |
-| `src/dgds/compression/`                          | DGDS RLE and LZW decoding                                                                            |
-| `src/games/johnny/browser-app.mjs`               | Composes the Bottle browser host with Johnny's package and UI                                        |
-| `src/games/johnny/manifest.mjs`                  | Johnny identity, entry points, aliases, audio, and background metadata                               |
-| `src/games/johnny/story-controller.mjs`          | Host-level sequence planning, scene eligibility, and transition/walk injection                        |
-| `src/games/johnny/walking.mjs`                   | Host-owned walking route decode, interpolation, and path selection                                      |
-| `src/games/johnny/island-presenter.mjs`          | Persistent island layer composition and per-sequence presentation identity                                |
-| `src/games/johnny/ui/transitions.mjs`            | Host-owned sequence-end wipe rendering                                                                |
-| `src/games/johnny/ui/`                           | Johnny-specific settings and Enhanced-mode presentation                                              |
-| `src/dgds/scripting/process.mjs`                 | Browser session wiring and legacy active-session and debug façade                                    |
-| `src/dgds/scripting/runtime.mjs`                 | Instance-owned ADS/TTM coordination and logical presentation directives                              |
-| `src/dgds/hosts/browser-scheduler.mjs`           | Animation-frame timestamp to logical-tick host adapter                                               |
-| `src/dgds/hosts/browser-audio.mjs`               | Logical sample-operation to Web Audio host adapter                                                   |
-| `src/dgds/hosts/browser-frame-presenter.mjs`     | Foreground RGBA upload plus browser backgrounds and fades                                            |
-| `src/dgds/hosts/browser-presentation-policy.mjs` | Enhancement settings, wall time, and presentation randomness                                         |
-| `src/dgds/scripting/script-runner.mjs`           | Opcode callbacks, dispatch tables, interpreter                                                       |
-| `src/dgds/scripting/audio-operation.mjs`         | Host-neutral audio operation contract                                                                |
-| `src/dgds/scripting/frame-operation.mjs`         | Host-neutral drawing operation contract                                                              |
-| `src/dgds/scripting/surface-frame-presenter.mjs` | Applies frame operations to the one shared raster, routing GET/PUT through the global save-under registry |
-| `src/dgds/scripting/background-resources.mjs`    | Loads background assets described by an injected game package                                        |
-| `src/dgds/scripting/execution-outcome.mjs`       | Interpreter and scheduler outcome contract                                                           |
-| `src/dgds/scripting/frame-timing.mjs`            | Faithful authored frame-boundary values                                                              |
-| `src/dgds/scripting/scene-factory.mjs`           | TTM environments and per-scene runtime state                                                         |
-| `src/dgds/scripting/scene-frame.mjs`             | Emits `BEGIN_SCENE_FRAME`; the frame op restores the save-under region, never the whole raster        |
-| `src/dgds/scripting/composition.mjs`             | Immediate-mode compositor: clears the raster and redraws every active scene each tick; content-signature revision |
-| `src/dgds/scripting/surface.mjs`                 | Deterministic RGBA software surface plus recording adapter                                           |
-| `src/dgds/scripting/timing.mjs`                  | Browser timestamp to bounded DGDS tick conversion                                                    |
-| `src/dgds/scripting/timing-compatibility.mjs`    | Named authored-to-host timing mappings                                                               |
-| `src/dgds/scripting/diagnostics.mjs`             | Runtime diagnostics mode controller                                                                  |
-| `src/dgds/scripting/trace.mjs`                   | Structured JSONL event recording                                                                     |
+| Area | Start here |
+| --- | --- |
+| Application startup | `src/games/johnny/browser-app.mjs` composes the package and UI with `src/bottle/browser-presentation.mjs`. |
+| Game configuration | `src/games/johnny/manifest.mjs` supplies resource names and metadata; `src/bottle/game-package.mjs` validates the base package. |
+| Story and island | `src/games/johnny/story-controller.mjs` selects scenes; `walking.mjs` and `island-presenter.mjs` handle movement and persistent island state. |
+| Resource loading | `src/dgds/resource.mjs`, `resources/`, and `compression/` decode archives; `resource-provider.mjs` resolves names for the runtime. |
+| Script execution | `src/dgds/scripting/runtime.mjs` coordinates ADS and TTM; `script-runner.mjs` dispatches opcodes; `scene-factory.mjs` creates scene state. |
+| Rendering | `src/dgds/scripting/surface-frame-presenter.mjs` applies drawing operations; `composition.mjs` redraws active scenes onto the shared `surface.mjs` raster. |
+| Timing | `src/dgds/scripting/frame-timing.mjs` represents authored delays; `timing-compatibility.mjs` maps them to host timing. |
+| Browser adapters | `src/dgds/hosts/` contains the scheduler, audio adapter, frame presenter, and enhancement policy. |
+| Settings and diagnostics | `src/games/johnny/ui/` owns title controls; `src/bottle/debug-ui.mjs` exposes diagnostics recorded by `src/dgds/scripting/trace.mjs`. |
+
+## Engine scope
+
+Bottle's package and browser APIs are experimental. The next portability milestone is to replay a non-interactive DGDS presentation from another title by adding a package without changing the core runtime. A complete game would also need interaction, dialogue, inventory, save-state, and title-specific systems. The API is not yet stable and does not promise drop-in compatibility with other DGDS titles.
 
 ## Startup
 
@@ -104,22 +76,16 @@ ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load 
 
 TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` marks the start of a named sequence; it does not terminate the preceding thread. A thread can keep reading frames across later `SET_SCENE` markers until `PURGE`, `GOTO`, or the resource end. Its ADS-visible tag remains the one it started with during that fallthrough. In 40 of Johnny's 41 TTMs, the separate frame-zero prologue ends at `UPDATE` before the first `SET_SCENE`. `WOULDBE.TTM` begins with `SET_SCENE`, so its screen and palette setup belongs to the first named thread's frame and runs again when that thread loops.
 
-## Fidelity policy and patch surface
+## Where behavior belongs
 
-The project goal is to keep the DGDS interpreter and scene lifecycle running as faithfully as possible and inject behavior only where the original executable owned it.
+The runtime executes the original scripts; the host supplies behavior that belonged to the original executable or is needed for browser playback.
 
-Current rule:
+- Put opcode and scene-lifecycle corrections in `src/dgds/scripting/`.
+- Keep host timing adjustments named and tested in `timing-compatibility.mjs`.
+- Put browser adaptations in `src/dgds/hosts/` and Johnny-specific behavior in `src/games/johnny/`.
+- Keep wall time, storage, audio availability, and optional visual enhancements out of interpreter decisions.
 
-- The core runtime (`src/dgds/scripting/`) executes bytecode scheduling, DRAW timing, and scene composition semantics; it should not read wall time, storage, audio availability, or title policy.
-- Corrections that alter host timing should stay in `src/dgds/scripting/timing-compatibility.mjs`.
-- Enhancements and presentation behavior changes should stay in `src/dgds/hosts/*` and `src/games/johnny/*` (clouds/waves/holidays/walking/story policy/transitions).
-- Runtime-facing diagnostics should record these layers separately so we can distinguish faithful execution differences from presentation/policy differences.
-
-When a change is needed to behavior:
-
-1. Ask whether it belongs to the original bytecode model first; if yes, patch the script runtime path.
-2. If it is playback or environment adaptation, place it in host/johnny policy.
-3. If it is an intentional timing compatibility change, add a named patch in timing compatibility and cover it with a test.
+Diagnostics record runtime and host events separately so playback differences can be traced to the responsible layer.
 
 ### Reference provenance
 
@@ -170,10 +136,9 @@ Branch commit is explicitly remove-before-add. An ADS branch may therefore finis
 
 ## Frame composition
 
-This section describes the shared-raster model that shipped as Track A of the rendering
-refidelity refactor (`docs/scrantic-re-findings.md` Part A, the reverse-engineering spec
-this implements). It replaces an earlier per-scene-surface design; see the historical note
-at the end of this section for what changed and why.
+All active scenes draw onto one shared software raster. This model follows the
+[rendering findings from the original executable](scrantic-re-findings.md#part-a--rendering-model-root-cause-of-the-glitches).
+The historical note below explains how it replaced the earlier per-scene design.
 
 The browser has background and foreground canvases. TTM opcodes address neither directly —
 they emit frame operations that the surface-frame presenter (`src/dgds/scripting/surface-frame-presenter.mjs`)
@@ -272,7 +237,7 @@ list rather than a static declaration order.
 | -------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Frame scheduling                             | browser scheduler → fixed-step clock → `DgdsRuntime.tick()`                            |
 | Resource decoding                            | archive entries → named-resource provider → runtime                                    |
-| Drawing                                      | frame operations → software retained surfaces → RGBA upload by browser frame presenter |
+| Drawing                                      | frame operations → shared software raster → RGBA upload by browser frame presenter |
 | Enhancement settings                         | browser presentation policy → `localStorage`                                           |
 | Randomness                                   | injected random function                                                               |
 | Optional wall time and enhancement animation | browser presentation policy                                                            |
