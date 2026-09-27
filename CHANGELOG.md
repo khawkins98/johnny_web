@@ -7,7 +7,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 - Added an interactive, pixel styled scene map that follows the current gag and shows the route before a selected scene and its possible next scenes.
 - Added an all routes view with pan and zoom for exploring the full scripted graph, including random choices.
 - Added silent, in-panel previews of individual scene animations using the original game resources, including sprite setup and character poses from earlier route segments.
-- Added a control to play a selected scene immediately, then return to the planned screensaver sequence.
+- Added a control to jump into a selected scene, continue its scripted gag, then return to the planned screensaver sequence.
 - Added story day, current sequence, and planned gag context alongside the map, with links to the original script steps and flow documentation.
 - Improved scene labels and hover ordering so labels stay readable over nearby nodes.
 

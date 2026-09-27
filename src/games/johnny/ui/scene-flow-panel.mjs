@@ -745,7 +745,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 play.textContent = '▶ Play this scene now';
                 const note = document.createElement('small');
                 note.className = 'scene-flow-preview-note';
-                note.textContent = 'Previews this animation, then resumes the planned sequence.';
+                note.textContent = 'Continues this gag from here, then resumes the planned sequence.';
                 play.addEventListener('click', () => {
                     try {
                         sequenceTools.startRun({

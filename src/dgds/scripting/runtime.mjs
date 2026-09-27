@@ -231,18 +231,32 @@ export class DgdsRuntime {
         if (state.childScenePreview) {
             const preview = state.childScenePreview;
             const route = preview.route?.length ? preview.route : [{ slot: preview.slot, tag: preview.tag }];
-            const child = route[preview.index || 0];
+            const routeIndex = preview.index || 0;
+            const child = route[routeIndex];
             if (!child) return true;
             if (!preview.armed) {
-                preview.available = Boolean(addSceneNode(state, child.slot, child.tag, 0, 1));
+                const authoredAdd = preview.continueAds && routeIndex === route.length - 1
+                    ? state.data.scenes[state.currentScene]?.script.find((op) =>
+                        op.opcode === 0x2005 && op.params?.[0] === child.slot && op.params?.[1] === child.tag)
+                    : null;
+                preview.available = Boolean(addSceneNode(
+                    state, child.slot, child.tag, authoredAdd?.params?.[2] ?? 0, authoredAdd?.params?.[3] ?? 1,
+                ));
                 preview.armed = true;
             }
             if (!preview.available) return true;
             this.#runTtmController();
             state.continue = false;
             if (!isTtmFinished(findSceneNode(state, child.slot, child.tag))) return false;
-            if ((preview.index || 0) === route.length - 1) return true;
-            preview.index = (preview.index || 0) + 1;
+            if (routeIndex === route.length - 1) {
+                if (!preview.continueAds) return true;
+                // The selected child has just emitted its one-tick completion
+                // pulse. Let the normal ADS walker consume that pulse on the
+                // next tick, so its authored successor branch runs from here.
+                state.childScenePreview = null;
+                return false;
+            }
+            preview.index = routeIndex + 1;
             preview.armed = false;
             return false;
         }

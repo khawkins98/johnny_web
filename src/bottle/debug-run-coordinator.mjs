@@ -41,7 +41,7 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
                 ? mode === 'preview-child'
                     ? Object.freeze({
                         ...sequenceTools.preview(script, tagId, options),
-                        childScenePreview: { slot, tag: childTag, route, armed: false },
+                        childScenePreview: { slot, tag: childTag, route, armed: false, continueAds: true },
                     })
                     : sequenceTools.preview(script, tagId, options)
                 : (sequenceTools.planFrom(script, tagId, options), null);
