@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). Wheel over its blue map, or use **+**/**−**, to move between the 11-day arc, a day's possible gags, and a gag's script paths. Hover or focus a node for its label and a small original-game preview. Thicker gag branches represent higher catalogue selection weights; actual odds also depend on tide, visit budget, and recent history. **Selecting a day only explores it:** Johnny keeps playing until you choose **Play day**. A scene's **Play only this scene** button previews that action and then returns to the live visit. The arcs show story repeats and script branches, not a recording of Johnny's exact choices.
+While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). Its blue map places all 11 days, the current visit, catalog possibilities, and the inspected gag's script references in one pan and zoom space. Drag to pan, wheel or use **+**/**−** to zoom, **Follow live** to recenter, or **Fit story** for the whole matrix. Hover or focus a node for its label and a small original-game preview. Short cyan strokes show relative catalog weights, not exact odds; tide, visit budget, and history also affect selection. **Selecting a day only explores it:** Johnny keeps playing until you choose **Play day**. A scene's **Play only this scene** button previews that action and then returns to the live visit.
 
 ## Development
 

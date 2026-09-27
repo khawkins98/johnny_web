@@ -5,9 +5,10 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 ## v1.1 — Scene flow explorer
 
 - Added an interactive, pixel styled scene map that follows the current gag and shows the route before a selected scene and its possible next scenes.
-- Added a semantic story atlas above the visit strip: wheel zoom moves from the 11-day arc to weighted gag branches and nearby script paths, with curved repeat/back edges and hover previews from the original game data.
-- Added a stacked story timeline matrix that keeps story days, the current visit's planned route, a selected gag's steps, and its local choices in view together. Live playback and inspected possibilities have separate markers; other day-eligible gags sit in an expandable pool.
-- Kept the live or inspected gag centered when the panel opens, playback changes, or the window resizes; added visit strip navigation and clearer day jump labels.
+- Added one pan and zoom story map with day regions, the current visit, every catalog possibility for each day, and selected script references. Days remain forward landmarks; the map opens by the live gag and can fit the whole story or focus its script.
+- Distinguished seen, live, planned, and merely possible gags; source catalog weights change possibility stroke width without claiming exact probabilities. Hover and keyboard focus show labels, conditions, and original-game previews.
+- Kept the visit's planned route as an optional list below the map, with an inspector for guards, parallel actions, random picks, and scene playback.
+- Kept the live or inspected gag centered when the panel opens; added pan, continuous zoom, Follow live, Fit story, next-day inspection, and clearer day jump labels.
 - Opened gag details on an animated script scene when available, and surfaced example gags for a possible later visit next to the current visit.
 - Made the story-day row interactive: selecting a day explores its key scene and day-eligible options while playback continues; **Play day** explicitly saves the new story position and starts its visit.
 - Added hover and focus tooltips for the Settings and timeline icons, showing their `S` and `T` shortcuts; `T` opens or closes the timeline.
