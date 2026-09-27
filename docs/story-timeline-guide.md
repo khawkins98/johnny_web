@@ -1,6 +1,6 @@
 # Explore the story timeline
 
-The timeline shows Johnny's **11 story days, the current visit, possible future gags, and a selected gag's script references** in one pan and zoom map. The day ruler runs forward from 01 to 11; it does not represent branching or elapsed time. You need to [import the original game data](../README.md#run-locally) before scenes and animation previews can appear.
+The timeline shows Johnny's **11 story days, the current visit, possible future gags, and a selected gag's script references** in one pan and zoom map. The day keys form a continuous backbone. The current visit branches below its day key, while later days branch only to unchosen possibilities. The fixed 01–11 ruler follows story order, not elapsed time. You need to [import the original game data](../README.md#run-locally) before scenes and animation previews can appear.
 
 ## Open and navigate
 
@@ -13,11 +13,11 @@ The map opens around Johnny's live gag. Drag empty space to pan; wheel or use **
 - **Fit story** frames all 11 day regions. Click a numbered day in the fixed ruler to inspect that day.
 - **Script ↓** focuses the selected gag's script references inside the same map.
 
-The visit runs **left to right**. Ivory cards are already seen, yellow is Johnny now, and dashed cyan cards are already planned for this visit. The arrows show order, not elapsed time. The optional **Visit list** provides the same plan as a horizontal set of cards.
+The visit forks from the current day's key scene and runs **left to right**. Ivory cards are already seen, yellow is Johnny now, and dashed cyan cards are already planned for this visit. Its line ends at an unresolved gate; it does not join a later day until the game chooses what happens. The arrows show order, not elapsed time. The optional **Visit list** provides the same plan as a horizontal set of cards.
 
 ## What may happen next
 
-At the end of the known visit, the teal **Next visit unknown** gate leads to possible source records. The next visit has not been chosen yet. Select the gate to open the catalog within that day region; click a gag to inspect it. The catalog groups every relevant record by its original script. Its small bars compare **source catalog selection weights**, not percentages or a forecast. Tide, flags, remaining visit budget, and recent history affect actual selection. Ending gags and idle poses remain visible in the catalog.
+At the end of the known visit, the teal **Next visit unknown** gate leads to possible source records. Three forks beside it show examples from different source scripts; they are **not predictions**. Click an example to inspect it, or select the gate to open the full catalog branch to its right. The catalog groups every relevant record by its original script. Its small bars compare **source catalog selection weights**, not percentages or a forecast. Tide, flags, remaining visit budget, and recent history affect actual selection. Ending gags and idle poses remain visible in the catalog.
 
 Clicking a day in the ruler shows its key scene and a compact **Possible on day** gate. Click that gate to open its catalog. These actions only change what you inspect. **Play day** in the day panel is the explicit action that saves the day and restarts playback from its key scene.
 
@@ -25,7 +25,7 @@ Hover or keyboard-focus a gag or scene for context and a small silent original-g
 
 ## Inspect or play a script scene
 
-Select a gag, then use **Script ↓** to focus its references within the same day region. The numbered scene cards run horizontally in the order their references first appear in the script. Cyan links jump forward; amber arcs loop back, and dotted amber arcs mark random picks. Hover or focus a scene to brighten its incoming and outgoing links. Pan along the rail to follow a long gag. These links show authored references, **not an exact trace of Johnny's live execution or elapsed time**. The inspector below explains guards and parallel actions. **Full script map** in the inspector gives another pan and zoom view of the gag graph.
+Select a gag, then use **Script ↓** to focus its references within the same day region. Numbered scene cards move left to right in the order their references first appear in the script. A long forward chain forms a **reference spine**; other chains fork onto colored lanes and can rejoin it. Solid rails make one route through each branch legible, while faint links retain additional authored references. Yellow traces the route to the inspected scene; amber loops show backward references and dashed amber links mark random picks. Hover or focus a scene to brighten its incoming and outgoing links. Pan to follow a long gag. Lane placement organizes the script; it is **not an exact trace of Johnny's live execution, elapsed time, or the odds of a choice**. The inspector below explains guards, stops, and parallel actions. **Full script map** gives another pan and zoom view of the gag graph.
 
 Select a scene reference to change the inspector's preview. **Play this scene now** interrupts current playback, runs that scene through the original gag logic, then resumes the planned sequence. While exploring another day, the action is labeled **Play only this scene** and does not save or switch days. **Return to live** leaves inspection without changing playback.
 

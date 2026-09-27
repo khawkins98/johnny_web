@@ -1,6 +1,7 @@
 import { buildSceneFlowLabelResolver, extractSceneFlow } from '../../../dgds/scripting/scene-flow.mjs';
 import { JOHNNY_SCENES, SceneFlags } from '../story-controller.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
+import { layoutScriptBranches } from './script-branch-layout.mjs';
 
 const svgNs = 'http://www.w3.org/2000/svg';
 const padDay = (day) => String(day).padStart(2, '0');
@@ -12,14 +13,20 @@ const COMMON = JOHNNY_SCENES.filter((scene) => scene.day === 0);
 const DAY_WIDTH = 1000;
 const DAY_GAP = 36;
 const ROUTE_STEP = 210;
-const ROUTE_START = 170;
+const ROUTE_START = 400;
 const ROUTE_Y = 270;
 const ROUTE_CARD_WIDTH = 176;
 const CATALOG_TOP = 540;
 const CATALOG_COLUMN_WIDTH = 270;
 const CATALOG_COLUMNS = 3;
+const CATALOG_PANEL_OFFSET = 170;
+const CATALOG_PANEL_WIDTH = CATALOG_COLUMNS * CATALOG_COLUMN_WIDTH + 25;
 const SCRIPT_NODE_STEP = 172;
 const SCRIPT_NODE_WIDTH = 132;
+const SCRIPT_LANE_GAP = 112;
+const SCRIPT_MAIN_Y = 175;
+const SCRIPT_LANE_COLORS = ['#8cdeed', '#f0b66f', '#d5b2ef', '#9cd5ac', '#f5cf85', '#e6a6a6', '#a2c9fa', '#c4e38b'];
+const scriptLaneColor = (lane) => SCRIPT_LANE_COLORS[lane % SCRIPT_LANE_COLORS.length];
 
 function catalogForDay(day) {
     const key = dayKey(day);
@@ -68,7 +75,7 @@ function routeTo(graph, key) {
     while (queue.length && !parents.has(key)) {
         const from = queue.shift();
         for (const edge of graph.edges) {
-            if (edge.from === from && !parents.has(edge.to)) {
+            if (edge.action !== 'stop' && edge.from === from && !parents.has(edge.to)) {
                 parents.set(edge.to, from);
                 queue.push(edge.to);
             }
@@ -98,7 +105,10 @@ function makeLayout(visitItems, storyDay, catalogOpenDay, catalogHeight, scriptH
         const route = day === storyDay ? visitItems : [];
         const gateOffset = route.length ? ROUTE_START + route.length * ROUTE_STEP + 70 : 590;
         const baseWidth = route.length ? Math.max(DAY_WIDTH, gateOffset + 560) : DAY_WIDTH;
-        const width = day === scriptExtent?.day ? Math.max(baseWidth, scriptExtent.width) : baseWidth;
+        const catalogWidth = day === catalogOpenDay
+            ? gateOffset + CATALOG_PANEL_OFFSET + CATALOG_PANEL_WIDTH + 75 : 0;
+        const width = Math.max(baseWidth, catalogWidth,
+            day === scriptExtent?.day ? scriptExtent.width : 0);
         days.push({ day, x, width, route, gateX: x + gateOffset });
         x += width + DAY_GAP;
     }
@@ -116,6 +126,7 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     const inspectedId = inspectedGag && sceneId(inspectedGag);
     const scriptGraph = inspectedGag && inspectedGag.script !== 'POSE'
         ? graphForGag(inspectedGag, resolveEntry, graphCache) : null;
+    const scriptBranches = scriptGraph ? layoutScriptBranches(scriptGraph) : null;
     const catalogRecords = catalogForDay(inspectedDay);
     const catalog = catalogGroups(catalogRecords);
     const catalogOpen = catalogOpenDay === inspectedDay;
@@ -123,12 +134,15 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     const candidateSelected = catalogOpen && inspectedGag && !keySelected && inspectedGag.index == null;
     const catalogBottom = catalogOpen ? CATALOG_TOP + catalog.height + 65 : 0;
     const scriptBaseY = candidateSelected ? catalogBottom + 110 : 465;
-    const scriptWidth = scriptGraph ? Math.max(1000, scriptGraph.nodes.length * SCRIPT_NODE_STEP + 120) : 0;
+    const scriptWidth = scriptGraph ? Math.max(1000, scriptGraph.nodes.length * SCRIPT_NODE_STEP + 170) : 0;
     const selectedVisitIndex = visitItems.findIndex(({ gag }) => gag.index === inspectedGag?.index &&
         sceneId(gag) === inspectedId);
-    const scriptOffset = selectedVisitIndex < 0 ? 100 :
-        Math.max(60, ROUTE_START + selectedVisitIndex * ROUTE_STEP - 130);
-    const scriptHeight = scriptGraph ? scriptBaseY + 530 : 850;
+    const gateOffset = inspectedDay === storyDay && visitItems.length
+        ? ROUTE_START + visitItems.length * ROUTE_STEP + 70 : 590;
+    const scriptOffset = candidateSelected ? gateOffset + CATALOG_PANEL_OFFSET :
+        selectedVisitIndex < 0 ? 100 : Math.max(60, ROUTE_START + selectedVisitIndex * ROUTE_STEP - 130);
+    const scriptHeight = scriptBranches
+        ? scriptBaseY + SCRIPT_MAIN_Y + scriptBranches.maxLane * SCRIPT_LANE_GAP + 160 : 850;
     const scriptExtent = scriptGraph ? { day: inspectedDay, width: scriptOffset + scriptWidth + 80 } : null;
     const layout = makeLayout(visitItems, storyDay, catalogOpenDay, catalog.height, scriptHeight, scriptExtent);
     const dayAt = (day) => layout.days[day - 1];
@@ -179,7 +193,7 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     const svg = document.createElementNS(svgNs, 'svg');
     svg.setAttribute('viewBox', `0 0 ${layout.width} ${layout.height}`);
     svg.setAttribute('aria-hidden', 'true');
-    svg.innerHTML = '<defs><marker id="atlas-arrow-visited" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#eadfc8"/></marker><marker id="atlas-arrow-planned" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#8cdeed"/></marker><marker id="atlas-arrow-script" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#8cdeed"/></marker><marker id="atlas-arrow-return" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#efa65f"/></marker></defs>';
+    svg.innerHTML = '<defs><marker id="atlas-arrow-visited" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#eadfc8"/></marker><marker id="atlas-arrow-planned" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#8cdeed"/></marker><marker id="atlas-arrow-return" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#efa65f"/></marker></defs>';
     const buttons = document.createElement('div');
     buttons.className = 'scene-flow-atlas-buttons';
     const tooltip = document.createElement('div');
@@ -206,6 +220,7 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     let scriptPoint = null;
     let scriptStartPoint = null;
     let highlightScriptLinks = () => {};
+    let selectScriptDot = () => {};
     const points = new Map();
     const nameOf = (gag) => {
         if (gag.script === 'POSE') {
@@ -335,6 +350,10 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             'scene-flow-atlas-day-caption');
         const key = dayKey(day);
         const keyX = x + 185;
+        if (day > 1) {
+            const previousKeyX = layout.days[day - 2].x + 185;
+            addPath(`M${previousKeyX + 125} 155 H${keyX - 125}`, 'story', 3.5);
+        }
         addNode({ x: keyX, y: 155, text: nameOf(key), kind: 'key',
             selected: inspectedId === sceneId(key) && (exploredDay === day || day === storyDay),
             label: `Inspect ${nameOf(key)}, key scene for day ${day}`,
@@ -342,7 +361,10 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             onClick: () => onGag(key, day, 'key') });
         points.set(`${day}:${sceneId(key)}`, { x: keyX, y: 155, kind: 'key' });
         if (route.length) {
-            addText(x + 62, 202, 'THIS VISIT · ORDER OF GAGS', 'scene-flow-atlas-lane-label');
+            const firstX = x + ROUTE_START;
+            addPath(`M${keyX} 187 C${keyX} 235 ${firstX - 88} 220 ${firstX - 88} ${ROUTE_Y}`,
+                'visit-branch', 3.5);
+            addText(x + 310, 202, 'THIS VISIT · ORDER OF GAGS', 'scene-flow-atlas-lane-label');
             route.forEach((item, index) => {
                 const gag = item.gag;
                 const px = x + ROUTE_START + index * ROUTE_STEP;
@@ -367,27 +389,52 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             });
             const lastX = x + ROUTE_START + (route.length - 1) * ROUTE_STEP;
             addPath(`M${lastX + ROUTE_CARD_WIDTH / 2} ${ROUTE_Y} L${gateX - 146} ${ROUTE_Y}`, 'unresolved', 3);
+        } else {
+            addPath(`M${keyX} 187 C${keyX} 238 ${gateX - 145} 220 ${gateX - 145} ${ROUTE_Y}`,
+                'possibility-branch', 2.5);
+            addText(x + 360, 185, 'UNCHOSEN POSSIBILITIES', 'scene-flow-atlas-lane-label');
         }
         const candidates = catalogForDay(day);
-        const examples = candidates.filter((gag) => gag.script !== 'POSE' && gag.script !== 'STAND.ADS')
-            .sort((a, b) => b.weight - a.weight).slice(0, 3).map(nameOf);
+        const examples = [];
+        const exampleScripts = new Set();
+        for (const gag of candidates.filter((item) => item.script !== 'POSE' && item.script !== 'STAND.ADS')
+            .sort((a, b) => b.weight - a.weight)) {
+            if (exampleScripts.has(gag.script)) continue;
+            exampleScripts.add(gag.script);
+            examples.push(gag);
+            if (examples.length === 3) break;
+        }
         const gate = addNode({ x: gateX, y: ROUTE_Y,
             text: day === storyDay ? `?  NEXT VISIT UNKNOWN\n${candidates.length} catalog possibilities` :
                 `?  POSSIBLE ON DAY ${padDay(day)}\n${candidates.length} catalog records`,
             kind: 'gate', state: 'possible', selected: catalogOpenDay === day,
             label: `Explore ${candidates.length} possible catalog records on day ${day}; playback will not change`,
             info: { kicker: `POSSIBILITIES · DAY ${padDay(day)}`, name: `${candidates.length} catalog records`,
-                day, note: `Examples: ${examples.join(' · ')}. These are not predictions for the next visit.` },
+                day, note: `Examples: ${examples.map(nameOf).join(' · ')}. These are not predictions for the next visit.` },
             onClick: () => onPossibilities(day) });
         gate.title = 'Select to inspect possibilities. Play day is a separate action.';
-        addText(gateX - 123, 342, `Examples: ${examples.join(' · ')}`, 'scene-flow-atlas-gate-examples');
+        if (day === storyDay && catalogOpenDay !== day) {
+            addText(gateX + 230, 302, 'EXAMPLE FORKS · NOT A FORECAST', 'scene-flow-atlas-lane-label');
+            examples.forEach((gag, index) => {
+                const exampleX = gateX + 350;
+                const exampleY = 350 + index * 92;
+                addPath(`M${gateX + 145} ${ROUTE_Y} H${gateX + 195} C${gateX + 225} ${ROUTE_Y} ${gateX + 225} ${exampleY} ${exampleX - 95} ${exampleY}`,
+                    'possibility-branch', 2.5);
+                addNode({ x: exampleX, y: exampleY, text: nameOf(gag), kind: 'example', state: 'possible',
+                    label: `Inspect example possibility ${nameOf(gag)} on day ${day}; not a prediction`,
+                    info: keyInfo(gag, day, 'EXAMPLE POSSIBILITY',
+                        `Source weight ${gag.weight}. Actual selection depends on visit state, tide, and recent history.`),
+                    onClick: () => onGag(gag, day, 'catalog') });
+            });
+        }
     }
 
     const inspectedBand = dayAt(inspectedDay);
     if (catalogOpen) {
-        const panelX = inspectedBand.gateX - (inspectedDay === storyDay ? 360 : 470);
-        const panelWidth = CATALOG_COLUMNS * CATALOG_COLUMN_WIDTH + 25;
-        addRect(panelX - 20, CATALOG_TOP - 62, panelWidth + 35, catalog.height + 92,
+        const panelX = inspectedBand.gateX + CATALOG_PANEL_OFFSET;
+        addPath(`M${inspectedBand.gateX} ${ROUTE_Y + 57} C${inspectedBand.gateX} 408 ${panelX + 60} 420 ${panelX + 60} ${CATALOG_TOP - 62}`,
+            'possibility-branch', 2.6);
+        addRect(panelX - 20, CATALOG_TOP - 62, CATALOG_PANEL_WIDTH + 35, catalog.height + 92,
             'scene-flow-atlas-catalog-panel');
         addText(panelX, CATALOG_TOP - 49,
             `DAY ${padDay(inspectedDay)} POSSIBILITIES · ${catalogRecords.length} SOURCE RECORDS · NOT A PLANNED ROUTE`,
@@ -424,59 +471,101 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
         const scriptSceneCount = Math.max(0, scriptGraph.nodes.length - 1);
         const scriptY = candidateSelected ? catalogBottom + 110 : 465;
         const scriptX = inspectedBand.x + scriptOffset;
-        const railY = scriptY + 220;
+        const mainY = scriptY + SCRIPT_MAIN_Y;
         const nodePositions = new Map();
-        const firstNodeX = scriptX + 95;
+        const firstNodeX = scriptX + 145;
         const lastNodeX = firstNodeX + (scriptGraph.nodes.length - 1) * SCRIPT_NODE_STEP;
-        addRect(scriptX - 25, scriptY - 70, scriptWidth + 40, 520,
+        const lensHeight = SCRIPT_MAIN_Y + scriptBranches.maxLane * SCRIPT_LANE_GAP + 170;
+        addRect(scriptX - 25, scriptY - 70, scriptWidth + 40, lensHeight,
             'scene-flow-atlas-script-lens scene-flow-atlas-script-detail');
         addText(scriptX, scriptY - 53, `INSIDE ${nameOf(inspectedGag)} · ${scriptSceneCount} SCRIPT SCENES + START`,
             'scene-flow-atlas-script-heading scene-flow-atlas-script-detail');
         addText(scriptX, scriptY - 28,
-            'Source order → · cyan jumps forward · amber loops back or marks random picks · hover a scene to trace its links',
+            'Authored lanes · yellow = inspected route',
             'scene-flow-atlas-script-note scene-flow-atlas-script-detail');
-        addPath(`M${firstNodeX} ${railY + 54} H${lastNodeX}`, 'source-order', 1,
-            'scene-flow-atlas-script-detail');
+        addText(scriptX, scriptY - 8,
+            'Solid = path · faint = links · amber = loops/random',
+            'scene-flow-atlas-script-note scene-flow-atlas-script-detail');
+        for (let lane = 0; lane <= scriptBranches.maxLane; lane++) {
+            const firstInLane = scriptBranches.lanes.indexOf(lane);
+            const labelX = lane === 0 ? scriptX + 10 : firstNodeX + firstInLane * SCRIPT_NODE_STEP - 124;
+            const label = addText(labelX, mainY + lane * SCRIPT_LANE_GAP - 14,
+                lane === 0 ? 'REFERENCE SPINE' : `BRANCH ${padDay(lane)}`,
+                'scene-flow-atlas-branch-label scene-flow-atlas-script-detail');
+            label.style.color = scriptLaneColor(lane);
+        }
         scriptGraph.nodes.forEach((node, index) => {
             const x = firstNodeX + index * SCRIPT_NODE_STEP;
-            nodePositions.set(node.key, { x, y: railY, index });
-            addPath(`M${x} ${railY + 48} V${railY + 60}`, 'source-order', 1.4,
-                'scene-flow-atlas-script-detail');
+            const lane = scriptBranches.lanes[index];
+            nodePositions.set(node.key, { x, y: mainY + lane * SCRIPT_LANE_GAP, index, lane });
         });
         const linkPaths = [];
-        for (const edge of scriptGraph.edges) {
+        const orderedEdges = [...scriptGraph.edges].sort((a, b) => {
+            const aTrack = scriptBranches.isTrack(scriptBranches.indexByKey.get(a.from),
+                scriptBranches.indexByKey.get(a.to));
+            const bTrack = scriptBranches.isTrack(scriptBranches.indexByKey.get(b.from),
+                scriptBranches.indexByKey.get(b.to));
+            return Number(aTrack) - Number(bTrack);
+        });
+        for (const edge of orderedEdges) {
             const from = nodePositions.get(edge.from);
             const to = nodePositions.get(edge.to);
             if (!from || !to) continue;
             const backwards = to.index <= from.index;
             const span = Math.abs(to.index - from.index);
-            const fromX = from.x + (backwards ? -SCRIPT_NODE_WIDTH / 2 : SCRIPT_NODE_WIDTH / 2);
-            const toX = to.x + (backwards ? SCRIPT_NODE_WIDTH / 2 : -SCRIPT_NODE_WIDTH / 2);
-            const archY = railY + (backwards ? 1 : -1) * Math.min(188, 56 + span * 15);
-            const bend = backwards ? -40 : 40;
-            const d = span === 1 && !backwards
-                ? `M${fromX} ${railY} H${toX}`
-                : `M${fromX} ${railY} C${fromX + bend} ${railY} ${fromX + bend} ${archY} ${(fromX + toX) / 2} ${archY} S${toX - bend} ${railY} ${toX} ${railY}`;
-            const path = addPath(d, backwards ? 'return' : 'script', edge.random ? 2.4 : 2,
-                `scene-flow-atlas-script-detail is-script-link${edge.random ? ' is-random' : ''}${span === 1 ? ' is-adjacent' : ''}`);
-            path.setAttribute('marker-end', `url(#atlas-arrow-${backwards || edge.random ? 'return' : 'script'})`);
+            const track = edge.action !== 'stop' && scriptBranches.isTrack(from.index, to.index);
+            let d;
+            if (backwards) {
+                const loopY = Math.min(from.y, to.y) - 125 - Math.min(28, span * 3);
+                d = `M${from.x} ${from.y} C${from.x - 40} ${from.y} ${from.x - 40} ${loopY} ${(from.x + to.x) / 2} ${loopY} S${to.x + 40} ${to.y} ${to.x} ${to.y}`;
+            } else if (track && from.lane === to.lane) {
+                d = `M${from.x} ${from.y} H${to.x}`;
+            } else if (track) {
+                const departure = from.x + Math.min(50, (to.x - from.x) / 3);
+                const arrival = to.x - Math.min(50, (to.x - from.x) / 3);
+                d = `M${from.x} ${from.y} H${departure} C${departure + 24} ${from.y} ${arrival - 24} ${to.y} ${arrival} ${to.y} H${to.x}`;
+            } else {
+                const jumpY = scriptY + 64 - Math.min(35, span * 3);
+                d = `M${from.x} ${from.y} C${from.x + 35} ${from.y} ${from.x + 35} ${jumpY} ${(from.x + to.x) / 2} ${jumpY} S${to.x - 35} ${to.y} ${to.x} ${to.y}`;
+            }
+            const path = addPath(d, backwards ? 'return' : 'script', track ? 4 : 1.7,
+                `scene-flow-atlas-script-detail is-script-link${track ? ' is-track' : ' is-cross-link'}${backwards ? ' is-loop' : ''}${edge.random ? ' is-random' : ''}${edge.action === 'stop' ? ' is-stop' : ''}`);
+            path.style.setProperty('--link-color', scriptLaneColor(to.lane));
+            if (backwards || edge.random) path.setAttribute('marker-end', 'url(#atlas-arrow-return)');
             path.dataset.from = edge.from;
             path.dataset.to = edge.to;
+            path.dataset.action = edge.action;
             const title = document.createElementNS(svgNs, 'title');
             title.textContent = `${scriptGraph.nodes[from.index].name} → ${scriptGraph.nodes[to.index].name} · ${edge.guard}${edge.random ? ' · random pick' : ''}${edge.action === 'stop' ? ' · stop' : ''}`;
             path.appendChild(title);
             linkPaths.push(path);
         }
         highlightScriptLinks = (key, dimOthers = false) => {
+            const route = key ? routeTo(scriptGraph, key) : [];
+            const traced = new Set(route.slice(1).map((to, index) => `${route[index]}\0${to}`));
             for (const path of linkPaths) {
                 const connected = key && (path.dataset.from === key || path.dataset.to === key);
                 path.classList.toggle('is-emphasized', Boolean(connected));
                 path.classList.toggle('is-dimmed', Boolean(key && dimOthers && !connected));
+                path.classList.toggle('is-traced', path.dataset.action !== 'stop' &&
+                    traced.has(`${path.dataset.from}\0${path.dataset.to}`));
             }
         };
+        const dots = new Map();
         for (const node of scriptGraph.nodes) {
-            const { x, y } = nodePositions.get(node.key);
-            const button = addNode({ x, y, text: node.name, kind: 'scene', width: SCRIPT_NODE_WIDTH,
+            const { x, y, lane } = nodePositions.get(node.key);
+            const stem = addPath(`M${x} ${y - 18} V${y - 7}`, 'node-stem', 1.5,
+                'scene-flow-atlas-script-detail');
+            stem.style.setProperty('--link-color', scriptLaneColor(lane));
+            const dot = document.createElementNS(svgNs, 'circle');
+            dot.setAttribute('cx', String(x));
+            dot.setAttribute('cy', String(y));
+            dot.setAttribute('r', '7');
+            dot.setAttribute('class', 'scene-flow-atlas-commit scene-flow-atlas-script-detail');
+            dot.style.setProperty('--link-color', scriptLaneColor(lane));
+            svg.appendChild(dot);
+            dots.set(node.key, dot);
+            const button = addNode({ x, y: y - 54, text: node.name, kind: 'scene', width: SCRIPT_NODE_WIDTH,
                 selected: node.key === selectedScene,
                 label: `Inspect ${node.name} in ${nameOf(inspectedGag)}`,
                 info: { ...keyInfo(inspectedGag, inspectedDay, 'SCRIPT REFERENCE',
@@ -486,11 +575,16 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             button.dataset.sceneKey = node.key;
             button.dataset.order = node.key === scriptGraph.start ? 'START' :
                 padDay(nodePositions.get(node.key).index);
+            button.style.setProperty('--lane-color', scriptLaneColor(lane));
             button.addEventListener('mouseenter', () => highlightScriptLinks(node.key, true));
             button.addEventListener('mouseleave', () => highlightScriptLinks(selectedScene));
             button.addEventListener('focus', () => highlightScriptLinks(node.key, true));
             button.addEventListener('blur', () => highlightScriptLinks(selectedScene));
         }
+        selectScriptDot = (key) => {
+            for (const [nodeKey, dot] of dots) dot.classList.toggle('is-selected', nodeKey === key);
+        };
+        selectScriptDot(selectedScene);
         highlightScriptLinks(selectedScene);
         const focusedX = nodePositions.get(selectedScene)?.x ?? firstNodeX + SCRIPT_NODE_STEP;
         scriptPoint = { x: Math.max(firstNodeX, Math.min(lastNodeX, Math.max(firstNodeX + 270, focusedX))),
@@ -533,8 +627,12 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     };
     const focusLive = () => focusPoint({ x: livePoint?.x ?? dayAt(storyDay).x + 200, y: 265 },
         viewport.clientWidth < 550 ? .7 : 1);
-    const focusGate = () => focusPoint({ x: dayAt(inspectedDay).gateX, y: ROUTE_Y },
-        viewport.clientWidth < 550 ? .7 : .9);
+    const focusGate = () => {
+        const narrow = viewport.clientWidth < 550;
+        const showForks = inspectedDay === storyDay;
+        focusPoint({ x: dayAt(inspectedDay).gateX + (narrow && showForks ? 160 : 0),
+            y: showForks ? (narrow ? 375 : 310) : ROUTE_Y }, narrow ? (showForks ? .5 : .7) : .9);
+    };
     const focusScript = () => {
         if (!scriptPoint) return;
         root.classList.add('is-script-open');
@@ -612,29 +710,39 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
     root.classList.toggle('is-script-open', Boolean(scriptExpanded && !keySelected));
     if (camera) paintCamera();
     else focusLive();
+    const layoutForExploration = (day, openCatalog) => {
+        const targetGraph = graphForGag(dayKey(day), resolveEntry, graphCache);
+        const targetScriptWidth = targetGraph
+            ? Math.max(1000, targetGraph.nodes.length * SCRIPT_NODE_STEP + 170) : 0;
+        const targetExtent = targetGraph ? { day, width: 100 + targetScriptWidth + 80 } : null;
+        const targetCatalogHeight = openCatalog ? catalogGroups(catalogForDay(day)).height : 0;
+        return makeLayout(visitItems, storyDay, openCatalog ? day : null,
+            targetCatalogHeight, 850, targetExtent);
+    };
     return {
         selectScene(key) {
             selectedScene = key;
             highlightScriptLinks(key);
+            selectScriptDot(key);
             for (const node of buttons.querySelectorAll('.scene-flow-atlas-node.is-scene')) {
                 node.classList.toggle('is-selected', node.dataset.sceneKey === key);
             }
         },
         getCamera() { return { ...camera }; },
         cameraForDay(day) {
-            const band = dayAt(day);
+            const band = layoutForExploration(day, false).days[day - 1];
             const narrow = viewport.clientWidth < 550;
             const scale = narrow ? .7 : .85;
             return { scale, x: viewport.clientWidth / 2 - (band.x + (narrow ? 220 : 310)) * scale,
                 y: viewport.clientHeight / 2 - 240 * scale };
         },
         cameraForPossibilities(day) {
-            const band = dayAt(day);
-            const panelX = band.gateX - (day === storyDay ? 360 : 470);
+            const band = layoutForExploration(day, true).days[day - 1];
+            const panelX = band.gateX + CATALOG_PANEL_OFFSET;
             const narrow = viewport.clientWidth < 550;
             const scale = narrow ? .65 : .88;
-            return { scale, x: viewport.clientWidth / 2 - (panelX + (narrow ? 150 : 350)) * scale,
-                y: viewport.clientHeight / 2 - 650 * scale };
+            return { scale, x: viewport.clientWidth / 2 - (panelX + (narrow ? 150 : 260)) * scale,
+                y: viewport.clientHeight / 2 - 500 * scale };
         },
         destroy() {
             destroyed = true;

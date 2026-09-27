@@ -244,27 +244,39 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas-line.is-visited { stroke: #eadfc8; }
         .scene-flow-atlas-line.is-planned { stroke: #8cdeed; stroke-dasharray: 10 6; }
         .scene-flow-atlas-line.is-unresolved { stroke: #83cbc9; stroke-dasharray: 2 6; }
+        .scene-flow-atlas-line.is-story { stroke: #eadfc8; opacity: .8; }
+        .scene-flow-atlas-line.is-visit-branch { stroke: #ffe45b; }
+        .scene-flow-atlas-line.is-possibility-branch { stroke: #83cbc9; stroke-dasharray: 9 6; }
         .scene-flow-atlas-line.is-script { stroke: #8cdeed; }
         .scene-flow-atlas-line.is-return { stroke: #efa65f; }
         .scene-flow-atlas-line.is-random { stroke: #efa65f; stroke-dasharray: 5 5; }
-        .scene-flow-atlas-line.is-source-order { stroke: #a6c6f3; stroke-dasharray: 3 7; opacity: .45; }
-        .scene-flow-atlas-line.is-script-link { opacity: .52; transition: opacity .16s ease, stroke-width .16s ease; }
-        .scene-flow-atlas-line.is-script-link.is-adjacent { opacity: .86; }
-        .scene-flow-atlas-line.is-script-link.is-emphasized { opacity: 1; stroke-width: 3.5; }
-        .scene-flow-atlas-line.is-script-link.is-dimmed { opacity: .12; }
+        .scene-flow-atlas-line.is-node-stem { stroke: var(--link-color); opacity: .9; }
+        .scene-flow-atlas-line.is-script-link { transition: opacity .16s ease, stroke-width .16s ease; }
+        .scene-flow-atlas-line.is-script-link.is-track { stroke: var(--link-color); opacity: .92; }
+        .scene-flow-atlas-line.is-script-link.is-cross-link { opacity: .28; stroke-dasharray: 4 6; }
+        .scene-flow-atlas-line.is-script-link.is-cross-link.is-loop { opacity: .56; }
+        .scene-flow-atlas-line.is-script-link.is-stop { stroke: #e6a6a6; opacity: .24; stroke-dasharray: 2 6; }
+        .scene-flow-atlas-line.is-script-link.is-random,
+        .scene-flow-atlas-line.is-script-link.is-return { stroke: #efa65f; stroke-dasharray: 5 5; }
+        .scene-flow-atlas-line.is-script-link.is-traced { stroke: #ffe45b; stroke-width: 4; opacity: 1; }
+        .scene-flow-atlas-line.is-script-link.is-emphasized { opacity: 1; stroke-width: 4.5; }
+        .scene-flow-atlas-line.is-script-link.is-dimmed { opacity: .08; }
+        .scene-flow-atlas-commit { fill: #06146c; stroke: var(--link-color); stroke-width: 3; }
+        .scene-flow-atlas-commit.is-selected { fill: #ffe45b; stroke: #fff5ac; }
         .scene-flow-atlas-day-band { fill: rgba(10,34,128,.55); stroke: rgba(123,218,232,.4); stroke-width: 2; stroke-dasharray: 9 7; }
         .scene-flow-atlas-day-band.is-live { fill: rgba(18,49,149,.7); stroke: rgba(255,228,91,.65); }
         .scene-flow-atlas-catalog-panel { fill: #071969; stroke: #8ccfce; stroke-width: 2; }
         .scene-flow-atlas-script-lens { fill: #06146c; stroke: #e6b45c; stroke-width: 2; stroke-dasharray: 7 5; }
         .scene-flow-atlas-day-heading, .scene-flow-atlas-day-caption, .scene-flow-atlas-lane-label,
-        .scene-flow-atlas-gate-examples, .scene-flow-atlas-catalog-heading, .scene-flow-atlas-catalog-note,
-        .scene-flow-atlas-family-heading, .scene-flow-atlas-script-heading, .scene-flow-atlas-script-note { position: absolute; white-space: nowrap; pointer-events: none; font-family: 'VT323', monospace; }
+        .scene-flow-atlas-catalog-heading, .scene-flow-atlas-catalog-note,
+        .scene-flow-atlas-family-heading, .scene-flow-atlas-script-heading, .scene-flow-atlas-script-note,
+        .scene-flow-atlas-branch-label { position: absolute; white-space: nowrap; pointer-events: none; font-family: 'VT323', monospace; }
         .scene-flow-atlas-day-heading { color: #fff2b0; font-size: 33px; font-variant-numeric: tabular-nums; }
         .scene-flow-atlas-day-caption { color: #bde9e9; font-size: 18px; }
         .scene-flow-atlas-lane-label { color: #fff2b0; font-size: 18px; }
-        .scene-flow-atlas-gate-examples { width: 270px; color: #a9ded8; font-size: 17px; white-space: normal; line-height: 1.1; }
         .scene-flow-atlas-catalog-heading, .scene-flow-atlas-script-heading { color: #fff2b0; font-size: 22px; }
         .scene-flow-atlas-catalog-note, .scene-flow-atlas-script-note { color: #bde9e9; font-size: 17px; }
+        .scene-flow-atlas-branch-label { color: #9fd8df; font-size: 17px; }
         .scene-flow-atlas-family-heading { color: #f0dcb7; font-size: 24px; }
         .scene-flow-atlas-node { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; padding: 7px 8px; border: 2px solid #66d8e8; border-radius: 0; background: #12339c; color: #fffbe2; box-shadow: 3px 3px 0 #020d5b; font: 19px/1 'VT323', monospace; text-align: center; cursor: pointer; pointer-events: auto; overflow: hidden; }
         .scene-flow-atlas-node.is-key { width: 250px; min-height: 62px; background: #17398e; border-color: #a6e5e7; font-size: 21px; }
@@ -273,18 +285,17 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas-node.is-visit[data-state="current"] { background: #ffe45b; border-color: #fff5ac; color: #302816; }
         .scene-flow-atlas-node.is-visit[data-state="planned"] { background: #16419e; border-color: #8cdeed; border-style: dashed; }
         .scene-flow-atlas-node.is-gate { width: 290px; min-height: 112px; white-space: pre-line; background: #17567b; border-color: #a4e5de; color: #fff6d7; font-size: 21px; }
+        .scene-flow-atlas-node.is-example { width: 190px; min-height: 88px; background: #13527b; border-color: #a4e5de; border-style: dashed; color: #fff6d7; font-size: 22px; }
         .scene-flow-atlas-node.is-candidate { width: 232px; min-height: 44px; padding-bottom: 11px; background: #164077; border-color: #72c5c5; font-size: 18px; }
         .scene-flow-atlas-node.is-candidate::after { content: ''; position: absolute; left: 4px; bottom: 3px; width: var(--catalog-weight); max-width: calc(100% - 8px); height: 3px; background: #a4e5de; }
-        .scene-flow-atlas-node.is-scene { width: 132px; min-height: 68px; padding: 18px 8px 7px; font-size: 18px; }
-        .scene-flow-atlas-node.is-scene::before { content: attr(data-order); position: absolute; top: 3px; left: 6px; color: #a6e5e7; font: 14px/1 'VT323', monospace; }
+        .scene-flow-atlas-node.is-scene { width: 132px; min-height: 68px; padding: 18px 8px 7px; border-color: var(--lane-color, #8cdeed); font-size: 18px; }
+        .scene-flow-atlas-node.is-scene::before { content: attr(data-order); position: absolute; top: 3px; left: 6px; color: var(--lane-color, #a6e5e7); font: 14px/1 'VT323', monospace; }
         .scene-flow-atlas-node.is-script-summary { width: 350px; min-height: 52px; border-style: dashed; border-color: #e6b45c; color: #fff2b0; background: #0c277d; }
         .scene-flow-atlas-node.is-selected { outline: 2px solid #fff; outline-offset: 3px; z-index: 2; }
         .scene-flow-atlas-node:hover, .scene-flow-atlas-node:focus-visible { border-color: #fff5ac; z-index: 10; outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.14); }
         .scene-flow-atlas-node:active { scale: .96; }
         .scene-flow-atlas:not(.is-script-open) .scene-flow-atlas-script-detail { display: none; }
-        .scene-flow-atlas.is-script-open .scene-flow-atlas-gate-examples { display: none; }
         .scene-flow-atlas.is-overview .scene-flow-atlas-node:not(.is-gate) { color: transparent; }
-        .scene-flow-atlas.is-overview .scene-flow-atlas-gate-examples,
         .scene-flow-atlas.is-overview .scene-flow-atlas-day-caption,
         .scene-flow-atlas.is-overview .scene-flow-atlas-lane-label,
         .scene-flow-atlas.is-overview .scene-flow-atlas-node.is-scene::before { display: none; }
@@ -724,7 +735,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const introTitle = document.createElement('h3');
         introTitle.textContent = 'You are here in Johnny’s story';
         const introNote = document.createElement('p');
-        introNote.textContent = 'Yellow marks Johnny now. Select a day or gag to inspect it; only Play changes playback.';
+        introNote.textContent = 'Days run across the top; this visit branches below. Yellow marks Johnny now. Only Play changes playback.';
         introCopy.append(introTitle, introNote);
         const inspectCurrent = document.createElement('button');
         inspectCurrent.type = 'button';
