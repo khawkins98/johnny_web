@@ -34,10 +34,10 @@ function layoutMap(graph) {
 const color = {
     water: 0x081caa,
     contour: 0x226cf0,
-    route: 0xf8ed27,
+    route: 0xacebf2,
     possible: 0x55d9e7,
     random: 0xffa95c,
-    node: 0xffe82a,
+    node: 0x73d9e6,
     stop: 0xffa15c,
 };
 
@@ -47,7 +47,7 @@ function focusLayout(graph, selected, width, height) {
         .map((edge) => edge.to))];
     const previous = [...new Set(graph.edges.filter((edge) => edge.to === selected && edge.from !== selected)
         .map((edge) => edge.from))].filter((key) => !next.includes(key));
-    const column = Math.min(220, Math.max(90, width * 0.28));
+    const column = Math.min(220, Math.max(110, width * 0.28));
     const place = (keys, x) => {
         const visible = keys.slice(0, 6);
         const gap = Math.min(64, (height - 78) / Math.max(1, visible.length));
