@@ -6,6 +6,8 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 
 - Added an interactive, pixel styled scene map that follows the current gag and shows the route before a selected scene and its possible next scenes.
 - Added a stacked story timeline matrix that keeps story days, the current visit's planned route, a selected gag's steps, and its local choices in view together. Live playback and inspected possibilities have separate markers; other day-eligible gags sit in an expandable pool.
+- Kept the live or inspected gag centered when the panel opens, playback changes, or the window resizes; added visit strip navigation and clearer day jump labels.
+- Opened gag details on an animated script scene when available, and surfaced example gags for a possible later visit next to the current visit.
 - Made the story-day row interactive: selecting a day saves that story position and starts a visit containing its key scene.
 - Added hover and focus tooltips for the Settings and timeline icons, showing their `S` and `T` shortcuts; `T` opens or closes the timeline.
 - Added a script overview with pan and zoom for exploring a gag's full scripted graph, including random choices.
