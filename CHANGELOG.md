@@ -7,6 +7,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 - Added an interactive, pixel styled scene map that follows the current gag and shows the route before a selected scene and its possible next scenes.
 - Added one pan and zoom story map with a fixed 11-day ruler and a readable left-to-right spine for the current visit. The map opens by the live gag; **Next visit ?** reaches its unresolved end.
 - Connected the day keys as a story backbone, drew the current visit and unchosen catalogs as open branches, and added example forks at the unresolved gate. Each gag's script references now use colored lanes with visible forks, rejoins, and return loops. Hovering or focusing a scene highlights its connected links.
+- Expanded the story map to the browser width and put a direct **▶** playback control on each scripted scene card; the rest of each card still opens its inspector.
 - Placed unchosen gags behind a day-specific possibilities gate. Opening it reveals all relevant source records grouped by script, with small bars for catalog weight rather than claimed probabilities.
 - Distinguished seen, live, planned, and merely possible gags with separate colors and line styles. Hover and keyboard focus show labels, conditions, and original-game previews.
 - Kept the visit's planned route as an optional list below the map, with an inspector for guards, parallel actions, random picks, and scene playback.

@@ -6,7 +6,7 @@ The timeline shows Johnny's **11 story days, the current visit, possible future 
 
 Start Classic or Enhanced playback, then click the compass near the upper-left corner or press `T`. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus.
 
-The map opens around Johnny's live gag. Drag empty space to pan; wheel or use **+**/**−** to zoom around the pointer. With keyboard focus on the map, arrow keys pan and `+`/`−` zoom. On touch screens, drag with a finger and use the zoom buttons.
+The map opens around Johnny's live gag and fills the available browser width. Drag empty space to pan; wheel or use **+**/**−** to zoom around the pointer. With keyboard focus on the map, arrow keys pan and `+`/`−` zoom. On touch screens, drag with a finger and use the zoom buttons.
 
 - **Follow live** returns the camera to Johnny's current gag.
 - **Next visit ?** moves to the end of the visit already planned by the game. When inspecting another day, this shortcut becomes **Day options →** and moves to that day's possibilities gate.
@@ -27,6 +27,6 @@ Hover or keyboard-focus a gag or scene for context and a small silent original-g
 
 Select a gag, then use **Script ↓** to focus its references within the same day region. Numbered scene cards move left to right in the order their references first appear in the script. A long forward chain forms a **reference spine**; other chains fork onto colored lanes and can rejoin it. Solid rails make one route through each branch legible, while faint links retain additional authored references. Yellow traces the route to the inspected scene; amber loops show backward references and dashed amber links mark random picks. Hover or focus a scene to brighten its incoming and outgoing links. Pan to follow a long gag. Lane placement organizes the script; it is **not an exact trace of Johnny's live execution, elapsed time, or the odds of a choice**. The inspector below explains guards, stops, and parallel actions. **Full script map** gives another pan and zoom view of the gag graph.
 
-Select a scene reference to change the inspector's preview. **Play this scene now** interrupts current playback, runs that scene through the original gag logic, then resumes the planned sequence. While exploring another day, the action is labeled **Play only this scene** and does not save or switch days. **Return to live** leaves inspection without changing playback.
+Select a scene card to change the inspector's preview and choices. Each non-start scene card also has a **▶** control that starts that scene in one click; the inspector's **Play this scene now** button does the same. This interrupts current playback, runs the scene through the original gag logic, then resumes the planned sequence. While exploring another day, starting a scene only previews it and does not save or switch days. **Return to live** leaves inspection without changing playback.
 
 **Read the original script steps** expands the extracted text outline. See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.

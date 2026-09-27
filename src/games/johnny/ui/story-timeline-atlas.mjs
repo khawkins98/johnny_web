@@ -21,8 +21,8 @@ const CATALOG_COLUMN_WIDTH = 270;
 const CATALOG_COLUMNS = 3;
 const CATALOG_PANEL_OFFSET = 170;
 const CATALOG_PANEL_WIDTH = CATALOG_COLUMNS * CATALOG_COLUMN_WIDTH + 25;
-const SCRIPT_NODE_STEP = 172;
-const SCRIPT_NODE_WIDTH = 132;
+const SCRIPT_NODE_STEP = 206;
+const SCRIPT_NODE_WIDTH = 160;
 const SCRIPT_LANE_GAP = 112;
 const SCRIPT_MAIN_Y = 175;
 const SCRIPT_LANE_COLORS = ['#8cdeed', '#f0b66f', '#d5b2ef', '#9cd5ac', '#f5cf85', '#e6a6a6', '#a2c9fa', '#c4e38b'];
@@ -120,7 +120,7 @@ function makeLayout(visitItems, storyDay, catalogOpenDay, catalogHeight, scriptH
 /** A single world: days contain an actual visit or an unchosen catalog of possibilities. */
 export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, storyDay, exploredDay, catalogOpenDay,
     inspectedGag, selectedSceneKey, visitItems = [], camera: savedCamera, scriptExpanded = false,
-    onDay, onPossibilities, onGag, onScene }) {
+    onDay, onPossibilities, onGag, onScene, onPlayScene }) {
     const graphCache = new Map();
     const inspectedDay = exploredDay ?? storyDay;
     const inspectedId = inspectedGag && sceneId(inspectedGag);
@@ -565,12 +565,13 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             dot.style.setProperty('--link-color', scriptLaneColor(lane));
             svg.appendChild(dot);
             dots.set(node.key, dot);
+            const sceneInfo = { ...keyInfo(inspectedGag, inspectedDay, 'SCRIPT REFERENCE',
+                'Inspect this reference, or use ▶ on its card to play it now.'), name: node.name,
+                sceneKey: node.key };
             const button = addNode({ x, y: y - 54, text: node.name, kind: 'scene', width: SCRIPT_NODE_WIDTH,
                 selected: node.key === selectedScene,
                 label: `Inspect ${node.name} in ${nameOf(inspectedGag)}`,
-                info: { ...keyInfo(inspectedGag, inspectedDay, 'SCRIPT REFERENCE',
-                    'A possible script reference, not Johnny’s live playhead'), name: node.name,
-                    sceneKey: node.key },
+                info: sceneInfo,
                 onClick: () => onScene(node.key), extraClass: 'scene-flow-atlas-script-detail' });
             button.dataset.sceneKey = node.key;
             button.dataset.order = node.key === scriptGraph.start ? 'START' :
@@ -580,6 +581,36 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             button.addEventListener('mouseleave', () => highlightScriptLinks(selectedScene));
             button.addEventListener('focus', () => highlightScriptLinks(node.key, true));
             button.addEventListener('blur', () => highlightScriptLinks(selectedScene));
+            if (node.key !== scriptGraph.start && typeof sequenceTools?.startRun === 'function' && onPlayScene) {
+                const play = document.createElement('button');
+                play.type = 'button';
+                play.className = 'scene-flow-atlas-scene-play scene-flow-atlas-script-detail';
+                play.classList.toggle('is-selected', node.key === selectedScene);
+                play.dataset.sceneKey = node.key;
+                play.style.left = `${x + SCRIPT_NODE_WIDTH / 2 - 24}px`;
+                play.style.top = `${y - 54}px`;
+                play.textContent = '▶';
+                play.setAttribute('aria-label', `Play ${node.name} now`);
+                play.title = `Play ${node.name} now`;
+                play.addEventListener('mouseenter', () => {
+                    showTooltip(sceneInfo, button);
+                    highlightScriptLinks(node.key, true);
+                });
+                play.addEventListener('mouseleave', () => {
+                    hideTooltip();
+                    highlightScriptLinks(selectedScene);
+                });
+                play.addEventListener('focus', () => {
+                    showTooltip(sceneInfo, button);
+                    highlightScriptLinks(node.key, true);
+                });
+                play.addEventListener('blur', () => {
+                    hideTooltip();
+                    highlightScriptLinks(selectedScene);
+                });
+                play.addEventListener('click', () => onPlayScene(node.key, previewRoute(scriptGraph, node.key)));
+                buttons.appendChild(play);
+            }
         }
         selectScriptDot = (key) => {
             for (const [nodeKey, dot] of dots) dot.classList.toggle('is-selected', nodeKey === key);
@@ -589,7 +620,7 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
         const focusedX = nodePositions.get(selectedScene)?.x ?? firstNodeX + SCRIPT_NODE_STEP;
         scriptPoint = { x: Math.max(firstNodeX, Math.min(lastNodeX, Math.max(firstNodeX + 270, focusedX))),
             y: scriptY + 90 };
-        scriptStartPoint = { x: scriptX + 230, y: scriptY + 90 };
+        scriptStartPoint = { x: Math.min(lastNodeX, firstNodeX + SCRIPT_NODE_STEP), y: scriptY + 90 };
         if (!scriptExpanded || keySelected) {
             const summary = addNode({ x: selectedPoint.x, y: selectedPoint.y + 142,
                 text: `↓  Inside this gag · ${scriptSceneCount} script scenes`, kind: 'script-summary',
@@ -637,7 +668,7 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
         if (!scriptPoint) return;
         root.classList.add('is-script-open');
         const narrow = viewport.clientWidth < 550;
-        focusPoint(narrow ? scriptStartPoint : scriptPoint, narrow ? .65 : 1.05);
+        focusPoint(narrow ? scriptStartPoint : scriptPoint, narrow ? .95 : 1.05);
     };
     const fitStory = () => {
         const scale = clampScale(Math.min((viewport.clientWidth - 36) / layout.width,
@@ -726,6 +757,9 @@ export function mountStoryTimelineAtlas({ host, resolveEntry, sequenceTools, sto
             selectScriptDot(key);
             for (const node of buttons.querySelectorAll('.scene-flow-atlas-node.is-scene')) {
                 node.classList.toggle('is-selected', node.dataset.sceneKey === key);
+            }
+            for (const play of buttons.querySelectorAll('.scene-flow-atlas-scene-play')) {
+                play.classList.toggle('is-selected', play.dataset.sceneKey === key);
             }
         },
         getCamera() { return { ...camera }; },

@@ -53,8 +53,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             border: 3px solid #8b5a2b;
             border-radius: 2px;
             box-shadow: 0 18px 44px rgba(0,0,0,0.52), 0 3px 8px rgba(0,0,0,0.32), inset 2px 2px 0 #f0dfbc;
-            width: 1080px;
-            max-width: calc(100vw - 24px);
+            width: calc(100vw - 24px);
+            max-width: none;
             max-height: calc(100vh - 24px);
             box-sizing: border-box;
             overflow-y: auto;
@@ -288,13 +288,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas-node.is-example { width: 190px; min-height: 88px; background: #13527b; border-color: #a4e5de; border-style: dashed; color: #fff6d7; font-size: 22px; }
         .scene-flow-atlas-node.is-candidate { width: 232px; min-height: 44px; padding-bottom: 11px; background: #164077; border-color: #72c5c5; font-size: 18px; }
         .scene-flow-atlas-node.is-candidate::after { content: ''; position: absolute; left: 4px; bottom: 3px; width: var(--catalog-weight); max-width: calc(100% - 8px); height: 3px; background: #a4e5de; }
-        .scene-flow-atlas-node.is-scene { width: 132px; min-height: 68px; padding: 18px 8px 7px; border-color: var(--lane-color, #8cdeed); font-size: 18px; }
+        .scene-flow-atlas-node.is-scene { box-sizing: border-box; width: 160px; min-height: 72px; padding: 18px 48px 7px 8px; border-color: var(--lane-color, #8cdeed); font-size: 18px; }
         .scene-flow-atlas-node.is-scene::before { content: attr(data-order); position: absolute; top: 3px; left: 6px; color: var(--lane-color, #a6e5e7); font: 14px/1 'VT323', monospace; }
+        .scene-flow-atlas-scene-play { position: absolute; transform: translate(-50%, -50%); z-index: 3; width: 44px; height: 44px; padding: 0 0 0 2px; border: 2px solid #a6e5e7; background: #1642b1; color: #fff5bd; box-shadow: 2px 2px 0 #020d5b; font: 22px/1 'VT323', monospace; cursor: pointer; pointer-events: auto; }
+        .scene-flow-atlas-scene-play.is-selected { border-color: #fff0a8; background: #ffe45b; color: #302816; }
+        .scene-flow-atlas-scene-play:hover, .scene-flow-atlas-scene-play:focus-visible { background: #fff177; border-color: #fff0a8; color: #302816; outline: 2px solid #fff; outline-offset: 2px; }
+        .scene-flow-atlas-scene-play:active { scale: .96; }
         .scene-flow-atlas-node.is-script-summary { width: 350px; min-height: 52px; border-style: dashed; border-color: #e6b45c; color: #fff2b0; background: #0c277d; }
         .scene-flow-atlas-node.is-selected { outline: 2px solid #fff; outline-offset: 3px; z-index: 2; }
         .scene-flow-atlas-node:hover, .scene-flow-atlas-node:focus-visible { border-color: #fff5ac; z-index: 10; outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.14); }
         .scene-flow-atlas-node:active { scale: .96; }
         .scene-flow-atlas:not(.is-script-open) .scene-flow-atlas-script-detail { display: none; }
+        .scene-flow-atlas.is-script-open .scene-flow-atlas-node.is-script-summary { display: none; }
+        .scene-flow-atlas.is-overview .scene-flow-atlas-scene-play { display: none; }
         .scene-flow-atlas.is-overview .scene-flow-atlas-node:not(.is-gate) { color: transparent; }
         .scene-flow-atlas.is-overview .scene-flow-atlas-day-caption,
         .scene-flow-atlas.is-overview .scene-flow-atlas-lane-label,
@@ -583,6 +589,22 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let renderedGagId = null;
     let timelineTracks = null;
     let resizeFrame = null;
+
+    const playScriptScene = ({ script, gagTag, day, key, route, onError }) => {
+        const [slot, childTag] = key.split(':').map(Number);
+        if (typeof sequenceTools?.startRun !== 'function' || !Number.isInteger(slot) ||
+            !Number.isInteger(childTag)) {
+            onError?.();
+            return;
+        }
+        try {
+            sequenceTools.startRun({ mode: 'preview-child', script, tagId: gagTag,
+                storyDay: day, slot, childTag, route });
+            close();
+        } catch {
+            onError?.();
+        }
+    };
 
     const links = document.createElement('div');
     links.className = 'scene-flow-links';
@@ -985,6 +1007,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 }
             },
             onScene: (key) => { selectedKey = key; renderCurrent(); },
+            onPlayScene: (key, route) => playScriptScene({
+                script: target.script, gagTag: target.tagId, day: exploredDay ?? storyDay,
+                key, route, onError: () => {
+                    dayNote.textContent = 'This scene could not be started. Try another one.';
+                    dayNote.hidden = false;
+                },
+            }),
         });
         centerTimeline();
         updateTrackControls();
@@ -1208,7 +1237,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 });
             }
             if (key !== graph.start && typeof sequenceTools?.startRun === 'function') {
-                const [slot, childTag] = key.split(':').map(Number);
                 const route = previewRouteTo(key);
                 const play = document.createElement('button');
                 play.type = 'button';
@@ -1220,15 +1248,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     ? 'Continues this gag from here, then resumes the planned sequence.'
                     : `Previews this scene, then resumes the live visit. Use Play day ${String(exploredDay).padStart(2, '0')} to switch days.`;
                 play.addEventListener('click', () => {
-                    try {
-                        sequenceTools.startRun({
-                            mode: 'preview-child', script: adsName, tagId: flow.gag.tag,
-                            storyDay: storyDay || 1, slot, childTag, route,
-                        });
-                        close();
-                    } catch {
-                        note.textContent = 'This scene could not be started. Try another one.';
-                    }
+                    playScriptScene({ script: adsName, gagTag: flow.gag.tag,
+                        day: storyDay || 1, key, route,
+                        onError: () => { note.textContent = 'This scene could not be started. Try another one.'; } });
                 });
                 inspector.append(play, note);
             }
