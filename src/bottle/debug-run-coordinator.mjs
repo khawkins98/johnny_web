@@ -34,11 +34,16 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
 
     sequenceTools.subscribeStatus?.(publishStatus);
 
-    const request = ({ mode, script, tagId, storyDay }) => {
+    const request = ({ mode, script, tagId, storyDay, slot, childTag, route }) => {
         const options = { storyDay };
         const override =
-            mode === 'preview'
-                ? sequenceTools.preview(script, tagId, options)
+            mode === 'preview' || mode === 'preview-child'
+                ? mode === 'preview-child'
+                    ? Object.freeze({
+                        ...sequenceTools.preview(script, tagId, options),
+                        childScenePreview: { slot, tag: childTag, route, armed: false, continueAds: true },
+                    })
+                    : sequenceTools.preview(script, tagId, options)
                 : (sequenceTools.planFrom(script, tagId, options), null);
 
         generation++;

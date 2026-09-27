@@ -2,7 +2,7 @@
 
 *Johnny Castaway* is more than a random gag reel. It mixes everyday island scenes with an 11-day story that advances with the real calendar. The browser port keeps that state in `localStorage`.
 
-For the logic inside a gag, see [Scene flows](scene-flows/README.md). For the wider playback pipeline, see [Johnny host behavior](johnny-host-behavior.md).
+For an interactive view of days, visits, and gags, see the [story timeline guide](story-timeline-guide.md). For the logic inside a gag, see [Scene flows](scene-flows/README.md). For the wider playback pipeline, see [Johnny host behavior](johnny-host-behavior.md).
 
 ## How scenes are chosen
 
@@ -23,7 +23,7 @@ If browser storage is unavailable, playback still works, but starts from day 1 e
 
 ## Viewing or changing the story day
 
-Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and resets the tide's starting point.
+Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and resets the tide's starting point. In the compass timeline, selecting a day first shows its key scene, possible gags, and script paths without changing playback. **Play day** saves that story position and restarts the visit from its key scene. **Play only this scene** previews an individual action and then resumes the current visit without changing the saved day.
 
 The developer panel (`D`) can set a day directly or advance one day. A change applies to the next gag because the current sequence has already been planned. The separate preview-day control only previews a scene and does not change saved progress.
 

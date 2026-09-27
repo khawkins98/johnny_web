@@ -23,7 +23,7 @@ The panel's **Console detail** control changes log verbosity without a reload. S
 
 The panel's **Holiday Theme** selector previews Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year without changing your system clock. Calendar is the default.
 
-Story-day controls can advance or set saved progress. The separate preview-day control leaves saved progress alone; see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
+Story-day controls can advance or set saved progress. The separate preview-day control leaves saved progress alone. For the visitor-facing day exploration and explicit **Play day** control, see the [story timeline guide](story-timeline-guide.md); for automatic day progression, see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
 
 ## Inspect the original resources
 

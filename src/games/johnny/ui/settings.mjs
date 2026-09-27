@@ -1,4 +1,5 @@
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
+import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
 
 export const SOUND_SETTING_KEY = 'jc-sound';
 export const EXPERIENCE_SETTING_KEY = 'jc-experience';
@@ -328,6 +329,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
                 text-align: center;
             }
         }
+        ${iconTooltipCss}
     `;
     document.head.appendChild(style);
 
@@ -367,7 +369,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     cog.type = 'button';
     cog.innerText = '⚙';
     cog.tabIndex = -1;
-    cog.setAttribute('aria-label', 'Open Island Options');
+    labelIconShortcut(cog, 'Island Options', 'S');
     cog.setAttribute('aria-hidden', 'true');
     let cogTimer = null;
     const hideCog = () => {
@@ -380,7 +382,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const scheduleCogHide = () => {
         if (cogTimer !== null) window.clearTimeout(cogTimer);
         cogTimer = window.setTimeout(() => {
-            if (document.activeElement === cog) scheduleCogHide();
+            if (document.activeElement === cog || cog.matches(':hover')) scheduleCogHide();
             else hideCog();
         }, 2400);
     };
@@ -392,6 +394,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         scheduleCogHide();
     };
     cog.addEventListener('click', open);
+    cog.addEventListener('focus', showCog);
     cog.addEventListener('blur', scheduleCogHide);
     window.addEventListener('mousemove', showCog, { passive: true });
     document.body.appendChild(cog);
@@ -729,6 +732,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         [['↑', '↓'], 'Enhanced · slower / faster'],
         [['H'], 'Enhanced · show / hide HUD'],
         [['S'], 'Island Options'],
+        [['T'], 'Story timeline'],
         [['D'], 'Developer panel'],
         [['F'], 'Enhanced · full screen'],
         [['R'], 'Return to title'],
