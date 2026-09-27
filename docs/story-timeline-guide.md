@@ -25,7 +25,7 @@ Hover or keyboard-focus a gag or scene for context and a small silent original-g
 
 ## Inspect or play a script scene
 
-Select a gag, then use **Script ↓** to focus its references within the same day region. The arrangement helps navigate authored references; it is **not an exact trace of Johnny's live execution**. The inspector below explains guards, parallel actions, and random picks. Curved orange links indicate backward references; dotted orange links indicate random branches. **Full script map** in the inspector gives another pan and zoom view of the gag graph.
+Select a gag, then use **Script ↓** to focus its references within the same day region. The numbered scene cards run horizontally in the order their references first appear in the script. Cyan links jump forward; amber arcs loop back, and dotted amber arcs mark random picks. Hover or focus a scene to brighten its incoming and outgoing links. Pan along the rail to follow a long gag. These links show authored references, **not an exact trace of Johnny's live execution or elapsed time**. The inspector below explains guards and parallel actions. **Full script map** in the inspector gives another pan and zoom view of the gag graph.
 
 Select a scene reference to change the inspector's preview. **Play this scene now** interrupts current playback, runs that scene through the original gag logic, then resumes the planned sequence. While exploring another day, the action is labeled **Play only this scene** and does not save or switch days. **Return to live** leaves inspection without changing playback.
 

@@ -244,9 +244,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas-line.is-visited { stroke: #eadfc8; }
         .scene-flow-atlas-line.is-planned { stroke: #8cdeed; stroke-dasharray: 10 6; }
         .scene-flow-atlas-line.is-unresolved { stroke: #83cbc9; stroke-dasharray: 2 6; }
-        .scene-flow-atlas-line.is-script { stroke: #8cdeed; opacity: .55; }
+        .scene-flow-atlas-line.is-script { stroke: #8cdeed; }
         .scene-flow-atlas-line.is-return { stroke: #efa65f; }
-        .scene-flow-atlas-line.is-random { stroke: #efa65f; stroke-dasharray: 3 5; }
+        .scene-flow-atlas-line.is-random { stroke: #efa65f; stroke-dasharray: 5 5; }
+        .scene-flow-atlas-line.is-source-order { stroke: #a6c6f3; stroke-dasharray: 3 7; opacity: .45; }
+        .scene-flow-atlas-line.is-script-link { opacity: .52; transition: opacity .16s ease, stroke-width .16s ease; }
+        .scene-flow-atlas-line.is-script-link.is-adjacent { opacity: .86; }
+        .scene-flow-atlas-line.is-script-link.is-emphasized { opacity: 1; stroke-width: 3.5; }
+        .scene-flow-atlas-line.is-script-link.is-dimmed { opacity: .12; }
         .scene-flow-atlas-day-band { fill: rgba(10,34,128,.55); stroke: rgba(123,218,232,.4); stroke-width: 2; stroke-dasharray: 9 7; }
         .scene-flow-atlas-day-band.is-live { fill: rgba(18,49,149,.7); stroke: rgba(255,228,91,.65); }
         .scene-flow-atlas-catalog-panel { fill: #071969; stroke: #8ccfce; stroke-width: 2; }
@@ -270,7 +275,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas-node.is-gate { width: 290px; min-height: 112px; white-space: pre-line; background: #17567b; border-color: #a4e5de; color: #fff6d7; font-size: 21px; }
         .scene-flow-atlas-node.is-candidate { width: 232px; min-height: 44px; padding-bottom: 11px; background: #164077; border-color: #72c5c5; font-size: 18px; }
         .scene-flow-atlas-node.is-candidate::after { content: ''; position: absolute; left: 4px; bottom: 3px; width: var(--catalog-weight); max-width: calc(100% - 8px); height: 3px; background: #a4e5de; }
-        .scene-flow-atlas-node.is-scene { width: 105px; min-height: 50px; font-size: 16px; }
+        .scene-flow-atlas-node.is-scene { width: 132px; min-height: 68px; padding: 18px 8px 7px; font-size: 18px; }
+        .scene-flow-atlas-node.is-scene::before { content: attr(data-order); position: absolute; top: 3px; left: 6px; color: #a6e5e7; font: 14px/1 'VT323', monospace; }
         .scene-flow-atlas-node.is-script-summary { width: 350px; min-height: 52px; border-style: dashed; border-color: #e6b45c; color: #fff2b0; background: #0c277d; }
         .scene-flow-atlas-node.is-selected { outline: 2px solid #fff; outline-offset: 3px; z-index: 2; }
         .scene-flow-atlas-node:hover, .scene-flow-atlas-node:focus-visible { border-color: #fff5ac; z-index: 10; outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.14); }
@@ -280,7 +286,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-atlas.is-overview .scene-flow-atlas-node:not(.is-gate) { color: transparent; }
         .scene-flow-atlas.is-overview .scene-flow-atlas-gate-examples,
         .scene-flow-atlas.is-overview .scene-flow-atlas-day-caption,
-        .scene-flow-atlas.is-overview .scene-flow-atlas-lane-label { display: none; }
+        .scene-flow-atlas.is-overview .scene-flow-atlas-lane-label,
+        .scene-flow-atlas.is-overview .scene-flow-atlas-node.is-scene::before { display: none; }
         .scene-flow-atlas-footer { display: flex; flex-wrap: wrap; gap: 5px 15px; min-height: 34px; padding: 6px 9px; border-top: 1px dashed #65c8e2; color: #c9e8e8; font-size: 16px; }
         .scene-flow-atlas-footer span::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 5px; border: 1px solid #fff; vertical-align: -1px; }
         .scene-flow-atlas-footer .is-seen::before { background: #eee0c4; }
