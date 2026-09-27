@@ -670,6 +670,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             for (let at = key; at !== null; at = parents.get(at)) path.unshift(at);
             return path;
         };
+        const previewRouteTo = (key) => {
+            // Some ADS gags start a resource loader alongside their first
+            // animated child. It is a sibling in the graph, so a shortest
+            // path to a later scene alone would omit its image setup.
+            const loaders = graph.edges.filter((edge) => edge.from === graph.start &&
+                /^load\b/i.test(graph.nodes.find((node) => node.key === edge.to)?.name || ''))
+                .map((edge) => edge.to);
+            const steps = [...new Set([...loaders, ...routeTo(key).filter((step) => step !== graph.start)])];
+            return steps.map((step) => {
+                const [slot, tag] = step.split(':').map(Number);
+                return { slot, tag };
+            });
+        };
         const select = (key, record = true) => {
             selectedKey = key;
             const previewRequest = ++previewGeneration;
@@ -703,6 +716,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             }
             if (key !== graph.start) {
                 const [slot, childTag] = key.split(':').map(Number);
+                const route = previewRouteTo(key);
                 const stage = document.createElement('div');
                 stage.className = 'scene-flow-preview-stage';
                 stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
@@ -714,7 +728,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
                     mountedPreview = mountSceneFlowPreview({
                         host: stage, resolveEntry, sequenceTools, script: adsName,
-                        gagTag: flow.gag.tag, slot, tag: childTag, storyDay: storyDay || 1,
+                        gagTag: flow.gag.tag, slot, tag: childTag, route, storyDay: storyDay || 1,
                         onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
                     });
                     caption.textContent = 'Silent preview of this animation';
@@ -724,6 +738,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             }
             if (key !== graph.start && typeof sequenceTools?.startRun === 'function') {
                 const [slot, childTag] = key.split(':').map(Number);
+                const route = previewRouteTo(key);
                 const play = document.createElement('button');
                 play.type = 'button';
                 play.className = 'scene-flow-play-button';
@@ -735,7 +750,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     try {
                         sequenceTools.startRun({
                             mode: 'preview-child', script: adsName, tagId: flow.gag.tag,
-                            storyDay: storyDay || 1, slot, childTag,
+                            storyDay: storyDay || 1, slot, childTag, route,
                         });
                         close();
                     } catch {

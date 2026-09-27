@@ -223,19 +223,28 @@ export class DgdsRuntime {
 
     #runAdsController() {
         const state = this.state;
-        // Explorer preview: play one authored TTM child on the current island,
-        // without walking ADS guards or changing the saved story day. This is
-        // intentionally separate from the faithful normal-playback path.
+        // Explorer preview: replay the chosen route's earlier TTM children to
+        // populate their shared image/palette environment, then play the chosen
+        // child. Later children often draw from resources loaded by the first
+        // child (for example, MJJOG's left-foot press uses the load-jog image).
+        // This remains separate from the faithful normal-playback path.
         if (state.childScenePreview) {
             const preview = state.childScenePreview;
+            const route = preview.route?.length ? preview.route : [{ slot: preview.slot, tag: preview.tag }];
+            const child = route[preview.index || 0];
+            if (!child) return true;
             if (!preview.armed) {
-                preview.available = Boolean(addSceneNode(state, preview.slot, preview.tag, 0, 1));
+                preview.available = Boolean(addSceneNode(state, child.slot, child.tag, 0, 1));
                 preview.armed = true;
             }
             if (!preview.available) return true;
             this.#runTtmController();
             state.continue = false;
-            return isTtmFinished(findSceneNode(state, preview.slot, preview.tag));
+            if (!isTtmFinished(findSceneNode(state, child.slot, child.tag))) return false;
+            if ((preview.index || 0) === route.length - 1) return true;
+            preview.index = (preview.index || 0) + 1;
+            preview.armed = false;
+            return false;
         }
         const scene = state.data.scenes[state.currentScene];
 

@@ -129,6 +129,12 @@ export const startProcess = (initialState) => {
         surfaceFactory,
         resourceProvider,
     });
+    const childPreview = runtime.state.childScenePreview;
+    if (childPreview?.route?.length > 1) {
+        for (let ticks = 0; (childPreview.index || 0) < childPreview.route.length - 1 && ticks < 12000; ticks++) {
+            if (runtime.tick(DGDS_TICK_MS).completed) break;
+        }
+    }
     activeRuntime = runtime;
     const framePresenter = createBrowserFramePresenter({
         context,
