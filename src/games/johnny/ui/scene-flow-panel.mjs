@@ -20,6 +20,7 @@ import {
     extractSceneFlow,
     outlineSceneFlowSteps,
 } from '../../../dgds/scripting/scene-flow.mjs';
+import { JOHNNY_SCENES } from '../story-controller.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
 
 const REPO_URL = 'https://github.com/khawkins98/johnny_web';
@@ -109,6 +110,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-map-tools button:hover { background: #2762cd; }
         .scene-flow-map-tools button:active { scale: .96; }
         .scene-flow-map-tools .scene-flow-mode-button { min-width: 94px; padding: 0 6px; font-size: 17px; }
+        .scene-flow-map-tools .scene-flow-story-button { min-width: 104px; padding: 0 6px; font-size: 17px; }
         .scene-flow-map-main:not(.is-overview) .scene-flow-zoom-control { display: none; }
         .scene-flow-viewport {
             height: 390px;
@@ -212,6 +214,35 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-next-title { display: block; color: #795023; border-bottom: 1px dashed #ad8051; margin-bottom: 4px; }
         .scene-flow-next button { width: 100%; text-align: left; padding: 4px 6px; margin: 3px 0; }
         .scene-flow-next small { display: block; color: #855a35; font-size: 15px; }
+        .scene-flow-story-shell { min-height: 460px; padding: 18px 20px; background: repeating-linear-gradient(0deg, transparent 0 15px, rgba(83,219,255,.1) 16px 17px), #071998; box-shadow: inset 0 0 0 4px #11116b, inset 0 0 0 6px #31b7e6; color: #fff9c5; font: 19px/1.1 'VT323', monospace; }
+        .scene-flow-story-intro { display: flex; justify-content: space-between; gap: 12px; align-items: end; border-bottom: 1px dashed #54bfeb; padding-bottom: 10px; }
+        .scene-flow-story-intro h3 { margin: 0 0 3px; font: 27px/1 'Caveat', cursive; color: #fff2a1; }
+        .scene-flow-story-intro p { margin: 0; color: #c3e6ec; font-size: 17px; }
+        .scene-flow-story-intro button { min-height: 42px; padding: 4px 12px; border: 2px solid #68d5e7; background: #1642b1; color: #fffbdc; font: 18px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-story-intro button:hover { background: #2860c7; }
+        .scene-flow-day-track { display: flex; gap: 3px; margin: 12px 0 18px; }
+        .scene-flow-day-track span { flex: 1; min-width: 0; padding: 5px 0; border: 1px solid #507fc1; color: #9dc9d9; text-align: center; font-size: 15px; }
+        .scene-flow-day-track .is-current { border-color: #fff5b6; background: #ffe02d; color: #332817; }
+        .scene-flow-story-section { margin: 14px 0 7px; font-size: 17px; color: #a6e6ea; letter-spacing: .05em; }
+        .scene-flow-prime-track { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 3px 2px 10px; scrollbar-color: #65c8e2 #0b258d; }
+        .scene-flow-prime-arrow { flex: none; align-self: center; width: 32px; color: #ffe02d; text-align: center; font-size: 24px; }
+        .scene-flow-gag-card { flex: 0 0 164px; min-height: 96px; padding: 8px 9px; border: 2px solid #64d3e7; background: #12339c; color: #fffbe2; font: 18px/1.05 'VT323', monospace; text-align: left; cursor: pointer; }
+        .scene-flow-gag-card:hover { background: #2153bb; border-color: #fff5ac; }
+        .scene-flow-gag-card:active { scale: .98; }
+        .scene-flow-gag-card small { display: block; color: #ace1ec; font-size: 14px; margin-bottom: 5px; }
+        .scene-flow-gag-card strong { display: block; font-weight: normal; font-size: 20px; }
+        .scene-flow-gag-card[data-state="current"] { border-color: #fff5ac; background: #ffe02d; color: #302816; }
+        .scene-flow-gag-card[data-state="current"] small { color: #694b21; }
+        .scene-flow-gag-card[data-state="seen"] { opacity: .76; }
+        .scene-flow-gag-card[data-state="possible"] { border-color: #64d3e7; border-style: dashed; }
+        .scene-flow-gag-card:disabled { cursor: default; opacity: .7; }
+        .scene-flow-story-end { flex: 0 0 164px; min-height: 96px; box-sizing: border-box; padding: 9px; border: 2px dashed #eab06b; background: #182d83; color: #fff1c5; }
+        .scene-flow-story-end strong, .scene-flow-story-end small { display: block; font-weight: normal; }
+        .scene-flow-story-end small { color: #b9d5df; margin-top: 5px; }
+        .scene-flow-possibility-note { margin: 0 0 10px; color: #c3e6ec; font-size: 17px; }
+        .scene-flow-possible-track { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .scene-flow-possible-track .scene-flow-gag-card { width: 100%; min-height: 92px; }
+        .scene-flow-next-story { background: #ffe02d !important; color: #302816 !important; border-color: #704a1e !important; }
         .scene-flow-script-details { margin-top: 12px; font-family: 'VT323', monospace; font-size: 18px; }
         .scene-flow-script-details summary { cursor: pointer; min-height: 40px; padding: 8px; background: #ead7b8; }
         .scene-flow-outline { margin-top: 8px; }
@@ -224,6 +255,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             .scene-map-node.is-focus-node { width: 88px; font-size: 15px; }
             .scene-map-node.is-focus-node.is-selected { width: 98px; }
             .scene-flow-map-tools .scene-flow-mode-button { min-width: 84px; }
+            .scene-flow-map-tools .scene-flow-story-button { min-width: 84px; }
+            .scene-flow-story-shell { padding: 14px 12px; }
+            .scene-flow-story-intro { align-items: start; flex-direction: column; }
+            .scene-flow-gag-card, .scene-flow-story-end { flex-basis: 134px; }
+            .scene-flow-possible-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         .scene-flow-close {
@@ -408,6 +444,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let trail = [];
     let trailIndex = -1;
     let seenGags = [];
+    let viewMode = 'story';
+    let viewedGag = null;
     let mapGeneration = 0;
     let mountedPreview = null;
     let previewGeneration = 0;
@@ -491,11 +529,144 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     const findScene = (ads, tagId) => (ads.scenes || []).find((s) => s.tagId?.id === tagId);
     const gagName = ({ script, tagId }) => {
+        if (script === 'POSE') return 'Johnny pauses';
         try {
             return findScene(resolveEntry(script), tagId)?.tagId?.description || `${script} #${tagId}`;
         } catch {
             return `${script} #${tagId}`;
         }
+    };
+
+    const possibleLaterGags = (storyDay, shown) => {
+        const byScript = new Map();
+        for (const candidate of JOHNNY_SCENES) {
+            if (!candidate.script.endsWith('.ADS') || candidate.script === 'STAND.ADS') continue;
+            if (candidate.day !== 0 && candidate.day !== storyDay) continue;
+            // Tide-gated scenes need the host's exact phase, which is not known
+            // for a future visit. Keep this set to day-eligible, all-tide examples.
+            if (candidate.tideMin !== 0 || candidate.tideMax !== 16) continue;
+            const key = `${candidate.script}:${candidate.tagId}`;
+            if (shown.has(key)) continue;
+            if (!byScript.has(candidate.script) || candidate.day === storyDay) {
+                byScript.set(candidate.script, { script: candidate.script, tagId: candidate.tagId });
+            }
+        }
+        const order = ['FISHING.ADS', 'WALKSTUF.ADS', 'VISITOR.ADS', 'BUILDING.ADS',
+            'ACTIVITY.ADS', 'JOHNNY.ADS', 'SUZY.ADS', 'MARY.ADS', 'MISCGAG.ADS'];
+        return order.map((script) => byScript.get(script)).filter(Boolean).slice(0, 8);
+    };
+
+    const renderStoryTimeline = (status) => {
+        mapGeneration++;
+        previewGeneration++;
+        mountedPreview?.destroy();
+        mountedPreview = null;
+        mountedMap?.destroy();
+        mountedMap = null;
+        clear(body);
+        clear(links);
+        const storyDay = status.storyDay || sequenceTools?.getStoryDay?.() || 1;
+        title.textContent = 'Story timeline';
+        subtitle.textContent = `DAY ${storyDay} OF 11 · THE CURRENT VISIT AND WHAT COULD FOLLOW`;
+
+        const shell = document.createElement('div');
+        shell.className = 'scene-flow-story-shell';
+        const intro = document.createElement('div');
+        intro.className = 'scene-flow-story-intro';
+        const introCopy = document.createElement('div');
+        const introTitle = document.createElement('h3');
+        introTitle.textContent = 'You are here in Johnny’s story';
+        const introNote = document.createElement('p');
+        introNote.textContent = 'Yellow marks where you are. Solid blue is planned; dashed blue is possible later.';
+        introCopy.append(introTitle, introNote);
+        const inspectCurrent = document.createElement('button');
+        inspectCurrent.type = 'button';
+        inspectCurrent.textContent = 'Explore this gag →';
+        inspectCurrent.disabled = status.active.script === 'POSE';
+        inspectCurrent.addEventListener('click', () => showGag(status.active));
+        intro.append(introCopy, inspectCurrent);
+        shell.appendChild(intro);
+
+        const days = document.createElement('div');
+        days.className = 'scene-flow-day-track';
+        days.setAttribute('aria-label', `Story day ${storyDay} of 11`);
+        for (let day = 1; day <= 11; day++) {
+            const marker = document.createElement('span');
+            marker.textContent = String(day).padStart(2, '0');
+            marker.title = `Story day ${day}`;
+            marker.classList.toggle('is-current', day === storyDay);
+            days.appendChild(marker);
+        }
+        shell.appendChild(days);
+
+        const primeTitle = document.createElement('div');
+        primeTitle.className = 'scene-flow-story-section';
+        primeTitle.textContent = `PRIME TIMELINE · THIS VISIT · ${status.current || 1} OF ${status.total || 1}${status.remaining > 5 ? ' · SCROLL TO SEE MORE →' : ''}`;
+        shell.appendChild(primeTitle);
+        const prime = document.createElement('div');
+        prime.className = 'scene-flow-prime-track';
+        const prior = seenGags.filter((gag) => gag.index < status.current).slice(-3);
+        const allQueued = status.preview ? [] : (sequenceTools?.snapshot?.() || []);
+        const items = [
+            ...prior.map((gag) => ({ gag, state: 'seen', label: 'ALREADY SEEN' })),
+            { gag: status.active, state: 'current', label: 'YOU ARE HERE' },
+            ...allQueued.map((gag, index) => ({ gag, state: 'planned', label: index === 0 ? 'PLANNED NEXT' : 'LATER THIS VISIT' })),
+        ];
+        const shown = new Set();
+        for (const gag of allQueued) shown.add(`${gag.script}:${gag.tagId}`);
+        const makeCard = (gag, state, label) => {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'scene-flow-gag-card';
+            card.dataset.state = state;
+            const kicker = document.createElement('small');
+            kicker.textContent = label;
+            const name = document.createElement('strong');
+            name.textContent = gagName(gag);
+            card.append(kicker, name);
+            if (gag.script === 'POSE') card.disabled = true;
+            else card.addEventListener('click', () => showGag(gag));
+            return card;
+        };
+        items.forEach(({ gag, state, label }, index) => {
+            if (!gag) return;
+            if (index > 0) {
+                const arrow = document.createElement('span');
+                arrow.className = 'scene-flow-prime-arrow';
+                arrow.setAttribute('aria-hidden', 'true');
+                arrow.textContent = '→';
+                prime.appendChild(arrow);
+            }
+            prime.appendChild(makeCard(gag, state, label));
+            shown.add(`${gag.script}:${gag.tagId}`);
+        });
+        const arrow = document.createElement('span');
+        arrow.className = 'scene-flow-prime-arrow';
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '→';
+        const end = document.createElement('div');
+        end.className = 'scene-flow-story-end';
+        const label = document.createElement('strong');
+        label.textContent = 'This visit ends';
+        const explanation = document.createElement('small');
+        explanation.textContent = 'The next visit has not been chosen yet.';
+        end.append(label, explanation);
+        prime.append(arrow, end);
+        shell.appendChild(prime);
+
+        const possibleTitle = document.createElement('div');
+        possibleTitle.className = 'scene-flow-story-section';
+        possibleTitle.textContent = 'AFTER THIS VISIT · POSSIBLE LATER GAGS';
+        const possibleNote = document.createElement('p');
+        possibleNote.className = 'scene-flow-possibility-note';
+        possibleNote.textContent = 'The next visit is not planned yet. These are day-eligible examples, not predictions. Select one to explore its script.';
+        const possibilities = document.createElement('div');
+        possibilities.className = 'scene-flow-possible-track';
+        for (const gag of possibleLaterGags(storyDay, shown)) {
+            possibilities.appendChild(makeCard(gag, 'possible', 'POSSIBLE · NOT PLANNED'));
+        }
+        shell.append(possibleTitle, possibleNote, possibilities);
+        body.appendChild(shell);
     };
 
     const renderLinks = (adsName) => {
@@ -556,20 +727,29 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         tools.className = 'scene-flow-map-tools';
         const headingHint = document.createElement('span');
         headingHint.className = 'scene-flow-map-hint';
-        headingHint.textContent = 'left: before · right: possible next';
+        headingHint.textContent = 'inside this gag';
+        const storyButton = document.createElement('button');
+        storyButton.type = 'button';
+        storyButton.className = 'scene-flow-story-button';
+        storyButton.textContent = '← Story timeline';
+        storyButton.addEventListener('click', () => {
+            viewMode = 'story';
+            viewedGag = null;
+            renderCurrent();
+        });
         const modeButton = document.createElement('button');
         modeButton.type = 'button';
         modeButton.className = 'scene-flow-mode-button';
-        modeButton.textContent = 'All routes';
-        modeButton.setAttribute('aria-label', 'Show all routes');
+        modeButton.textContent = 'Script overview';
+        modeButton.setAttribute('aria-label', 'Show full script map for this gag');
         let overview = false;
         modeButton.addEventListener('click', () => {
             overview = !overview;
             main.classList.toggle('is-overview', overview);
-            headingTitle.textContent = overview ? 'ALL ROUTES' : 'CURRENT ROUTE';
-            headingHint.textContent = overview ? 'drag to pan · wheel to zoom' : 'left: before · right: possible next';
-            modeButton.textContent = overview ? 'Focus route' : 'All routes';
-            modeButton.setAttribute('aria-label', overview ? 'Focus on selected scene' : 'Show all routes');
+            headingTitle.textContent = overview ? 'FULL GAG SCRIPT' : 'CURRENT ROUTE';
+            headingHint.textContent = overview ? 'drag · zoom' : 'inside this gag';
+            modeButton.textContent = overview ? 'Focus route' : 'Script overview';
+            modeButton.setAttribute('aria-label', overview ? 'Focus on selected scene' : 'Show full script map for this gag');
             mountedMap?.setOverview(overview);
         });
         const zoomOut = document.createElement('button');
@@ -590,7 +770,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         zoomOut.addEventListener('click', () => mountedMap?.zoom(-1));
         zoomIn.addEventListener('click', () => mountedMap?.zoom(1));
         resetView.addEventListener('click', () => mountedMap?.fit());
-        tools.append(headingHint, modeButton, zoomOut, zoomIn, resetView);
+        tools.append(headingHint, storyButton, modeButton, zoomOut, zoomIn, resetView);
         heading.append(headingTitle, tools);
         main.appendChild(heading);
         const viewport = document.createElement('div');
@@ -764,8 +944,20 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             choices.replaceChildren();
             const choiceTitle = document.createElement('span');
             choiceTitle.className = 'scene-flow-next-title';
-            choiceTitle.textContent = outgoing.length ? 'POSSIBLE NEXT EVENTS' : 'END OF THIS BRANCH';
+            choiceTitle.textContent = outgoing.length ? 'NEXT INSIDE THIS GAG' : 'END OF THIS GAG ROUTE';
             choices.appendChild(choiceTitle);
+            if (!outgoing.length) {
+                const continueStory = document.createElement('button');
+                continueStory.type = 'button';
+                continueStory.className = 'scene-flow-next-story';
+                continueStory.textContent = '↗ See what happens after this gag';
+                continueStory.addEventListener('click', () => {
+                    viewMode = 'story';
+                    viewedGag = null;
+                    renderCurrent();
+                });
+                choices.appendChild(continueStory);
+            }
             for (const edge of outgoing) {
                 const target = graph.nodes.find((item) => item.key === edge.to);
                 const button = document.createElement('button');
@@ -852,6 +1044,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         renderLinks(adsName);
     };
 
+    function showGag(gag) {
+        if (!gag || gag.script === 'POSE') return;
+        viewMode = 'gag';
+        viewedGag = { script: gag.script, tagId: gag.tagId };
+        renderCurrent();
+    }
+
     const renderCurrent = () => {
         const status = sequenceTools?.status?.() ?? null;
         const active = status?.active ?? null;
@@ -859,10 +1058,16 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             renderEmpty("Johnny hasn't started a gag yet -- check back once he's up to something.");
             return;
         }
+        if (viewMode === 'story') {
+            renderStoryTimeline(status);
+            return;
+        }
+
+        const target = viewedGag || active;
 
         let ads;
         try {
-            ads = resolveEntry(active.script);
+            ads = resolveEntry(target.script);
         } catch {
             ads = null;
         }
@@ -871,17 +1076,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             return;
         }
 
-        const scene = findScene(ads, active.tagId);
+        const scene = findScene(ads, target.tagId);
         if (!scene) {
-            renderEmpty(`Couldn't find gag ${active.tagId} in ${active.script}.`);
+            renderEmpty(`Couldn't find gag ${target.tagId} in ${target.script}.`);
             return;
         }
 
-        renderFlow(active.script, ads, scene);
+        renderFlow(target.script, ads, scene);
     };
 
     function open() {
         isOpen = true;
+        viewMode = 'story';
+        viewedGag = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         renderCurrent();
         overlay.style.display = 'flex';
@@ -903,7 +1110,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 seenGags.push({ ...status.active, index: status.current });
             }
         }
-        if (isOpen) renderCurrent();
+        if (isOpen && viewMode === 'story') renderCurrent();
     });
 
     // Tear down every global hook this panel installed: the window listeners

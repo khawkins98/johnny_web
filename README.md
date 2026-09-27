@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog, or press `S`. Press `R` to return t
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, move the pointer to reveal the compass button and open its scene map. The focused view shows the selected scene between the route before it and its possible next scenes. Select a scene to watch a silent preview, or choose **Play this scene now** to jump into that scene and continue its gag. Use Back and Forward to revisit your route, or switch to **All routes** to pan and zoom the full script graph. The side panel shows the current story day, gags seen in this sequence, and the next planned gag. The map shows scripted possibilities; Johnny's live random choices continue independently.
+While a gag is playing, move the pointer to reveal the compass button and open the story timeline. It shows the gags already seen, the rest of this visit's planned sequence, and examples of gags that could appear on a later visit. Select a gag to explore its script. The focused view shows the selected scene between the route before it and its possible next scenes; **Script overview** shows the full gag graph. Select a scene to watch a silent preview, or choose **Play this scene now** to jump into that scene and continue its gag. The map shows scripted possibilities; Johnny's live random choices continue independently.
 
 ## Development
 

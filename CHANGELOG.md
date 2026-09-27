@@ -5,7 +5,8 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 ## v1.1 — Scene flow explorer
 
 - Added an interactive, pixel styled scene map that follows the current gag and shows the route before a selected scene and its possible next scenes.
-- Added an all routes view with pan and zoom for exploring the full scripted graph, including random choices.
+- Added a story timeline above the gag map that separates the current visit's planned route from examples of later, day-eligible gags.
+- Added a script overview with pan and zoom for exploring a gag's full scripted graph, including random choices.
 - Added silent, in-panel previews of individual scene animations using the original game resources, including sprite setup and character poses from earlier route segments.
 - Added a control to jump into a selected scene, continue its scripted gag, then return to the planned screensaver sequence.
 - Added story day, current sequence, and planned gag context alongside the map, with links to the original script steps and flow documentation.
