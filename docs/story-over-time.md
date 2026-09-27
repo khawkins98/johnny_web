@@ -23,7 +23,7 @@ If browser storage is unavailable, playback still works, but starts from day 1 e
 
 ## Viewing or changing the story day
 
-Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and resets the tide's starting point. In the compass timeline, selecting a day saves that story position and restarts the visit from its key scene. This is an immediate playback change; inspecting a gag or script path in the timeline is not.
+Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and resets the tide's starting point. In the compass timeline, selecting a day first shows its key scene, possible gags, and script paths without changing playback. **Play day** saves that story position and restarts the visit from its key scene. **Play only this scene** previews an individual action and then resumes the current visit without changing the saved day.
 
 The developer panel (`D`) can set a day directly or advance one day. A change applies to the next gag because the current sequence has already been planned. The separate preview-day control only previews a scene and does not change saved progress.
 
