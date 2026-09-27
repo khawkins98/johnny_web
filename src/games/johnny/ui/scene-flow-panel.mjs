@@ -219,9 +219,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-story-intro button { min-height: 42px; padding: 4px 12px; border: 2px solid #68d5e7; background: #1642b1; color: #fffbdc; font: 18px/1 'VT323', monospace; cursor: pointer; }
         .scene-flow-story-intro button:hover { background: #2860c7; }
         .scene-flow-story-intro button:disabled { opacity: .55; cursor: default; }
-        .scene-flow-day-track { display: flex; gap: 3px; margin: 9px 0 5px; font-variant-numeric: tabular-nums; }
-        .scene-flow-day-track span { flex: 1; min-width: 0; padding: 5px 0; border: 1px solid #507fc1; color: #9dc9d9; text-align: center; font-size: 15px; }
+        .scene-flow-day-track { display: flex; gap: 3px; margin: 9px 0 5px; overflow-x: auto; scrollbar-color: #65c8e2 #0b258d; font-variant-numeric: tabular-nums; }
+        .scene-flow-day-track button { flex: 1 0 40px; min-width: 40px; min-height: 40px; padding: 5px 0; border: 1px solid #507fc1; background: #10288c; color: #b7e5ec; text-align: center; font: 17px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-day-track button:hover, .scene-flow-day-track button:focus-visible { border-color: #fff5b6; background: #2450b1; color: #fff; }
+        .scene-flow-day-track button:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+        .scene-flow-day-track button:active { scale: .96; }
+        .scene-flow-day-track button:disabled { cursor: default; }
         .scene-flow-day-track .is-current { border-color: #fff5b6; background: #ffe02d; color: #332817; }
+        .scene-flow-day-track .is-current:hover, .scene-flow-day-track .is-current:focus-visible { background: #fff18d; color: #332817; }
         .scene-flow-story-section { margin: 14px 0 7px; font-size: 17px; color: #a6e6ea; letter-spacing: .05em; }
         .scene-flow-prime-track { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 3px 2px 9px; scrollbar-color: #65c8e2 #0b258d; }
         .scene-flow-prime-arrow { flex: none; align-self: center; width: 32px; color: #ffe02d; text-align: center; font-size: 24px; }
@@ -600,16 +605,40 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const days = document.createElement('div');
         days.className = 'scene-flow-day-track';
         days.setAttribute('aria-label', `Story day ${storyDay} of 11`);
+        const canJumpDay = typeof sequenceTools?.setStoryDay === 'function' &&
+            typeof sequenceTools?.startRun === 'function';
+        const jumpToDay = (day) => {
+            const keyScene = JOHNNY_SCENES.find((candidate) => candidate.day === day);
+            if (!keyScene || !canJumpDay) return;
+            const savedDay = sequenceTools.getStoryDay?.();
+            try {
+                sequenceTools.setStoryDay(day);
+                sequenceTools.startRun({
+                    mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day,
+                });
+                close();
+            } catch {
+                if (savedDay != null) sequenceTools.setStoryDay(savedDay);
+                dayNote.textContent = `Could not start day ${day}. The current story is still available.`;
+            }
+        };
         for (let day = 1; day <= 11; day++) {
-            const marker = document.createElement('span');
+            const marker = document.createElement('button');
+            marker.type = 'button';
             marker.textContent = String(day).padStart(2, '0');
-            marker.title = `Story day ${day}`;
+            marker.title = `${day === storyDay ? 'Replay' : 'Jump to'} story day ${day} and start its story sequence`;
+            marker.setAttribute('aria-label', marker.title);
+            marker.disabled = !canJumpDay;
+            if (day === storyDay) marker.setAttribute('aria-current', 'step');
             marker.classList.toggle('is-current', day === storyDay);
+            marker.addEventListener('click', () => jumpToDay(day));
             days.appendChild(marker);
         }
         const dayNote = document.createElement('p');
         dayNote.className = 'scene-flow-possibility-note';
-        dayNote.textContent = 'Days advance after key scenes unlock them. Rows show order, not elapsed time.';
+        dayNote.textContent = canJumpDay
+            ? 'Select a day to save it and start a visit containing its key scene. Otherwise days advance after key scenes unlock them.'
+            : 'Days advance after key scenes unlock them. Rows show order, not elapsed time.';
         shell.appendChild(dayNote);
         const context = document.createElement('div');
         context.className = 'scene-flow-matrix-context';
@@ -712,6 +741,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         pool.append(possibleNote, possibilities);
         shell.appendChild(pool);
         body.appendChild(shell);
+        const currentDay = days.querySelector('.is-current');
+        if (currentDay) {
+            const relativeLeft = currentDay.getBoundingClientRect().left - days.getBoundingClientRect().left + days.scrollLeft;
+            days.scrollLeft = Math.max(0, relativeLeft - (days.clientWidth - currentDay.clientWidth) / 2);
+        }
         if (viewedGag) prime.scrollLeft = visitScrollLeft;
         else {
             const liveCard = prime.querySelector('[data-state="current"]');
