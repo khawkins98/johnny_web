@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, click the compass or press `T` to open the story timeline matrix. Its rows keep the story day, this visit's planned gag order, and the selected gag's nearby script steps in view together. Select a story day to save it and start a visit containing that day's key scene. Yellow marks the live gag; a white outline marks the gag or scene you are inspecting. Script actions below the map distinguish parallel starts, conditions, and random picks. **Full script map** opens the complete graph, while **Other gags available on this day** lists unplanned examples. Select a scene to watch a silent preview, or choose **Play this scene now** to jump into that scene and continue its gag. Highlighted routes through the script are possible inspection paths, not recorded playback history; Johnny's live random choices continue independently.
+While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It moves from the current story day to this visit's planned gags, then to the possible scenes within a gag. Select a day to save it and restart the visit from its key scene, or select a scene to watch a silent preview. **Play this scene now** interrupts playback and runs that scene before the planned sequence resumes. The **After this visit** list shows examples that could appear later; it does not predict Johnny's next visit. The highlighted script route is your inspection path, not a recording of his live choices.
 
 ## Development
 
@@ -44,6 +44,7 @@ See the [changelog](CHANGELOG.md) for the v1 baseline and v1.1 scene flow explor
 For a specific task:
 
 - [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
+- [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.
 - [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.
 - [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
 - [Read the resource format](docs/resindex.md) — archive layout and decoding notes.
