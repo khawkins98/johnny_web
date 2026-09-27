@@ -22,6 +22,7 @@ import {
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
+import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
 
 const REPO_URL = 'https://github.com/khawkins98/johnny_web';
 // The git ref the "see the source / docs" links point at. `main` is correct once
@@ -411,6 +412,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         #scene-flow-cog:hover {
             background: #f4e4c8;
         }
+        #scene-flow-cog.is-visible:active { scale: .96; }
+        #scene-flow-cog:focus-visible { outline: 3px solid rgba(244, 228, 200, 0.86); outline-offset: 3px; }
+        ${iconTooltipCss}
     `;
     document.head.appendChild(style);
 
@@ -481,6 +485,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // Named so destroy() can remove it (window listeners outlive the modal DOM).
     const onKeydown = (e) => {
         if (e.key === 'Escape' && overlay.style.display === 'flex') close();
+        if (e.key !== 't' && e.key !== 'T') return;
+        if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (e.target?.matches?.('input, select, textarea, [contenteditable="true"]')) return;
+        if (document.getElementById('settings-overlay')?.getAttribute('aria-hidden') === 'false') return;
+        e.preventDefault();
+        if (isOpen) close();
+        else open();
     };
     window.addEventListener('keydown', onKeydown);
 
@@ -490,7 +501,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     cog.type = 'button';
     cog.textContent = '🧭';
     cog.tabIndex = -1;
-    cog.setAttribute('aria-label', 'Open Johnny’s story timeline');
+    labelIconShortcut(cog, 'Story Timeline', 'T');
     cog.setAttribute('aria-hidden', 'true');
     let cogTimer = null;
     const hideCog = () => {
@@ -503,7 +514,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const scheduleCogHide = () => {
         if (cogTimer !== null) window.clearTimeout(cogTimer);
         cogTimer = window.setTimeout(() => {
-            if (document.activeElement === cog) scheduleCogHide();
+            if (document.activeElement === cog || cog.matches(':hover')) scheduleCogHide();
             else hideCog();
         }, 2400);
     };
@@ -515,6 +526,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         scheduleCogHide();
     };
     cog.addEventListener('click', open);
+    cog.addEventListener('focus', showCog);
     cog.addEventListener('blur', scheduleCogHide);
     window.addEventListener('mousemove', showCog, { passive: true });
     document.body.appendChild(cog);

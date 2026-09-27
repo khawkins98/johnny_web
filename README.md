@@ -23,11 +23,11 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
 
-Move the pointer to reveal the Settings cog, or press `S`. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
+Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, move the pointer to reveal the compass button and open the story timeline matrix. Its rows keep the story day, this visit's planned gag order, and the selected gag's nearby script steps in view together. Select a story day to save it and start a visit containing that day's key scene. Yellow marks the live gag; a white outline marks the gag or scene you are inspecting. Script actions below the map distinguish parallel starts, conditions, and random picks. **Full script map** opens the complete graph, while **Other gags available on this day** lists unplanned examples. Select a scene to watch a silent preview, or choose **Play this scene now** to jump into that scene and continue its gag. Highlighted routes through the script are possible inspection paths, not recorded playback history; Johnny's live random choices continue independently.
+While a gag is playing, click the compass or press `T` to open the story timeline matrix. Its rows keep the story day, this visit's planned gag order, and the selected gag's nearby script steps in view together. Select a story day to save it and start a visit containing that day's key scene. Yellow marks the live gag; a white outline marks the gag or scene you are inspecting. Script actions below the map distinguish parallel starts, conditions, and random picks. **Full script map** opens the complete graph, while **Other gags available on this day** lists unplanned examples. Select a scene to watch a silent preview, or choose **Play this scene now** to jump into that scene and continue its gag. Highlighted routes through the script are possible inspection paths, not recorded playback history; Johnny's live random choices continue independently.
 
 ## Development
 
