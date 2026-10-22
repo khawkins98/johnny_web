@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createCardFaceQueue, familyOf } from '../story-card-faces.mjs';
+import { IMAGE_HEIGHT, IMAGE_WIDTH, createCardFaceQueue, cropWindow, familyOf } from '../story-card-faces.mjs';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const fakeStore = (entries = {}) => {
@@ -75,5 +75,29 @@ describe('family icons', () => {
         expect(familyOf('POSE')).toBe('PAUSE');
         expect(familyOf('STAND.ADS')).toBe('PAUSE');
         expect(familyOf('UNKNOWN.ADS')).toBe('MISCGAG');
+    });
+});
+
+describe('picture crop', () => {
+    const action = { minX: 300, minY: 360, maxX: 340, maxY: 400 };
+
+    it('centres on the action and stays inside the 640x480 frame', () => {
+        const window = cropWindow(action);
+        expect(window).toMatchObject({ width: IMAGE_WIDTH, height: IMAGE_HEIGHT });
+        expect(window.x).toBe(320 - IMAGE_WIDTH / 2);
+        expect(window.y + IMAGE_HEIGHT).toBe(480);
+    });
+
+    it('stays inside a framed scene that is big enough', () => {
+        // Suzy's beach: a smaller picture with black around it.
+        const frame = { minX: 132, minY: 52, maxX: 503, maxY: 318 };
+        const window = cropWindow({ minX: 140, minY: 280, maxX: 200, maxY: 310 }, frame);
+        expect(window.x).toBe(132);
+        expect(window.y + IMAGE_HEIGHT - 1).toBe(318);
+    });
+
+    it('ignores a lit area too small to hold the picture', () => {
+        const tiny = { minX: 300, minY: 200, maxX: 340, maxY: 240 };
+        expect(cropWindow(action, tiny)).toEqual(cropWindow(action));
     });
 });

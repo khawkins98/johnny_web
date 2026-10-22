@@ -6,7 +6,7 @@ The timeline asks one question at a time: **which day, which tide, which gag**. 
 
 Start Classic or Enhanced playback, then click the compass near the upper-left corner or press `T`. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus. **↖ Johnny now** returns to the live gag from anywhere.
 
-Card pictures are real frames, rendered in your browser from your own game data and kept there, so each one is made only once. Until a picture is ready, or when a gag has no clear early frame, its card shows a pixel icon for its family of gags (fishing, building, visitors, Mary, Suzy, and so on).
+Card pictures are real frames, rendered in your browser from your own game data and kept there, so each one is made only once. Until a picture is ready, or when a gag shows nothing clear in its first 15 seconds, its card shows a pixel icon for its family of gags (fishing, building, visitors, Mary, Suzy, and so on).
 
 ## Which day?
 

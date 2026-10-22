@@ -46,7 +46,7 @@ const SAMPLE_EVERY = 15;
 // Once Johnny (or anything) is on screen, keep watching this long for a busier frame.
 const SETTLE_TICKS = 150;
 const MIN_OPAQUE = 900;
-// A candidate frame must be mostly lit. Some gags open on a "meanwhile" clock
+// A candidate picture must be mostly lit. Some gags open on a "meanwhile" clock
 // over black, which is the busiest early frame but a poor picture.
 const MIN_LIT = 0.35;
 // ...and its drawn layer mostly not black: the "meanwhile" clock sits in a
@@ -91,16 +91,37 @@ const measure = (data) => {
     return { count: count * 4, darkShare: count ? dark / count : 0, box: maxX < 0 ? null : { minX, minY, maxX, maxY } };
 };
 
+/** Bounds of the lit part of the background (a framed scene inside black). */
+const litBounds = (background) => {
+    let minX = 640;
+    let minY = 480;
+    let maxX = -1;
+    let maxY = -1;
+    for (let y = 0; y < 480; y += 4) {
+        for (let x = 0; x < 640; x += 4) {
+            const i = (y * 640 + x) * 4;
+            if (background[i] + background[i + 1] + background[i + 2] <= 40) continue;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x + 3;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y + 3;
+        }
+    }
+    return maxX < 0 ? null : { minX, minY, maxX, maxY };
+};
+
 /**
- * Share of the composed frame that isn't (near) black, sampled on a grid.
- * Reads the two layers directly rather than composing them first.
+ * Share of a window of the composed frame that isn't (near) black, sampled on
+ * a grid. Reads the two layers directly rather than composing them first.
+ * Only the window that becomes the card picture counts: some scenes (Suzy's
+ * beach, Johnny's office) are a small framed picture inside a black screen.
  */
-const litFraction = (foreground, background) => {
+const litFraction = (foreground, background, window) => {
     const isLit = (data, i) => data[i] + data[i + 1] + data[i + 2] > 40;
     let lit = 0;
     let total = 0;
-    for (let y = 0; y < 480; y += 8) {
-        for (let x = 0; x < 640; x += 8) {
+    for (let y = window.y; y < window.y + window.height; y += 4) {
+        for (let x = window.x; x < window.x + window.width; x += 4) {
             const i = (y * 640 + x) * 4;
             total++;
             if (foreground[i + 3] ? isLit(foreground, i) : isLit(background, i)) lit++;
@@ -162,18 +183,21 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
         const best = canvas2d(640, 480, CPU);
         let bestCount = 0;
         let bestBox = null;
+        let bestBounds = null;
         let ticks = 0;
         let firstSeenAt = null;
 
-        const finish = () => resolve(bestBox ? crop(best.canvas, bestBox) : null);
+        const finish = () => resolve(bestBox ? crop(best.canvas, bestBox, bestBounds) : null);
         const consider = () => {
             const front = foreground.context.getImageData(0, 0, 640, 480).data;
             const { count, darkShare, box } = measure(front);
             if (count < MIN_OPAQUE || count <= bestCount || darkShare > MAX_DARK) return;
             const back = background.context.getImageData(0, 0, 640, 480).data;
-            if (litFraction(front, back) < MIN_LIT) return;
+            const bounds = litBounds(back);
+            if (litFraction(front, back, cropWindow(box, bounds)) < MIN_LIT) return;
             bestCount = count;
             bestBox = box;
+            bestBounds = bounds;
             firstSeenAt ??= ticks;
             best.context.clearRect(0, 0, 640, 480);
             best.context.drawImage(background.canvas, 0, 0);
@@ -217,12 +241,23 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
 export const IMAGE_WIDTH = CARD_WIDTH - 52;
 export const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 0.82);
 
+/**
+ * The picture-sized window of the 640x480 frame centred on the action, kept
+ * inside the lit background when that is big enough to hold it.
+ */
+export function cropWindow(box, bounds = null) {
+    const place = (centre, size, low, high) => {
+        const [min, max] = high - low + 1 >= size ? [low, high + 1 - size] : [0, (size === IMAGE_WIDTH ? 640 : 480) - size];
+        return Math.round(Math.max(min, Math.min(max, centre - size / 2)));
+    };
+    const x = place((box.minX + box.maxX) / 2, IMAGE_WIDTH, bounds?.minX ?? 0, bounds?.maxX ?? 639);
+    const y = place((box.minY + box.maxY) / 2, IMAGE_HEIGHT, bounds?.minY ?? 0, bounds?.maxY ?? 479);
+    return { x, y, width: IMAGE_WIDTH, height: IMAGE_HEIGHT };
+}
+
 /** Crop a native-resolution window around the action. No resampling. */
-function crop(source, box) {
-    const cx = (box.minX + box.maxX) / 2;
-    const cy = (box.minY + box.maxY) / 2;
-    const x = Math.round(Math.max(0, Math.min(640 - IMAGE_WIDTH, cx - IMAGE_WIDTH / 2)));
-    const y = Math.round(Math.max(0, Math.min(480 - IMAGE_HEIGHT, cy - IMAGE_HEIGHT / 2)));
+function crop(source, box, bounds) {
+    const { x, y } = cropWindow(box, bounds);
     const out = canvas2d(IMAGE_WIDTH, IMAGE_HEIGHT);
     out.context.drawImage(source, x, y, IMAGE_WIDTH, IMAGE_HEIGHT, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
     return out.canvas;
@@ -231,7 +266,7 @@ function crop(source, box) {
 // Card pictures are kept in this browser's IndexedDB, beside the game data the
 // user imported, so each gag is rendered once rather than on every visit.
 // Bump CACHE_VERSION when the capture rules change so old pictures are redone.
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const DB_NAME = 'jc-card-faces';
 const STORE = 'faces';
 const NONE = 'none';
