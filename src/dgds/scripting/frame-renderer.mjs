@@ -6,6 +6,11 @@
 import { buildSpriteCanvas } from '../graphics.mjs';
 import { DGDS_TICK_MS } from './timing.mjs';
 
+// Wave frame per region right after the host bake (FUN_1010_0136 + FUN_1010_0e74):
+// counters A, B, C start at 2, 2, 2 and the first pass advances A to 0; the three
+// high-tide regions read A, B, C and the four low-tide regions A, B, C, A.
+const BAKED_WAVE_PHASES = Object.freeze([0, 2, 2, 0]);
+
 // ---------------------------------------------------------------------------
 // Background renderer
 //
@@ -57,7 +62,9 @@ export const drawBackground = (state, context, policy) => {
         const posY = state.titleState?.y || 0;
         const cloudsOn = policy.setting(profile.settings.clouds, 'off') === 'on';
         presentation.cloudsOn = cloudsOn;
-        const wavesOn = policy.setting(profile.settings.waves, 'on') === 'on';
+        // The user setting, and the batch: a planned record with flagsB 0x1000 (30b2)
+        // leaves the waves on their bake frames for the whole batch (FUN_1010_0136).
+        const wavesOn = policy.setting(profile.settings.waves, 'on') === 'on' && state.titleState?.waves !== false;
 
         if (cloudsOn) {
             if (!animation.cloudElapsed) {
@@ -131,7 +138,12 @@ export const drawBackground = (state, context, policy) => {
                 animation.waveElapsed += 8 * DGDS_TICK_MS;
             }
         } else if (!wavesOn) {
-            animation.waveRegions.fill(0);
+            // Still waves show the bake's frames: FUN_1010_0136 presets the three
+            // region counters to 2 and the first wave pass (FUN_1010_0e74) advances the
+            // first one to 0; the regions read counters A, B, C, A in order.
+            animation.waveRegions.forEach((_, index) => {
+                animation.waveRegions[index] = BAKED_WAVE_PHASES[index] ?? 0;
+            });
         }
         waves.forEach((layer, index) => {
             const frame = layer.frames[animation.waveRegions[index] % layer.frames.length];

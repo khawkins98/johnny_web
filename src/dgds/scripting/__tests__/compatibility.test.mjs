@@ -128,6 +128,32 @@ describe('deterministic background compatibility', () => {
         });
     });
 
+    it('holds the waves on their bake frames when the batch stills them (titleState.waves false)', () => {
+        let now = 1000;
+        const policy = createBrowserPresentationPolicy({
+            storage: { getItem: (key) => (key === 'jc-waves' ? 'on' : null) },
+            now: () => now,
+            random: () => 0.5,
+        });
+        const presentationKey = {};
+        const state = {
+            game: johnnyCastaway,
+            backgroundId: 1,
+            bkgScreen: null,
+            bkgOcean: [],
+            bkgRes: null,
+            titleState: { presentationKey, island: true, islandLayoutId: 1, clouds: [], waves: false, lowTide: true },
+        };
+
+        drawBackground(state, {}, policy);
+        now = 5000;
+        drawBackground(state, {}, policy);
+
+        // FUN_1010_0136 presets the region counters to 2,2,2 and the first wave pass
+        // advances the first to 0; the four low-tide regions read counters A, B, C, A.
+        expect(policy.backgroundState(presentationKey)).toMatchObject({ waveRegions: [0, 2, 2, 0] });
+    });
+
     it('keeps persistent cloud drift independent of each ADS runtime random origin', () => {
         let now = 1000;
         const presentationKey = {};

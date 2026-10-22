@@ -25,7 +25,7 @@ const memoryStorage = (values = {}) => ({
 const controller = () =>
     createJohnnyStoryController({
         random: () => 0.25,
-        storyRandom: { modulo: (divisor) => Math.floor(divisor / 3), weightedBucket: () => 1 },
+        storyRandom: { modulo: (divisor) => Math.floor(divisor / 3), bit: () => 0, weightedBucket: () => 1 },
         storage: memoryStorage(),
         now: () => new Date(2026, 6, 21, 12),
     });
