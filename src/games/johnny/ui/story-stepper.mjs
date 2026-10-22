@@ -31,7 +31,7 @@ export const STEPPER_STYLE = `
 .story-steps-play:disabled { opacity: .5; cursor: default; }
 .story-steps-grid { display: grid; gap: 22px 14px; padding-top: 8px; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .story-steps-card { position: relative; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
-.story-steps-card canvas { display: block; width: 100%; height: auto; aspect-ratio: ${CARD_WIDTH} / ${CARD_HEIGHT}; image-rendering: pixelated;
+.story-steps-card canvas { display: block; width: 100%; height: auto; aspect-ratio: ${CARD_WIDTH} / ${CARD_HEIGHT};
   box-shadow: 3px 3px 0 #020d5b; transition: transform .12s ease; }
 .story-steps-card:hover canvas { transform: translateY(-4px); }
 .story-steps-card:focus-visible { outline: 3px solid #ffe02d; outline-offset: 3px; }

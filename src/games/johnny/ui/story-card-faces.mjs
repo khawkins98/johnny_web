@@ -172,20 +172,22 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
     });
 }
 
-// Crop a 640x480 frame to a window around the action, at the card's image aspect.
-const IMAGE_ASPECT = 4 / 3;
+// The card's picture window, in card pixels. Frames are cropped to exactly
+// this size from the 640x480 game frame, so they are drawn 1:1. The game art
+// is dithered: any fractional nearest-neighbour resize breaks the dither into
+// moire stripes. Shrinking the finished card is left to the browser's smooth
+// downscale, which averages the dither into its intended colour.
+export const IMAGE_WIDTH = CARD_WIDTH - 52;
+export const IMAGE_HEIGHT = Math.round(IMAGE_WIDTH * 0.82);
+
+/** Crop a native-resolution window around the action. No resampling. */
 function crop(source, box) {
     const cx = (box.minX + box.maxX) / 2;
     const cy = (box.minY + box.maxY) / 2;
-    let width = Math.max(240, (box.maxX - box.minX) * 1.5);
-    let height = Math.max(width / IMAGE_ASPECT, (box.maxY - box.minY) * 1.4);
-    width = Math.min(640, Math.max(width, height * IMAGE_ASPECT));
-    height = Math.min(480, width / IMAGE_ASPECT);
-    const x = Math.max(0, Math.min(640 - width, cx - width / 2));
-    const y = Math.max(0, Math.min(480 - height, cy - height / 2));
-    const out = canvas2d(Math.round(width), Math.round(height));
-    out.context.imageSmoothingEnabled = false;
-    out.context.drawImage(source, x, y, width, height, 0, 0, out.canvas.width, out.canvas.height);
+    const x = Math.round(Math.max(0, Math.min(640 - IMAGE_WIDTH, cx - IMAGE_WIDTH / 2)));
+    const y = Math.round(Math.max(0, Math.min(480 - IMAGE_HEIGHT, cy - IMAGE_HEIGHT / 2)));
+    const out = canvas2d(IMAGE_WIDTH, IMAGE_HEIGHT);
+    out.context.drawImage(source, x, y, IMAGE_WIDTH, IMAGE_HEIGHT, 0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
     return out.canvas;
 }
 
@@ -293,8 +295,8 @@ export function paintCardFace(context, { name, kicker, image = null, final = fal
     });
     const windowX = 26;
     const windowY = 56;
-    const windowW = CARD_WIDTH - 52;
-    const windowH = Math.round(windowW * 0.82);
+    const windowW = IMAGE_WIDTH;
+    const windowH = IMAGE_HEIGHT;
     context.fillStyle = P.blue;
     context.fillRect(windowX, windowY, windowW, windowH);
     if (image) {
@@ -302,11 +304,10 @@ export function paintCardFace(context, { name, kicker, image = null, final = fal
         context.beginPath();
         context.rect(windowX, windowY, windowW, windowH);
         context.clip();
+        // Frames arrive at exactly the window size: draw them 1:1.
         context.imageSmoothingEnabled = false;
-        const scale = Math.max(windowW / image.width, windowH / image.height);
-        const w = image.width * scale;
-        const h = image.height * scale;
-        context.drawImage(image, windowX + (windowW - w) / 2, windowY + (windowH - h) / 2, w, h);
+        context.drawImage(image, windowX + Math.round((windowW - image.width) / 2),
+            windowY + Math.round((windowH - image.height) / 2));
         context.restore();
     } else {
         context.fillStyle = P.cyan;

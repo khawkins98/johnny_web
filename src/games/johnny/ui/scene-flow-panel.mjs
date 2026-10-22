@@ -86,7 +86,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-inspector p { margin: 5px 0; line-height: 1.08; }
         .scene-flow-inspector .scene-flow-inspector-kicker { color: #795023; text-transform: uppercase; font-size: 15px; }
         .scene-flow-preview-stage { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 8px 0 4px; overflow: hidden; background: #071998; border: 2px solid #8b5a2b; box-sizing: border-box; }
-        .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+        /* Shown smaller than 640x480: smooth downscaling averages the game's dithering instead of breaking it into moire. */
+        .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
         .scene-flow-preview-caption { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
         .scene-flow-play-button { width: 100%; min-height: 42px; margin-top: 8px; padding: 5px 8px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
         .scene-flow-play-button:hover { background: #fff177; }
