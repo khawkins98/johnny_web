@@ -376,12 +376,6 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             };
         },
 
-        copyRegionTo(target, rect) {
-            target.clear();
-            target.replaceRegionFrom(surface, rect);
-        },
-
-
         get revision() {
             return revision;
         },
@@ -413,11 +407,6 @@ export const createRecordingSurface = () => {
                 rect: normalizeRect(rect),
             }),
         fingerprint: () => ({ commandCount: commands.length }),
-        copyRegionTo(target, rect) {
-            record('copyRegionTo', { target, rect });
-            target.clear();
-            target.drawSurface(surface, rect);
-        },
         get revision() {
             return revision;
         },

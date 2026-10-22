@@ -40,6 +40,7 @@ export const resetAdsDisplayList = (state) => {
     }
     if (state.saveBkg?.[0]) {
         state.saveBkg[0].canDraw = false;
+        state.saveBkg[0].surface?.clear?.();
     }
 };
 

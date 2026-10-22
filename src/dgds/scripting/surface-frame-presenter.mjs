@@ -58,7 +58,9 @@ export const presentSurfaceFrameOperation = (state, operation, replay = false) =
             if (!saved) break;
             const shifted = rect(operation.rect);
             setSavedRect(saved, shifted);
-            state.surface.copyRegionTo(saved.surface, shifted);
+            // A bake overwrites only its own rect: earlier bakes elsewhere on the
+            // plate (an anchored ship, a sandcastle) stay until the plate is pruned.
+            saved.surface.replaceRegionFrom(state.surface, shifted);
             break;
         }
 
