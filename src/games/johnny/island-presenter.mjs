@@ -28,3 +28,20 @@ export const createJohnnySelectionPresenter = ({ game, resourceProvider, present
         return state;
     };
 };
+
+/**
+ * Paint the host backdrop for an offscreen gag preview, matching
+ * createJohnnySelectionPresenter: island scenes get the island and its ocean;
+ * scenes the story marks as not on the island (Suzy, the office, the ending,
+ * and their "meanwhile" clock) start on black, as in the original. Returns
+ * the island state when it painted the island, else null.
+ */
+export const createPreviewHostPainter = ({ island, presentationPolicy }) => (context) => {
+    if (island.titleState?.island === false) {
+        context.fillStyle = '#000';
+        context.fillRect(0, 0, 640, 480);
+        return null;
+    }
+    drawBackground(island, context, presentationPolicy);
+    return island;
+};

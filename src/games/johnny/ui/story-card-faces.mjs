@@ -13,10 +13,9 @@ import { createSoftwareSurface } from '../../../dgds/scripting/surface.mjs';
 import { createTimingCompatibility } from '../../../dgds/scripting/timing-compatibility.mjs';
 import { createBrowserFramePresenter } from '../../../dgds/hosts/browser-frame-presenter.mjs';
 import { createBrowserPresentationPolicy } from '../../../dgds/hosts/browser-presentation-policy.mjs';
-import { drawBackground } from '../../../dgds/scripting/frame-renderer.mjs';
 import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
 import { withHostBackground } from '../../../bottle/host-background.mjs';
-import { createJohnnyIslandPresentationState } from '../island-presenter.mjs';
+import { createJohnnyIslandPresentationState, createPreviewHostPainter } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
 
 export const CARD_WIDTH = 320;
@@ -158,13 +157,14 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
             const titleState = sequenceTools?.preview?.(script, tagId, { storyDay })?.titleState;
             const island = createJohnnyIslandPresentationState({ game: johnnyCastaway, resourceProvider });
             island.titleState = titleState;
-            drawBackground(island, background.context, policy);
+            const paintHost = createPreviewHostPainter({ island, presentationPolicy: policy });
+            paintHost(background.context);
             presenter = createBrowserFramePresenter({
                 context: foreground.context,
                 mainContext: background.context,
                 presentationPolicy: policy,
                 backgroundDecorator: withHostBackground({
-                    presentHost: (context) => (drawBackground(island, context, policy), island),
+                    presentHost: paintHost,
                     backgroundDecorator: null,
                 }),
             });
@@ -266,7 +266,7 @@ function crop(source, box, bounds) {
 // Card pictures are kept in this browser's IndexedDB, beside the game data the
 // user imported, so each gag is rendered once rather than on every visit.
 // Bump CACHE_VERSION when the capture rules change so old pictures are redone.
-const CACHE_VERSION = 4;
+const CACHE_VERSION = 5;
 const DB_NAME = 'jc-card-faces';
 const STORE = 'faces';
 const NONE = 'none';

@@ -12,6 +12,8 @@ import {
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
 
 const pad = (value) => String(value).padStart(2, '0');
+// Where a pick was clicked, so the next step can fly the card from there.
+const originOf = (event) => event?.currentTarget?.querySelector?.('canvas')?.getBoundingClientRect?.() ?? null;
 
 export const STEPPER_STYLE = `
 .story-steps { margin: 4px 0 12px; color: #fffbe2; font: 20px/1.1 'VT323', monospace; }
@@ -133,10 +135,12 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  * @param {Array} options.visit       the live visit (visitSequence), for the gag step
  * @param {(gag)=>string} options.gagName
  * @param {object} options.faces      card face queue
- * @param {(patch)=>void} options.onStep  move to another step / pick something
+ * @param {(patch, from?:DOMRect|null)=>void} options.onStep  move to another step / pick something;
+ *        `from` is where the picked card was, for the entrance animation
  * @param {()=>void} options.onLive   jump back to where Johnny is now
  * @param {((day)=>boolean)|null} options.onPlayDay
  * @param {((gag, day)=>boolean)|null} options.onPlayGag
+ * @returns {HTMLElement} the rendered step, for playStepEntrance
  */
 export function renderStoryStepper(host, { step, live, visit = [], gagName, faces, onStep, onLive, onPlayDay = null, onPlayGag = null }) {
     const root = document.createElement('section');
@@ -227,11 +231,11 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
                 live: day === live.day,
                 badge: day === live.day ? 'TODAY' : null,
                 label: `Day ${day}${key ? `: ${gagName(key)}` : ''}${day === live.day ? ' (today)' : ''}`,
-                onClick: () => onStep({ level: 'tide', day }),
+                onClick: (event) => onStep({ level: 'tide', day }, originOf(event)),
             }));
         }
         root.appendChild(grid);
-        return;
+        return root;
     }
 
     if (step.level === 'tide') {
@@ -265,11 +269,11 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
                 tile.appendChild(badge);
             }
             tile.setAttribute('aria-label', `${option.label}: ${counts[option.id]} gags can appear${option.id === live.band ? ' (the tide now)' : ''}`);
-            tile.addEventListener('click', () => onStep({ level: 'gag', band: option.id }));
+            tile.addEventListener('click', (event) => onStep({ level: 'gag', band: option.id }, originOf(event)));
             tides.appendChild(tile);
         }
         root.appendChild(tides);
-        return;
+        return root;
     }
 
     if (step.level === 'gag') {
@@ -300,7 +304,7 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
             empty.className = 'story-steps-empty';
             empty.textContent = 'No gags can appear on this day at this tide.';
             root.appendChild(empty);
-            return;
+            return root;
         }
         const grid = document.createElement('div');
         grid.className = 'story-steps-grid';
@@ -313,16 +317,16 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
                 live: isLive,
                 badge: isLive ? 'NOW' : null,
                 label: `${gagName(gag)}${gag.keyDay ? `, key scene for day ${gag.keyDay}` : ''}${gag.final ? ', ends a visit' : ''}${isLive ? ' (Johnny now)' : ''}`,
-                onClick: () => onStep({ level: 'detail', gag }),
+                onClick: (event) => onStep({ level: 'detail', gag }, originOf(event)),
             }));
         }
         root.appendChild(grid);
-        return;
+        return root;
     }
 
     // Detail: the chosen gag, with its script steps rendered by the panel below.
     const gag = step.gag;
-    if (!gag) return;
+    if (!gag) return root;
     const hero = document.createElement('div');
     hero.className = 'story-steps-hero';
     const isLive = live.gag && gag.script === live.gag.script && gag.tagId === live.gag.tagId;
@@ -353,4 +357,5 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
     }
     hero.appendChild(info);
     root.appendChild(hero);
+    return root;
 }
