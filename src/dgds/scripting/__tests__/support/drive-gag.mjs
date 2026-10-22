@@ -47,6 +47,13 @@ const archive = () => {
 /** Load a parsed ADS entry (e.g. 'FISHING.ADS', 'ACTIVITY.ADS'). */
 export const loadAds = (adsName) => archive().loadEntry(adsName);
 
+/** Resource resolver over the same cached archive driveGag's runtimes use. */
+let cachedProvider = null;
+export const resolveEntry = (name) => {
+    cachedProvider ??= createEntryResourceProvider(archive().entries);
+    return cachedProvider.resolve(name);
+};
+
 /**
  * Drive one ADS gag to completion on the real single-gag path.
  * @param {object} o
@@ -60,6 +67,8 @@ export const loadAds = (adsName) => archive().loadEntry(adsName);
  *   (ads-walker.mjs, handler 1048:1669); without host-managed transitions the
  *   generic-DGDS path additionally drives a cosmetic alpha fade. Pass false only to
  *   probe the non-Johnny path.
+ * @param {object|null} [o.titleState] host selection state (island layout, ocean,
+ *   night, ...), as the browser host passes it; default none.
  * @param {(runtime, result, tick) => void} [o.onTick] per-tick observer.
  * @param {(type: string, data: object) => void} [o.onEvent] observer for canonical
  *   trace events (attaches an inert recorder to state.trace); use this to consume
@@ -77,6 +86,7 @@ export const driveGag = ({
     onEvent = null,
     faithfulPick = null,
     hostManagedTransitions = true,
+    titleState = null,
 }) => {
     const data = loadAds(adsName);
     const runtime = new DgdsRuntime({
@@ -93,6 +103,7 @@ export const driveGag = ({
         singleAdsScene: true,
         hostManagedTransitions,
         adsSceneTag: tag,
+        ...(titleState ? { titleState } : {}),
     });
     // Minimal inert trace sink: the canonical traceEvent path is a no-op unless
     // state.trace is set, so this observes the engine's own emitted events (e.g. the

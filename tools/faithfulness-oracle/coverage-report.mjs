@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { hasData } from '../../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { compareLifespans } from './compare-lifespans.mjs';
 import { fingerprintOursUnion } from './fingerprint.mjs';
+import { withPixelSection } from './pixel-oracle/report.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../..');
@@ -272,6 +273,7 @@ ${reviewRows || '| — | — | — | — | — | — | — |'}
 - The \`STAND:1-12\` vocabulary comparison is not meaningful. The browser test and original capture reach these idle poses through different paths; matching concurrency does not yet prove that the pose itself is correct.
 `;
 
-writeFileSync(outPath, doc, 'utf8');
+// Keep the pixel-oracle section (rendered from pixel-oracle/scores.json).
+writeFileSync(outPath, withPixelSection(doc), 'utf8');
 console.error(`[coverage-report] wrote ${outPath}`);
 console.log(summaryLine);
