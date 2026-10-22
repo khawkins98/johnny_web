@@ -301,8 +301,8 @@ describe('Johnny host walking', () => {
 
     // Palm-trunk occlusion is position/depth-based (the original's generic per-frame
     // re-blit), not a D-to-E spot hardcode, so it covers any route past the tree.
-    // Trunk box (matches the port's background layout: layout.x 288 + sprite.x 154):
-    // x in [442,464), y in [148,293); base at y=293. Binary overlap (FUN_1010_1a88) is
+    // Trunk box (the binary's 30c6 + 0x1bb; background layout.x 289 + sprite.x 154):
+    // x in [443,465), y in [148,293); base at y=293. Binary overlap (FUN_1010_1a88) is
     // MIN-edge INCLUSIVE; the base gate is strict.
     it('occludes a sprite overlapping the trunk with feet above the base', () => {
         expect(occludedByTrunk(450, 200, 20, 40)).toBe(true); // over the trunk, feet at 240
@@ -318,21 +318,21 @@ describe('Johnny host walking', () => {
         expect(occludedByTrunk(450, 253, 20, 40)).toBe(false); // feetY === 293
     });
     it('min x-edge is inclusive: right edge exactly at the trunk left occludes', () => {
-        expect(occludedByTrunk(422, 200, 20, 40)).toBe(true); // x+width === 442
+        expect(occludedByTrunk(423, 200, 20, 40)).toBe(true); // x+width === 443
     });
     it('max x-edge is exclusive: left edge exactly at the trunk right does not occlude', () => {
-        expect(occludedByTrunk(464, 200, 20, 40)).toBe(false); // x === 464 (442+22)
+        expect(occludedByTrunk(465, 200, 20, 40)).toBe(false); // x === 465 (443+22)
     });
     it('min y-edge is inclusive: feet exactly at the trunk top occlude', () => {
         expect(occludedByTrunk(450, 108, 20, 40)).toBe(true); // feetY === 148
     });
-    // The redraw must land exactly on the background trunk (442,148)+offset, so the
+    // The redraw must land exactly on the background trunk (443,148)+offset, so the
     // occluder never doubles the tree -- guard the actual draw call, not just the gate.
-    it('redraws the trunk at the background trunk position (442,148)+offset', () => {
+    it('redraws the trunk at the background trunk position (443,148)+offset', () => {
         const context = { drawImage: vi.fn() };
         const trunkSprite = { marker: 'trunk' };
         occludeBehindTrunk(context, trunkSprite, { x: 450, y: 200 }, { width: 20, height: 40 }, 100, 50);
-        expect(context.drawImage).toHaveBeenCalledWith(trunkSprite, 542, 198); // 442+100, 148+50
+        expect(context.drawImage).toHaveBeenCalledWith(trunkSprite, 543, 198); // 443+100, 148+50
     });
     it('does not redraw the trunk when the sprite is clear of it', () => {
         const context = { drawImage: vi.fn() };

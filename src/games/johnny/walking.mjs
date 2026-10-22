@@ -9,15 +9,15 @@ const DATA_OFFSET = 0x188ea;
 const DATA_ROWS = 488;
 
 // Palm-trunk occluder (BACKGRND sprite #13). The occluder is redrawn on the FOREGROUND
-// over Johnny, so its position must match where the BACKGROUND paints the trunk -- not
-// the binary's island-relative 443. The port's island layout draws the trunk at
-// `layout[1].x (288) + sprite.x (154) = 442` (manifest.mjs), 1px left of the binary's
-// 443 (the port's island base is 288 vs the binary's 289). Using 442 keeps the occluder
-// exactly on the background trunk; a 1px error here doubles the tree as Johnny passes.
+// over Johnny, so its position must match where the BACKGROUND paints the trunk. The
+// binary tests and redraws it at 30c6 + 0x1bb (443), the same origin the walk sprites
+// use (30c6 + table x), and the island layout paints it at
+// `layout[1].x (289) + sprite.x (154) = 443` (manifest.mjs). A 1px error here doubles
+// the tree as Johnny passes.
 // The 22-wide TEST box vs the 24-wide trunk BITMAP is intentional (the bitmap is baked
 // into the background; redrawing the full sprite paints identical pixels) -- don't
 // "correct" width to 24.
-const TREE_TRUNK = { index: 13, x: 442, y: 148, width: 22, height: 145, baseY: 293 };
+const TREE_TRUNK = { index: 13, x: 443, y: 148, width: 22, height: 145, baseY: 293 };
 
 /**
  * True when a sprite at island-relative (x,y) of size (width,height) is occluded by

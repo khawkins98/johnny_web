@@ -2,6 +2,10 @@
 
 This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR. These labels are separate from the original Johnny Castaway game data version.
 
+## Unreleased
+
+- Fixed the island and Johnny's scripted animations being drawn 1 px left of the original. The island now sits at the original's base (x 289, or 17 for the second layout), and walks and the palm-trunk overlap line up with it as in the original (#53).
+
 ## v1.1 — Story timeline
 
 - Added a story timeline (compass icon or `T`) that asks one question at a time: which day, which tide, which gag. A breadcrumb shows the path, and **↖ Johnny now** returns to the live gag.

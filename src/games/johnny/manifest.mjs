@@ -34,9 +34,13 @@ export const johnnyCastaway = defineGamePackage({
             Object.freeze({ stateKey: 'bkgRaft', name: 'MRAFT.BMP' }),
         ]),
         oceans: Object.freeze(['OCEAN00.SCR', 'OCEAN01.SCR', 'OCEAN02.SCR', 'NIGHT.SCR']),
+        // Island layer 0 sits at the binary's fixed bases 0x121 / 0x11 (FUN_1010_1b00)
+        // plus the world origin titleState.x (30c6). Every layer, wave and raft offset
+        // below is relative to this base. TTM sprites are offset by 30c6 + 1, so they
+        // land 288 px left of layer 0 (story-controller sceneOffset).
         layouts: Object.freeze({
-            1: Object.freeze({ x: 288 }),
-            2: Object.freeze({ x: 16 }),
+            1: Object.freeze({ x: 289 }),
+            2: Object.freeze({ x: 17 }),
         }),
         cloud: Object.freeze({
             source: 'bkgRes',

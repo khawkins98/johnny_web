@@ -459,8 +459,14 @@ export const createJohnnyStoryController = ({
 
     const makeSelection = ({ selected, walkFrom = null, islandState, index, total, wipe, anchor = null }) => {
         const sequenceEnd = index === total - 1;
+        // TTM sprite offset (FUN_1010_00fc): 30c6 + 1, or 30c6 + 0x111 for LEFT_ISLAND,
+        // where titleState.x is 30c6 (the island world origin, also the host walk
+        // offset). Off-island scenes get no offset.
         const sceneOffset = Object.freeze({
-            x: islandState.x + (hasAll(selected.flags, F.LEFT_ISLAND) ? 272 : 0),
+            x:
+                islandState.x +
+                (islandState.island ? 1 : 0) +
+                (hasAll(selected.flags, F.LEFT_ISLAND) ? 272 : 0),
             y: islandState.y,
         });
         return Object.freeze({
