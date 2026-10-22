@@ -17,8 +17,8 @@
  */
 import {
     buildSceneFlowLabelResolver,
+    describeSceneFlowGuard,
     extractSceneFlow,
-    outlineSceneFlowSteps,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
@@ -82,108 +82,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             padding-bottom: 3px;
         }
 
-        .scene-flow-map-shell {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 260px;
-            gap: 8px;
-            min-height: 0;
-            align-items: start;
-            font-family: 'VT323', monospace;
-        }
-        .scene-flow-map-main {
-            min-width: 0;
-            background: #071998;
-            box-shadow: inset 0 0 0 2px #31b7e6;
-            padding: 8px;
-            color: #fff9ab;
-        }
-        .scene-flow-map-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 8px;
-            padding: 1px 10px 4px;
-            font-size: 19px;
-            letter-spacing: .04em;
-        }
-        .scene-flow-map-tools { display: flex; align-items: center; gap: 5px; color: #80e7ec; }
-        .scene-flow-map-tools button { min-width: 40px; min-height: 40px; border: 1px solid #3cb8e5; background: #123bb2; color: #fff8b5; font: 20px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-map-tools button:hover { background: #2762cd; }
-        .scene-flow-map-tools button:active { scale: .96; }
-        .scene-flow-map-tools .scene-flow-mode-button { min-width: 94px; padding: 0 6px; font-size: 17px; }
-        .scene-flow-viewport {
-            height: 224px;
-            overflow: hidden;
-            position: relative;
-            cursor: grab;
-            background: repeating-linear-gradient(0deg, transparent 0 15px, rgba(83,219,255,.12) 16px 17px), #071998;
-            touch-action: none;
-        }
-        .scene-flow-viewport.is-dragging { cursor: grabbing; }
-        .scene-flow-viewport[data-mode="focus"] { cursor: default; }
-        .scene-flow-viewport canvas,
-        .scene-flow-map-labels { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .scene-flow-map-labels { pointer-events: none; }
-        .scene-map-node {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            width: 42px;
-            min-height: 40px;
-            padding: 3px 5px;
-            border: 2px solid #00d9ec;
-            border-radius: 0;
-            background: #0a258e;
-            box-shadow: 3px 3px 0 #020d5b;
-            color: #fffbe2;
-            font: 19px/0.95 'VT323', monospace;
-            text-align: center;
-            cursor: pointer;
-            pointer-events: auto;
-            overflow-wrap: anywhere;
-            transition-property: background-color, color, border-color, scale;
-            transition-duration: 130ms;
-        }
-        .scene-map-node:hover, .scene-map-node:focus-visible { background: #1d49b5; outline: 2px solid #fff; outline-offset: 2px; }
-        .scene-map-node:active { scale: .96; }
-        .scene-map-node:not(.is-start):hover::after,
-        .scene-map-node:not(.is-start):focus-visible::after,
-        .scene-map-node:not(.is-start).is-selected::after {
-            content: attr(data-name);
-            position: absolute;
-            z-index: 5;
-            bottom: calc(100% + 5px);
-            left: 50%;
-            transform: translateX(-50%);
-            min-width: 90px;
-            max-width: 150px;
-            padding: 4px 5px;
-            background: #fff4c7;
-            color: #312515;
-            border: 2px solid #e2a42f;
-            font-size: 16px;
-            line-height: 1;
-            white-space: normal;
-            box-shadow: 3px 3px 0 #020d5b;
-        }
-        .scene-map-node.is-route { border-color: #91e6ec; }
-        .scene-map-node.is-selected { background: #2855b5; color: #fffbe2; border-color: #fff; outline: 2px solid #fff; outline-offset: 2px; z-index: 2; }
-        .scene-map-node:hover, .scene-map-node:focus-visible { z-index: 20; }
-        .scene-map-node.is-start { width: 110px; font-size: 18px; }
-        .scene-map-node.is-focus-node { width: 132px; min-height: 50px; font-size: 18px; }
-        .scene-map-node.is-focus-node.is-selected { width: 150px; }
-        .scene-map-node.is-focus-node::after { display: none; }
-        .scene-flow-map-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 5px 8px 0; font-size: 15px; color: #b9eaf0; }
-        .scene-flow-map-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; }
-        .scene-flow-map-legend b { font-weight: normal; }
-        .scene-flow-map-legend .route { color: #a7edf1; }
-        .scene-flow-map-legend .random { color: #ffad65; }
-        .scene-flow-map-aside {
-            padding: 10px 12px;
-            color: #3b2c1c;
-            background: #f4e4c8;
-            box-shadow: inset 0 0 0 2px #8b5a2b;
-            font-size: 18px;
-        }
         .scene-flow-inspector h3 { margin: 10px 0 0; font: 26px/1 'Caveat', cursive; }
         .scene-flow-inspector p { margin: 5px 0; line-height: 1.08; }
         .scene-flow-inspector .scene-flow-inspector-kicker { color: #795023; text-transform: uppercase; font-size: 15px; }
@@ -194,51 +92,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         .scene-flow-play-button:hover { background: #fff177; }
         .scene-flow-play-button:active { scale: .96; }
         .scene-flow-preview-note { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
-        .scene-flow-route-controls { display: flex; gap: 5px; margin-top: 10px; }
-        .scene-flow-route-controls button, .scene-flow-next button {
-            border: 2px solid #8b5a2b; background: #ffefce; color: #4a3520;
-            font: 18px/1 'VT323', monospace; cursor: pointer; min-height: 40px;
-        }
-        .scene-flow-route-controls button { flex: 1; }
-        .scene-flow-route-controls button:disabled { opacity: .43; cursor: default; }
-        .scene-flow-route-controls button:not(:disabled):hover, .scene-flow-next button:hover { background: #fff9e9; }
-        .scene-flow-route-controls button:not(:disabled):active, .scene-flow-next button:active { scale: .96; }
-        .scene-flow-next { margin-top: 12px; max-height: 198px; overflow-y: auto; }
-        .scene-flow-next-title { display: block; color: #795023; border-bottom: 1px dashed #ad8051; margin-bottom: 4px; }
-        .scene-flow-next button { width: 100%; text-align: left; padding: 4px 6px; margin: 3px 0; }
-        .scene-flow-next small { display: block; color: #855a35; font-size: 15px; }
-        .scene-flow-decision-lane { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-height: none; overflow: visible; border-top: 1px dashed #65c8e2; padding-top: 8px; margin-top: 9px; }
-        .scene-flow-decision-lane .scene-flow-next-title { grid-column: 1 / -1; color: #b9eaf0; border: 0; margin: 0; font-size: 17px; }
-        .scene-flow-decision-lane button { min-height: 48px; margin: 0; padding: 6px 8px; border-color: #65c8e2; background: #173ba6; color: #fffbe2; }
-        .scene-flow-decision-lane button:hover { background: #2857bc; }
-        .scene-flow-decision-lane small { color: #bbdfed; }
         .scene-flow-story-shell { padding: 13px 15px; background: #071998; box-shadow: inset 0 0 0 2px #31b7e6; color: #fff9c5; font: 19px/1.1 'VT323', monospace; }
-        .scene-flow-story-intro { display: flex; justify-content: space-between; gap: 12px; align-items: end; border-bottom: 1px dashed #54bfeb; padding-bottom: 10px; }
-        .scene-flow-story-intro h3 { margin: 0 0 3px; font: 24px/1 'Caveat', cursive; color: #fff2a1; }
-        .scene-flow-story-intro p { margin: 0; color: #c3e6ec; font-size: 17px; }
-        .scene-flow-story-intro button { min-height: 42px; padding: 4px 12px; border: 2px solid #68d5e7; background: #1642b1; color: #fffbdc; font: 18px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-story-intro button:hover { background: #2860c7; }
-        .scene-flow-story-intro button:disabled { opacity: .55; cursor: default; }
         .scene-flow-possibility-note { margin: 0 0 10px; color: #c3e6ec; font-size: 17px; }
         .scene-flow-matrix-detail { margin-top: 9px; border-top: 1px dashed #65c8e2; padding-top: 9px; }
         .scene-flow-matrix-detail-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #b9eaf0; font-size: 17px; letter-spacing: .04em; }
         .scene-flow-matrix-detail-heading strong { color: #fff6c7; font-weight: normal; font-size: 20px; }
-        .scene-flow-next-story { background: #ffe02d !important; color: #302816 !important; border-color: #704a1e !important; }
-        .scene-flow-script-details { margin-top: 12px; color: #3b2c1c; font-family: 'VT323', monospace; font-size: 18px; }
-        .scene-flow-script-details summary { cursor: pointer; min-height: 40px; padding: 8px; background: #ead7b8; }
         .scene-flow-outline { margin-top: 8px; }
         @media (max-width: 730px) {
-            .scene-flow-map-shell { grid-template-columns: 1fr; }
-            .scene-flow-viewport { height: min(30vh, 230px); }
-            .scene-flow-map-aside { min-height: 160px; }
             #scene-flow-modal { padding: 14px 12px; }
-            .scene-flow-map-hint { display: none; }
-            .scene-map-node.is-focus-node { width: 88px; font-size: 15px; }
-            .scene-map-node.is-focus-node.is-selected { width: 98px; }
-            .scene-flow-map-tools .scene-flow-mode-button { min-width: 84px; }
             .scene-flow-story-shell { padding: 14px 12px; }
-            .scene-flow-story-intro { align-items: start; flex-direction: column; }
-            .scene-flow-decision-lane { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         .scene-flow-close {
@@ -368,6 +230,21 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             .scene-flow-day-buttons { grid-template-columns: repeat(6, minmax(0, 1fr)); }
             .scene-flow-day-buttons button small { display: none; }
         }
+        .scene-flow-gag { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; margin-top: 8px; }
+        .scene-flow-gag-aside { position: sticky; top: 0; padding: 10px 12px; color: #3b2c1c; background: #f4e4c8;
+            box-shadow: inset 0 0 0 2px #8b5a2b; font: 18px/1.1 'VT323', monospace; }
+        .scene-flow-targets button { padding: 2px 6px; border: 1px solid transparent; background: none; color: inherit;
+            font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted #8b5a2b; text-underline-offset: 3px; }
+        .scene-flow-targets button:hover { background: #fff1b8; border-color: #8b5a2b; }
+        .scene-flow-targets button:focus-visible { outline: 3px solid #071998; outline-offset: 1px; }
+        .scene-flow-targets button.is-route { background: #fff1b8; }
+        .scene-flow-targets button[aria-pressed="true"] { background: #ffe02d; border-color: #704a1e; text-decoration: none; }
+        .scene-flow-step.is-route { border-color: #c79a3a; }
+        .scene-flow-step.is-selected { border-color: #ffe02d; box-shadow: 0 0 0 2px #ffe02d; }
+        @media (max-width: 760px) {
+            .scene-flow-gag { grid-template-columns: 1fr; }
+            .scene-flow-gag-aside { position: static; }
+        }
         ${iconTooltipCss}
     `;
     document.head.appendChild(style);
@@ -391,8 +268,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         isOpen = false;
         mapGeneration++;
         previewGeneration++;
-        mountedMap?.destroy();
-        mountedMap = null;
         mountedPreview?.destroy();
         mountedPreview = null;
         overlay.style.display = 'none';
@@ -412,10 +287,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     const body = document.createElement('div');
     modal.appendChild(body);
-    let mountedMap = null;
     let selectedKey = null;
-    let trail = [];
-    let trailIndex = -1;
     let seenGags = [];
     let mapGeneration = 0;
     let mountedPreview = null;
@@ -542,8 +414,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         selectedKey = null;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedMap?.destroy();
-        mountedMap = null;
         title.textContent = 'How it works';
         subtitle.textContent = '';
         clear(body);
@@ -661,106 +531,59 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         links.appendChild(methodLink);
     };
 
-    // Display tidy-ups for the script outline. The extractor's text is left
-    // as-is because the generated docs/scene-flows pages use it too.
-    const isLoaderTarget = (text) => /^"?load\b/i.test(text);
-    const tidyOutline = (outline) => {
+    // The gag view: one numbered step per condition ("after walk to bottle"),
+    // each listing the scenes it starts or stops. Scenes are buttons; the side
+    // panel previews the selected one and can play it. Built from the same
+    // extractor as docs/scene-flows, with display tidy-ups only.
+    const isLoaderName = (name) => /^load\b/i.test(name || '');
+    const gagSteps = (flow) => {
         const steps = [];
-        for (const step of outline) {
-            // Resource loaders ("LOAD MESSAGE") are setup, not something Johnny does.
-            const targets = step.targets.filter((text) => !isLoaderTarget(text));
-            if (!targets.length) continue;
-            const previous = steps.at(-1);
-            if (previous && !previous.random && !step.random && previous.guardText === step.guardText) {
-                previous.targets.push(...targets);
-                continue;
+        for (const step of flow.steps) {
+            for (const branch of [step, ...(step.arms || [])]) {
+                // Resource loaders ("LOAD MESSAGE") are setup, not something Johnny does.
+                const adds = branch.adds.filter((item) => !isLoaderName(item.name))
+                    .map((item) => ({ key: `${item.slot}:${item.tag}`, name: item.name }));
+                const stops = branch.stops.filter((item) => !isLoaderName(item.name))
+                    .map((item) => ({ key: `${item.slot}:${item.tag}`, name: item.name }));
+                if (!adds.length && !stops.length) continue;
+                const guardText = describeSceneFlowGuard(branch.guard, { fallThrough: Boolean(branch.fallThrough) });
+                const random = Boolean(branch.random);
+                const previous = steps.at(-1);
+                // Steps that wait on the same thing read as one.
+                if (previous && !previous.random && !random && previous.guardText === guardText) {
+                    previous.adds.push(...adds);
+                    previous.stops.push(...stops);
+                    continue;
+                }
+                steps.push({ guardText, random, adds, stops });
             }
-            steps.push({ ...step, targets: [...targets] });
         }
         return steps;
     };
     // Quoted scene names become bold text; ALL-CAPS names are lowered to match the rest.
+    const plainName = (name) => (/[a-z]/.test(name) ? name : name.toLowerCase());
     const appendNames = (element, text) => {
         text.split(/"([^"]*)"/).forEach((part, index) => {
             if (index % 2) {
                 const name = document.createElement('strong');
-                name.textContent = /[a-z]/.test(part) ? part : part.toLowerCase();
+                name.textContent = plainName(part);
                 element.appendChild(name);
             } else if (part) {
                 element.appendChild(document.createTextNode(part));
             }
         });
     };
+    const sentence = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
     const renderFlow = (adsName, ads, scene, host, restoreKey = null) => {
         const label = buildSceneFlowLabelResolver(ads, resolveEntry, labelCache);
         const flow = extractSceneFlow(scene, { label });
-        const outline = outlineSceneFlowSteps(flow);
         const graph = buildSceneFlowMap(flow);
-        const generation = ++mapGeneration;
+        const steps = gagSteps(flow);
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedMap?.destroy();
-        mountedMap = null;
-        const firstAnimatedScene = graph.nodes.find((node) => node.kind === 'scene' &&
-            !/\b(load|loader|init|setup|clear|copy|quarky watch)\b/i.test(node.name || ''));
-        const firstScene = firstAnimatedScene || graph.nodes.find((node) => node.kind === 'scene');
-        selectedKey = graph.nodes.some((node) => node.key === restoreKey)
-            ? restoreKey : firstScene?.key || graph.start;
-        trail = [selectedKey];
-        trailIndex = 0;
-        const shell = document.createElement('div');
-        shell.className = 'scene-flow-map-shell';
-        const main = document.createElement('div');
-        main.className = 'scene-flow-map-main';
-        const heading = document.createElement('div');
-        heading.className = 'scene-flow-map-heading';
-        const headingTitle = document.createElement('span');
-        headingTitle.textContent = 'GAG STEPS · NEAR SELECTED SCENE';
-        const tools = document.createElement('div');
-        tools.className = 'scene-flow-map-tools';
-        const headingHint = document.createElement('span');
-        headingHint.className = 'scene-flow-map-hint';
-        headingHint.textContent = 'possible script steps';
-        tools.append(headingHint);
-        heading.append(headingTitle, tools);
-        main.appendChild(heading);
-        const viewport = document.createElement('div');
-        viewport.className = 'scene-flow-viewport';
-        viewport.setAttribute('aria-label', 'Interactive scene flow map');
-        const canvas = document.createElement('canvas');
-        canvas.setAttribute('aria-hidden', 'true');
-        const labels = document.createElement('div');
-        labels.className = 'scene-flow-map-labels';
-        viewport.append(canvas, labels);
-        main.appendChild(viewport);
-        const footer = document.createElement('div');
-        footer.className = 'scene-flow-map-footer';
-        footer.innerHTML = '<span class="scene-flow-map-legend"><b class="route">◇ exploring a possible route</b><b>● other script paths</b><b class="random">◆ random decision</b></span><span>Scene order is not elapsed time</span>';
-        main.appendChild(footer);
-        const aside = document.createElement('aside');
-        aside.className = 'scene-flow-map-aside';
-        const storyDay = sequenceTools?.status?.()?.storyDay ?? sequenceTools?.getStoryDay?.();
-        const inspector = document.createElement('div');
-        inspector.className = 'scene-flow-inspector';
-        aside.appendChild(inspector);
-        const controls = document.createElement('div');
-        controls.className = 'scene-flow-route-controls';
-        const previous = document.createElement('button');
-        previous.type = 'button';
-        previous.textContent = '← Back';
-        previous.setAttribute('aria-label', 'Go back through traced route');
-        const next = document.createElement('button');
-        next.type = 'button';
-        next.textContent = 'Forward →';
-        next.setAttribute('aria-label', 'Go forward through traced route');
-        controls.append(previous, next);
-        aside.appendChild(controls);
-        const choices = document.createElement('div');
-        choices.className = 'scene-flow-next scene-flow-decision-lane';
-        shell.append(main, aside);
-        host.append(shell, choices);
+        const storyDay = step?.day ?? sequenceTools?.status?.()?.storyDay ?? sequenceTools?.getStoryDay?.();
 
         const routeTo = (key) => {
             const parents = new Map([[graph.start, null]]);
@@ -786,185 +609,144 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             const loaders = graph.edges.filter((edge) => edge.from === graph.start &&
                 /^load\b/i.test(graph.nodes.find((node) => node.key === edge.to)?.name || ''))
                 .map((edge) => edge.to);
-            const steps = [...new Set([...loaders, ...routeTo(key).filter((step) => step !== graph.start)])];
-            return steps.map((step) => {
-                const [slot, tag] = step.split(':').map(Number);
+            const route = [...new Set([...loaders, ...routeTo(key).filter((item) => item !== graph.start)])];
+            return route.map((item) => {
+                const [slot, tag] = item.split(':').map(Number);
                 return { slot, tag };
             });
         };
-        const select = (key, record = true) => {
+
+        const sceneKeys = steps.flatMap((item) => item.adds.map((add) => add.key));
+        const firstAnimated = sceneKeys.find((key) => !/\b(init|setup|clear|copy|quarky watch)\b/i
+            .test(graph.nodes.find((node) => node.key === key)?.name || ''));
+        selectedKey = sceneKeys.includes(restoreKey) ? restoreKey : firstAnimated ?? sceneKeys[0] ?? null;
+
+        const layout = document.createElement('div');
+        layout.className = 'scene-flow-gag';
+        const list = document.createElement('ol');
+        list.className = 'scene-flow-outline';
+        list.setAttribute('aria-label', 'This gag as a script');
+        const aside = document.createElement('aside');
+        aside.className = 'scene-flow-gag-aside';
+        const inspector = document.createElement('div');
+        inspector.className = 'scene-flow-inspector';
+        aside.appendChild(inspector);
+        layout.append(list, aside);
+        host.appendChild(layout);
+
+        const sceneButtons = [];
+        if (!steps.length) {
+            const empty = document.createElement('li');
+            empty.className = 'scene-flow-empty';
+            empty.textContent = '(no scripted steps for this gag)';
+            list.appendChild(empty);
+        }
+        steps.forEach((item) => {
+            const row = document.createElement('li');
+            row.className = 'scene-flow-step';
+            const guard = document.createElement('div');
+            guard.className = 'scene-flow-guard';
+            appendNames(guard, sentence(item.guardText));
+            const targets = document.createElement('div');
+            targets.className = 'scene-flow-targets';
+            if (item.random) {
+                const lead = document.createElement('span');
+                lead.className = 'scene-flow-pick-lead';
+                lead.textContent = 'picks one at random:';
+                targets.appendChild(lead);
+            }
+            for (const add of item.adds) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = item.random ? 'scene-flow-pick' : 'scene-flow-target';
+                button.dataset.key = add.key;
+                button.textContent = plainName(add.name);
+                button.addEventListener('click', () => select(add.key));
+                targets.appendChild(button);
+                sceneButtons.push({ button, row, key: add.key });
+            }
+            for (const stop of item.stops) {
+                const span = document.createElement('span');
+                span.className = 'scene-flow-target is-stop';
+                span.textContent = `stop ${plainName(stop.name)}`;
+                targets.appendChild(span);
+            }
+            row.append(guard, targets);
+            list.appendChild(row);
+        });
+
+        function select(key) {
+            if (!key) return;
             selectedKey = key;
+            const route = new Set(routeTo(key));
+            for (const { button, row } of sceneButtons) {
+                row.classList.remove('is-route', 'is-selected');
+                button.classList.remove('is-route');
+                button.setAttribute('aria-pressed', 'false');
+            }
+            for (const { button, row, key: buttonKey } of sceneButtons) {
+                if (buttonKey === key) {
+                    button.setAttribute('aria-pressed', 'true');
+                    row.classList.add('is-selected');
+                } else if (route.has(buttonKey)) {
+                    button.classList.add('is-route');
+                    row.classList.add('is-route');
+                }
+            }
             const previewRequest = ++previewGeneration;
             mountedPreview?.destroy();
             mountedPreview = null;
-            if (record && trail[trailIndex] !== key) {
-                trail = trail.slice(0, trailIndex + 1);
-                trail.push(key);
-                trailIndex = trail.length - 1;
-            }
-            mountedMap?.select(key, routeTo(key));
             const node = graph.nodes.find((item) => item.key === key);
-            const incoming = graph.edges.filter((edge) => edge.to === key);
-            const outgoing = graph.edges.filter((edge) => edge.from === key);
+            const incoming = graph.edges.filter((edge) => edge.to === key && edge.action !== 'stop');
             inspector.replaceChildren();
             const kicker = document.createElement('div');
             kicker.className = 'scene-flow-inspector-kicker';
-            kicker.textContent = key === graph.start ? 'START OF THIS GAG · SCRIPT VIEW' : 'A SCENE FROM THIS GAG';
+            kicker.textContent = 'A scene from this gag';
             const name = document.createElement('h3');
-            name.textContent = node?.name || key;
+            name.textContent = plainName(node?.name || key);
             inspector.append(kicker, name);
             if (incoming.length) {
-                const explanation = document.createElement('p');
-                const guards = [...new Set(incoming.map((edge) => edge.guard))];
-                explanation.textContent = guards.join(' / ');
-                inspector.appendChild(explanation);
-            } else {
-                const explanation = document.createElement('p');
-                explanation.textContent = 'Choose a scene or a choice below to explore how this gag can unfold.';
-                inspector.appendChild(explanation);
+                const when = document.createElement('p');
+                appendNames(when, sentence([...new Set(incoming.map((edge) => edge.guard))].join(' / ')));
+                inspector.appendChild(when);
             }
-            if (key !== graph.start) {
-                const [slot, childTag] = key.split(':').map(Number);
-                const route = previewRouteTo(key);
-                const stage = document.createElement('div');
-                stage.className = 'scene-flow-preview-stage';
-                stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
-                const caption = document.createElement('small');
-                caption.className = 'scene-flow-preview-caption';
-                caption.textContent = 'Preparing an original game animation…';
-                inspector.append(stage, caption);
-                import('./scene-flow-preview.mjs').then(({ mountSceneFlowPreview }) => {
-                    if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
-                    mountedPreview = mountSceneFlowPreview({
-                        host: stage, resolveEntry, sequenceTools, script: adsName,
-                        gagTag: flow.gag.tag, slot, tag: childTag, route, storyDay: storyDay || 1,
-                        onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
-                    });
-                    caption.textContent = 'Original game animation · script example, not the live playhead';
-                }).catch(() => {
-                    if (previewRequest === previewGeneration) caption.textContent = 'Preview unavailable for this scene.';
+            const [slot, childTag] = key.split(':').map(Number);
+            const previewRoute = previewRouteTo(key);
+            const stage = document.createElement('div');
+            stage.className = 'scene-flow-preview-stage';
+            stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
+            const caption = document.createElement('small');
+            caption.className = 'scene-flow-preview-caption';
+            caption.textContent = 'Preparing an original game animation…';
+            inspector.append(stage, caption);
+            import('./scene-flow-preview.mjs').then(({ mountSceneFlowPreview }) => {
+                if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
+                mountedPreview = mountSceneFlowPreview({
+                    host: stage, resolveEntry, sequenceTools, script: adsName,
+                    gagTag: flow.gag.tag, slot, tag: childTag, route: previewRoute, storyDay: storyDay || 1,
+                    onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
                 });
-            }
-            if (key !== graph.start && typeof sequenceTools?.startRun === 'function') {
-                const route = previewRouteTo(key);
+                caption.textContent = 'Silent preview from the original game';
+            }).catch(() => {
+                if (previewRequest === previewGeneration) caption.textContent = 'Preview unavailable for this scene.';
+            });
+            if (typeof sequenceTools?.startRun === 'function') {
                 const play = document.createElement('button');
                 play.type = 'button';
                 play.className = 'scene-flow-play-button';
                 play.textContent = '▶ Play this scene now';
                 const note = document.createElement('small');
                 note.className = 'scene-flow-preview-note';
-                note.textContent = 'Continues this gag from here, then resumes the planned sequence.';
+                note.textContent = 'Runs this gag from here, then the visit carries on.';
                 play.addEventListener('click', () => {
                     playScriptScene({ script: adsName, gagTag: flow.gag.tag,
-                        day: storyDay || 1, key, route,
+                        day: storyDay || 1, key, route: previewRoute,
                         onError: () => { note.textContent = 'This scene could not be started. Try another one.'; } });
                 });
                 inspector.append(play, note);
             }
-            previous.disabled = trailIndex <= 0;
-            next.disabled = trailIndex >= trail.length - 1 && !outgoing.length;
-            choices.replaceChildren();
-            const choiceTitle = document.createElement('span');
-            choiceTitle.className = 'scene-flow-next-title';
-            const randomPick = outgoing.some((edge) => edge.random);
-            const parallel = outgoing.length > 1 && !randomPick && outgoing.every((edge) => edge.guard === outgoing[0].guard);
-            choiceTitle.textContent = !outgoing.length ? 'END OF THIS POSSIBLE GAG ROUTE'
-                : randomPick ? '◆ RANDOM PICK · ONE OUTCOME'
-                    : parallel ? 'PARALLEL SCRIPT ACTIONS · RUN TOGETHER'
-                        : outgoing.length > 1 ? 'CONDITIONAL PATHS · FOLLOW A CONDITION'
-                            : 'NEXT SCRIPT ACTION';
-            choices.appendChild(choiceTitle);
-            if (!outgoing.length) {
-                const continueStory = document.createElement('button');
-                continueStory.type = 'button';
-                continueStory.className = 'scene-flow-next-story';
-                continueStory.textContent = '↖ Return to live gag';
-                continueStory.addEventListener('click', () => {
-                    followLive(sequenceTools?.status?.());
-                    renderCurrent();
-                });
-                choices.appendChild(continueStory);
-            }
-            for (const edge of outgoing) {
-                const target = graph.nodes.find((item) => item.key === edge.to);
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.textContent = edge.action === 'stop'
-                    ? `× stop ${target?.name || edge.to}`
-                    : `${edge.random ? '◆ ' : parallel ? '+ ' : '→ '}${target?.name || edge.to}`;
-                const condition = document.createElement('small');
-                condition.textContent = `${edge.random ? 'random pick · ' : parallel ? 'runs together · ' : ''}${edge.guard}`;
-                button.appendChild(condition);
-                button.addEventListener('click', () => select(edge.to));
-                choices.appendChild(button);
-            }
-        };
-        previous.addEventListener('click', () => {
-            if (trailIndex > 0) select(trail[--trailIndex], false);
-        });
-        next.addEventListener('click', () => {
-            if (trailIndex < trail.length - 1) select(trail[++trailIndex], false);
-            else {
-                const outgoing = graph.edges.filter((edge) => edge.from === selectedKey);
-                if (outgoing.length) select(outgoing[0].to);
-            }
-        });
-        select(selectedKey, false);
-        import('./scene-flow-map.mjs').then(({ mountSceneFlowMap }) => {
-            if (generation !== mapGeneration || !isOpen || !viewport.isConnected) return;
-            mountedMap = mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect: select });
-            mountedMap.select(selectedKey, routeTo(selectedKey));
-            mountedMap.fit();
-        }).catch(() => {
-            if (generation === mapGeneration) headingHint.textContent = 'Map unavailable';
-        });
-
-        const steps = tidyOutline(outline);
-        const details = document.createElement('details');
-        details.className = 'scene-flow-script-details';
-        details.open = true;
-        const summary = document.createElement('summary');
-        summary.textContent = steps.length
-            ? `This gag as a script · ${steps.length} step${steps.length === 1 ? '' : 's'}`
-            : 'This gag as a script';
-        details.appendChild(summary);
-        const container = document.createElement('ol');
-        container.className = 'scene-flow-outline';
-
-        if (!steps.length) {
-            const empty = document.createElement('li');
-            empty.className = 'scene-flow-empty';
-            empty.textContent = '(no scripted steps for this gag)';
-            container.appendChild(empty);
-        } else {
-            for (const step of steps) {
-                const card = document.createElement('li');
-                card.className = 'scene-flow-step';
-                const guard = document.createElement('div');
-                guard.className = 'scene-flow-guard';
-                appendNames(guard, step.guardText.charAt(0).toUpperCase() + step.guardText.slice(1));
-                card.appendChild(guard);
-                const targets = document.createElement('div');
-                targets.className = 'scene-flow-targets';
-                if (step.random) {
-                    const lead = document.createElement('span');
-                    lead.className = 'scene-flow-pick-lead';
-                    lead.textContent = 'picks one of:';
-                    targets.appendChild(lead);
-                }
-                for (const text of step.targets) {
-                    const target = document.createElement('span');
-                    target.className = step.random ? 'scene-flow-pick' : 'scene-flow-target';
-                    if (/^stop\b/i.test(text)) target.classList.add('is-stop');
-                    appendNames(target, text);
-                    targets.appendChild(target);
-                }
-                card.appendChild(targets);
-                container.appendChild(card);
-            }
         }
-        details.appendChild(container);
-        host.appendChild(details);
+        select(selectedKey);
         renderLinks(adsName);
     };
 
@@ -982,8 +764,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedMap?.destroy();
-        mountedMap = null;
         clear(body);
         clear(links);
         const detail = renderStoryTimeline(status);
@@ -1038,7 +818,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
         renderCurrent();
-        mountedMap?.fit();
         hideCog();
         closeBtn.focus();
     }
@@ -1071,8 +850,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedMap?.destroy();
-        mountedMap = null;
         window.removeEventListener('keydown', onKeydown);
         window.removeEventListener('mousemove', showCog);
         if (cogTimer !== null) window.clearTimeout(cogTimer);

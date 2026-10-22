@@ -71,7 +71,7 @@ export const STEPPER_STYLE = `
  * A card button with a painted face. The real frame fills in when the face
  * queue has rendered it.
  */
-function cardButton({ gag, name, kicker, live = false, badge = null, faces, label, onClick }) {
+function cardButton({ gag, name, kicker, live = false, badge = null, faces, label, onClick, priority = false }) {
     const button = document.createElement(onClick ? 'button' : 'div');
     if (onClick) {
         button.type = 'button';
@@ -104,6 +104,7 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
         image = frame;
         paint();
     });
+    if (priority) faces?.prioritize(gag);
     // Card text uses the VT323 webfont; repaint once it is ready.
     document.fonts?.load?.("44px 'VT323'").then(paint).catch(() => {});
     return button;
@@ -315,7 +316,7 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
     hero.appendChild(cardButton({
         gag, faces, name: gagName(gag),
         kicker: isLive ? 'Now' : gag.keyDay ? 'Key scene' : 'Gag',
-        live: isLive, label: gagName(gag),
+        live: isLive, label: gagName(gag), priority: true,
     }));
     const info = document.createElement('div');
     const h = document.createElement('h3');

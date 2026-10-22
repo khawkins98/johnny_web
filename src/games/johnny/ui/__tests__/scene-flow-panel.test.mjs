@@ -139,7 +139,7 @@ describe('scene-flow panel', () => {
         // (real DOM aggregation) for containers built from child elements.
         const targets = Array.from(modal.querySelectorAll('.scene-flow-targets'));
         expect(targets[0].textContent).toContain('rod snaps');
-        expect(targets[1].textContent).toContain('picks one of:');
+        expect(targets[1].textContent).toContain('picks one at random:');
         expect(targets[1].textContent).toContain('reels in a boot');
         expect(targets[1].textContent).toContain('reels in a fish');
     });
@@ -323,6 +323,35 @@ describe('scene-flow panel', () => {
         expect(steps[0].textContent).not.toMatch(/load message/i);
         expect(Array.from(steps[1].querySelectorAll('.scene-flow-target'), (el) => el.textContent))
             .toEqual(['reels in a boot', 'reels in a fish']);
-        expect(document.querySelector('.scene-flow-script-details').open).toBe(true);
+    });
+
+    it('selects a scene from the step list and shows how to reach it', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        const startRun = vi.fn();
+        sequenceTools.startRun = startRun;
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+
+        // The first animated scene starts selected, with its preview panel.
+        const pressed = () => document.querySelector('.scene-flow-targets button[aria-pressed="true"]');
+        expect(pressed().textContent).toBe('rod snaps');
+        expect(document.querySelector('.scene-flow-inspector h3').textContent).toBe('rod snaps');
+
+        // A later random pick: its step is selected and the route to it is marked.
+        const fish = Array.from(document.querySelectorAll('.scene-flow-targets button'))
+            .find((button) => button.textContent === 'reels in a fish');
+        fish.click();
+        expect(pressed()).toBe(fish);
+        expect(fish.closest('.scene-flow-step').classList.contains('is-selected')).toBe(true);
+        const rodSnaps = Array.from(document.querySelectorAll('.scene-flow-targets button'))
+            .find((button) => button.textContent === 'rod snaps');
+        expect(rodSnaps.classList.contains('is-route')).toBe(true);
+        expect(document.querySelector('.scene-flow-inspector p').textContent).toBe('After rod snaps');
+
+        document.querySelector('.scene-flow-play-button').click();
+        expect(startRun).toHaveBeenCalledWith(expect.objectContaining({
+            mode: 'preview-child', script: 'FISHY.ADS', tagId: 5, slot: 2, childTag: 3,
+        }));
+        panel.destroy();
     });
 });

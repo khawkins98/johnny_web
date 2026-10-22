@@ -24,6 +24,6 @@ These are the gags the game can choose on that day at that tide, with the day's 
 
 The chosen gag's card sits at the top. **▶ Play this gag** starts a new visit from it, and the story carries on from there.
 
-Below it are the gag's scenes and the choices between them, with a silent original-game preview of the selected scene. Use **← Back** and **Forward →** to retrace a route. **▶ Play this scene now** interrupts playback, runs that scene through the original gag logic, then resumes the planned sequence. The layout shows possible routes; it is **not an exact trace of live execution, elapsed time, or the odds of a choice**.
+Below it, **how this gag unfolds** lists its steps in order: each condition ("After walk to bottle") and the scenes it starts or stops. Steps that pick at random say so. Click a scene to select it: the steps that lead to it are highlighted, and the side panel shows a silent preview from the original game. **▶ Play this scene now** interrupts playback, runs the gag from that scene, then lets the visit carry on. Resource-loading steps are hidden. The list shows possible routes; it is **not an exact trace of live execution, elapsed time, or the odds of a choice**.
 
-**This gag as a script** lists the same steps as text: each condition ("After think bubble appear") and the scenes it starts or stops. Resource-loading steps are hidden. See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.
+See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.
