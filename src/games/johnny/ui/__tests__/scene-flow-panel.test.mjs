@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupSceneFlowPanel } from '../scene-flow-panel.mjs';
 
 // Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses. Real
@@ -214,5 +214,29 @@ describe('scene-flow panel', () => {
         panel.open();
 
         expect(detailName()).toContain('Johnny naps');
+    });
+
+    it('deals the visit as a card spread, falling back to a flat grid without WebGL', async () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, storyDay: 2, tidePhase: 3 });
+        sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+
+        await vi.waitFor(() => expect(document.querySelector('.story-doors')).not.toBeNull());
+        const spread = document.querySelector('.story-doors');
+        expect(spread.classList.contains('is-flat')).toBe(true);
+        const roles = Array.from(spread.querySelectorAll('.story-doors-card'), (b) => b.dataset.role);
+        expect(roles.slice(0, 2)).toEqual(['live', 'planned']);
+        expect(roles.filter((role) => role === 'deck').length).toBeGreaterThan(0);
+        expect(spread.querySelector('.story-doors-caption').textContent).toMatch(/Day 02 of 11 · tide phase 3 · high tide/);
+        expect(spread.querySelector('.story-doors-info').textContent).toContain('Johnny fishes');
+
+        // Selecting the planned card inspects it in the detail section.
+        spread.querySelector('.story-doors-card[data-role="planned"]').click();
+        await vi.waitFor(() => expect(detailName()).toContain('Johnny naps'));
+
+        panel.destroy();
+        expect(document.querySelector('.story-doors')).toBeNull();
     });
 });

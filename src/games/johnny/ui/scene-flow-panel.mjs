@@ -21,6 +21,7 @@ import {
     outlineSceneFlowSteps,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
+import { buildStorySpread } from '../story-doors.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
 import { mountStoryTimelineAtlas } from './story-timeline-atlas.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
@@ -546,6 +547,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let isOpen = false;
     const close = () => {
         isOpen = false;
+        dropSpread();
         mapGeneration++;
         previewGeneration++;
         mountedMap?.destroy();
@@ -589,6 +591,60 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let renderedGagId = null;
     let timelineTracks = null;
     let resizeFrame = null;
+    // The Doors spread (issue #47) loads three.js on demand, like the script map.
+    let mountedSpread = null;
+    let spreadGeneration = 0;
+    let faceQueue = null;
+    let spreadStyle = null;
+    const dropSpread = () => {
+        spreadGeneration++;
+        mountedSpread?.destroy();
+        mountedSpread = null;
+    };
+    const prefersReducedMotion = () => {
+        try {
+            return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        } catch {
+            return false;
+        }
+    };
+    const mountSpread = (spreadHost, status, storyDay) => {
+        const generation = ++spreadGeneration;
+        const spread = buildStorySpread({
+            storyDay,
+            tidePhase: status.tidePhase ?? null,
+            seen: seenGags,
+            active: status.active,
+            current: status.current,
+            planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
+        });
+        const inspected = viewedGag
+            ? `${viewedGag.script}:${viewedGag.tagId}:${viewedGag.index ?? ''}`
+            : `${status.active.script}:${status.active.tagId}:${status.current}`;
+        import('./story-doors-spread.mjs').then(({ mountStoryDoorsSpread, createCardFaceQueue, SPREAD_STYLE }) => {
+            if (generation !== spreadGeneration || !isOpen || !spreadHost.isConnected) return;
+            if (!spreadStyle) {
+                spreadStyle = document.createElement('style');
+                spreadStyle.textContent = SPREAD_STYLE;
+                document.head.appendChild(spreadStyle);
+            }
+            faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
+            mountedSpread = mountStoryDoorsSpread({
+                host: spreadHost,
+                spread,
+                gagName,
+                faces: faceQueue,
+                inspectedKey: inspected,
+                reducedMotion: prefersReducedMotion(),
+                onInspect: (card) => showGag(
+                    { script: card.script, tagId: card.tagId, index: card.index },
+                    card.role === 'deck',
+                ),
+            });
+        }).catch(() => {
+            if (generation === spreadGeneration) spreadHost.textContent = 'The card spread could not load.';
+        });
+    };
 
     const playScriptScene = ({ script, gagTag, day, key, route, onError }) => {
         const [slot, childTag] = key.split(':').map(Number);
@@ -694,6 +750,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     window.addEventListener('resize', onTimelineResize);
 
     const renderEmpty = (message) => {
+        dropSpread();
         mapGeneration++;
         previewGeneration++;
         renderedGagId = null;
@@ -755,9 +812,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         intro.className = 'scene-flow-story-intro';
         const introCopy = document.createElement('div');
         const introTitle = document.createElement('h3');
-        introTitle.textContent = 'You are here in Johnny’s story';
+        introTitle.textContent = 'This visit, dealt as cards';
         const introNote = document.createElement('p');
-        introNote.textContent = 'Days run across the top; this visit branches below. Yellow marks Johnny now. Only Play changes playback.';
+        introNote.textContent = 'The lit card is Johnny now. Hover a face-down card to turn it over; select any card to read its script. The day map below still starts playback.';
         introCopy.append(introTitle, introNote);
         const inspectCurrent = document.createElement('button');
         inspectCurrent.type = 'button';
@@ -774,6 +831,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         intro.appendChild(introCopy);
         if (viewedGag || exploredDay !== null) intro.appendChild(inspectCurrent);
         shell.appendChild(intro);
+        const spreadHost = document.createElement('div');
+        spreadHost.className = 'scene-flow-spread-host';
+        shell.appendChild(spreadHost);
 
         const atlasHost = document.createElement('div');
         const canJumpDay = typeof sequenceTools?.setStoryDay === 'function' &&
@@ -934,7 +994,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         scrollLater.addEventListener('click', () => prime.scrollBy({ left: Math.max(150, prime.clientWidth * .7), behavior: 'smooth' }));
         prime.addEventListener('scroll', updateTrackControls, { passive: true });
         visitList.appendChild(prime);
-        context.appendChild(visitList);
         visitList.addEventListener('toggle', () => {
             if (visitList.open) {
                 centerTimeline();
@@ -985,9 +1044,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             possibilities.appendChild(makeCard(gag, 'possible', 'POSSIBLE · NOT PLANNED', exploredDay !== null));
         }
         pool.append(possibleNote, possibilities);
-        shell.appendChild(pool);
         shell.appendChild(detail);
         body.appendChild(shell);
+        mountSpread(spreadHost, status, storyDay);
         timelineTracks = { prime };
         mountedAtlas = mountStoryTimelineAtlas({
             host: atlasHost, resolveEntry, sequenceTools, storyDay, exploredDay, catalogOpenDay,
@@ -1393,6 +1452,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const oldScrollTop = modal.scrollTop;
         const previousGagId = renderedGagId;
         const previousSceneKey = selectedKey;
+        dropSpread();
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
@@ -1483,6 +1543,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // this is hygiene — but it keeps the panel safe to re-create (e.g. in tests
     // or a future multi-instance host) without leaking listeners.
     const destroy = () => {
+        dropSpread();
+        faceQueue?.destroy();
+        faceQueue = null;
+        spreadStyle?.remove();
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
