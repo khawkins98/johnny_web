@@ -101,16 +101,14 @@ Verdicts use the aligned median and max (`report.mjs` `THRESHOLDS`): median
 - **SUZY:1 is faithful**: aligned median 1.0%, max 2.6%, coverage 100%. SUZY:2,
   JOHNNY:1 and JOHNNY:6 (which also open on the MEANWHIL card) are between 0% and
   1%.
-- **Our sprites are drawn one pixel left of the original's** in all 64 gags.
-  Between 83% and 100% of judged keyframes agree. Backgrounds (SUZBEACH) line up at
-  (0,0), so this is not a capture shift. It applies to off-island scenes (the
-  MEANWHIL clock) as well as island ones. Most raw-versus-aligned gaps come from it:
-  the STAND poses are 11-39% raw and under 3% aligned. A forced capture's island
-  origin is (0,0), so the offset is unlikely to be island placement. It still
-  needs confirming on a normal (unforced) capture before anyone changes the
-  engine.
-- **LEFT_ISLAND scenes keep their +272 x offset in forced captures**
-  (FISHING:4/7/8, MARY:5, VISITOR:5). render-ours' `forced` host applies it.
+- **Sprites line up at (0,0) in all 64 gags** since render-ours' `forced` host uses
+  the binary's TTM offset. `FUN_1010_00fc` draws TTM sprites at `30c6 + 1`, or
+  `30c6 + 0x111` for LEFT_ISLAND scenes. A forced capture never runs the island
+  bake, so `30c6` is 0, and the planner never sets `30b4 = 2`, so off-island scenes
+  (the MEANWHIL clock) get the `+1` too. The forced host therefore offsets every
+  scene by 1, or 273 for LEFT_ISLAND (FISHING:4/7/8, MARY:5, VISITOR:5). With the
+  old 0 / 272, every gag needed a (1,0) shift: the STAND poses were 11-39% raw.
+  Normal play is set by the story controller (#58), not by this host.
 - **Palette substitution** of static colours shows up wherever those entries are
   used (SUZY's city). This is a deviation in what the browser shows. Decide whether
   to accept it or emulate it.
