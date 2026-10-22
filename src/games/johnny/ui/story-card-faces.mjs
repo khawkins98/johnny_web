@@ -280,40 +280,6 @@ const frame = (context, { fill, border, inner, width = 6 }) => {
     context.strokeRect(width + 7, width + 7, CARD_WIDTH - (width + 7) * 2, CARD_HEIGHT - (width + 7) * 2);
 };
 
-/** The shared card back: an island-blue screen with a cyan sun over the sea. */
-export function paintCardBack(context, { sealed = false } = {}) {
-    const line = sealed ? '#3d6f9a' : P.cyan;
-    frame(context, { fill: sealed ? P.blueDeep : P.blueMid, border: sealed ? '#2a3c78' : P.cyan, inner: line });
-    // Scanlines, as on the panel's map.
-    context.fillStyle = 'rgba(83,219,255,.10)';
-    for (let y = 16; y < CARD_HEIGHT - 16; y += 8) context.fillRect(16, y, CARD_WIDTH - 32, 1);
-    const cx = CARD_WIDTH / 2;
-    const cy = CARD_HEIGHT / 2 - 24;
-    context.strokeStyle = line;
-    context.lineWidth = 3;
-    for (let ray = 0; ray < 12; ray++) {
-        const angle = (ray / 12) * Math.PI * 2;
-        context.beginPath();
-        context.moveTo(cx + Math.cos(angle) * 40, cy + Math.sin(angle) * 40);
-        context.lineTo(cx + Math.cos(angle) * (ray % 2 ? 60 : 78), cy + Math.sin(angle) * (ray % 2 ? 60 : 78));
-        context.stroke();
-    }
-    context.fillStyle = sealed ? '#3d6f9a' : P.yellow;
-    context.beginPath();
-    context.arc(cx, cy, 30, 0, Math.PI * 2);
-    context.fill();
-    for (let wave = 0; wave < 3; wave++) {
-        const y = cy + 118 + wave * 18;
-        context.beginPath();
-        for (let x = 44; x <= CARD_WIDTH - 44; x += 4) {
-            const yy = y + Math.sin((x + wave * 11) / 11) * 4;
-            if (x === 44) context.moveTo(x, yy);
-            else context.lineTo(x, yy);
-        }
-        context.stroke();
-    }
-}
-
 /**
  * Paint a card face: parchment card, real frame in a window, gag name below,
  * flag glyphs in the corners (☾ ends a visit, ✦N key scene for day N).

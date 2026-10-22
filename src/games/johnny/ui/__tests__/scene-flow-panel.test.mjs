@@ -238,38 +238,78 @@ describe('scene-flow panel', () => {
         expect(detailName()).toContain('Johnny naps');
     });
 
-    it('deals the visit as a card spread, falling back to a flat grid without WebGL', async () => {
+    it('steps from where Johnny is to any day, tide, and gag, and can play them', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
-        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, storyDay: 2, tidePhase: 3 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
         sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
         const startRun = vi.fn();
-        sequenceTools.startRun = startRun;
+        const setStoryDay = vi.fn();
+        Object.assign(sequenceTools, { startRun, setStoryDay, getStoryDay: () => 2 });
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
 
-        await vi.waitFor(() => expect(document.querySelector('.story-doors')).not.toBeNull());
-        const spread = document.querySelector('.story-doors');
-        expect(spread.classList.contains('is-flat')).toBe(true);
-        const roles = Array.from(spread.querySelectorAll('.story-doors-card'), (b) => b.dataset.role);
-        expect(roles.slice(0, 2)).toEqual(['live', 'planned']);
-        expect(roles.filter((role) => role === 'deck').length).toBeGreaterThan(0);
-        expect(spread.querySelector('.story-doors-caption').textContent).toMatch(/Day 02 of 11 · tide phase 3 · high tide/);
-        expect(spread.querySelector('.story-doors-info').textContent).toContain('Johnny fishes');
+        // Opens on Johnny's live gag, with the path to it as a breadcrumb.
+        const crumbs = () => Array.from(document.querySelectorAll('.story-steps-crumbs button'), (b) => b.textContent);
+        expect(crumbs()).toEqual(['Day 02', 'Early high tide', 'Johnny fishes']);
+        expect(detailName()).toContain('Johnny fishes · LIVE GAG');
 
-        // Selecting the planned card inspects it in the detail section, keeps
-        // the same spread mounted, and offers to play it.
-        spread.querySelector('.story-doors-card[data-role="planned"]').click();
-        await vi.waitFor(() => expect(detailName()).toContain('Johnny naps'));
-        expect(document.querySelector('.story-doors')).toBe(spread);
-        expect(spread.querySelector('.story-doors-card[aria-pressed="true"]').dataset.role).toBe('planned');
-        const play = Array.from(spread.querySelectorAll('.story-doors-actions button'))
-            .find((button) => button.textContent.includes('Play this gag'));
-        play.click();
-        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'FISHY.ADS', tagId: 6, storyDay: 2 });
+        // Back up to the day question: 11 day cards, today marked.
+        document.querySelector('.story-steps-crumbs button').click();
+        const days = Array.from(document.querySelectorAll('.story-steps-card'));
+        expect(days).toHaveLength(11);
+        expect(days[1].getAttribute('aria-label')).toMatch(/\(today\)/);
+        expect(document.querySelector('.scene-flow-matrix-detail')).toBeNull();
+
+        // Day 7 -> tide question, with Play day.
+        days[6].click();
+        expect(document.querySelector('.story-steps-head h3').textContent).toBe('Day 07 · which tide?');
+        const tides = Array.from(document.querySelectorAll('.story-steps-tide'));
+        expect(tides).toHaveLength(3);
+        expect(tides[0].getAttribute('aria-label')).toMatch(/the tide now/);
+
+        // Early high tide -> day 7's gags, key scene first; the live visit strip only shows on the live day.
+        tides[0].click();
+        expect(document.querySelector('.story-steps-visit')).toBeNull();
+        const gags = Array.from(document.querySelectorAll('.story-steps-grid .story-steps-card'));
+        expect(gags[0].getAttribute('aria-label')).toMatch(/key scene for day 7/);
+
+        // Pick it -> its detail, then play it on day 7.
+        gags[0].click();
+        expect(crumbs()[0]).toBe('Day 07');
+        expect(crumbs().at(-1)).toBe('↖ Johnny now');
+        document.querySelector('.story-steps-play').click();
+        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'MARY.ADS', tagId: 4, storyDay: 7 });
         expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
 
+        // Reopening returns to Johnny now.
+        panel.open();
+        expect(crumbs()).toEqual(['Day 02', 'Early high tide', 'Johnny fishes']);
         panel.destroy();
-        expect(document.querySelector('.story-doors')).toBeNull();
+    });
+
+    it('shows the live visit on its own day and tide, and plays a day from the tide step', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
+        sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
+        const startRun = vi.fn();
+        const setStoryDay = vi.fn();
+        Object.assign(sequenceTools, { startRun, setStoryDay, getStoryDay: () => 2 });
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+
+        const crumbButtons = () => document.querySelectorAll('.story-steps-crumbs button');
+        crumbButtons()[1].click();
+        document.querySelectorAll('.story-steps-tide')[0].click();
+        const chips = Array.from(document.querySelectorAll('.story-steps-visit button'));
+        expect(chips.map((chip) => chip.dataset.role)).toEqual(['live', 'planned']);
+        chips[1].click();
+        expect(detailName()).toContain('Johnny naps · GAG 2 OF 2');
+
+        crumbButtons()[1].click();
+        document.querySelector('.story-steps-play').click();
+        expect(setStoryDay).toHaveBeenCalledWith(2);
+        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'JOHNNY.ADS', tagId: 2, storyDay: 2 });
+        panel.destroy();
     });
 
     it('tidies the script outline: hides loaders and merges steps that wait on the same scene', () => {

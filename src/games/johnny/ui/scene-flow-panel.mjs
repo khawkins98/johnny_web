@@ -20,8 +20,9 @@ import {
     extractSceneFlow,
     outlineSceneFlowSteps,
 } from '../../../dgds/scripting/scene-flow.mjs';
-import { JOHNNY_SCENES } from '../story-controller.mjs';
-import { buildStorySpread } from '../story-doors.mjs';
+import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
+import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
+import { createCardFaceQueue } from './story-card-faces.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
 
@@ -388,7 +389,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let isOpen = false;
     const close = () => {
         isOpen = false;
-        dropSpread();
         mapGeneration++;
         previewGeneration++;
         mountedMap?.destroy();
@@ -417,89 +417,37 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let trail = [];
     let trailIndex = -1;
     let seenGags = [];
-    let viewedGag = null;
     let mapGeneration = 0;
     let mountedPreview = null;
     let previewGeneration = 0;
     let renderedGagId = null;
-    // The Doors spread (issue #47) loads three.js on demand, like the script map.
-    let mountedSpread = null;
-    let spreadGeneration = 0;
+    // Story steps (issue #47): which day, then which tide, then which gag.
+    // `step` is where the viewer is; while `followLive` holds it tracks Johnny.
+    let step = null;
     let faceQueue = null;
-    let spreadStyle = null;
-    const dropSpread = () => {
-        spreadGeneration++;
-        mountedSpread?.destroy();
-        mountedSpread = null;
+    const stepperStyle = document.createElement('style');
+    stepperStyle.textContent = STEPPER_STYLE;
+    document.head.appendChild(stepperStyle);
+    const liveSpot = (status) => ({
+        day: status?.storyDay || sequenceTools?.getStoryDay?.() || 1,
+        band: bandForPhase(status?.tidePhase)?.id ?? null,
+        gag: status?.active ? gagFacts({ ...status.active, index: status.current }) : null,
+    });
+    const followLive = (status) => {
+        const live = liveSpot(status);
+        step = { level: 'detail', day: live.day, band: live.band ?? 'early', gag: live.gag, followLive: true };
     };
-    const prefersReducedMotion = () => {
-        try {
-            return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-        } catch {
-            return false;
-        }
-    };
-    const playGag = (card, storyDay) => {
+    const playGag = (gag, day) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
         try {
             sequenceTools.startRun({
-                mode: 'sequence', script: card.script, tagId: card.tagId, storyDay: card.keyDay || storyDay,
+                mode: 'sequence', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day,
             });
             close();
             return true;
         } catch {
             return false;
         }
-    };
-    const mountSpread = (spreadHost, status, storyDay) => {
-        const input = {
-            storyDay,
-            tidePhase: status.tidePhase ?? null,
-            seen: seenGags,
-            active: status.active,
-            current: status.current,
-            planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
-        };
-        const inspected = viewedGag
-            ? `${viewedGag.script}:${viewedGag.tagId}:${viewedGag.index ?? ''}`
-            : `${status.active.script}:${status.active.tagId}:${status.current}`;
-        // Same visit as last time (e.g. the viewer just selected a card): move
-        // the existing scene into the new layout instead of rebuilding WebGL.
-        const signature = JSON.stringify([input.storyDay, input.tidePhase, input.current,
-            input.active, input.seen.map((gag) => [gag.script, gag.tagId, gag.index]),
-            input.planned.map((gag) => [gag.script, gag.tagId])]);
-        if (mountedSpread && mountedSpread.signature === signature) {
-            spreadHost.appendChild(mountedSpread.element);
-            mountedSpread.select(inspected);
-            return;
-        }
-        dropSpread();
-        const generation = ++spreadGeneration;
-        const spread = buildStorySpread(input);
-        import('./story-doors-spread.mjs').then(({ mountStoryDoorsSpread, createCardFaceQueue, SPREAD_STYLE }) => {
-            if (generation !== spreadGeneration || !isOpen || !spreadHost.isConnected) return;
-            if (!spreadStyle) {
-                spreadStyle = document.createElement('style');
-                spreadStyle.textContent = SPREAD_STYLE;
-                document.head.appendChild(spreadStyle);
-            }
-            faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
-            mountedSpread = mountStoryDoorsSpread({
-                host: spreadHost,
-                spread,
-                gagName,
-                faces: faceQueue,
-                inspectedKey: inspected,
-                reducedMotion: prefersReducedMotion(),
-                onInspect: (card) => showGag({ script: card.script, tagId: card.tagId, index: card.index }),
-                onPlay: typeof sequenceTools?.startRun === 'function' ? (card) => playGag(card, storyDay) : null,
-                onRead: () => body.querySelector('.scene-flow-matrix-detail')
-                    ?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }),
-            });
-            mountedSpread.signature = signature;
-        }).catch(() => {
-            if (generation === spreadGeneration) spreadHost.textContent = 'The card spread could not load.';
-        });
     };
 
     const playScriptScene = ({ script, gagTag, day, key, route, onError }) => {
@@ -588,7 +536,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
 
     const renderEmpty = (message) => {
-        dropSpread();
         mapGeneration++;
         previewGeneration++;
         renderedGagId = null;
@@ -617,128 +564,73 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
     };
 
-    // Day strip: the 11 story days and their key scenes, until the card arc
-    // (issue #47, slice 2) replaces it. Picking a day offers to play it.
-    let pickedDay = null;
-    const keySceneFor = (day) => JOHNNY_SCENES.find((candidate) => candidate.day === day) ?? null;
     const canJumpDay = () => typeof sequenceTools?.setStoryDay === 'function' &&
         typeof sequenceTools?.startRun === 'function';
-    const playDay = (day, onError) => {
+    const playDay = (day) => {
         const keyScene = keySceneFor(day);
-        if (!keyScene || !canJumpDay()) return;
+        if (!keyScene || !canJumpDay()) return false;
         const savedDay = sequenceTools.getStoryDay?.();
         try {
             sequenceTools.setStoryDay(day);
             sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day });
             close();
+            return true;
         } catch {
             if (savedDay != null) sequenceTools.setStoryDay(savedDay);
-            onError?.();
+            return false;
         }
-    };
-    const renderDayStrip = (storyDay) => {
-        const section = document.createElement('section');
-        section.className = 'scene-flow-day-strip';
-        section.setAttribute('aria-label', 'Story days');
-        const days = document.createElement('div');
-        days.className = 'scene-flow-day-buttons';
-        const pick = document.createElement('div');
-        pick.className = 'scene-flow-day-pick';
-        const showPick = () => {
-            pick.replaceChildren();
-            for (const button of days.children) {
-                button.setAttribute('aria-pressed', String(Number(button.dataset.day) === pickedDay));
-            }
-            if (pickedDay === null) {
-                pick.hidden = true;
-                return;
-            }
-            pick.hidden = false;
-            const keyScene = keySceneFor(pickedDay);
-            const text = document.createElement('span');
-            text.textContent = `Day ${String(pickedDay).padStart(2, '0')} · key scene: ${keyScene ? gagName(keyScene) : 'none'}` +
-                (pickedDay === storyDay ? ' · today' : '');
-            const play = document.createElement('button');
-            play.type = 'button';
-            play.className = 'is-play';
-            play.textContent = `▶ Play day ${String(pickedDay).padStart(2, '0')}`;
-            play.title = 'Save this story day and start a visit from its key scene';
-            play.disabled = !canJumpDay() || !keyScene;
-            play.addEventListener('click', () => playDay(pickedDay, () => {
-                text.textContent = `Could not start day ${pickedDay}. Johnny is still playing the current visit.`;
-            }));
-            pick.append(text, play);
-        };
-        for (let day = 1; day <= 11; day++) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.dataset.day = String(day);
-            const keyScene = keySceneFor(day);
-            const number = document.createElement('strong');
-            number.textContent = String(day).padStart(2, '0');
-            const name = document.createElement('small');
-            name.textContent = keyScene ? gagName(keyScene) : '';
-            button.append(number, name);
-            button.setAttribute('aria-label', `Day ${day}${keyScene ? `, key scene ${gagName(keyScene)}` : ''}`);
-            if (day === storyDay) button.setAttribute('aria-current', 'date');
-            button.addEventListener('click', () => {
-                pickedDay = pickedDay === day ? null : day;
-                showPick();
-            });
-            days.appendChild(button);
-        }
-        section.append(days, pick);
-        showPick();
-        return section;
     };
 
     const renderStoryTimeline = (status) => {
-        const storyDay = status.storyDay || sequenceTools?.getStoryDay?.() || 1;
+        const live = liveSpot(status);
+        if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
-        subtitle.textContent = `STORY DAY ${storyDay} OF 11 · THIS VISIT AND ITS POSSIBLE PATHS`;
+        subtitle.textContent = `STORY DAY ${live.day} OF 11 · PICK A DAY, A TIDE, THEN A GAG`;
 
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
-        const intro = document.createElement('div');
-        intro.className = 'scene-flow-story-intro';
-        const introCopy = document.createElement('div');
-        const introTitle = document.createElement('h3');
-        introTitle.textContent = 'This visit, dealt as cards';
-        const introNote = document.createElement('p');
-        introNote.textContent = 'The lit card is Johnny now. Hover a face-down card to turn it over. Select a card to play it or read its script.';
-        introCopy.append(introTitle, introNote);
-        intro.appendChild(introCopy);
-        if (viewedGag) {
-            const backToLive = document.createElement('button');
-            backToLive.type = 'button';
-            backToLive.textContent = '↖ Return to live';
-            backToLive.addEventListener('click', () => {
-                viewedGag = null;
+        faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
+        renderStoryStepper(shell, {
+            step,
+            live,
+            visit: visitSequence({
+                seen: seenGags,
+                active: status.active,
+                current: status.current,
+                planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
+            }),
+            gagName,
+            faces: faceQueue,
+            onStep: (patch) => {
+                step = { ...step, ...patch, followLive: false };
+                if (patch.gag) step.gag = gagFacts(patch.gag);
                 renderCurrent();
-            });
-            intro.appendChild(backToLive);
-        }
-        shell.append(intro, renderDayStrip(storyDay));
-        const spreadHost = document.createElement('div');
-        spreadHost.className = 'scene-flow-spread-host';
-        shell.appendChild(spreadHost);
+                modal.scrollTop = 0;
+            },
+            onLive: () => {
+                followLive(sequenceTools?.status?.() ?? status);
+                renderCurrent();
+            },
+            onPlayDay: canJumpDay() ? playDay : null,
+            onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,
+        });
+        body.appendChild(shell);
+        if (step.level !== 'detail' || !step.gag) return null;
 
         const detail = document.createElement('section');
         detail.className = 'scene-flow-matrix-detail';
         const detailHeading = document.createElement('div');
         detailHeading.className = 'scene-flow-matrix-detail-heading';
         const detailLabel = document.createElement('span');
-        detailLabel.textContent = 'GAG STEPS · THE SELECTED CARD';
-        const target = viewedGag || { ...status.active, index: status.current };
+        detailLabel.textContent = 'HOW THIS GAG UNFOLDS';
+        const isLive = live.gag && step.gag.script === live.gag.script && step.gag.tagId === live.gag.tagId;
         const detailName = document.createElement('strong');
-        const detailRole = viewedGag?.index ? `GAG ${viewedGag.index} OF ${status.total}`
-            : viewedGag ? 'POSSIBLE GAG' : 'LIVE GAG';
-        detailName.textContent = `${gagName(target)} · ${detailRole}`;
+        const detailRole = isLive ? 'LIVE GAG'
+            : step.gag.index ? `GAG ${step.gag.index} OF ${status.total}` : 'POSSIBLE GAG';
+        detailName.textContent = `${gagName(step.gag)} · ${detailRole}`;
         detailHeading.append(detailLabel, detailName);
         detail.appendChild(detailHeading);
         shell.appendChild(detail);
-        body.appendChild(shell);
-        mountSpread(spreadHost, status, storyDay);
         return detail;
     };
 
@@ -988,7 +880,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 continueStory.className = 'scene-flow-next-story';
                 continueStory.textContent = '↖ Return to live gag';
                 continueStory.addEventListener('click', () => {
-                    viewedGag = null;
+                    followLive(sequenceTools?.status?.());
                     renderCurrent();
                 });
                 choices.appendChild(continueStory);
@@ -1076,16 +968,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         renderLinks(adsName);
     };
 
-    function showGag(gag) {
-        if (!gag) return;
-        const index = gag.index ?? gag.sequence?.index ?? null;
-        viewedGag = {
-            ...gag,
-            index,
-        };
-        renderCurrent();
-    }
-
     const renderCurrent = () => {
         const status = sequenceTools?.status?.() ?? null;
         const active = status?.active ?? null;
@@ -1105,12 +987,16 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         clear(body);
         clear(links);
         const detail = renderStoryTimeline(status);
-        const target = viewedGag || active;
+        if (!detail) {
+            renderedGagId = null;
+            return;
+        }
+        const target = step.gag;
         renderedGagId = `${target.script}:${target.tagId}`;
         if (target.script === 'POSE') {
             const pause = document.createElement('p');
             pause.className = 'scene-flow-possibility-note';
-            pause.textContent = 'Johnny pauses here. Select another gag in the visit row to inspect its scenes.';
+            pause.textContent = 'Johnny pauses here between gags. Pick a gag above to see its scenes.';
             detail.appendChild(pause);
             modal.scrollTop = oldScrollTop;
             return;
@@ -1146,8 +1032,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     function open() {
         isOpen = true;
-        viewedGag = null;
-        pickedDay = null;
+        step = null;
         renderedGagId = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
@@ -1179,10 +1064,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // this is hygiene — but it keeps the panel safe to re-create (e.g. in tests
     // or a future multi-instance host) without leaking listeners.
     const destroy = () => {
-        dropSpread();
         faceQueue?.destroy();
         faceQueue = null;
-        spreadStyle?.remove();
+        stepperStyle.remove();
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
