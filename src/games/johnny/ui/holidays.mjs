@@ -76,6 +76,9 @@ export const createHolidayOverlay = ({
         const sprite = image && buildSpriteCanvas(image);
         if (!sprite) return false;
 
+        // HOLIDAY x values are 1 px left of the binary's 30c6-relative 0x19b/0x14e/
+        // 0x195/0x16a (FUN_1010_1e50); `layout.x - 288` adds that 1 back on the
+        // binary's 289 base, and follows the fixed 17 layout.
         const islandOffsetX = layout.x - 288 + (state.titleState?.x || 0);
         const islandOffsetY = state.titleState?.y || 0;
         mainContext.drawImage(sprite, holiday.x + islandOffsetX, holiday.y + islandOffsetY);
