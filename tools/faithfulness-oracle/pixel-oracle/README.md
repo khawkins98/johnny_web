@@ -60,7 +60,10 @@ sets, not by clock time:
 3. Keyframes come from matched spans: the first sample (the transition), one to
    three mid-span samples, and the tick after each of our LOAD_SCREEN / STORE_AREA
    bakes (the samples Phase 0 says are most likely to show plate differences).
-   They are capped at 48 per gag.
+   They are capped at 48 per gag. The transition into the gag's first span is its
+   own kind, `first-frame`, when both sides' first spans are the matched pair
+   (54 of 64 gags; the STAND gags and ACTIVITY:8/11 start on a span our seed does
+   not match).
 4. Each keyframe is mapped to our tick at the same fraction of our span. The best
    pair is then chosen over original ticks within ±1 and, for each of those, our
    ticks within ±6 of the mapped tick moved by the same number of samples (2.85 of
@@ -68,7 +71,13 @@ sets, not by clock time:
    used). Mid-span keyframes widen the ±6 to a fifth of our span, up to ±40
    (`align.mjs` `searchWindows`): steady motion drifts when the two sides pace a
    span differently, and pacing is the sequencing and lifespan oracles' job.
-   Transitions and bakes keep ±6.
+   Transitions and bakes keep ±6. The `first-frame` keyframe keeps −6 behind the
+   mapped tick and reaches forward by the number of our ticks the gag's first frame
+   was held (`compare.mjs` measures it on our render: 8 to 10 ticks in most gags),
+   capped at 40. That covers the accepted deviation below (the original passes a
+   loading first frame at its next sample; ours holds its delay) and nothing else.
+   `scores.json` records the hold, the lag at which the best pair was found and the
+   score under `firstFrame`.
 
 ## Score
 
@@ -146,14 +155,41 @@ binary's deadline on the 16 ms game clock, read once per present (see the
 - ACTIVITY:8 (7.5% to 1.5%), MARY:1 (5.1% to 0.9%) and MARY:4 (6.1% to 1.1%) lost
   their worst keyframes.
 - Two gags gained a keyframe above 8% at the gag's first frame: FISHING:5 `5:19`
-  (0.2% to 13.4%) and VISITOR:5 `5:1 5:8` (0.7% to 12.0%); JOHNNY:5 `2:9` went from
-  0.4% to 2.3% and MARY:2 from 0.5% to 1.5%. The first frame of those threads loads
-  the screen and bitmaps, and in the original the game clock jumps 7 to 27 units at
-  a sample that loads (the `DBX_DELAY` logs show +18 at tick 1 of every episode),
-  so that frame passes at the next sample whatever its delay. Ours has no load cost,
-  so the frame holds its full delay (four presents, since a changed SET_DELAY also
-  redraws the frame at the present its hold elapses). The ±6 window used to hide
-  this; it is a separate deviation, noted in the methodology.
+  (0.2% to 13.4%) and VISITOR:5 `5:1 5:8` (0.7% to 12.0%). The first frame of those
+  threads loads the screen and bitmaps, and in the original the game clock jumps
+  at a sample that loads, so that frame passes at the next sample whatever its
+  delay. Ours has no load cost, so the frame holds its full delay (four presents,
+  since a changed SET_DELAY also redraws the frame at the present its hold
+  elapses). The ±6 window used to hide this. (JOHNNY:5 `2:9` 2.3% and MARY:2 1.5%
+  were listed with them at the time; their first-frame keyframes score 0% and
+  those figures are mid-span pacing on `2:9` and `2:105 2:106`.)
+
+### The first frame: an accepted deviation (2026-10-23)
+
+The jump is not an engine rule. Eight `DBX_DELAY` captures (BUILDING:7 and MARY:4
+run alone for #40; FISHING:5, VISITOR:5, JOHNNY:5, MARY:2, SUZY:1 and BUILDING:2
+run six at a time) show that `now` advances by the load's emulated wall time: the
+`emu=` and `host=` deltas agree within a few percent at every jump, and the
+thread's deadline is always the pre-load clock plus its delay (`deadline - now`
+after the jump is exactly `delay - jump`). The size depends on the host: the first
+sample of a gag jumped 18 units (190 ms) in the lone runs and 28 to 113 units
+(316 to 1,804 ms) in the six-way runs, and the same FISHING:5 first sample ranged
+31 to 59 units across one capture's episodes. Mid-gag TTM adds jumped 7 to 55,
+samples with an image load inside a running thread 6 to 10, and the director's
+reload between episodes 20 to 230. So there is no per-load constant to calibrate,
+and in wall time the original shows the previous picture for the load and then the
+first frame for one sample (245 ms to 1.9 s in all), while ours shows the first
+frame for its hold (about 220 ms): advancing our clock without stalling would make
+every gag start and end a load earlier than the original, and stalling would be
+emulating hardware speed. The deviation is accepted and the oracle scores it as
+its own keyframe kind (`first-frame`, "Tick alignment" step 4) instead of hiding
+it in the ±6 window or reporting it as an outlier. With that, FISHING:5 goes from
+13.4% to 0.2% max and VISITOR:5 from 12.0% to 0.7%; MARY:1's max drops from 0.9%
+to 0.3% (its first frame); no other gag moved.
+Our first frame's best pair lags the mapped tick by 8 to 10 ticks (the whole
+hold) in 24 gags and by none in 25, where the first frame is a loader or a long
+hold on both sides.
+The methodology's "Frame holds" section has the clock evidence.
 
 BUILDING:4/6 keep about 4-6% at `2:64 2:68` after the wider window. The original
 shows coloured noise in the 175x142 rectangle at (194, 123) from tick 621, where

@@ -61,16 +61,30 @@ export const loadCapture = (dir) => {
     return { live, loads, start, end, censored: loads.length < 2, frames, backdrop: backdrops.get(1) ?? null };
 };
 
-/** Our live-set stream for one seed (index = our tick; tick 0 is before the first). */
+/**
+ * Our live-set stream for one seed (index = our tick; tick 0 is before the first).
+ * `firstFrameHold` is how many of our ticks the gag's first frame lasted: from the
+ * tick the first scenes ran their first frame to the first tick one of them ran
+ * its next (0 when no scene ran a second frame).
+ */
 export const ourLiveStream = ({ adsName, tag, seed }) => {
     const live = [[]];
     const bakes = []; // { tick, what }: LOAD_SCREEN / STORE_AREA, which bake the plate
     let lastScreen = null;
+    let firstFrame = null; // { tick, keys }: the gag's first frame and the scenes that ran it
+    let firstFrameHold = 0;
     const { completed } = driveGag({
         adsName,
         tag,
         seed,
         titleState: forcedTitleState(adsName, tag),
+        onEvent: (type, event) => {
+            if (type !== 'frame-timing-map' || firstFrameHold) return;
+            const key = `${event.sceneIdx}:${event.tagId}`;
+            if (!firstFrame) firstFrame = { tick: event.tick, keys: new Set([key]) };
+            else if (event.tick === firstFrame.tick) firstFrame.keys.add(key);
+            else if (firstFrame.keys.has(key)) firstFrameHold = event.tick - firstFrame.tick;
+        },
         onTick: (runtime, result, tick) => {
             const state = runtime.state;
             live[tick] = liveKeys(state);
@@ -80,7 +94,7 @@ export const ourLiveStream = ({ adsName, tag, seed }) => {
             if (result.frameOperations.some((op) => op.type === 'store-area')) bakes.push({ tick, what: 'store-area' });
         },
     });
-    return { live, bakes, completed };
+    return { live, bakes, completed, firstFrameHold };
 };
 
 /**
@@ -229,6 +243,7 @@ export const compareGag = ({
             hasFrame: (t) => capture.frames.has(t),
             window,
             origJitter,
+            firstFrameHold: best.stream.firstFrameHold,
         });
         const ticks = new Set();
         for (const { from, to } of kf.candidates) for (let t = from; t <= to; t++) ticks.add(t);
@@ -325,6 +340,7 @@ export const compareGag = ({
     const diffs = scored.map((kf) => kf.best.diffPct);
     const worst = scored.reduce((w, kf) => (!w || kf.best.diffPct > w.best.diffPct ? kf : w), null);
     const eb0Worst = scored.reduce((w, kf) => (!w || kf.best.eb0TopPct > w.best.eb0TopPct ? kf : w), null);
+    const firstFrame = scored.find((kf) => kf.kind === 'first-frame');
     return {
         gag,
         seed,
@@ -335,6 +351,11 @@ export const compareGag = ({
         hostRemnant: ignore ? ignore.reduce((a, b) => a + b, 0) : 0,
         bgKinds: [...bgKinds].sort(),
         bakeKeyframes: scored.filter((kf) => kf.kind === 'load-screen' || kf.kind === 'store-area').length,
+        // the gag's first frame: our hold in ticks (the forward window it was given)
+        // and how many of our ticks after the mapped tick its best pair was found
+        firstFrame: firstFrame
+            ? { hold: best.stream.firstFrameHold, lag: firstFrame.best.ourTick - firstFrame.ourTick, diff: round(firstFrame.aligned.diffPct) }
+            : null,
         stale: round(median(scored.map((kf) => kf.best.stale))),
         diffMedian: round(median(diffs)),
         diffMax: round(worst?.best.diffPct ?? null),

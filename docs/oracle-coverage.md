@@ -120,7 +120,9 @@ limitations: [pixel-oracle/README.md](../tools/faithfulness-oracle/pixel-oracle/
 Scores are the percentage of masked pixels that differ, per keyframe; the gag
 figure is the median over keyframes (live-set transitions, mid-span samples,
 and the tick after each LOAD_SCREEN / STORE_AREA), best-aligned within a small
-tick window (wider for mid-span samples). `raw` is as rendered; `aligned`
+tick window (wider for mid-span samples; the gag's first frame reaches forward
+by our first-frame hold, an accepted deviation: see the README). `raw` is as
+rendered; `aligned`
 moves our foreground by the gag's dominant offset first (see the offset
 column). Palette substitutions (Windows static colours) are not counted as
 differences.
@@ -132,14 +134,14 @@ node tools/faithfulness-oracle/pixel-oracle/capture-gags.mjs
 node tools/faithfulness-oracle/pixel-oracle/sweep.mjs
 ```
 
-Generated 2026-10-22; comparator sweep 314s.
+Generated 2026-10-22; comparator sweep 437s.
 
-Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful 60 · faithful, outlier keyframe 3 · close 1. Foreground offset (ours -> original, dx,dy): 0,0 in 64 gags.
+Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful 62 · faithful, outlier keyframe 1 · close 1. Foreground offset (ours -> original, dx,dy): 0,0 in 64 gags.
 
 | Gag | Live-set coverage | Seed | Keyframes | Raw median | Aligned median | Aligned max | Offset | Palette subst. | Stale px | Black plate (top) | Verdict |
 |-----|------|------|------|------|------|------|------|------|------|------|------|
-| ACTIVITY:1 | 100% | 2 | 9 | 0.05% | 0.05% | 0.39% | 0,0 (8/8) | 1.93% | 0 | 53.58% | faithful |
-| ACTIVITY:4 | 100% | 1 | 10 | 0.08% | 0.08% | 0.23% | 0,0 (9/9) | 0.51% | 0 | 45.97% | faithful |
+| ACTIVITY:1 | 100% | 2 | 9 | 0.05% | 0.05% | 0.39% | 0,0 (8/8) | 1.61% | 0 | 53.58% | faithful |
+| ACTIVITY:4 | 100% | 1 | 10 | 0.08% | 0.08% | 0.23% | 0,0 (9/9) | 0.25% | 0 | 45.97% | faithful |
 | ACTIVITY:5 | 100% | 1 | 36 | 0.02% | 0.02% | 1.42% | 0,0 (32/32) | 0.99% | 0 | 36.88% | faithful |
 | ACTIVITY:6 | 100% | 1 | 35 | 0.01% | 0.01% | 0.48% | 0,0 (35/35) | 1.68% | 0 | 17.02% | faithful |
 | ACTIVITY:7 | 100% | 1 | 25 | 0.02% | 0.02% | 0.48% | 0,0 (25/25) | 2.16% | 0 | 10.58% | faithful |
@@ -161,7 +163,7 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | FISHING:2 | 96.2% | 11 | 35 | 0.52% | 0.52% | 4.34% | 0,0 (34/34) | 1.03% | 0 | 36.39% | faithful |
 | FISHING:3 | 100% | 1 | 31 | 0.46% | 0.46% | 0.7% | 0,0 (31/31) | 1.12% | 0 | 49.38% | faithful |
 | FISHING:4 | 100% | 1 | 11 | 0.16% | 0.16% | 0.45% | 0,0 (10/10) | 1.78% | 0 | 25% | faithful |
-| FISHING:5 | 100% | 1 | 8 | 0.11% | 0.11% | 13.44% | 0,0 (6/6) | 0.9% | 0 | 16.52% | faithful, outlier keyframe |
+| FISHING:5 | 100% | 1 | 8 | 0.11% | 0.11% | 0.24% | 0,0 (7/7) | 0.9% | 0 | 16.52% | faithful |
 | FISHING:6 | 100% | 1 | 15 | 0.26% | 0.26% | 3.59% | 0,0 (14/14) | 1.14% | 0 | 36.48% | faithful |
 | FISHING:7 | 98.6% | 4 | 46 | 0.17% | 0.17% | 0.3% | 0,0 (46/46) | 1.79% | 0 | 16.66% | faithful |
 | FISHING:8 | 85.5% | 11 | 49 | 0.17% | 0.17% | 0.3% | 0,0 (49/49) | 1.87% | 0 | 16.66% | faithful |
@@ -171,7 +173,7 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | JOHNNY:4 | 100% | 1 | 20 | 0.08% | 0.08% | 0.64% | 0,0 (20/20) | 0.7% | 0 | 32.84% | faithful |
 | JOHNNY:5 | 79.4% (low) | 1 | 12 | 0.1% | 0.1% | 2.31% | 0,0 (12/12) | 0.55% | 0 | 32.32% | faithful |
 | JOHNNY:6 | 100% | 1 | 18 | 0.46% | 0.46% | 0.61% | 0,0 (18/18) | 20.27% | 34 | 66.22% | faithful |
-| MARY:1 | 100% | 9 | 28 | 0.04% | 0.04% | 0.86% | 0,0 (28/28) | 2.48% | 0 | 52.43% | faithful |
+| MARY:1 | 100% | 9 | 28 | 0.04% | 0.04% | 0.34% | 0,0 (28/28) | 2.41% | 0 | 52.43% | faithful |
 | MARY:2 | 100% | 1 | 17 | 0.17% | 0.17% | 1.53% | 0,0 (17/17) | 1.62% | 0 | 43.71% | faithful |
 | MARY:3 | 74% (low) | 1 | 49 | 0.18% | 0.18% | 2.61% | 0,0 (49/49) | 0.77% | 0 | 56.62% | faithful |
 | MARY:4 | 100% | 1 | 21 | 0.06% | 0.06% | 1.09% | 0,0 (21/21) | 0.89% | 0 | 34.98% | faithful |
@@ -196,7 +198,7 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | SUZY:2 | 100% | 1 | 15 | 0.88% | 0.88% | 1.04% | 0,0 (15/15) | 5.7% | 198 | 66.22% | faithful |
 | VISITOR:1 | 100% | 1 | 13 | 0.28% | 0.28% | 0.54% | 0,0 (13/13) | 2.3% | 0 | 8.16% | faithful |
 | VISITOR:4 | 100% | 3 | 11 | 0.07% | 0.07% | 0.35% | 0,0 (11/11) | 2.6% | 0 | 9.39% | faithful |
-| VISITOR:5 | 99.4% | 1 | 17 | 0% | 0% | 11.95% | 0,0 (16/16) | 0.91% | 0 | 23.33% | faithful, outlier keyframe |
+| VISITOR:5 | 99.4% | 1 | 17 | 0% | 0% | 0.73% | 0,0 (17/17) | 0.91% | 0 | 23.33% | faithful |
 | VISITOR:6 | 100% | 1 | 22 | 0% | 0% | 0.35% | 0,0 (22/22) | 2.32% | 0 | 14.12% | faithful |
 | VISITOR:7 | 100% | 1 | 18 | 0.01% | 0.01% | 0.49% | 0,0 (18/18) | 2.58% | 0 | 9.5% | faithful |
 | WALKSTUF:1 | 86.1% | 1 | 30 | 0% | 0% | 0.3% | 0,0 (25/25) | 1.09% | 0 | 56.21% | faithful |

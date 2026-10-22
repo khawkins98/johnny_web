@@ -272,14 +272,70 @@ holds 37 delay-8 frames for 3 samples each; `3:139`'s SET_DELAY 10 frame shows
 the pass-tick deadline replaced one sample later by its own `now + 10`; `3:36`
 holds delay 7 for 2 samples 21 times and 3 samples 10 times. They also show what
 the rule does not cover: `now` advances 3 or 4 units a sample (mean 3.47) except
-at samples that load resources, where it jumps 7 to 27 units (18 at the first
-sample of both episodes, 10 to 27 when a new TTM resource is loaded mid-gag).
-A frame whose ops load the screen or bitmaps therefore usually passes at the next
-sample regardless of its delay. The browser's clock has no load cost, so a gag's
-first frame holds its full delay (FISHING:5 `5:19`, VISITOR:5 `5:1`, both delay 8
-or 9: one sample in the original, four presents in ours). This is a separate,
-pre-existing deviation; a load-cost model for the clock would need the per-load
-cost calibrated from those logs.
+at samples that load resources, where it jumps. A frame whose ops load the screen
+or bitmaps therefore usually passes at the next sample regardless of its delay.
+The browser's clock has no load cost, so a gag's first frame holds its full delay
+(FISHING:5 `5:19`, VISITOR:5 `5:1`, both delay 8 or 9: one sample in the original,
+four presents in ours). This is an accepted deviation; the next section has the
+evidence.
+
+### Load-time clock jumps (#53, accepted deviation)
+
+What the jump is, from eight `DBX_DELAY` captures (BUILDING:7 and MARY:4 run alone
+for #40, 2,732 samples; FISHING:5, VISITOR:5, JOHNNY:5, MARY:2, SUZY:1 and
+BUILDING:2 run six at a time with `--secs 75`, 6,372 samples), each line carrying
+`now`, `emu=` and `host=`:
+
+- **It is wall time.** At every jump the emulated and host-clock deltas agree
+  within 1 to 5%, and the jump is roughly the delta in 16 ms units (0.9 to 1.5
+  times it; the timer sometimes delivers more ticks than the time, a catch-up of
+  the emulated PIT). `FUN_1048_196e` and the SET_DELAY-change path in
+  `FUN_1048_1acb` read `DAT_1068_2e72` live, but the thread's deadline after a
+  jump is always the pre-load clock plus the delay (`deadline - now` after the
+  jump equals `delay - jump` at all 35 samples where a thread was added), so the
+  clock catches up after the ops that loaded, and the load's wall time counts
+  against the hold.
+- **Its size is the host's.** With `cycles=max` the load takes as long as the host
+  takes to emulate it. The first sample of a gag (ADS load, first TTM, screen and
+  bitmaps) jumped 18 units (190 ms) in both lone runs and 28 to 113 units (316 to
+  1,804 ms) in the six-way runs; the same FISHING:5 first sample ranged 31 to 59
+  units across one capture's five episodes, and JOHNNY:5's 48 to 113. A TTM added
+  mid-gag jumped 7 to 55 units (BUILDING:2 `1:35` 17 and 24, VISITOR:5 `5:3` 17 to
+  28, SUZY:1 `1:2` 31 and 44, FISHING:5 `3:1` 41 to 55), a sample with an image
+  load inside a running thread 6 to 14 (SUZY:1 `1:13`/`1:14`, JOHNNY:5 `2:9`,
+  MARY:2 `2:106`, BUILDING:2's `1:7x` group), and the director's reload between
+  episodes 10 to 230. Every other sample stays at 3 or 4 units (median interval
+  54 ms in all eight runs).
+- **It shortens every live hold at once.** The clock is global, so a mid-gag load
+  by one thread passes or shortens the holds of all the others at that sample
+  (BUILDING:2 tick 531: a 10-unit jump leaves `1:46`, delay 4, and `1:74`, delay
+  3, 6 and 7 units past their deadlines).
+
+Why it is not modelled:
+
+- There is no constant to calibrate. The same load costs 2 to 6 times more under
+  host load, and on the 1992 hardware the game was written for it cost something
+  else again. A fixed per-load advance would encode this capture rig.
+- It is not an engine rule to port. The binary has no load-cost arithmetic; the
+  timer simply keeps running while the loader blocks.
+- A clock advance without the stall is less faithful in wall time, not more. The
+  original shows the previous picture for the load (190 ms to 1.8 s here) and then
+  the first frame for one sample (55 ms); ours shows the first frame for its hold
+  (four presents, about 220 ms) and then the second. The two sides reach the second
+  frame at about the same time in the lone-run case. Advancing our clock would
+  make every gag start, and every later load pass, a load time earlier than the
+  original; stalling instead would be emulating a hardware speed.
+
+What the deviation looks like: at the start of a gag (and at a mid-gag TTM add),
+ours holds the loading thread's first frame for its authored delay where the
+original holds it for one sample, so our second frame is up to about four presents
+late relative to the original's sample count. It does not change which frames are
+shown or their order. The pixel oracle scores the gag's first frame as its own
+keyframe kind (`first-frame`) with a window that reaches forward by exactly our
+measured first-frame hold (capped at 40 ticks), so the deviation neither counts
+as an outlier nor hides behind the ±6 window (pixel-oracle README, "Tick
+alignment"). The lifespan oracle already sees it as the one-sample phase
+allowance for loaders.
 
 So a reference span of N samples is about N x 57 ms, and our actor spans count 20 ms
 engine ticks. For the same duration, ours reads about 2.85x the reference value. Both
