@@ -117,8 +117,10 @@ describe('deterministic background compatibility', () => {
             cloudX: 9,
             cloudOriginX: 10,
             cloudElapsed: 2121,
-            waveRegions: [1, 1, 0],
-            waveElapsed: 1960,
+            // Bake frames [0, 2, 2], then one advance (no catch-up burst): B steps to 0.
+            waveRegions: [0, 0, 2],
+            waveStart: 1000,
+            waveStepClock: 48,
         });
         expect(state).toMatchObject({
             cloudX: 10,
@@ -126,6 +128,56 @@ describe('deterministic background compatibility', () => {
             waveFrame: 2,
             waveElapsed: 900,
         });
+    });
+
+    it('starts animated waves on the bake frames and steps one counter per expired countdown (FUN_1010_0e74)', () => {
+        let now = 1000;
+        const policy = createBrowserPresentationPolicy({
+            storage: { getItem: (key) => (key === 'jc-waves' ? 'on' : null) },
+            now: () => now,
+            random: () => 0.5,
+        });
+        // Draw on every 20 ms engine tick for 600 ms; keep each state change and when it happened.
+        const run = (lowTide) => {
+            const presentationKey = {};
+            const state = {
+                game: johnnyCastaway,
+                backgroundId: 1,
+                bkgScreen: null,
+                bkgOcean: [],
+                bkgRes: null,
+                titleState: { presentationKey, island: true, islandLayoutId: 1, clouds: [], waves: true, lowTide },
+            };
+            const seen = [];
+            for (let ms = 0; ms <= 600; ms += 20) {
+                now = 1000 + ms;
+                drawBackground(state, {}, policy);
+                const regions = policy.backgroundState(presentationKey).waveRegions;
+                if (seen.length === 0 || seen.at(-1)[1].join() !== regions.join()) seen.push([ms, [...regions]]);
+            }
+            return seen;
+        };
+
+        // Counters A, B, C start 2, 2, 2; the bake's pass turns them into 0, 2, 2. A pass runs per
+        // ~55 ms present and steps one counter (A if A == C, else C if B == A, else B, mod 3) once
+        // four 16 ms game ticks have passed since the last step: presents 2, 3, 5, 7, 9, 10 here,
+        // i.e. 1 or 2 presents apart, as in the forced-gag captures of the original.
+        expect(run(false)).toEqual([
+            [0, [0, 2, 2]],
+            [120, [0, 0, 2]],
+            [180, [0, 0, 0]],
+            [280, [1, 0, 0]],
+            [400, [1, 1, 0]],
+            [500, [1, 1, 1]],
+            [560, [2, 1, 1]],
+        ]);
+        // Low tide has four regions; the fourth reads counter A.
+        expect(run(true).slice(0, 4)).toEqual([
+            [0, [0, 2, 2, 0]],
+            [120, [0, 0, 2, 0]],
+            [180, [0, 0, 0, 0]],
+            [280, [1, 0, 0, 1]],
+        ]);
     });
 
     it('holds the waves on their bake frames when the batch stills them (titleState.waves false)', () => {

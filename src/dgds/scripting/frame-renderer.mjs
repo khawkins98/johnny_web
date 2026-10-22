@@ -4,12 +4,31 @@
  * Browser background renderer driven by injected game-package metadata.
  */
 import { buildSpriteCanvas } from '../graphics.mjs';
-import { DGDS_TICK_MS } from './timing.mjs';
+import { WM_TIMER_MS } from './timing.mjs';
 
-// Wave frame per region right after the host bake (FUN_1010_0136 + FUN_1010_0e74):
-// counters A, B, C start at 2, 2, 2 and the first pass advances A to 0; the three
-// high-tide regions read A, B, C and the four low-tide regions A, B, C, A.
-const BAKED_WAVE_PHASES = Object.freeze([0, 2, 2, 0]);
+// Island waves (FUN_1010_0e74): three counters A, B, C (0282/0284/0286), each a
+// frame 0..2. A wave pass steps exactly one of them: A if A == C, else C if
+// B == A, else B, wrapping past 2 to 0. The high-tide regions read A, B, C and
+// the low-tide regions A, B, C, A.
+const WAVE_REGION_COUNTERS = Object.freeze([0, 1, 2, 0]);
+const advanceWaveCounters = ([a, b, c]) => {
+    if (a === c) a++;
+    else if (b === a) c++;
+    else b++;
+    return [a > 2 ? 0 : a, b > 2 ? 0 : b, c > 2 ? 0 : c];
+};
+// Every island bake (FUN_1010_0136) presets the counters to 2, 2, 2 and runs one
+// pass, so each batch starts on A, B, C = 0, 2, 2.
+const BAKED_WAVE_COUNTERS = Object.freeze(advanceWaveCounters([2, 2, 2]));
+// The pass runs once per ~55 ms present (FUN_1010_040e(0)). A pass that steps a
+// counter re-arms the countdown 0288 to 4 ticks of the 16 ms game clock
+// (decremented by FUN_1008_16ce); passes do nothing until it reaches 0. The
+// bake's own pass arms it too. So a step lands 1 or 2 presents after the last
+// (~86 ms on average); forced-gag captures of the original show the same 1/2
+// present mix, one region per step in A, B, C order.
+const WAVE_COUNTDOWN_TICKS = 4;
+const GAME_TICK_MS = 16;
+const waveClockAt = (elapsedMs) => Math.floor((Math.floor(elapsedMs / WM_TIMER_MS) * WM_TIMER_MS) / GAME_TICK_MS);
 
 // ---------------------------------------------------------------------------
 // Background renderer
@@ -41,7 +60,9 @@ export const drawBackground = (state, context, policy) => {
     ) {
         const hour = policy.currentHour();
         backgroundScreen =
-            hour < 6 || hour >= 18 ? state.bkgOcean[state.bkgOcean.length - 1] : state.bkgOcean[state.dayOceanIndex ?? 0];
+            hour < 6 || hour >= 18
+                ? state.bkgOcean[state.bkgOcean.length - 1]
+                : state.bkgOcean[state.dayOceanIndex ?? 0];
     } else if (state.titleState?.night != null && state.bkgOcean.length > 0) {
         backgroundScreen = state.titleState.night
             ? state.bkgOcean[state.bkgOcean.length - 1]
@@ -125,26 +146,20 @@ export const drawBackground = (state, context, policy) => {
         const waves = tide?.waves || profile.animatedLayers || [];
         if (animation.waveTide !== tideName || animation.waveRegions?.length !== waves.length) {
             animation.waveTide = tideName;
-            animation.waveRegions = Array(waves.length).fill(0);
-            animation.waveRegion = 0;
-            animation.wavePhase = 0;
-            animation.waveElapsed = now + 8 * DGDS_TICK_MS;
+            animation.waveCounters = [...BAKED_WAVE_COUNTERS];
+            animation.waveStart = now;
+            animation.waveStepClock = 0;
         }
-        if (wavesOn && waves.length > 0 && now >= animation.waveElapsed) {
-            while (now >= animation.waveElapsed) {
-                animation.waveRegions[animation.waveRegion] = animation.wavePhase;
-                animation.waveRegion = (animation.waveRegion + 1) % waves.length;
-                if (animation.waveRegion === 0) animation.wavePhase = (animation.wavePhase + 1) % 3;
-                animation.waveElapsed += 8 * DGDS_TICK_MS;
-            }
-        } else if (!wavesOn) {
-            // Still waves show the bake's frames: FUN_1010_0136 presets the three
-            // region counters to 2 and the first wave pass (FUN_1010_0e74) advances the
-            // first one to 0; the regions read counters A, B, C, A in order.
-            animation.waveRegions.forEach((_, index) => {
-                animation.waveRegions[index] = BAKED_WAVE_PHASES[index] ?? 0;
-            });
+        // Still waves (the setting, or flagsB 0x1000) stay on the bake's frames.
+        // At most one step per present: an overdue countdown does not catch up.
+        const waveClock = waveClockAt(now - animation.waveStart);
+        if (!wavesOn) {
+            animation.waveCounters = [...BAKED_WAVE_COUNTERS];
+        } else if (waveClock - animation.waveStepClock >= WAVE_COUNTDOWN_TICKS) {
+            animation.waveCounters = advanceWaveCounters(animation.waveCounters);
+            animation.waveStepClock = waveClock;
         }
+        animation.waveRegions = waves.map((_, index) => animation.waveCounters[WAVE_REGION_COUNTERS[index] ?? 0]);
         waves.forEach((layer, index) => {
             const frame = layer.frames[animation.waveRegions[index] % layer.frames.length];
             blit(layer.source, frame, posX + layer.x, posY + layer.y);
