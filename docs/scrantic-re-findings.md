@@ -211,6 +211,15 @@ before the wave pass while `30b2` is set, so the waves never advance for the bat
 own wave pass (`FUN_1010_0e74(0)` after presetting counters `0282/0284/0286 = 2`, which the
 first pass turns into `0, 2, 2`) also blits those frames into `eb0` when `30b2 == 1`, so the
 plate carries them. `0x1000` has nothing to do with island position (the old `VARPOS` name).
+With waves animating, each per-present `FUN_1010_040e(0)` runs the same pass, which does nothing
+while the countdown `0288` is non-zero. `FUN_1008_16ce` decrements it on every 16 ms game tick. When
+`0288` reaches 0, the pass re-arms it to 4 and steps exactly one counter: A if A == C, else C if
+B == A, else B, wrapping past 2 to 0. From the bake's 0, 2, 2 that gives 0,0,2 → 0,0,0 → 1,0,0 → 1,1,0 →
+1,1,1 → …, and every bake starts it again. High-tide regions read A, B, C and low-tide regions
+A, B, C, A. (`2f40` is the 30-slot count looped over by `FUN_1010_04a2`, not the wave countdown.)
+So a step lands 1 or 2 presents after the last. Forced-gag framebuffer captures agree: one region
+changes per step, in A, B, C order, with 1- and 2-present gaps (about 1:2), and the wave frames
+follow the counter rule exactly. That is ~1.65 presents per step, ~90 ms at 55 ms per present.
 
 **B.6.4 Walk path-finding — precomputed route table (`FUN_1018_0094`, `FUN_1018_03ac/03ea`)**
 (supersedes the earlier "3-D matrix" guess). Route matrix at file `0x18894`, row stride `0x0c`
