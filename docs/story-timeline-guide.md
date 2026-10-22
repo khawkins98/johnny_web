@@ -1,32 +1,29 @@
 # Explore the story timeline
 
-The timeline shows Johnny's **11 story days, the current visit, possible future gags, and a selected gag's script references** in one pan and zoom map. The day keys form a continuous backbone. The current visit branches below its day key, while later days branch only to unchosen possibilities. The fixed 01–11 ruler follows story order, not elapsed time. You need to [import the original game data](../README.md#run-locally) before scenes and animation previews can appear.
+The timeline asks one question at a time: **which day, which tide, which gag**. It opens on the gag Johnny is playing now, with the path to it shown as a breadcrumb (for example **Day 10 › Early high tide › Eat**). Click any part of the breadcrumb to go back to that question. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
 
-## Open and navigate
+## Open and close
 
-Start Classic or Enhanced playback, then click the compass near the upper-left corner or press `T`. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus.
+Start Classic or Enhanced playback, then click the compass near the upper-left corner or press `T`. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus. **↖ Johnny now** returns to the live gag from anywhere.
 
-The map opens around Johnny's live gag and fills the available browser width. Drag empty space to pan; wheel or use **+**/**−** to zoom around the pointer. With keyboard focus on the map, arrow keys pan and `+`/`−` zoom. On touch screens, drag with a finger and use the zoom buttons.
+Card pictures are real frames, rendered in your browser from your own game data and kept there, so each one is made only once. Until a picture is ready, or when a gag shows nothing clear in its first 15 seconds, its card shows a pixel icon for its family of gags (fishing, building, visitors, Mary, Suzy, and so on).
 
-- **Follow live** returns the camera to Johnny's current gag.
-- **Next visit ?** moves to the end of the visit already planned by the game. When inspecting another day, this shortcut becomes **Day options →** and moves to that day's possibilities gate.
-- **Fit story** frames all 11 day regions. Click a numbered day in the fixed ruler to inspect that day.
-- **Script ↓** focuses the selected gag's script references inside the same map.
+## Which day?
 
-The visit forks from the current day's key scene and runs **left to right**. Ivory cards are already seen, yellow is Johnny now, and dashed cyan cards are already planned for this visit. Its line ends at an unresolved gate; it does not join a later day until the game chooses what happens. The arrows show order, not elapsed time. The optional **Visit list** provides the same plan as a horizontal set of cards.
+Johnny's story runs over 11 days. Each day card shows that day's **key scene**; playing it unlocks the next day. Today is marked.
 
-## What may happen next
+## Which tide?
 
-At the end of the known visit, the teal **Next visit unknown** gate leads to possible source records. Three forks beside it show examples from different source scripts; they are **not predictions**. Click an example to inspect it, or select the gate to open the full catalog branch to its right. The catalog groups every relevant record by its original script. Its small bars compare **source catalog selection weights**, not percentages or a forecast. Tide, flags, remaining visit budget, and recent history affect actual selection. Ending gags and idle poses remain visible in the catalog.
+The tide decides which gags can appear. The game tracks 16 tide phases, but every gag's tide window starts and ends at the same points, so three bands cover them exactly: **early high tide**, **late high tide**, and **low tide**. Each option says how many gags it allows, and the tide right now is marked. **▶ Play day N** saves that story day and restarts playback from its key scene.
 
-Clicking a day in the ruler shows its key scene and a compact **Possible on day** gate. Click that gate to open its catalog. These actions only change what you inspect. **Play day** in the day panel is the explicit action that saves the day and restarts playback from its key scene.
+## Which gag?
 
-Hover or keyboard-focus a gag or scene for context and a small silent original-game preview when one is available. Some source actions have little visible motion or no preview.
+These are the gags the game can choose on that day at that tide, with the day's key scene first. Corner marks on a card: **☾** ends a visit, **✦N** is the key scene for day N. On today's day and tide, a **This visit** strip shows the visit the game has planned, in order, with Johnny's current gag highlighted.
 
-## Inspect or play a script scene
+## A gag
 
-Select a gag, then use **Script ↓** to focus its references within the same day region. Numbered scene cards move left to right in the order their references first appear in the script. A long forward chain forms a **reference spine**; other chains fork onto colored lanes and can rejoin it. Solid rails make one route through each branch legible, while faint links retain additional authored references. Yellow traces the route to the inspected scene; amber loops show backward references and dashed amber links mark random picks. Hover or focus a scene to brighten its incoming and outgoing links. Pan to follow a long gag. Lane placement organizes the script; it is **not an exact trace of Johnny's live execution, elapsed time, or the odds of a choice**. The inspector below explains guards, stops, and parallel actions. **Full script map** gives another pan and zoom view of the gag graph.
+The chosen gag's card sits at the top. **▶ Play this gag** starts a new visit from it, and the story carries on from there.
 
-Select a scene card to change the inspector's preview and choices. Each non-start scene card also has a **▶** control that starts that scene in one click; the inspector's **Play this scene now** button does the same. This interrupts current playback, runs the scene through the original gag logic, then resumes the planned sequence. While exploring another day, starting a scene only previews it and does not save or switch days. **Return to live** leaves inspection without changing playback.
+Below it, **how this gag unfolds** lists its steps in order: each condition ("After walk to bottle") and the scenes it starts or stops. Steps that pick at random say so. Click a scene to select it: the steps that lead to it are highlighted, and the side panel shows a silent preview from the original game. **▶ Play this scene now** interrupts playback, runs the gag from that scene, then lets the visit carry on. Resource-loading steps are hidden. The list shows possible routes; it is **not an exact trace of live execution, elapsed time, or the odds of a choice**.
 
-**Read the original script steps** expands the extracted text outline. See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.
+See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.

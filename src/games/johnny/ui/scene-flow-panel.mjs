@@ -17,12 +17,13 @@
  */
 import {
     buildSceneFlowLabelResolver,
+    describeSceneFlowGuard,
     extractSceneFlow,
-    outlineSceneFlowSteps,
 } from '../../../dgds/scripting/scene-flow.mjs';
-import { JOHNNY_SCENES } from '../story-controller.mjs';
+import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
+import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
+import { createCardFaceQueue } from './story-card-faces.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
-import { mountStoryTimelineAtlas } from './story-timeline-atlas.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
 
 const REPO_URL = 'https://github.com/khawkins98/johnny_web';
@@ -81,309 +82,26 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             padding-bottom: 3px;
         }
 
-        .scene-flow-map-shell {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 260px;
-            gap: 8px;
-            min-height: 0;
-            align-items: start;
-            font-family: 'VT323', monospace;
-        }
-        .scene-flow-map-main {
-            min-width: 0;
-            background: #071998;
-            box-shadow: inset 0 0 0 2px #31b7e6;
-            padding: 8px;
-            color: #fff9ab;
-        }
-        .scene-flow-map-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 8px;
-            padding: 1px 10px 4px;
-            font-size: 19px;
-            letter-spacing: .04em;
-        }
-        .scene-flow-map-tools { display: flex; align-items: center; gap: 5px; color: #80e7ec; }
-        .scene-flow-map-tools button { min-width: 40px; min-height: 40px; border: 1px solid #3cb8e5; background: #123bb2; color: #fff8b5; font: 20px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-map-tools button:hover { background: #2762cd; }
-        .scene-flow-map-tools button:active { scale: .96; }
-        .scene-flow-map-tools .scene-flow-mode-button { min-width: 94px; padding: 0 6px; font-size: 17px; }
-        .scene-flow-map-main:not(.is-overview) .scene-flow-zoom-control { display: none; }
-        .scene-flow-map-main.is-overview .scene-flow-viewport { height: 390px; }
-        .scene-flow-viewport {
-            height: 224px;
-            overflow: hidden;
-            position: relative;
-            cursor: grab;
-            background: repeating-linear-gradient(0deg, transparent 0 15px, rgba(83,219,255,.12) 16px 17px), #071998;
-            touch-action: none;
-        }
-        .scene-flow-viewport.is-dragging { cursor: grabbing; }
-        .scene-flow-viewport[data-mode="focus"] { cursor: default; }
-        .scene-flow-viewport canvas,
-        .scene-flow-map-labels { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .scene-flow-map-labels { pointer-events: none; }
-        .scene-map-node {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            width: 42px;
-            min-height: 40px;
-            padding: 3px 5px;
-            border: 2px solid #00d9ec;
-            border-radius: 0;
-            background: #0a258e;
-            box-shadow: 3px 3px 0 #020d5b;
-            color: #fffbe2;
-            font: 19px/0.95 'VT323', monospace;
-            text-align: center;
-            cursor: pointer;
-            pointer-events: auto;
-            overflow-wrap: anywhere;
-            transition-property: background-color, color, border-color, scale;
-            transition-duration: 130ms;
-        }
-        .scene-map-node:hover, .scene-map-node:focus-visible { background: #1d49b5; outline: 2px solid #fff; outline-offset: 2px; }
-        .scene-map-node:active { scale: .96; }
-        .scene-map-node:not(.is-start):hover::after,
-        .scene-map-node:not(.is-start):focus-visible::after,
-        .scene-map-node:not(.is-start).is-selected::after {
-            content: attr(data-name);
-            position: absolute;
-            z-index: 5;
-            bottom: calc(100% + 5px);
-            left: 50%;
-            transform: translateX(-50%);
-            min-width: 90px;
-            max-width: 150px;
-            padding: 4px 5px;
-            background: #fff4c7;
-            color: #312515;
-            border: 2px solid #e2a42f;
-            font-size: 16px;
-            line-height: 1;
-            white-space: normal;
-            box-shadow: 3px 3px 0 #020d5b;
-        }
-        .scene-map-node.is-route { border-color: #91e6ec; }
-        .scene-map-node.is-selected { background: #2855b5; color: #fffbe2; border-color: #fff; outline: 2px solid #fff; outline-offset: 2px; z-index: 2; }
-        .scene-map-node:hover, .scene-map-node:focus-visible { z-index: 20; }
-        .scene-map-node.is-start { width: 110px; font-size: 18px; }
-        .scene-map-node.is-focus-node { width: 132px; min-height: 50px; font-size: 18px; }
-        .scene-map-node.is-focus-node.is-selected { width: 150px; }
-        .scene-map-node.is-focus-node::after { display: none; }
-        .scene-flow-map-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 5px 8px 0; font-size: 15px; color: #b9eaf0; }
-        .scene-flow-map-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; }
-        .scene-flow-map-legend b { font-weight: normal; }
-        .scene-flow-map-legend .route { color: #a7edf1; }
-        .scene-flow-map-legend .random { color: #ffad65; }
-        .scene-flow-map-aside {
-            padding: 10px 12px;
-            color: #3b2c1c;
-            background: #f4e4c8;
-            box-shadow: inset 0 0 0 2px #8b5a2b;
-            font-size: 18px;
-        }
         .scene-flow-inspector h3 { margin: 10px 0 0; font: 26px/1 'Caveat', cursive; }
         .scene-flow-inspector p { margin: 5px 0; line-height: 1.08; }
         .scene-flow-inspector .scene-flow-inspector-kicker { color: #795023; text-transform: uppercase; font-size: 15px; }
         .scene-flow-preview-stage { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 8px 0 4px; overflow: hidden; background: #071998; border: 2px solid #8b5a2b; box-sizing: border-box; }
-        .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+        /* Shown smaller than 640x480: smooth downscaling averages the game's dithering instead of breaking it into moire. */
+        .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
         .scene-flow-preview-caption { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
         .scene-flow-play-button { width: 100%; min-height: 42px; margin-top: 8px; padding: 5px 8px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
         .scene-flow-play-button:hover { background: #fff177; }
         .scene-flow-play-button:active { scale: .96; }
         .scene-flow-preview-note { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
-        .scene-flow-route-controls { display: flex; gap: 5px; margin-top: 10px; }
-        .scene-flow-route-controls button, .scene-flow-next button {
-            border: 2px solid #8b5a2b; background: #ffefce; color: #4a3520;
-            font: 18px/1 'VT323', monospace; cursor: pointer; min-height: 40px;
-        }
-        .scene-flow-route-controls button { flex: 1; }
-        .scene-flow-route-controls button:disabled { opacity: .43; cursor: default; }
-        .scene-flow-route-controls button:not(:disabled):hover, .scene-flow-next button:hover { background: #fff9e9; }
-        .scene-flow-route-controls button:not(:disabled):active, .scene-flow-next button:active { scale: .96; }
-        .scene-flow-next { margin-top: 12px; max-height: 198px; overflow-y: auto; }
-        .scene-flow-next-title { display: block; color: #795023; border-bottom: 1px dashed #ad8051; margin-bottom: 4px; }
-        .scene-flow-next button { width: 100%; text-align: left; padding: 4px 6px; margin: 3px 0; }
-        .scene-flow-next small { display: block; color: #855a35; font-size: 15px; }
-        .scene-flow-decision-lane { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-height: none; overflow: visible; border-top: 1px dashed #65c8e2; padding-top: 8px; margin-top: 9px; }
-        .scene-flow-decision-lane .scene-flow-next-title { grid-column: 1 / -1; color: #b9eaf0; border: 0; margin: 0; font-size: 17px; }
-        .scene-flow-decision-lane button { min-height: 48px; margin: 0; padding: 6px 8px; border-color: #65c8e2; background: #173ba6; color: #fffbe2; }
-        .scene-flow-decision-lane button:hover { background: #2857bc; }
-        .scene-flow-decision-lane small { color: #bbdfed; }
         .scene-flow-story-shell { padding: 13px 15px; background: #071998; box-shadow: inset 0 0 0 2px #31b7e6; color: #fff9c5; font: 19px/1.1 'VT323', monospace; }
-        .scene-flow-matrix-context { background: #071998; border-bottom: 1px dashed #65c8e2; padding: 5px 0 10px; }
-        .scene-flow-story-intro { display: flex; justify-content: space-between; gap: 12px; align-items: end; border-bottom: 1px dashed #54bfeb; padding-bottom: 10px; }
-        .scene-flow-story-intro h3 { margin: 0 0 3px; font: 24px/1 'Caveat', cursive; color: #fff2a1; }
-        .scene-flow-story-intro p { margin: 0; color: #c3e6ec; font-size: 17px; }
-        .scene-flow-story-intro button { min-height: 42px; padding: 4px 12px; border: 2px solid #68d5e7; background: #1642b1; color: #fffbdc; font: 18px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-story-intro button:hover { background: #2860c7; }
-        .scene-flow-story-intro button:disabled { opacity: .55; cursor: default; }
-        .scene-flow-atlas { margin: 8px 0 5px; border: 2px solid #65c8e2; background: #071998; }
-        .scene-flow-atlas-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 42px; padding: 3px 7px; border-bottom: 1px dashed #65c8e2; color: #fff5bd; font-size: 18px; }
-        .scene-flow-atlas-controls { display: flex; flex-wrap: wrap; gap: 4px; }
-        .scene-flow-atlas-controls button { width: 40px; min-height: 40px; border: 1px solid #65c8e2; background: #1642b1; color: #fffbdc; font: 24px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-atlas-controls button.is-wide { width: auto; padding: 3px 8px; font-size: 17px; }
-        .scene-flow-atlas-controls button:hover:not(:disabled) { background: #2860c7; }
-        .scene-flow-atlas-controls button:active { scale: .96; }
-        .scene-flow-atlas-ruler { display: flex; overflow-x: auto; scrollbar-color: #65c8e2 #0b258d; border-bottom: 2px solid #65c8e2; background: #0a2386; }
-        .scene-flow-atlas-ruler button { flex: 1 0 55px; min-height: 43px; border: 0; border-right: 1px solid #527bbb; background: #102d8f; color: #bde9e9; font: 20px/1 'VT323', monospace; font-variant-numeric: tabular-nums; cursor: pointer; }
-        .scene-flow-atlas-ruler button.is-live { background: #ffe45b; color: #33291a; }
-        .scene-flow-atlas-ruler button.is-selected { outline: 2px solid #fff; outline-offset: -4px; }
-        .scene-flow-atlas-ruler button.is-in-view { box-shadow: inset 0 -4px #f0b66f; }
-        .scene-flow-atlas-ruler button:hover, .scene-flow-atlas-ruler button:focus-visible { outline: 2px solid #fff; outline-offset: -4px; }
-        .scene-flow-atlas-ruler button:active { scale: .96; }
-        .scene-flow-atlas-viewport { position: relative; height: clamp(390px, 51vh, 520px); overflow: hidden; touch-action: none; cursor: grab; background: repeating-linear-gradient(0deg, transparent 0 17px, rgba(83,219,255,.08) 18px 19px), #071998; }
-        .scene-flow-atlas-viewport.is-dragging { cursor: grabbing; }
-        .scene-flow-atlas-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-        .scene-flow-atlas-stage svg, .scene-flow-atlas-buttons { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .scene-flow-atlas-buttons { pointer-events: none; }
-        .scene-flow-atlas-line { fill: none; stroke-linecap: round; opacity: .88; }
-        .scene-flow-atlas-line.is-visited { stroke: #eadfc8; }
-        .scene-flow-atlas-line.is-planned { stroke: #8cdeed; stroke-dasharray: 10 6; }
-        .scene-flow-atlas-line.is-unresolved { stroke: #83cbc9; stroke-dasharray: 2 6; }
-        .scene-flow-atlas-line.is-story { stroke: #eadfc8; opacity: .8; }
-        .scene-flow-atlas-line.is-visit-branch { stroke: #ffe45b; }
-        .scene-flow-atlas-line.is-possibility-branch { stroke: #83cbc9; stroke-dasharray: 9 6; }
-        .scene-flow-atlas-line.is-script { stroke: #8cdeed; }
-        .scene-flow-atlas-line.is-return { stroke: #efa65f; }
-        .scene-flow-atlas-line.is-random { stroke: #efa65f; stroke-dasharray: 5 5; }
-        .scene-flow-atlas-line.is-node-stem { stroke: var(--link-color); opacity: .9; }
-        .scene-flow-atlas-line.is-script-link { transition: opacity .16s ease, stroke-width .16s ease; }
-        .scene-flow-atlas-line.is-script-link.is-track { stroke: var(--link-color); opacity: .92; }
-        .scene-flow-atlas-line.is-script-link.is-cross-link { opacity: .28; stroke-dasharray: 4 6; }
-        .scene-flow-atlas-line.is-script-link.is-cross-link.is-loop { opacity: .56; }
-        .scene-flow-atlas-line.is-script-link.is-stop { stroke: #e6a6a6; opacity: .24; stroke-dasharray: 2 6; }
-        .scene-flow-atlas-line.is-script-link.is-random,
-        .scene-flow-atlas-line.is-script-link.is-return { stroke: #efa65f; stroke-dasharray: 5 5; }
-        .scene-flow-atlas-line.is-script-link.is-traced { stroke: #ffe45b; stroke-width: 4; opacity: 1; }
-        .scene-flow-atlas-line.is-script-link.is-emphasized { opacity: 1; stroke-width: 4.5; }
-        .scene-flow-atlas-line.is-script-link.is-dimmed { opacity: .08; }
-        .scene-flow-atlas-commit { fill: #06146c; stroke: var(--link-color); stroke-width: 3; }
-        .scene-flow-atlas-commit.is-selected { fill: #ffe45b; stroke: #fff5ac; }
-        .scene-flow-atlas-day-band { fill: rgba(10,34,128,.55); stroke: rgba(123,218,232,.4); stroke-width: 2; stroke-dasharray: 9 7; }
-        .scene-flow-atlas-day-band.is-live { fill: rgba(18,49,149,.7); stroke: rgba(255,228,91,.65); }
-        .scene-flow-atlas-catalog-panel { fill: #071969; stroke: #8ccfce; stroke-width: 2; }
-        .scene-flow-atlas-script-lens { fill: #06146c; stroke: #e6b45c; stroke-width: 2; stroke-dasharray: 7 5; }
-        .scene-flow-atlas-day-heading, .scene-flow-atlas-day-caption, .scene-flow-atlas-lane-label,
-        .scene-flow-atlas-catalog-heading, .scene-flow-atlas-catalog-note,
-        .scene-flow-atlas-family-heading, .scene-flow-atlas-script-heading, .scene-flow-atlas-script-note,
-        .scene-flow-atlas-branch-label { position: absolute; white-space: nowrap; pointer-events: none; font-family: 'VT323', monospace; }
-        .scene-flow-atlas-day-heading { color: #fff2b0; font-size: 33px; font-variant-numeric: tabular-nums; }
-        .scene-flow-atlas-day-caption { color: #bde9e9; font-size: 18px; }
-        .scene-flow-atlas-lane-label { color: #fff2b0; font-size: 18px; }
-        .scene-flow-atlas-catalog-heading, .scene-flow-atlas-script-heading { color: #fff2b0; font-size: 22px; }
-        .scene-flow-atlas-catalog-note, .scene-flow-atlas-script-note { color: #bde9e9; font-size: 17px; }
-        .scene-flow-atlas-branch-label { color: #9fd8df; font-size: 17px; }
-        .scene-flow-atlas-family-heading { color: #f0dcb7; font-size: 24px; }
-        .scene-flow-atlas-node { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; padding: 7px 8px; border: 2px solid #66d8e8; border-radius: 0; background: #12339c; color: #fffbe2; box-shadow: 3px 3px 0 #020d5b; font: 19px/1 'VT323', monospace; text-align: center; cursor: pointer; pointer-events: auto; overflow: hidden; }
-        .scene-flow-atlas-node.is-key { width: 250px; min-height: 62px; background: #17398e; border-color: #a6e5e7; font-size: 21px; }
-        .scene-flow-atlas-node.is-visit { width: 176px; min-height: 86px; font-size: 20px; }
-        .scene-flow-atlas-node.is-visit[data-state="seen"] { background: #eee0c4; border-color: #fff5dd; color: #342818; }
-        .scene-flow-atlas-node.is-visit[data-state="current"] { background: #ffe45b; border-color: #fff5ac; color: #302816; }
-        .scene-flow-atlas-node.is-visit[data-state="planned"] { background: #16419e; border-color: #8cdeed; border-style: dashed; }
-        .scene-flow-atlas-node.is-gate { width: 290px; min-height: 112px; white-space: pre-line; background: #17567b; border-color: #a4e5de; color: #fff6d7; font-size: 21px; }
-        .scene-flow-atlas-node.is-example { width: 190px; min-height: 88px; background: #13527b; border-color: #a4e5de; border-style: dashed; color: #fff6d7; font-size: 22px; }
-        .scene-flow-atlas-node.is-candidate { width: 232px; min-height: 44px; padding-bottom: 11px; background: #164077; border-color: #72c5c5; font-size: 18px; }
-        .scene-flow-atlas-node.is-candidate::after { content: ''; position: absolute; left: 4px; bottom: 3px; width: var(--catalog-weight); max-width: calc(100% - 8px); height: 3px; background: #a4e5de; }
-        .scene-flow-atlas-node.is-scene { box-sizing: border-box; width: 160px; min-height: 72px; padding: 18px 48px 7px 8px; border-color: var(--lane-color, #8cdeed); font-size: 18px; }
-        .scene-flow-atlas-node.is-scene::before { content: attr(data-order); position: absolute; top: 3px; left: 6px; color: var(--lane-color, #a6e5e7); font: 14px/1 'VT323', monospace; }
-        .scene-flow-atlas-scene-play { position: absolute; transform: translate(-50%, -50%); z-index: 3; width: 44px; height: 44px; padding: 0 0 0 2px; border: 2px solid #a6e5e7; background: #1642b1; color: #fff5bd; box-shadow: 2px 2px 0 #020d5b; font: 22px/1 'VT323', monospace; cursor: pointer; pointer-events: auto; }
-        .scene-flow-atlas-scene-play.is-selected { border-color: #fff0a8; background: #ffe45b; color: #302816; }
-        .scene-flow-atlas-scene-play:hover, .scene-flow-atlas-scene-play:focus-visible { background: #fff177; border-color: #fff0a8; color: #302816; outline: 2px solid #fff; outline-offset: 2px; }
-        .scene-flow-atlas-scene-play:active { scale: .96; }
-        .scene-flow-atlas-node.is-script-summary { width: 350px; min-height: 52px; border-style: dashed; border-color: #e6b45c; color: #fff2b0; background: #0c277d; }
-        .scene-flow-atlas-node.is-selected { outline: 2px solid #fff; outline-offset: 3px; z-index: 2; }
-        .scene-flow-atlas-node:hover, .scene-flow-atlas-node:focus-visible { border-color: #fff5ac; z-index: 10; outline: 2px solid #fff; outline-offset: 2px; filter: brightness(1.14); }
-        .scene-flow-atlas-node:active { scale: .96; }
-        .scene-flow-atlas:not(.is-script-open) .scene-flow-atlas-script-detail { display: none; }
-        .scene-flow-atlas.is-script-open .scene-flow-atlas-node.is-script-summary { display: none; }
-        .scene-flow-atlas.is-overview .scene-flow-atlas-scene-play { display: none; }
-        .scene-flow-atlas.is-overview .scene-flow-atlas-node:not(.is-gate) { color: transparent; }
-        .scene-flow-atlas.is-overview .scene-flow-atlas-day-caption,
-        .scene-flow-atlas.is-overview .scene-flow-atlas-lane-label,
-        .scene-flow-atlas.is-overview .scene-flow-atlas-node.is-scene::before { display: none; }
-        .scene-flow-atlas-footer { display: flex; flex-wrap: wrap; gap: 5px 15px; min-height: 34px; padding: 6px 9px; border-top: 1px dashed #65c8e2; color: #c9e8e8; font-size: 16px; }
-        .scene-flow-atlas-footer span::before { content: ''; display: inline-block; width: 11px; height: 11px; margin-right: 5px; border: 1px solid #fff; vertical-align: -1px; }
-        .scene-flow-atlas-footer .is-seen::before { background: #eee0c4; }
-        .scene-flow-atlas-footer .is-live::before { background: #ffe45b; }
-        .scene-flow-atlas-footer .is-planned::before { background: #16419e; border-color: #8cdeed; }
-        .scene-flow-atlas-footer .is-possible::before { background: #17567b; border-color: #a4e5de; }
-        .scene-flow-atlas-tooltip { position: fixed; z-index: 2500; width: 206px; box-sizing: border-box; padding: 6px; border: 2px solid #e2a42f; background: #f4e4c8; color: #342717; box-shadow: 4px 4px 0 #020d5b; pointer-events: none; font: 17px/1 'VT323', monospace; }
-        .scene-flow-atlas-tooltip[hidden] { display: none; }
-        .scene-flow-atlas-tooltip small, .scene-flow-atlas-tooltip strong { display: block; }
-        .scene-flow-atlas-tooltip small { font-size: 14px; color: #795023; }
-        .scene-flow-atlas-tooltip strong { margin: 3px 0; font-size: 20px; font-weight: normal; }
-        .scene-flow-atlas-preview { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 4px 0; overflow: hidden; outline: 1px solid rgba(0,0,0,.1); background: #071998; }
-        .scene-flow-atlas-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-        .scene-flow-visit-list { margin-top: 9px; border-top: 1px dashed #65c8e2; color: #fff2a1; }
-        .scene-flow-visit-list > summary { padding: 9px 0; cursor: pointer; font-size: 18px; }
-        .scene-flow-day-preview { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 15px; margin: 9px 0 3px; padding: 10px; border: 2px solid #e6b45c; background: #17318d; }
-        .scene-flow-day-preview-copy { min-width: 0; flex: 1 1 260px; }
-        .scene-flow-day-preview-copy small { display: block; color: #a6e6ea; font-size: 16px; }
-        .scene-flow-day-preview-copy strong { display: block; color: #fff5bd; font: 23px/1.1 'Caveat', cursive; }
-        .scene-flow-day-preview-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-        .scene-flow-day-preview-actions button { min-height: 42px; padding: 5px 10px; border: 2px solid #65c8e2; background: #1642b1; color: #fffbdc; font: 18px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-day-preview-actions button:hover { background: #2860c7; }
-        .scene-flow-day-preview-actions button:disabled { opacity: .5; cursor: default; }
-        .scene-flow-day-preview-actions .is-play { border-color: #704a1e; background: #ffe02d; color: #302816; }
-        .scene-flow-day-preview-actions .is-play:hover:not(:disabled) { background: #fff177; }
-        .scene-flow-story-section { margin: 14px 0 7px; font-size: 17px; color: #a6e6ea; letter-spacing: .05em; }
-        .scene-flow-visit-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-        .scene-flow-visit-heading .scene-flow-story-section { margin-right: auto; }
-        .scene-flow-track-controls { display: flex; gap: 4px; }
-        .scene-flow-track-controls button { width: 40px; min-height: 40px; border: 1px solid #65c8e2; background: #1642b1; color: #fffbdc; font: 22px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-track-controls button:hover:not(:disabled) { background: #2860c7; }
-        .scene-flow-track-controls button:disabled { opacity: .45; cursor: default; }
-        .scene-flow-prime-track { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 3px 2px 9px; scrollbar-color: #65c8e2 #0b258d; }
-        .scene-flow-prime-arrow { flex: none; align-self: center; width: 32px; color: #ffe02d; text-align: center; font-size: 24px; }
-        .scene-flow-gag-card { flex: 0 0 154px; min-height: 74px; padding: 7px 8px; border: 2px solid #64d3e7; background: #12339c; color: #fffbe2; font: 18px/1.05 'VT323', monospace; text-align: left; cursor: pointer; }
-        .scene-flow-gag-card:hover { background: #2153bb; border-color: #fff5ac; }
-        .scene-flow-gag-card:active { scale: .98; }
-        .scene-flow-gag-card small { display: block; color: #ace1ec; font-size: 14px; margin-bottom: 5px; }
-        .scene-flow-gag-card strong { display: block; font-weight: normal; font-size: 20px; }
-        .scene-flow-gag-card[data-state="current"] { border-color: #fff5ac; background: #ffe02d; color: #302816; }
-        .scene-flow-gag-card[data-state="current"] small { color: #694b21; }
-        .scene-flow-gag-card[data-inspected="true"] { outline: 2px solid #fff; outline-offset: 2px; }
-        .scene-flow-gag-card[data-state="seen"] { opacity: .76; }
-        .scene-flow-gag-card[data-state="possible"] { border-color: #64d3e7; border-style: dashed; }
-        .scene-flow-gag-card:disabled { cursor: default; opacity: .7; }
-        .scene-flow-story-end { flex: 0 0 154px; min-height: 74px; box-sizing: border-box; padding: 8px; border: 2px dashed #eab06b; background: #182d83; color: #fff1c5; }
-        .scene-flow-story-end strong, .scene-flow-story-end small { display: block; font-weight: normal; }
-        .scene-flow-story-end small { color: #b9d5df; margin-top: 5px; }
         .scene-flow-possibility-note { margin: 0 0 10px; color: #c3e6ec; font-size: 17px; }
-        .scene-flow-possible-track { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 9px 0; }
-        .scene-flow-possible-pool.is-day-exploration .scene-flow-possible-track { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-        .scene-flow-possible-track .scene-flow-gag-card { width: 100%; min-height: 92px; }
         .scene-flow-matrix-detail { margin-top: 9px; border-top: 1px dashed #65c8e2; padding-top: 9px; }
         .scene-flow-matrix-detail-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #b9eaf0; font-size: 17px; letter-spacing: .04em; }
         .scene-flow-matrix-detail-heading strong { color: #fff6c7; font-weight: normal; font-size: 20px; }
-        .scene-flow-possible-pool { border-top: 1px dashed #65c8e2; margin-top: 13px; padding-top: 7px; }
-        .scene-flow-possible-pool summary { cursor: pointer; min-height: 40px; color: #b9eaf0; font-size: 18px; }
-        .scene-flow-possible-pool summary:hover { color: #fff; }
-        .scene-flow-possible-pool summary:focus-visible { outline: 2px solid #fff; }
-        .scene-flow-next-story { background: #ffe02d !important; color: #302816 !important; border-color: #704a1e !important; }
-        .scene-flow-script-details { margin-top: 12px; color: #3b2c1c; font-family: 'VT323', monospace; font-size: 18px; }
-        .scene-flow-script-details summary { cursor: pointer; min-height: 40px; padding: 8px; background: #ead7b8; }
         .scene-flow-outline { margin-top: 8px; }
         @media (max-width: 730px) {
-            .scene-flow-map-shell { grid-template-columns: 1fr; }
-            .scene-flow-viewport { height: min(30vh, 230px); }
-            .scene-flow-map-aside { min-height: 160px; }
             #scene-flow-modal { padding: 14px 12px; }
-            .scene-flow-map-hint { display: none; }
-            .scene-map-node.is-focus-node { width: 88px; font-size: 15px; }
-            .scene-map-node.is-focus-node.is-selected { width: 98px; }
-            .scene-flow-map-tools .scene-flow-mode-button { min-width: 84px; }
             .scene-flow-story-shell { padding: 14px 12px; }
-            .scene-flow-story-intro { align-items: start; flex-direction: column; }
-            .scene-flow-visit-heading .scene-flow-story-section { font-size: 16px; }
-            .scene-flow-gag-card, .scene-flow-story-end { flex-basis: 134px; }
-            .scene-flow-possible-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .scene-flow-possible-pool.is-day-exploration .scene-flow-possible-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .scene-flow-decision-lane { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         .scene-flow-close {
@@ -417,52 +135,20 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             padding: 18px 6px;
         }
 
-        .scene-flow-outline {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0;
-        }
-
-        .scene-flow-step {
-            background: #f4e4c8;
-            border: 2px solid #8b5a2b;
-            border-radius: 6px;
-            padding: 10px 14px;
-            box-shadow: 0 2px 4px rgba(74,53,32,0.16), inset 0 1px rgba(255,255,255,0.5);
-        }
-
-        .scene-flow-guard {
-            font-family: 'VT323', monospace;
-            font-size: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #6b4a24;
-            margin-bottom: 4px;
-        }
-
-        .scene-flow-targets {
-            font-size: 22px;
-            line-height: 1.25;
-        }
-
-        .scene-flow-targets .scene-flow-pick {
-            display: block;
-            margin-left: 8px;
-        }
-
-        .scene-flow-pick::before {
-            content: '· ';
-        }
-
-        .scene-flow-connector {
-            text-align: center;
-            font-family: 'VT323', monospace;
-            font-size: 22px;
-            color: #8b5a2b;
-            line-height: 1;
-            padding: 2px 0;
-        }
+        .scene-flow-outline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: step; }
+        .scene-flow-step { display: grid; grid-template-columns: minmax(150px, 260px) 1fr; gap: 4px 14px; align-items: baseline;
+            padding: 8px 12px 8px 40px; position: relative; background: #f4e4c8; border: 2px solid #8b5a2b; counter-increment: step; }
+        .scene-flow-step::before { content: counter(step); position: absolute; left: 10px; top: 8px; font: 20px/1 'VT323', monospace; color: #8b5a2b; }
+        .scene-flow-guard { font: 18px/1.15 'VT323', monospace; color: #6b4a24; }
+        .scene-flow-guard strong { font-weight: normal; color: #302816; }
+        .scene-flow-targets { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 21px/1.15 'VT323', monospace; color: #302816; }
+        .scene-flow-target strong, .scene-flow-pick strong { font-weight: normal; }
+        .scene-flow-target::before { content: '→ '; color: #8b5a2b; }
+        .scene-flow-target.is-stop { color: #9a3412; }
+        .scene-flow-target.is-stop::before { content: '■ '; }
+        .scene-flow-pick-lead { flex-basis: 100%; color: #6b4a24; font-size: 18px; }
+        .scene-flow-pick::before { content: '◆ '; color: #c2410c; }
+        @media (max-width: 640px) { .scene-flow-step { grid-template-columns: 1fr; } }
 
         .scene-flow-links {
             margin-top: 18px;
@@ -525,6 +211,41 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
         #scene-flow-cog.is-visible:active { scale: .96; }
         #scene-flow-cog:focus-visible { outline: 3px solid rgba(244, 228, 200, 0.86); outline-offset: 3px; }
+        .scene-flow-day-strip { margin: 6px 0 4px; }
+        .scene-flow-day-buttons { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); border: 2px solid #65c8e2; }
+        .scene-flow-day-buttons button { min-height: 52px; padding: 5px 4px; border: 0; border-right: 1px solid #527bbb; background: #102d8f; color: #bde9e9; cursor: pointer; text-align: center; overflow: hidden; }
+        .scene-flow-day-buttons button:last-child { border-right: 0; }
+        .scene-flow-day-buttons button strong { display: block; font: 22px/1 'VT323', monospace; font-variant-numeric: tabular-nums; }
+        .scene-flow-day-buttons button small { display: block; margin-top: 2px; font: 15px/1 'VT323', monospace; color: #a4e5de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .scene-flow-day-buttons button[aria-current="date"] { background: #ffe02d; color: #302816; }
+        .scene-flow-day-buttons button[aria-current="date"] small { color: #5b4a1c; }
+        .scene-flow-day-buttons button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px #fffbe2; }
+        .scene-flow-day-buttons button:hover { background: #1642b1; }
+        .scene-flow-day-buttons button[aria-current="date"]:hover { background: #ffe86a; }
+        .scene-flow-day-buttons button:focus-visible { outline: 3px solid #ffe02d; outline-offset: -3px; }
+        .scene-flow-day-pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 2px solid #65c8e2; border-top: 0; background: #0b2384; color: #fffbdc; }
+        .scene-flow-day-pick[hidden] { display: none; }
+        .scene-flow-day-pick button { min-height: 40px; padding: 4px 14px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-day-pick button:disabled { opacity: .5; cursor: default; }
+        @media (max-width: 720px) {
+            .scene-flow-day-buttons { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+            .scene-flow-day-buttons button small { display: none; }
+        }
+        .scene-flow-gag { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; margin-top: 8px; }
+        .scene-flow-gag-aside { position: sticky; top: 0; padding: 10px 12px; color: #3b2c1c; background: #f4e4c8;
+            box-shadow: inset 0 0 0 2px #8b5a2b; font: 18px/1.1 'VT323', monospace; }
+        .scene-flow-targets button { padding: 2px 6px; border: 1px solid transparent; background: none; color: inherit;
+            font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted #8b5a2b; text-underline-offset: 3px; }
+        .scene-flow-targets button:hover { background: #fff1b8; border-color: #8b5a2b; }
+        .scene-flow-targets button:focus-visible { outline: 3px solid #071998; outline-offset: 1px; }
+        .scene-flow-targets button.is-route { background: #fff1b8; }
+        .scene-flow-targets button[aria-pressed="true"] { background: #ffe02d; border-color: #704a1e; text-decoration: none; }
+        .scene-flow-step.is-route { border-color: #c79a3a; }
+        .scene-flow-step.is-selected { border-color: #ffe02d; box-shadow: 0 0 0 2px #ffe02d; }
+        @media (max-width: 760px) {
+            .scene-flow-gag { grid-template-columns: 1fr; }
+            .scene-flow-gag-aside { position: static; }
+        }
         ${iconTooltipCss}
     `;
     document.head.appendChild(style);
@@ -548,12 +269,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         isOpen = false;
         mapGeneration++;
         previewGeneration++;
-        mountedMap?.destroy();
-        mountedMap = null;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedAtlas?.destroy();
-        mountedAtlas = null;
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
         previousFocus?.focus?.();
@@ -571,24 +288,43 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     const body = document.createElement('div');
     modal.appendChild(body);
-    let mountedMap = null;
     let selectedKey = null;
-    let trail = [];
-    let trailIndex = -1;
     let seenGags = [];
-    let viewedGag = null;
-    let exploredDay = null;
-    let catalogOpenDay = null;
-    let poolOpen = false;
     let mapGeneration = 0;
     let mountedPreview = null;
-    let mountedAtlas = null;
-    let atlasCamera = null;
-    let cameraOverride = false;
     let previewGeneration = 0;
     let renderedGagId = null;
-    let timelineTracks = null;
-    let resizeFrame = null;
+    // Story steps (issue #47): which day, then which tide, then which gag.
+    // `step` is where the viewer is; while `followLive` holds it tracks Johnny.
+    let step = null;
+    let faceQueue = null;
+    const stepperStyle = document.createElement('style');
+    stepperStyle.textContent = STEPPER_STYLE;
+    document.head.appendChild(stepperStyle);
+    const liveSpot = (status) => ({
+        day: status?.storyDay || sequenceTools?.getStoryDay?.() || 1,
+        band: bandForPhase(status?.tidePhase)?.id ?? null,
+        gag: status?.active ? gagFacts({ ...status.active, index: status.current }) : null,
+    });
+    const followLive = (status) => {
+        const live = liveSpot(status);
+        step = { level: 'detail', day: live.day, band: live.band ?? 'early', gag: live.gag, followLive: true };
+    };
+    const playGag = (gag, day) => {
+        if (typeof sequenceTools?.startRun !== 'function') return false;
+        try {
+            // 'preview' plays exactly this gag now, then the story carries on.
+            // ('sequence' would plan a whole visit around it: a gag that ends a
+            // visit would then play last, after other gags.)
+            sequenceTools.startRun({
+                mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day,
+            });
+            close();
+            return true;
+        } catch {
+            return false;
+        }
+    };
 
     const playScriptScene = ({ script, gagTag, day, key, route, onError }) => {
         const [slot, childTag] = key.split(':').map(Number);
@@ -674,24 +410,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         while (el.firstChild) el.removeChild(el.firstChild);
     };
 
-    const centerCard = (track, card) => {
-        if (!track || !card || !track.clientWidth) return;
-        const left = card.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft;
-        track.scrollLeft = Math.max(0, left - (track.clientWidth - card.clientWidth) / 2);
-    };
-    const centerTimeline = () => {
-        if (!isOpen || !timelineTracks) return;
-        const { prime } = timelineTracks;
-        centerCard(prime, prime.querySelector('[data-inspected="true"]') || prime.querySelector('[data-state="current"]'));
-    };
-    const onTimelineResize = () => {
-        if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
-        resizeFrame = window.requestAnimationFrame(() => {
-            resizeFrame = null;
-            centerTimeline();
-        });
-    };
-    window.addEventListener('resize', onTimelineResize);
 
     const renderEmpty = (message) => {
         mapGeneration++;
@@ -700,11 +418,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         selectedKey = null;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedAtlas?.destroy();
-        mountedAtlas = null;
-        mountedMap?.destroy();
-        mountedMap = null;
-        timelineTracks = null;
         title.textContent = 'How it works';
         subtitle.textContent = '';
         clear(body);
@@ -725,298 +438,73 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
     };
 
-    const possibleLaterGags = (storyDay, shown) => {
-        const byScript = new Map();
-        for (const candidate of JOHNNY_SCENES) {
-            if (!candidate.script.endsWith('.ADS') || candidate.script === 'STAND.ADS') continue;
-            if (candidate.day !== 0 && candidate.day !== storyDay) continue;
-            // Tide-gated scenes need the host's exact phase, which is not known
-            // for a future visit. Keep this set to day-eligible, all-tide examples.
-            if (candidate.tideMin !== 0 || candidate.tideMax !== 16) continue;
-            const key = `${candidate.script}:${candidate.tagId}`;
-            if (shown.has(key)) continue;
-            if (!byScript.has(candidate.script) || candidate.day === storyDay) {
-                byScript.set(candidate.script, { script: candidate.script, tagId: candidate.tagId });
-            }
+    const canJumpDay = () => typeof sequenceTools?.setStoryDay === 'function' &&
+        typeof sequenceTools?.startRun === 'function';
+    const playDay = (day) => {
+        const keyScene = keySceneFor(day);
+        if (!keyScene || !canJumpDay()) return false;
+        const savedDay = sequenceTools.getStoryDay?.();
+        try {
+            sequenceTools.setStoryDay(day);
+            sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day });
+            close();
+            return true;
+        } catch {
+            if (savedDay != null) sequenceTools.setStoryDay(savedDay);
+            return false;
         }
-        const order = ['FISHING.ADS', 'WALKSTUF.ADS', 'VISITOR.ADS', 'BUILDING.ADS',
-            'ACTIVITY.ADS', 'JOHNNY.ADS', 'SUZY.ADS', 'MARY.ADS', 'MISCGAG.ADS'];
-        return order.map((script) => byScript.get(script)).filter(Boolean).slice(0, 8);
     };
 
     const renderStoryTimeline = (status) => {
-        const storyDay = status.storyDay || sequenceTools?.getStoryDay?.() || 1;
+        const live = liveSpot(status);
+        if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
-        subtitle.textContent = `STORY DAY ${storyDay} OF 11 · THIS VISIT AND ITS POSSIBLE PATHS`;
+        subtitle.textContent = `STORY DAY ${live.day} OF 11 · PICK A DAY, A TIDE, THEN A GAG`;
 
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
-        const intro = document.createElement('div');
-        intro.className = 'scene-flow-story-intro';
-        const introCopy = document.createElement('div');
-        const introTitle = document.createElement('h3');
-        introTitle.textContent = 'You are here in Johnny’s story';
-        const introNote = document.createElement('p');
-        introNote.textContent = 'Days run across the top; this visit branches below. Yellow marks Johnny now. Only Play changes playback.';
-        introCopy.append(introTitle, introNote);
-        const inspectCurrent = document.createElement('button');
-        inspectCurrent.type = 'button';
-        inspectCurrent.textContent = '↖ Return to live';
-        inspectCurrent.addEventListener('click', () => {
-            viewedGag = null;
-            exploredDay = null;
-            catalogOpenDay = null;
-            poolOpen = false;
-            atlasCamera = null;
-            cameraOverride = true;
-            renderCurrent();
-        });
-        intro.appendChild(introCopy);
-        if (viewedGag || exploredDay !== null) intro.appendChild(inspectCurrent);
-        shell.appendChild(intro);
-
-        const atlasHost = document.createElement('div');
-        const canJumpDay = typeof sequenceTools?.setStoryDay === 'function' &&
-            typeof sequenceTools?.startRun === 'function';
-        const playDay = (day) => {
-            const keyScene = JOHNNY_SCENES.find((candidate) => candidate.day === day);
-            if (!keyScene || !canJumpDay) return;
-            const savedDay = sequenceTools.getStoryDay?.();
-            try {
-                sequenceTools.setStoryDay(day);
-                sequenceTools.startRun({
-                    mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day,
-                });
-                close();
-            } catch {
-                if (savedDay != null) sequenceTools.setStoryDay(savedDay);
-                dayNote.textContent = `Could not start day ${day}. Johnny is still playing the current visit.`;
-                dayNote.hidden = false;
-            }
-        };
-        const exploreDay = (day, focus = 'day') => {
-            const keyScene = JOHNNY_SCENES.find((candidate) => candidate.day === day);
-            if (!keyScene) return;
-            atlasCamera = (focus === 'possibilities'
-                ? mountedAtlas?.cameraForPossibilities(day) : mountedAtlas?.cameraForDay(day)) ?? atlasCamera;
-            cameraOverride = true;
-            exploredDay = day;
-            catalogOpenDay = focus === 'possibilities' ? day : null;
-            viewedGag = { script: keyScene.script, tagId: keyScene.tagId, index: null };
-            poolOpen = false;
-            renderCurrent();
-        };
-        const dayNote = document.createElement('p');
-        dayNote.className = 'scene-flow-possibility-note';
-        dayNote.hidden = true;
-        const context = document.createElement('div');
-        context.className = 'scene-flow-matrix-context';
-        context.appendChild(atlasHost);
-        context.appendChild(dayNote);
-        if (exploredDay !== null) {
-            const keyScene = JOHNNY_SCENES.find((candidate) => candidate.day === exploredDay);
-            const preview = document.createElement('section');
-            preview.className = 'scene-flow-day-preview';
-            const copy = document.createElement('div');
-            copy.className = 'scene-flow-day-preview-copy';
-            const kicker = document.createElement('small');
-            kicker.textContent = `EXPLORING DAY ${String(exploredDay).padStart(2, '0')} · LIVE PLAYBACK STAYS ON DAY ${String(storyDay).padStart(2, '0')}`;
-            const name = document.createElement('strong');
-            name.textContent = `Key scene: ${gagName(keyScene)}`;
-            copy.append(kicker, name);
-            const actions = document.createElement('div');
-            actions.className = 'scene-flow-day-preview-actions';
-            const inspectKey = document.createElement('button');
-            inspectKey.type = 'button';
-            inspectKey.textContent = 'Inspect key scene';
-            inspectKey.addEventListener('click', () => {
-                viewedGag = { script: keyScene.script, tagId: keyScene.tagId, index: null };
+        faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
+        renderStoryStepper(shell, {
+            step,
+            live,
+            visit: visitSequence({
+                seen: seenGags,
+                active: status.active,
+                current: status.current,
+                planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
+            }),
+            gagName,
+            faces: faceQueue,
+            onStep: (patch) => {
+                step = { ...step, ...patch, followLive: false };
+                if (patch.gag) step.gag = gagFacts(patch.gag);
                 renderCurrent();
-            });
-            const play = document.createElement('button');
-            play.type = 'button';
-            play.className = 'is-play';
-            play.textContent = `▶ Play day ${String(exploredDay).padStart(2, '0')}`;
-            play.title = `Save day ${exploredDay} and restart the visit from ${gagName(keyScene)}`;
-            play.disabled = !canJumpDay;
-            play.addEventListener('click', () => playDay(exploredDay));
-            actions.append(inspectKey, play);
-            preview.append(copy, actions);
-            context.appendChild(preview);
-        }
-        shell.appendChild(context);
-
-        const visitHeading = document.createElement('div');
-        visitHeading.className = 'scene-flow-visit-heading';
-        const primeTitle = document.createElement('div');
-        primeTitle.className = 'scene-flow-story-section';
-        primeTitle.textContent = `THIS VISIT · LIVE GAG ${status.current || 1} OF ${status.total || 1}`;
-        visitHeading.appendChild(primeTitle);
-        const trackControls = document.createElement('div');
-        trackControls.className = 'scene-flow-track-controls';
-        const scrollEarlier = document.createElement('button');
-        scrollEarlier.type = 'button';
-        scrollEarlier.textContent = '←';
-        scrollEarlier.setAttribute('aria-label', 'See earlier gags in this visit');
-        const scrollLater = document.createElement('button');
-        scrollLater.type = 'button';
-        scrollLater.textContent = '→';
-        scrollLater.setAttribute('aria-label', 'See later gags in this visit');
-        trackControls.append(scrollEarlier, scrollLater);
-        visitHeading.appendChild(trackControls);
-        const visitList = document.createElement('details');
-        visitList.className = 'scene-flow-visit-list';
-        const visitSummary = document.createElement('summary');
-        visitSummary.textContent = 'Visit list · all planned gags';
-        visitList.append(visitSummary, visitHeading);
-        const prime = document.createElement('div');
-        prime.className = 'scene-flow-prime-track';
-        prime.setAttribute('aria-label', 'Planned gag sequence for this visit');
-        const prior = seenGags.filter((gag) => gag.index < status.current);
-        const allQueued = status.preview ? [] : (sequenceTools?.snapshot?.() || []);
-        const items = [
-            ...prior.map((gag) => ({ gag, state: 'seen', label: 'ALREADY SEEN' })),
-            { gag: { ...status.active, index: status.current }, state: 'current', label: '▲ LIVE' },
-            ...allQueued.map((gag, index) => ({
-                gag: { ...gag, index: gag.index ?? gag.sequence?.index ?? (status.current || 1) + index + 1 },
-                state: 'planned', label: index === 0 ? 'PLANNED NEXT' : 'LATER THIS VISIT',
-            })),
-        ];
-        const shown = new Set();
-        for (const gag of allQueued) shown.add(`${gag.script}:${gag.tagId}`);
-        const makeCard = (gag, state, label, fromDayOptions = false) => {
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = 'scene-flow-gag-card';
-            card.dataset.state = state;
-            const gagIndex = gag.index ?? gag.sequence?.index ?? null;
-            card.dataset.inspected = String(viewedGag
-                ? viewedGag.index === gagIndex && viewedGag.script === gag.script && viewedGag.tagId === gag.tagId
-                : state === 'current');
-            const kicker = document.createElement('small');
-            kicker.textContent = gagIndex ? `${String(gagIndex).padStart(2, '0')} · ${label}` : label;
-            const name = document.createElement('strong');
-            name.textContent = gagName(gag);
-            card.append(kicker, name);
-            if (gag.script === 'POSE') card.disabled = true;
-            else card.addEventListener('click', () => showGag(gag, fromDayOptions));
-            return card;
-        };
-        items.forEach(({ gag, state, label }, index) => {
-            if (!gag) return;
-            if (index > 0) {
-                const arrow = document.createElement('span');
-                arrow.className = 'scene-flow-prime-arrow';
-                arrow.setAttribute('aria-hidden', 'true');
-                arrow.textContent = '→';
-                prime.appendChild(arrow);
-            }
-            prime.appendChild(makeCard(gag, state, label));
-            shown.add(`${gag.script}:${gag.tagId}`);
+                modal.scrollTop = 0;
+            },
+            onLive: () => {
+                followLive(sequenceTools?.status?.() ?? status);
+                renderCurrent();
+            },
+            onPlayDay: canJumpDay() ? playDay : null,
+            onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,
         });
-        const arrow = document.createElement('span');
-        arrow.className = 'scene-flow-prime-arrow';
-        arrow.setAttribute('aria-hidden', 'true');
-        arrow.textContent = '→';
-        const end = document.createElement('div');
-        end.className = 'scene-flow-story-end';
-        const label = document.createElement('strong');
-        label.textContent = 'This visit ends';
-        const explanation = document.createElement('small');
-        explanation.textContent = 'The next visit has not been chosen yet.';
-        end.append(label, explanation);
-        prime.append(arrow, end);
-        const updateTrackControls = () => {
-            scrollEarlier.disabled = prime.scrollLeft <= 1;
-            scrollLater.disabled = prime.scrollLeft >= prime.scrollWidth - prime.clientWidth - 1;
-        };
-        scrollEarlier.addEventListener('click', () => prime.scrollBy({ left: -Math.max(150, prime.clientWidth * .7), behavior: 'smooth' }));
-        scrollLater.addEventListener('click', () => prime.scrollBy({ left: Math.max(150, prime.clientWidth * .7), behavior: 'smooth' }));
-        prime.addEventListener('scroll', updateTrackControls, { passive: true });
-        visitList.appendChild(prime);
-        context.appendChild(visitList);
-        visitList.addEventListener('toggle', () => {
-            if (visitList.open) {
-                centerTimeline();
-                updateTrackControls();
-            }
-        });
+        body.appendChild(shell);
+        if (step.level !== 'detail' || !step.gag) return null;
 
         const detail = document.createElement('section');
         detail.className = 'scene-flow-matrix-detail';
         const detailHeading = document.createElement('div');
         detailHeading.className = 'scene-flow-matrix-detail-heading';
         const detailLabel = document.createElement('span');
-        detailLabel.textContent = exploredDay !== null
-            ? `DAY ${String(exploredDay).padStart(2, '0')} · POSSIBLE SCRIPT STEPS`
-            : 'GAG STEPS · EXPANDED FROM THE VISIT ABOVE';
-        const target = viewedGag || { ...status.active, index: status.current };
+        detailLabel.textContent = 'HOW THIS GAG UNFOLDS';
+        const isLive = live.gag && step.gag.script === live.gag.script && step.gag.tagId === live.gag.tagId;
         const detailName = document.createElement('strong');
-        const exploredKey = exploredDay !== null && JOHNNY_SCENES.find((candidate) => candidate.day === exploredDay);
-        const detailRole = exploredDay !== null
-            ? (target.script === exploredKey?.script && target.tagId === exploredKey?.tagId ? 'DAY KEY SCENE' : 'DAY POSSIBILITY')
-            : viewedGag?.index ? `GAG ${viewedGag.index} OF ${status.total}` : viewedGag ? 'POSSIBLE GAG' : 'LIVE GAG';
-        detailName.textContent = `${gagName(target)} · ${detailRole}`;
+        const detailRole = isLive ? 'LIVE GAG'
+            : step.gag.index ? `GAG ${step.gag.index} OF ${status.total}` : 'POSSIBLE GAG';
+        detailName.textContent = `${gagName(step.gag)} · ${detailRole}`;
         detailHeading.append(detailLabel, detailName);
         detail.appendChild(detailHeading);
-
-        const pool = document.createElement('details');
-        pool.className = 'scene-flow-possible-pool';
-        pool.classList.toggle('is-day-exploration', exploredDay !== null);
-        pool.open = poolOpen;
-        pool.addEventListener('toggle', () => { if (pool.isConnected) poolOpen = pool.open; });
-        const possibleTitle = document.createElement('summary');
-        const optionDay = exploredDay ?? storyDay;
-        const optionShown = exploredDay === null ? shown : new Set([`${exploredKey.script}:${exploredKey.tagId}`]);
-        const laterGags = possibleLaterGags(optionDay, optionShown);
-        const examples = laterGags.slice(0, 2).map(gagName).join(' · ');
-        possibleTitle.textContent = exploredDay === null
-            ? `AFTER THIS VISIT · ${examples || 'Other gags'} could appear · explore possibilities`
-            : `DAY ${String(exploredDay).padStart(2, '0')} OPTIONS · ${examples || 'Other gags'} · explore`;
-        pool.appendChild(possibleTitle);
-        const possibleNote = document.createElement('p');
-        possibleNote.className = 'scene-flow-possibility-note';
-        possibleNote.textContent = exploredDay === null
-            ? 'These are day-eligible examples, not predictions for the next visit.'
-            : 'These all-tide examples are not a planned visit. The map also shows tide-gated possibilities.';
-        const possibilities = document.createElement('div');
-        possibilities.className = 'scene-flow-possible-track';
-        for (const gag of laterGags) {
-            possibilities.appendChild(makeCard(gag, 'possible', 'POSSIBLE · NOT PLANNED', exploredDay !== null));
-        }
-        pool.append(possibleNote, possibilities);
-        shell.appendChild(pool);
         shell.appendChild(detail);
-        body.appendChild(shell);
-        timelineTracks = { prime };
-        mountedAtlas = mountStoryTimelineAtlas({
-            host: atlasHost, resolveEntry, sequenceTools, storyDay, exploredDay, catalogOpenDay,
-            inspectedGag: target, selectedSceneKey: selectedKey,
-            visitItems: items, camera: atlasCamera, scriptExpanded: Boolean(viewedGag),
-            onDay: (day) => exploreDay(day),
-            onPossibilities: (day) => exploreDay(day, 'possibilities'),
-            onGag: (gag, day, source) => {
-                if (source === 'visit') {
-                    exploredDay = null;
-                    catalogOpenDay = null;
-                    showGag(gag);
-                } else {
-                    exploredDay = day;
-                    if (source === 'catalog') catalogOpenDay = day;
-                    showGag(gag, true);
-                }
-            },
-            onScene: (key) => { selectedKey = key; renderCurrent(); },
-            onPlayScene: (key, route) => playScriptScene({
-                script: target.script, gagTag: target.tagId, day: exploredDay ?? storyDay,
-                key, route, onError: () => {
-                    dayNote.textContent = 'This scene could not be started. Try another one.';
-                    dayNote.hidden = false;
-                },
-            }),
-        });
-        centerTimeline();
-        updateTrackControls();
         return detail;
     };
 
@@ -1047,111 +535,59 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         links.appendChild(methodLink);
     };
 
+    // The gag view: one numbered step per condition ("after walk to bottle"),
+    // each listing the scenes it starts or stops. Scenes are buttons; the side
+    // panel previews the selected one and can play it. Built from the same
+    // extractor as docs/scene-flows, with display tidy-ups only.
+    const isLoaderName = (name) => /^load\b/i.test(name || '');
+    const gagSteps = (flow) => {
+        const steps = [];
+        for (const step of flow.steps) {
+            for (const branch of [step, ...(step.arms || [])]) {
+                // Resource loaders ("LOAD MESSAGE") are setup, not something Johnny does.
+                const adds = branch.adds.filter((item) => !isLoaderName(item.name))
+                    .map((item) => ({ key: `${item.slot}:${item.tag}`, name: item.name }));
+                const stops = branch.stops.filter((item) => !isLoaderName(item.name))
+                    .map((item) => ({ key: `${item.slot}:${item.tag}`, name: item.name }));
+                if (!adds.length && !stops.length) continue;
+                const guardText = describeSceneFlowGuard(branch.guard, { fallThrough: Boolean(branch.fallThrough) });
+                const random = Boolean(branch.random);
+                const previous = steps.at(-1);
+                // Steps that wait on the same thing read as one.
+                if (previous && !previous.random && !random && previous.guardText === guardText) {
+                    previous.adds.push(...adds);
+                    previous.stops.push(...stops);
+                    continue;
+                }
+                steps.push({ guardText, random, adds, stops });
+            }
+        }
+        return steps;
+    };
+    // Quoted scene names become bold text; ALL-CAPS names are lowered to match the rest.
+    const plainName = (name) => (/[a-z]/.test(name) ? name : name.toLowerCase());
+    const appendNames = (element, text) => {
+        text.split(/"([^"]*)"/).forEach((part, index) => {
+            if (index % 2) {
+                const name = document.createElement('strong');
+                name.textContent = plainName(part);
+                element.appendChild(name);
+            } else if (part) {
+                element.appendChild(document.createTextNode(part));
+            }
+        });
+    };
+    const sentence = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+
     const renderFlow = (adsName, ads, scene, host, restoreKey = null) => {
         const label = buildSceneFlowLabelResolver(ads, resolveEntry, labelCache);
         const flow = extractSceneFlow(scene, { label });
-        const outline = outlineSceneFlowSteps(flow);
         const graph = buildSceneFlowMap(flow);
-        const generation = ++mapGeneration;
+        const steps = gagSteps(flow);
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedMap?.destroy();
-        mountedMap = null;
-        const firstAnimatedScene = graph.nodes.find((node) => node.kind === 'scene' &&
-            !/\b(load|loader|init|setup|clear|copy|quarky watch)\b/i.test(node.name || ''));
-        const firstScene = firstAnimatedScene || graph.nodes.find((node) => node.kind === 'scene');
-        selectedKey = graph.nodes.some((node) => node.key === restoreKey)
-            ? restoreKey : firstScene?.key || graph.start;
-        mountedAtlas?.selectScene(selectedKey);
-        trail = [selectedKey];
-        trailIndex = 0;
-        const shell = document.createElement('div');
-        shell.className = 'scene-flow-map-shell';
-        const main = document.createElement('div');
-        main.className = 'scene-flow-map-main';
-        const heading = document.createElement('div');
-        heading.className = 'scene-flow-map-heading';
-        const headingTitle = document.createElement('span');
-        headingTitle.textContent = 'GAG STEPS · NEAR SELECTED SCENE';
-        const tools = document.createElement('div');
-        tools.className = 'scene-flow-map-tools';
-        const headingHint = document.createElement('span');
-        headingHint.className = 'scene-flow-map-hint';
-        headingHint.textContent = 'possible script steps';
-        const modeButton = document.createElement('button');
-        modeButton.type = 'button';
-        modeButton.className = 'scene-flow-mode-button';
-        modeButton.textContent = 'Full script map';
-        modeButton.setAttribute('aria-label', 'Show full script map for this gag');
-        modeButton.setAttribute('aria-pressed', 'false');
-        let overview = false;
-        modeButton.addEventListener('click', () => {
-            overview = !overview;
-            modeButton.setAttribute('aria-pressed', String(overview));
-            main.classList.toggle('is-overview', overview);
-            headingTitle.textContent = overview ? 'SCRIPT MAP' : 'GAG STEPS · NEAR SELECTED SCENE';
-            headingHint.textContent = overview ? 'drag · zoom' : 'possible script steps';
-            modeButton.textContent = overview ? 'Near scene' : 'Full script map';
-            modeButton.setAttribute('aria-label', overview ? 'Focus on selected scene' : 'Show full script map for this gag');
-            mountedMap?.setOverview(overview);
-        });
-        const zoomOut = document.createElement('button');
-        zoomOut.type = 'button';
-        zoomOut.className = 'scene-flow-zoom-control';
-        zoomOut.textContent = '−';
-        zoomOut.setAttribute('aria-label', 'Zoom out of map');
-        const zoomIn = document.createElement('button');
-        zoomIn.type = 'button';
-        zoomIn.className = 'scene-flow-zoom-control';
-        zoomIn.textContent = '+';
-        zoomIn.setAttribute('aria-label', 'Zoom into map');
-        const resetView = document.createElement('button');
-        resetView.type = 'button';
-        resetView.className = 'scene-flow-zoom-control';
-        resetView.textContent = '⌖';
-        resetView.setAttribute('aria-label', 'Fit map to view');
-        zoomOut.addEventListener('click', () => mountedMap?.zoom(-1));
-        zoomIn.addEventListener('click', () => mountedMap?.zoom(1));
-        resetView.addEventListener('click', () => mountedMap?.fit());
-        tools.append(headingHint, modeButton, zoomOut, zoomIn, resetView);
-        heading.append(headingTitle, tools);
-        main.appendChild(heading);
-        const viewport = document.createElement('div');
-        viewport.className = 'scene-flow-viewport';
-        viewport.setAttribute('aria-label', 'Interactive scene flow map');
-        const canvas = document.createElement('canvas');
-        canvas.setAttribute('aria-hidden', 'true');
-        const labels = document.createElement('div');
-        labels.className = 'scene-flow-map-labels';
-        viewport.append(canvas, labels);
-        main.appendChild(viewport);
-        const footer = document.createElement('div');
-        footer.className = 'scene-flow-map-footer';
-        footer.innerHTML = '<span class="scene-flow-map-legend"><b class="route">◇ exploring a possible route</b><b>● other script paths</b><b class="random">◆ random decision</b></span><span>Scene order is not elapsed time</span>';
-        main.appendChild(footer);
-        const aside = document.createElement('aside');
-        aside.className = 'scene-flow-map-aside';
-        const storyDay = exploredDay ?? sequenceTools?.status?.()?.storyDay ?? sequenceTools?.getStoryDay?.();
-        const inspector = document.createElement('div');
-        inspector.className = 'scene-flow-inspector';
-        aside.appendChild(inspector);
-        const controls = document.createElement('div');
-        controls.className = 'scene-flow-route-controls';
-        const previous = document.createElement('button');
-        previous.type = 'button';
-        previous.textContent = '← Back';
-        previous.setAttribute('aria-label', 'Go back through traced route');
-        const next = document.createElement('button');
-        next.type = 'button';
-        next.textContent = 'Forward →';
-        next.setAttribute('aria-label', 'Go forward through traced route');
-        controls.append(previous, next);
-        aside.appendChild(controls);
-        const choices = document.createElement('div');
-        choices.className = 'scene-flow-next scene-flow-decision-lane';
-        shell.append(main, aside);
-        host.append(shell, choices);
+        const storyDay = step?.day ?? sequenceTools?.status?.()?.storyDay ?? sequenceTools?.getStoryDay?.();
 
         const routeTo = (key) => {
             const parents = new Map([[graph.start, null]]);
@@ -1177,211 +613,146 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             const loaders = graph.edges.filter((edge) => edge.from === graph.start &&
                 /^load\b/i.test(graph.nodes.find((node) => node.key === edge.to)?.name || ''))
                 .map((edge) => edge.to);
-            const steps = [...new Set([...loaders, ...routeTo(key).filter((step) => step !== graph.start)])];
-            return steps.map((step) => {
-                const [slot, tag] = step.split(':').map(Number);
+            const route = [...new Set([...loaders, ...routeTo(key).filter((item) => item !== graph.start)])];
+            return route.map((item) => {
+                const [slot, tag] = item.split(':').map(Number);
                 return { slot, tag };
             });
         };
-        const select = (key, record = true) => {
+
+        const sceneKeys = steps.flatMap((item) => item.adds.map((add) => add.key));
+        const firstAnimated = sceneKeys.find((key) => !/\b(init|setup|clear|copy|quarky watch)\b/i
+            .test(graph.nodes.find((node) => node.key === key)?.name || ''));
+        selectedKey = sceneKeys.includes(restoreKey) ? restoreKey : firstAnimated ?? sceneKeys[0] ?? null;
+
+        const layout = document.createElement('div');
+        layout.className = 'scene-flow-gag';
+        const list = document.createElement('ol');
+        list.className = 'scene-flow-outline';
+        list.setAttribute('aria-label', 'This gag as a script');
+        const aside = document.createElement('aside');
+        aside.className = 'scene-flow-gag-aside';
+        const inspector = document.createElement('div');
+        inspector.className = 'scene-flow-inspector';
+        aside.appendChild(inspector);
+        layout.append(list, aside);
+        host.appendChild(layout);
+
+        const sceneButtons = [];
+        if (!steps.length) {
+            const empty = document.createElement('li');
+            empty.className = 'scene-flow-empty';
+            empty.textContent = '(no scripted steps for this gag)';
+            list.appendChild(empty);
+        }
+        steps.forEach((item) => {
+            const row = document.createElement('li');
+            row.className = 'scene-flow-step';
+            const guard = document.createElement('div');
+            guard.className = 'scene-flow-guard';
+            appendNames(guard, sentence(item.guardText));
+            const targets = document.createElement('div');
+            targets.className = 'scene-flow-targets';
+            if (item.random) {
+                const lead = document.createElement('span');
+                lead.className = 'scene-flow-pick-lead';
+                lead.textContent = 'picks one at random:';
+                targets.appendChild(lead);
+            }
+            for (const add of item.adds) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = item.random ? 'scene-flow-pick' : 'scene-flow-target';
+                button.dataset.key = add.key;
+                button.textContent = plainName(add.name);
+                button.addEventListener('click', () => select(add.key));
+                targets.appendChild(button);
+                sceneButtons.push({ button, row, key: add.key });
+            }
+            for (const stop of item.stops) {
+                const span = document.createElement('span');
+                span.className = 'scene-flow-target is-stop';
+                span.textContent = `stop ${plainName(stop.name)}`;
+                targets.appendChild(span);
+            }
+            row.append(guard, targets);
+            list.appendChild(row);
+        });
+
+        function select(key) {
+            if (!key) return;
             selectedKey = key;
+            const route = new Set(routeTo(key));
+            for (const { button, row } of sceneButtons) {
+                row.classList.remove('is-route', 'is-selected');
+                button.classList.remove('is-route');
+                button.setAttribute('aria-pressed', 'false');
+            }
+            for (const { button, row, key: buttonKey } of sceneButtons) {
+                if (buttonKey === key) {
+                    button.setAttribute('aria-pressed', 'true');
+                    row.classList.add('is-selected');
+                } else if (route.has(buttonKey)) {
+                    button.classList.add('is-route');
+                    row.classList.add('is-route');
+                }
+            }
             const previewRequest = ++previewGeneration;
             mountedPreview?.destroy();
             mountedPreview = null;
-            if (record && trail[trailIndex] !== key) {
-                trail = trail.slice(0, trailIndex + 1);
-                trail.push(key);
-                trailIndex = trail.length - 1;
-            }
-            mountedMap?.select(key, routeTo(key));
             const node = graph.nodes.find((item) => item.key === key);
-            const incoming = graph.edges.filter((edge) => edge.to === key);
-            const outgoing = graph.edges.filter((edge) => edge.from === key);
+            const incoming = graph.edges.filter((edge) => edge.to === key && edge.action !== 'stop');
             inspector.replaceChildren();
             const kicker = document.createElement('div');
             kicker.className = 'scene-flow-inspector-kicker';
-            kicker.textContent = key === graph.start ? 'START OF THIS GAG · SCRIPT VIEW' : 'A SCENE FROM THIS GAG';
+            kicker.textContent = 'A scene from this gag';
             const name = document.createElement('h3');
-            name.textContent = node?.name || key;
+            name.textContent = plainName(node?.name || key);
             inspector.append(kicker, name);
             if (incoming.length) {
-                const explanation = document.createElement('p');
-                const guards = [...new Set(incoming.map((edge) => edge.guard))];
-                explanation.textContent = guards.join(' / ');
-                inspector.appendChild(explanation);
-            } else {
-                const explanation = document.createElement('p');
-                explanation.textContent = 'Choose a scene or a choice below to explore how this gag can unfold.';
-                inspector.appendChild(explanation);
+                const when = document.createElement('p');
+                appendNames(when, sentence([...new Set(incoming.map((edge) => edge.guard))].join(' / ')));
+                inspector.appendChild(when);
             }
-            if (key !== graph.start) {
-                const [slot, childTag] = key.split(':').map(Number);
-                const route = previewRouteTo(key);
-                const stage = document.createElement('div');
-                stage.className = 'scene-flow-preview-stage';
-                stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
-                const caption = document.createElement('small');
-                caption.className = 'scene-flow-preview-caption';
-                caption.textContent = 'Preparing an original game animation…';
-                inspector.append(stage, caption);
-                import('./scene-flow-preview.mjs').then(({ mountSceneFlowPreview }) => {
-                    if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
-                    mountedPreview = mountSceneFlowPreview({
-                        host: stage, resolveEntry, sequenceTools, script: adsName,
-                        gagTag: flow.gag.tag, slot, tag: childTag, route, storyDay: storyDay || 1,
-                        onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
-                    });
-                    caption.textContent = 'Original game animation · script example, not the live playhead';
-                }).catch(() => {
-                    if (previewRequest === previewGeneration) caption.textContent = 'Preview unavailable for this scene.';
+            const [slot, childTag] = key.split(':').map(Number);
+            const previewRoute = previewRouteTo(key);
+            const stage = document.createElement('div');
+            stage.className = 'scene-flow-preview-stage';
+            stage.setAttribute('aria-label', `Preview of ${node?.name || key}`);
+            const caption = document.createElement('small');
+            caption.className = 'scene-flow-preview-caption';
+            caption.textContent = 'Preparing an original game animation…';
+            inspector.append(stage, caption);
+            import('./scene-flow-preview.mjs').then(({ mountSceneFlowPreview }) => {
+                if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
+                mountedPreview = mountSceneFlowPreview({
+                    host: stage, resolveEntry, sequenceTools, script: adsName,
+                    gagTag: flow.gag.tag, slot, tag: childTag, route: previewRoute, storyDay: storyDay || 1,
+                    onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
                 });
-            }
-            if (key !== graph.start && typeof sequenceTools?.startRun === 'function') {
-                const route = previewRouteTo(key);
+                caption.textContent = 'Silent preview from the original game';
+            }).catch(() => {
+                if (previewRequest === previewGeneration) caption.textContent = 'Preview unavailable for this scene.';
+            });
+            if (typeof sequenceTools?.startRun === 'function') {
                 const play = document.createElement('button');
                 play.type = 'button';
                 play.className = 'scene-flow-play-button';
-                play.textContent = exploredDay === null ? '▶ Play this scene now' : '▶ Play only this scene';
+                play.textContent = '▶ Play this scene now';
                 const note = document.createElement('small');
                 note.className = 'scene-flow-preview-note';
-                note.textContent = exploredDay === null
-                    ? 'Continues this gag from here, then resumes the planned sequence.'
-                    : `Previews this scene, then resumes the live visit. Use Play day ${String(exploredDay).padStart(2, '0')} to switch days.`;
+                note.textContent = 'Runs this gag from here, then the visit carries on.';
                 play.addEventListener('click', () => {
                     playScriptScene({ script: adsName, gagTag: flow.gag.tag,
-                        day: storyDay || 1, key, route,
+                        day: storyDay || 1, key, route: previewRoute,
                         onError: () => { note.textContent = 'This scene could not be started. Try another one.'; } });
                 });
                 inspector.append(play, note);
             }
-            previous.disabled = trailIndex <= 0;
-            next.disabled = trailIndex >= trail.length - 1 && !outgoing.length;
-            choices.replaceChildren();
-            const choiceTitle = document.createElement('span');
-            choiceTitle.className = 'scene-flow-next-title';
-            const randomPick = outgoing.some((edge) => edge.random);
-            const parallel = outgoing.length > 1 && !randomPick && outgoing.every((edge) => edge.guard === outgoing[0].guard);
-            choiceTitle.textContent = !outgoing.length ? 'END OF THIS POSSIBLE GAG ROUTE'
-                : randomPick ? '◆ RANDOM PICK · ONE OUTCOME'
-                    : parallel ? 'PARALLEL SCRIPT ACTIONS · RUN TOGETHER'
-                        : outgoing.length > 1 ? 'CONDITIONAL PATHS · FOLLOW A CONDITION'
-                            : 'NEXT SCRIPT ACTION';
-            choices.appendChild(choiceTitle);
-            if (!outgoing.length) {
-                const continueStory = document.createElement('button');
-                continueStory.type = 'button';
-                continueStory.className = 'scene-flow-next-story';
-                continueStory.textContent = '↖ Return to live gag';
-                continueStory.addEventListener('click', () => {
-                    viewedGag = null;
-                    exploredDay = null;
-                    catalogOpenDay = null;
-                    poolOpen = false;
-                    renderCurrent();
-                });
-                choices.appendChild(continueStory);
-            }
-            for (const edge of outgoing) {
-                const target = graph.nodes.find((item) => item.key === edge.to);
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.textContent = edge.action === 'stop'
-                    ? `× stop ${target?.name || edge.to}`
-                    : `${edge.random ? '◆ ' : parallel ? '+ ' : '→ '}${target?.name || edge.to}`;
-                const condition = document.createElement('small');
-                condition.textContent = `${edge.random ? 'random pick · ' : parallel ? 'runs together · ' : ''}${edge.guard}`;
-                button.appendChild(condition);
-                button.addEventListener('click', () => select(edge.to));
-                choices.appendChild(button);
-            }
-        };
-        previous.addEventListener('click', () => {
-            if (trailIndex > 0) select(trail[--trailIndex], false);
-        });
-        next.addEventListener('click', () => {
-            if (trailIndex < trail.length - 1) select(trail[++trailIndex], false);
-            else {
-                const outgoing = graph.edges.filter((edge) => edge.from === selectedKey);
-                if (outgoing.length) select(outgoing[0].to);
-            }
-        });
-        select(selectedKey, false);
-        import('./scene-flow-map.mjs').then(({ mountSceneFlowMap }) => {
-            if (generation !== mapGeneration || !isOpen || !viewport.isConnected) return;
-            mountedMap = mountSceneFlowMap({ viewport, canvas, labels, graph, onSelect: select });
-            mountedMap.setOverview(overview);
-            mountedMap.select(selectedKey, routeTo(selectedKey));
-            mountedMap.fit();
-        }).catch(() => {
-            if (generation === mapGeneration) headingHint.textContent = 'Map unavailable';
-        });
-
-        const details = document.createElement('details');
-        details.className = 'scene-flow-script-details';
-        const summary = document.createElement('summary');
-        summary.textContent = 'Read the original script steps';
-        details.appendChild(summary);
-        const container = document.createElement('div');
-        container.className = 'scene-flow-outline';
-
-        if (!outline.length) {
-            const empty = document.createElement('div');
-            empty.className = 'scene-flow-empty';
-            empty.textContent = '(no scripted steps for this gag)';
-            container.appendChild(empty);
-        } else {
-            outline.forEach((step, index) => {
-                if (index > 0) {
-                    const connector = document.createElement('div');
-                    connector.className = 'scene-flow-connector';
-                    connector.textContent = '↓';
-                    container.appendChild(connector);
-                }
-                const card = document.createElement('div');
-                card.className = 'scene-flow-step';
-                const guard = document.createElement('div');
-                guard.className = 'scene-flow-guard';
-                guard.textContent = step.guardText;
-                card.appendChild(guard);
-                const targets = document.createElement('div');
-                targets.className = 'scene-flow-targets';
-                if (step.random) {
-                    const lead = document.createElement('div');
-                    lead.textContent = 'picks one of:';
-                    targets.appendChild(lead);
-                    step.targets.forEach((t) => {
-                        const pick = document.createElement('span');
-                        pick.className = 'scene-flow-pick';
-                        pick.textContent = t;
-                        targets.appendChild(pick);
-                    });
-                } else {
-                    targets.textContent = `→ ${step.targets.join(', ')}`;
-                }
-                card.appendChild(targets);
-                container.appendChild(card);
-            });
         }
-        details.appendChild(container);
-        host.appendChild(details);
+        select(selectedKey);
         renderLinks(adsName);
     };
-
-    function showGag(gag, fromDayOptions = false) {
-        if (!gag) return;
-        const index = gag.index ?? gag.sequence?.index ?? null;
-        if (!fromDayOptions && exploredDay !== null) {
-            exploredDay = null;
-            catalogOpenDay = null;
-            poolOpen = false;
-        }
-        if (index === null && catalogOpenDay === null) poolOpen = true;
-        viewedGag = {
-            ...gag,
-            index,
-        };
-        renderCurrent();
-    }
 
     const renderCurrent = () => {
         const status = sequenceTools?.status?.() ?? null;
@@ -1397,21 +768,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        if (!cameraOverride) atlasCamera = mountedAtlas?.getCamera() ?? atlasCamera;
-        cameraOverride = false;
-        mountedAtlas?.destroy();
-        mountedAtlas = null;
-        mountedMap?.destroy();
-        mountedMap = null;
         clear(body);
         clear(links);
         const detail = renderStoryTimeline(status);
-        const target = viewedGag || active;
+        if (!detail) {
+            renderedGagId = null;
+            return;
+        }
+        const target = step.gag;
         renderedGagId = `${target.script}:${target.tagId}`;
         if (target.script === 'POSE') {
             const pause = document.createElement('p');
             pause.className = 'scene-flow-possibility-note';
-            pause.textContent = 'Johnny pauses here. Select another gag in the visit row to inspect its scenes.';
+            pause.textContent = 'Johnny pauses here between gags. Pick a gag above to see its scenes.';
             detail.appendChild(pause);
             modal.scrollTop = oldScrollTop;
             return;
@@ -1447,17 +816,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     function open() {
         isOpen = true;
-        viewedGag = null;
-        exploredDay = null;
-        catalogOpenDay = null;
-        atlasCamera = null;
-        poolOpen = false;
+        step = null;
         renderedGagId = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
         renderCurrent();
-        mountedMap?.fit();
         hideCog();
         closeBtn.focus();
     }
@@ -1483,17 +847,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // this is hygiene — but it keeps the panel safe to re-create (e.g. in tests
     // or a future multi-instance host) without leaking listeners.
     const destroy = () => {
+        faceQueue?.destroy();
+        faceQueue = null;
+        stepperStyle.remove();
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
         mountedPreview = null;
-        mountedAtlas?.destroy();
-        mountedAtlas = null;
-        mountedMap?.destroy();
-        mountedMap = null;
         window.removeEventListener('keydown', onKeydown);
-        window.removeEventListener('resize', onTimelineResize);
-        if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
         window.removeEventListener('mousemove', showCog);
         if (cogTimer !== null) window.clearTimeout(cogTimer);
         cogTimer = null;
