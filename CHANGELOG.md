@@ -4,6 +4,8 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 
 ## Unreleased
 
+- Fixed baked background areas disappearing in the boat-building gag (`BUILDING.ADS` #2): a new `STORE_AREA` now adds to the background plate instead of wiping it, so the anchored ship and the sandcastle stay until the gag ends (#53).
+- Fixed the anchored ship in the Gulliver gags (`BUILDING.ADS` #4 and #6) staying behind, or showing twice, after the ship sails away. The world raster is now restored to the background plate before each tick's scripts run, and the GET/PUT pair those scenes use (`0xa054`/`0xa064`) is implemented (#53).
 - Fixed the island and Johnny's scripted animations being drawn 1 px left of the original. The island now sits at the original's base (x 289, or 17 for the second layout), and walks and the palm-trunk overlap line up with it as in the original (#53).
 
 ## v1.1 — Story timeline
@@ -15,8 +17,6 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 - Short transitions between steps: cards are dealt in, and the picked card flies into the gag view. They are skipped when the system asks for reduced motion.
 - Added hover and focus tooltips for the Settings and timeline icons, showing their `S` and `T` shortcuts.
 - Fixed WOULDBEAS (`WALKSTUF.ADS` #1) playing over a black screen. Gags that load no screen of their own now play over the host's island, as in the original (#49).
-- Fixed baked background areas disappearing in the boat-building gag (`BUILDING.ADS` #2): a new `STORE_AREA` now adds to the background plate instead of wiping it, so the anchored ship and the sandcastle stay until the gag ends (#53).
-- Fixed the anchored ship in the Gulliver gags (`BUILDING.ADS` #4 and #6) staying behind, or showing twice, after the ship sails away. The world raster is now restored to the background plate before each tick's scripts run, and the GET/PUT pair those scenes use (`0xa054`/`0xa064`) is implemented (#53).
 
 ## v1 — Browser screensaver baseline
 
