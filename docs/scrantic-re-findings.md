@@ -167,6 +167,26 @@ end spot/heading, `+7` width, `+8/+9` tide window `[min,max)`, `+0xa` story day,
 `width/2 < budget`, chosen by weight-roulette (`weight` = byte `+2`); `flagsB & 0x08` idle scenes
 repeat 1..6× via buckets `{10,20,30,20,10,10}`; each placement subtracts `width`.
 
+**B.6.3a Island origin (`FUN_1010_1c41` at `1010:1c41`, `FUN_1010_1b00` at `1010:1b00`)** — the
+planner resets `30c0 = 30c2 = -1` (`FUN_1010_1c41(-1,-1)` from `FUN_1018_0540`), then calls
+`FUN_1010_1c41(flagsB, flagsD)` for every planned record, ending first (`FUN_1018_08b9`). `flagsD`
+is the record word `+0xd`: `0x20 → 30c0 = 1`, `0x10 → 30c0 = 2` (each replaces the earlier value),
+and bits `1/2/4/8` OR in `0x04/0x08/0x10/0x20` (top-left, top-right, bottom-left, bottom-right).
+`flagsB & 0x200 → 30c2 = 0`. At the bake (`FUN_1010_0136`): `30c2` still `-1` becomes a coin flip
+(`rand & 1`; `30c2 == 1` draws the low-tide sand/rock frames 1/2, the low-tide waves and raft spot),
+then `FUN_1010_1b00`: `30c0 & 2 → (0x121, 299)`, `30c0 & 1 → (0x11, 0x135)`, else
+`FUN_1010_14bf(&30c6, &30c4, -1, xmin, ymin, xrange, yrange)` = `min + rand % range` with
+`30c2 == 1 ? (0xa8, 0xff, 0x6f, 0x3b) : (0x43, 0xff, 0xe2, 0x81)`; when any quadrant bit is set,
+`ymin += yrange/2` for `30c0 ∈ {0x10, 0x20, 0x30}`, `yrange /= 2` unless a whole column is allowed
+(`0x04&0x10` or `0x08&0x20`), `xmin += xrange/2` for `30c0 ∈ {0x08, 0x20, 0x28}`, `xrange /= 2`
+unless a whole row is allowed (`0x04&0x08` or `0x10&0x20`). The bake then rebases `30c6 -= 0x121`,
+`30c4 -= 0x117` and draws island layer 0 at `30c6 + 0x121, 30c4 + 0x117`. Records with a `+0xd`
+word: BUILDING #2/#4/#6 and MARY #1–#4 `0x08`; MARY #5 `0x03`; VISITOR #5 `0x01`; FISHING #5
+`0x05`; ACTIVITY #11 `0x0a`; FISHING #3/#6, ACTIVITY #9, VISITOR #1, VISITOR #3, WALKSTUF #1
+`0x10`; FISHING #4 `0x20`. Normal-play captures show layer 0 at exactly 289/299 and 17/309 for the
+two fixed layouts. Note for B.6.1: `30ba ≥ 12` selects `NIGHT.SCR` (`FUN_1010_0136`); the low-tide
+*render* is `30c2`, not the phase.
+
 **B.6.4 Walk path-finding — precomputed route table (`FUN_1018_0094`, `FUN_1018_03ac/03ea`)**
 (supersedes the earlier "3-D matrix" guess). Route matrix at file `0x18894`, row stride `0x0c`
 (6 words), 1-based `route[from][to]` = a near pointer (0 = no route) to a **route-descriptor list**:

@@ -7,6 +7,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 - Fixed baked background areas disappearing in the boat-building gag (`BUILDING.ADS` #2): a new `STORE_AREA` now adds to the background plate instead of wiping it, so the anchored ship and the sandcastle stay until the gag ends (#53).
 - Fixed the anchored ship in the Gulliver gags (`BUILDING.ADS` #4 and #6) staying behind, or showing twice, after the ship sails away. The world raster is now restored to the background plate before each tick's scripts run, and the GET/PUT pair those scenes use (`0xa054`/`0xa064`) is implemented (#53).
 - Fixed the island and Johnny's scripted animations being drawn 1 px left of the original. The island now sits at the original's base (x 289, or 17 for the second layout), and walks and the palm-trunk overlap line up with it as in the original (#53).
+- The island is now placed where the original would put it for each planned chapter: pinned to 289/299 or 17/309 when a scene in the chapter asks for a fixed layout (for example the fishing finales and the visiting ship), otherwise drawn from the original's high- or low-tide band, narrowed to the quadrant some finales request. Before, fixed layouts were never used, and the random spot could sit up to 49 px higher than the original ever draws it (#53).
 
 ## v1.1 — Story timeline
 

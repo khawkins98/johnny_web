@@ -77,7 +77,7 @@ describe('Johnny host story controller', () => {
         expect(sites).toContain('island-ocean');
     });
 
-    it('uses any queued raw 0x0200 flag to select layout band 0 after planning', () => {
+    it('a queued raw 0x0200 flag forces high tide and the wide island band after planning', () => {
         const { source, draws } = recordingStoryRandom((divisor, site) => {
             if (site === 'island-ocean') return 2;
             if (site === 'island-x') return divisor - 1;
@@ -87,23 +87,27 @@ describe('Johnny host story controller', () => {
             random: () => 0,
             storyRandom: source,
             storage: memoryStorage(),
-            now: () => new Date(2026, 6, 21, 12),
+            // 13:00 is tide phase 12 (low tide) for a fresh storage on 2026-07-21.
+            now: () => new Date(2026, 6, 21, 13),
         });
 
+        // ACTIVITY#8 carries flagsB 0x200 (FUN_1010_1c41: 30c2 = 0, high tide). The
+        // debug ending chosen for it is BUILDING#2, whose +0xd word 0x08 narrows the
+        // origin to the bottom-right quadrant of the high-tide band.
         controller.planFrom('ACTIVITY.ADS', 8, { storyDay: 1 });
         const first = controller.next();
-        expect(first.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 2, x: 3, y: -24 });
-        expect(draws.slice(-3)).toEqual([
-            { site: 'island-ocean', divisor: 3 },
-            { site: 'island-x', divisor: 226 },
-            { site: 'island-y', divisor: 129 },
+        expect(controller.status().final).toEqual({ script: 'BUILDING.ADS', tagId: 2 });
+        expect(first.titleState).toMatchObject({ islandLayoutId: 1, lowTide: false, x: 3, y: 40 });
+        expect(draws.slice(-2)).toEqual([
+            { site: 'island-x', divisor: 113 },
+            { site: 'island-y', divisor: 64 },
         ]);
         expect(draws.findLastIndex(({ site }) => site.startsWith('director-'))).toBeLessThan(
-            draws.findIndex(({ site }) => site === 'island-ocean'),
+            draws.findIndex(({ site }) => site === 'island-x'),
         );
     });
 
-    it('uses layout band 1 without drawing a random layout choice', () => {
+    it('uses the low-tide band at low tide without drawing a layout choice', () => {
         const { source, draws } = recordingStoryRandom((divisor, site) =>
             site === 'island-x' ? divisor - 1 : 0,
         );
@@ -111,11 +115,11 @@ describe('Johnny host story controller', () => {
             random: () => 0,
             storyRandom: source,
             storage: memoryStorage(),
-            now: () => new Date(2026, 6, 21, 12),
+            now: () => new Date(2026, 6, 21, 13),
         });
 
-        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
-        expect(preview.titleState).toMatchObject({ islandLayoutId: 1, oceanIndex: 0, x: -11, y: -24 });
+        const preview = controller.preview('MISCGAG.ADS', 1, { storyDay: 1 });
+        expect(preview.titleState).toMatchObject({ islandLayoutId: 1, lowTide: true, x: -11, y: -24 });
         expect(draws).toEqual([
             { site: 'island-ocean', divisor: 3 },
             { site: 'island-x', divisor: 111 },
@@ -132,7 +136,7 @@ describe('Johnny host story controller', () => {
             now: () => new Date(2026, 6, 21, 22),
         });
 
-        const preview = controller.preview('FISHING.ADS', 3, { storyDay: 1 });
+        const preview = controller.preview('MISCGAG.ADS', 1, { storyDay: 1 });
         expect(preview.titleState.night).toBe(true);
         expect(draws.map(({ site }) => site)).toEqual(['island-x', 'island-y']);
     });
@@ -518,21 +522,15 @@ describe('faithful island positioning (phase7)', () => {
         return out;
     };
 
-    it('randomizes the island origin for a non-VARPOS island chain and never pins the fabricated -272', () => {
-        // FISHING#4 is FINAL|ISLAND|LEFT_ISLAND with NO VARPOS_OK -- the exact scene the
-        // old code pinned to a whole-island x=-272 (the visible teleport). The binary
-        // randomizes the origin for every island chain regardless of VARPOS.
+    it('pins a FISHING#4 chain to the binary fixed layout 2 for every scene in it', () => {
+        // FISHING#4 carries catalogue word +0xd 0x20: FUN_1010_1c41 sets 30c0 = 1 and
+        // FUN_1010_1b00 bakes the island at 30c6 = 0x11, 30c4 = 0x135 (layer 0 at
+        // 17/309). The origin is per batch, so every scene in the chain shares it:
+        // no mid-chain teleport.
         const selections = drive('FISHING.ADS', 4);
         const finalSel = selections.at(-1);
         expect(finalSel.tagId).toBe(4);
-        // titleState.x is the raw island world origin. random()=0 -> the third position
-        // branch -> -114 (in the [-222,-113] random band). The old code pinned this
-        // LEFT_ISLAND-without-VARPOS chain to the fabricated whole-island x=-272.
-        expect(finalSel.titleState.x).toBe(-114);
-        expect(finalSel.titleState.x).toBeGreaterThanOrEqual(-222);
-        expect(finalSel.titleState.x).toBeLessThanOrEqual(-113);
-        // No scene in the chain sits at the fabricated whole-island -272.
-        for (const s of selections) expect(s.titleState.x).not.toBe(-272);
+        for (const s of selections) expect(s.titleState).toMatchObject({ x: 0x11 - 0x121, y: 0x135 - 0x117 });
     });
 
     it('VARPOS gates waves, not position', () => {
