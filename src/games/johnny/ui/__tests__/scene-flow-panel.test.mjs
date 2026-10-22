@@ -89,6 +89,10 @@ const makeSequenceTools = (initialActive) => {
     };
 };
 
+// The panel title is always "Story timeline"; the gag being inspected is named
+// in the detail heading below the visit row (e.g. "Johnny fishes · LIVE GAG").
+const detailName = () => document.querySelector('.scene-flow-matrix-detail-heading strong')?.textContent ?? '';
+
 describe('scene-flow panel', () => {
     beforeEach(() => {
         document.body.innerHTML = '';
@@ -101,8 +105,9 @@ describe('scene-flow panel', () => {
         panel.open();
 
         const modal = document.getElementById('scene-flow-modal');
-        expect(document.getElementById('scene-flow-title').textContent).toBe('Johnny fishes');
-        expect(document.getElementById('scene-flow-subtitle').textContent).toBe('FISHY.ADS · tag 5');
+        expect(document.getElementById('scene-flow-title').textContent).toBe('Story timeline');
+        expect(document.getElementById('scene-flow-subtitle').textContent).toMatch(/^STORY DAY \d+ OF 11/);
+        expect(detailName()).toContain('Johnny fishes');
 
         const guards = Array.from(modal.querySelectorAll('.scene-flow-guard')).map((el) => el.textContent);
         expect(guards).toEqual(['at the start', 'after "rod snaps"']);
@@ -159,18 +164,19 @@ describe('scene-flow panel', () => {
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
 
         expect(() => panel.open()).not.toThrow();
-        expect(document.querySelector('.scene-flow-empty')).not.toBeNull();
+        const notes = Array.from(document.querySelectorAll('.scene-flow-possibility-note'), (el) => el.textContent);
+        expect(notes.some((text) => /isn't loaded yet/.test(text))).toBe(true);
     });
 
     it('updates live when the running gag changes while open', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
-        expect(document.getElementById('scene-flow-title').textContent).toBe('Johnny fishes');
+        expect(detailName()).toContain('Johnny fishes');
 
         sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
 
-        expect(document.getElementById('scene-flow-title').textContent).toBe('Johnny naps');
+        expect(detailName()).toContain('Johnny naps');
     });
 
     it('destroy() unsubscribes, removes window listeners, and tears down its DOM', () => {
@@ -207,6 +213,6 @@ describe('scene-flow panel', () => {
         sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
         panel.open();
 
-        expect(document.getElementById('scene-flow-title').textContent).toBe('Johnny naps');
+        expect(detailName()).toContain('Johnny naps');
     });
 });
