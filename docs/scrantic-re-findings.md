@@ -31,18 +31,25 @@ freed only at shutdown. Only **one** is the compositing surface:
 | Buffer | Role |
 | --- | --- |
 | `eb2` (`DAT_1068_1eb2`) | **The world raster** — island background **and every scene's sprites** |
-| `eb4` | PRESENT buffer (double-buffer / transition pipeline) |
-| `eb0` | SCRATCH (transitions) |
+| `eb4` (`DAT_1068_1eb4`) | The **screen**. A "present" node copies a rect of `eb2` to it; in the shipped configuration (`DAT_1068_42a0 = 1`) the copy goes straight to the window DC (`FUN_1038_06ce` → `FUN_1038_07e8`) |
+| `eb0` (`DAT_1068_1eb0`) | The **background plate**. Every drawn rect is restored from it at the end of the tick; `LOAD_SCREEN`, `STORE_AREA`, `SAVE_BACKGROUND`, `FADE_OUT` and the host background bake write it |
 
-`eb4`/`eb0` are a present/transition pipeline, **not semantic layers**. The TTM
-interpreter forces both draw handles to `eb2` on *every* opcode
+*(Corrected by Part C. An earlier version of this table called `eb4` a double-buffer
+and `eb0` "scratch". `eb0` is the semantic background layer the engine erases to.)*
+
+The TTM interpreter forces both draw handles to `eb2` on *every* opcode
 (`FUN_1058_040c`: `DAT_1068_1eb8 = DAT_1068_1eb6 = DAT_1068_1eb2`). There are **no
 per-scene surfaces and no transparent layers.** Sprites are drawn with a two-pass
 masked blit (DSna AND-mask, then SRCPAINT OR-color).
 
 ### A.2 Clearing is not an operation — overwrite is the clear
 
-The invariant that makes the original self-cleaning:
+**Superseded — see Part C.** The paragraph below was written before the seg-1058
+draw handlers were disassembled. It is wrong as a general rule: every draw op registers
+a same-tick restore of its own rect from the background plate `eb0`
+(`FUN_1050_0a85`), so a sprite that is not redrawn next tick is gone next tick.
+Persistence exists only for pixels that reach `eb0`. What the paragraph gets right is
+that stopping a TTM thread does nothing on its own, and that there is no per-scene clear.
 
 > A scene's pixels sit in the shared `eb2` and are erased only by (a) a neighbor's
 > draw, (b) a save-under restore, or (c) the next background re-bake. **Stopping a TTM
@@ -68,6 +75,10 @@ Two-phase per tick. `FUN_1060_03d3(0)` runs last (after draw + present): restore
 `age==0` nodes, then decrements all ages. The standard save emits an age-0 and an age-1
 node, so the **primary erase is same-tick (post-present)** and a secondary node is
 **deferred exactly one tick by design**. No multi-frame trailing.
+
+*(Precision, from Part C: the age-1 node is a second **present**, not a second
+restore. The triple is present@0, present@1, restore@0. The deferred present shows the
+restored background one tick after the sprite was shown.)*
 
 ### A.4 Z-order is execution order
 
@@ -196,7 +207,232 @@ retaining the prior frame (that would wrongly keep an actor the original retires
 
 ---
 
+## Part C — Buffer contract (issue #53, Phase 0)
+
+Which buffer each TTM op draws into, what it queues on the display list, and what
+gates erasure. Recovered from the seg-1058 handlers (disassembled from the jump tables
+at `1058:03bc`, `1058:1275`, `1058:12bd`, `1058:1379`, `1058:138d`, `1058:1900`), the
+registrar `FUN_1050_0a85`, the display list `FUN_1060_007e` / `FUN_1060_03d3`, and the
+data-segment initial values. Each statement carries a confidence tag:
+**[asm]** read in the disassembly, **[dc]** read in the decompile, **[inf]** inferred,
+**[unk]** not settled.
+
+### C.1 Mechanics
+
+**Draw target.** The interpreter `FUN_1058_040c` sets `DAT_1068_1eb6 = DAT_1068_1eb8 =
+eb2` before every op, so every TTM primitive draws into `eb2` unless its handler
+retargets. [dc] The only retargeting handlers are the wipes (`0xa014`–`0xa0b5`,
+`FUN_1058_1510` sets the destination to `eb4`, i.e. the screen) and the GET/PUT pair
+(`0xa054` reads `eb2`, `0xa064` writes `eb2`). [asm]
+
+**Display list.** `FUN_1060_007e(x, y, w, h, kind, src, dst, age)` adds a node to one of
+20 buckets keyed `(src, dst, age)` (`FUN_1060_05a7`). Kind 1 is a blit. `x` is stored
+rounded down to a multiple of 8 and `w` rounded up (byte-aligned planes), the rect is
+clipped to the screen or, when `DAT_1068_1ea3` is set, to the `SET_CLIP_REGION` rect,
+and nodes in the same bucket that overlap or nearly touch are merged. Kind 4 is a RAM
+PUT (`FUN_1030_0250`); no recovered code ever registers one. [dc]
+
+**Flush.** `FUN_1060_03d3(0)` is called once per director tick (`FUN_1018_06bf`, after
+every TTM thread and the host wave/cloud animators have drawn). It walks the pair list
+at `1068:287e` in this order and flushes only the age-0 bucket of each pair: [asm, data]
+
+1. `(-1 → eb4)` RAM PUT to screen — unused
+2. `(eb2 → eb4)` **present**: blit each rect from `eb2` to the screen
+3. `(-1 → eb2)` RAM PUT to world — unused
+4. `(eb0 → eb2)` **restore**: blit each rect from the background plate into `eb2`
+
+then decrements the age of every remaining node. So within a tick the order is
+draw → present → restore, and a node registered with age 1 fires in the next tick's
+flush.
+
+**Registrar.** `FUN_1050_0a85(x, y, w, h)` is what every draw op calls after drawing: [dc]
+
+| `DAT_1068_287a` | `DAT_1068_27c0 == 0 && DAT_1068_2641 >= 3` | nodes registered |
+| --- | --- | --- |
+| 0 (normal) | true (normal) | present@0, present@1, restore@0 |
+| 0 | false | present@0, present@1 |
+| 1 (startup only) | true | restore@1 |
+| 1 | false | nothing |
+
+Net effect in the normal case: a rect drawn at tick T is on screen at T, its `eb2`
+pixels are replaced by the plate `eb0` at the end of T, and the plate is shown on
+screen at T+1. **Nothing survives in `eb2` for more than one tick unless it is redrawn
+or it was baked into `eb0`.** This is the "age-0/age-1 triple" of the tracker.
+
+### C.2 Gating globals
+
+| Global | Size, initial value (data segment) | Writers | Readers | Effective value while scripts run |
+| --- | --- | --- | --- | --- |
+| `DAT_1068_2641` | word, **4** [data] | `FUN_1050_0152` (display-list init, called from `FUN_1048_0000`, the ADS subsystem init) writes **2** only if `DAT_1068_1ebd == 12`; `1ebd` is the device class set to 2 in `FUN_1038_1744` on the shipped path [dc] | registrar (`>= 3` enables the restore node); `FUN_1050_0b31` / `FUN_1050_0b74` (`>= 3` enables the `eb2 → eb0` bakes); `0x4204` handler; `0x4114` handler; end-of-op-list full present | **4**: restores and bakes on. 2 would turn the engine into "persist until overwritten" (no restores, no bakes); not reachable on the shipped path [inf] |
+| `DAT_1068_27c0` | word, **0** [data] | `FUN_1048_0079` (ADS load) → 0; TTM op `0x0500` → 1; TTM op `0x0510` → 0 [asm] | registrar only (non-zero suppresses the restore node) | **0**: no shipped TTM contains `0x0500`/`0x0510` (dump survey of all 41 TTMs) |
+| `DAT_1068_287a` | word, **1** [data] | `FUN_1008_1448` (app init) → 0, after the first `FUN_1010_0136`; **no code sets it back to 1** [scan of every direct reference] | registrar (1 → no presents, restore deferred to age 1); `FUN_1050_0b31` (which restore bucket to discard); `0x4204` and the end-of-op-list present (`eb0` instead of `eb2` as present source) | **0** while any script runs. The value 1 is a startup-only "draw into the plate" mode |
+| `DAT_1068_27c2` | word, 0 | `0x3003` handler increments around the nested call, decrements after | interpreter: when non-zero, the four ops in the `1058:138d` table get `DAT_1068_46e0/46e2` added to their coordinates | nested-script coordinate offset; not erasure related |
+| `DAT_1068_46da` | per-thread, `env[263e]+0x0e` | interpreter copies it per thread | nearly every draw handler skips drawing when non-zero | "don't draw" flag for a thread (used for pre-roll) [inf] |
+| `DAT_1068_4642` | word, 0 | `FUN_1050_0b31` → 1; interpreter → 0 | end of op list: if set and `2641 >= 3`, register a full-screen present (clip disabled) | "a full bake happened, present everything" |
+| `DAT_1068_46e4/46e6` | words, 0 | `FUN_1010_00fc`: island offset from the layout; **0 when `DAT_1068_30b4 == 2`** (catalogue flag `0x2000`) | interpreter adds them to every `0xAxxx` op's x/y and, via the `1058:1379` table, to the second coordinate pair of `0x4004`, `0xa0a4`, `0xa601`, `0xaf1f`, `0xaf2f` | island-relative placement; zero for off-island scenes |
+
+### C.3 Op table
+
+Columns: where the op draws; what rect it hands the registrar (so present@0, present@1
+and restore@0 are all registered for that rect unless stated); whether it writes `eb0`.
+Port names are from `src/dgds/data/scripting.mjs`. "generic" means the op is not in the
+`1058:1275` post-table, so the interpreter calls the registrar with `(x, y, w+8, h+2)`.
+
+| Op | Port name | Draws into | Registered rect | Writes `eb0` | Notes | Conf. |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0xa002` | UNKNOWN_4 (pixel) | `eb2` (`FUN_1040_0d54`) | `(x, y, 8, 1)` | no | | asm |
+| `0xa0a4` | DRAW_LINE | `eb2` (`FUN_1030_02ef`) | `(min x, min y, abs(dx)+8, abs(dy)+2)` | no | | asm |
+| `0xa104` | DRAW_RECT | `eb2`, filled (`FUN_1038_1bd8`, fill flag `1eac=1`) | generic `(x, y, w+8, h+2)` | no | Registers present+restore like any sprite. The tracker's correction is right | asm |
+| `0xa114` | (outline rect) | `eb2`, outline | generic | no | unused by scripts | asm |
+| `0xa404` / `0xa424` | DRAW_BUBBLE | `eb2`, filled / outline ellipse (`FUN_1040_0688`) | `(x-20, y, w+48, h+1)` | no | | asm |
+| `0xa504`…`0xa536` | DRAW_SPRITE(_FLIP) | `eb2`, masked blit (`FUN_1028_17d8`) | `(x, y, abs(frame.w), frame.h+2)`; 6-arg forms `(x, y, x2-x, y2-y)` | no | No registrar call if the image slot or frame is missing or the frame width is 0. **The sprite handler registers its own restore; it does not rely on script GETPUT** | asm |
+| `0xa5a7` | (7-arg sprite) | not drawn by `FUN_1058_0144` (arg count 7 is skipped) | `(x, y, x2-x, y2-y)` | no | unused by scripts | asm |
+| `0xa601` | DRAW_GETPUT n | **nothing** (pre-handler `1058:02d8` only tests `46da`) | slot n's saved rect `env+0x6c/0x84/0x9c/0xb4`, **only if** slot n's RAM buffer `env+0x3c+4n` is non-null; otherwise no registrar call | no | Only `0xa054` fills a slot (slot 0). So in 40 of 41 TTMs `DRAW_GETPUT` is a no-op; the 6,814 uses do nothing. Erasure comes from each draw's own restore | asm |
+| `0xa054` | UNKNOWN_5 (GET) | reads `eb2` rect into RAM (`FUN_1030_01c4`), stores rect+pointer in slot 0 | generic | no | Only GJGULIVR uses it | asm |
+| `0xa064` | WIPE_RIGHT_TO_LEFT (PUT) | writes slot 0's RAM back into `eb2` (`FUN_1030_0250`) | generic | no | Only GJGULIVR uses it | asm |
+| `0xa014`…`0xa094` (not 54/64), `0xa0b5` | wipes | **screen** directly (`FUN_1058_1510` retargets to `eb4`) | generic | no | unused by scripts | asm |
+| `0xa2x4` | (full image) | `eb2` (`FUN_1030_04ce`, `1ea2=1`) | generic | no | unused by scripts | asm |
+| `0xa704` | | `FUN_1040_1113` if byte `2640` set | `(x, y, w, h)` | no | unused | asm |
+| `0xaf02` | | `FUN_1028_195e` | none | no | unused | asm |
+| `0xaf1f` / `0xaf2f` | (polygon) | `eb2` (`FUN_1028_187e`) | `(0, 0, W, H)` | no | unused | asm |
+| `0x4204` | STORE_AREA x y w h | blit `eb2` rect → `eb0` (`FUN_1050_0b74`), gated `2641 >= 3` | present@0 only, no restore | **yes** | The plate mechanism. Captures whatever is in `eb2` at that moment, including other threads' sprites drawn earlier in the tick | asm |
+| `0x4214` | SAVE_GETPUT_REGION | **no-op** (`1058:0860` tests `46da` and returns) | none | no | The port treats it as the GET; the binary ignores it | asm |
+| `0x0020` | SAVE_BACKGROUND | `FUN_1050_0b31`: full `eb2 → eb0` bake, drop the pending restore bucket, flag a full present | — | **yes** | unused by scripts | asm |
+| `0xf01f` | LOAD_SCREEN | decodes the screen into `eb2` at the resource's own size (`FUN_1030_16d8`; e.g. SUZBEACH is 384×268 at 128,77), then `FUN_1050_0b31` | full present (via `4642`) | **yes**, the whole of `eb2`, leftovers included | | asm+dc |
+| `0x4114` | FADE_OUT | palette fade; full present; then (`2641 >= 3`) full `eb2 → eb0` bake | — | **yes** | unused by scripts | asm |
+| `0x4124` | FADE_IN | full present; palette fade | — | no | unused | asm |
+| `0x3103` | | registrar `(0, 0, W, H)` | full present+restore | no | unused | asm |
+| `0x4004` | SET_CLIP_REGION | sets `1ea3..1eaa`; clips all later presents and restores | — | no | | asm |
+| `0x1121` | SET_BACKGROUND n | `env+0x16 = n` (selects the GET slot that `0x00c0` frees) | — | no | **no pixel effect** | asm |
+| `0x00c0` | | frees GET slot `env+0x16` | — | no | | asm |
+| `0x2002` | SET_COLORS | `1eae` pen, `1ead` brush colour | — | no | DRAW_RECT uses `PatBlt` with brush `1ead` when both are equal, else `Rectangle` with pen `1eae` and brush `1ead` (`FUN_1038_1bd8`) | dc |
+| `0x0500` / `0x0510` | | `27c0 = 1 / 0` | — | no | unused; would suppress restores | asm |
+| `0x0ff0` | UPDATE | ends the op list; if `4642`, registers a full-screen present with clipping off | — | no | | dc |
+| `0x0110` | PURGE | `4644 = 1` | — | no | | asm |
+
+Host-side draws follow the same contract: the walk renderer `FUN_1018_0094` registers
+the triple for Johnny's sprite (the island code has the same triple as a helper,
+`FUN_1010_1a0d`); the island wave
+and cloud animators register present-only nodes for their rects and, when `DAT_1068_30b2`
+(catalogue bit `0x1000`) is set, also bake them into `eb0`. [dc]
+
+### C.4 What is in `eb0`
+
+`eb0` holds whatever the last bake left there. There is no per-tick rebuild. Writers:
+
+1. **Host background bake** `FUN_1010_0136`. Its first call (app init) only loads the
+   island resources and returns. Every later call draws the plate: fill the whole
+   plate with colour 5 if INI `Background=0` **or `DAT_1068_30b4 == 2`**; else load a
+   day sky (random of three) or `NIGHT.SCR`; then, unless `30b4 == 2`, the island
+   layers; then copy `eb0 → eb2` and register a full present. It is called once per
+   planned batch from the planner `FUN_1018_0540`, after `FUN_1010_1c41` has folded
+   every planned record's flags. `30b4 = 2` comes from catalogue bit `0x2000` in the
+   word at record `+0x0b`. [dc]
+2. `LOAD_SCREEN`, `SAVE_BACKGROUND`, `FADE_OUT`: full `eb2 → eb0`. [asm]
+3. `STORE_AREA`: one rect `eb2 → eb0`. [asm]
+4. Wave/cloud animators when bit `0x1000` is set. [dc]
+
+Records with bit `0x2000` (plate = solid colour 5, no island, island offset 0):
+SUZY:1, SUZY:2, JOHNNY:1, JOHNNY:6 (catalogue at `1068:1756`, 17-byte records). [data]
+
+The buffers are `CreateCompatibleBitmap`s that are never cleared at allocation
+(`FUN_1038_1744`); before the first bake their content is whatever GDI gives, which in
+the DOSBox captures is index 0 (black). [dc, inf]
+
+### C.5 MEANWHIL walk-through
+
+Script (`MEANWHIL.TTM`, one scene "quarky watch"): `SET_BACKGROUND 0;
+SAVE_GETPUT_REGION 224 91 160 131; … DRAW_GETPUT 0; DRAW_RECT 0 0 640 350;
+DRAW_SPRITE 254 100 0 0; STORE_AREA 232 90 144 134; DRAW_SPRITE (hands) …; UPDATE`,
+then per frame `DRAW_GETPUT 0; DRAW_SPRITE face; DRAW_SPRITE hand; DRAW_SPRITE hand;
+UPDATE`.
+
+MEANWHIL is only scheduled by SUZY:1, SUZY:2 and JOHNNY:1 ("THE END"), all bit-`0x2000`
+records, so the plate is solid colour 5 (black) with no island and island offset 0.
+In the forced capture (`cap-suzy1`) the planner never ran, so the plate was the
+never-baked bitmap; also black, same result.
+
+Tick 1:
+
+- `SET_BACKGROUND 0`, `SAVE_GETPUT_REGION`: no pixel effect; slot 0 stays empty.
+- `DRAW_GETPUT 0`: slot 0 has no buffer → no draw, no nodes. Inert for the whole card.
+- `DRAW_RECT 0 0 640 350` (colours 5/5 → solid fill): rows 0–349 of `eb2` black;
+  nodes present@0, present@1, restore@0 for `(0, 0, 648, 352)` (clipped to the screen).
+- `DRAW_SPRITE 254 100` (clock face): drawn into `eb2`; triple for the face rect.
+- `STORE_AREA 232 90 144 134`: copies the face on black from `eb2` into `eb0`;
+  present@0 for that rect. From now on the plate has the face.
+- hands: drawn into `eb2`; triples.
+- `UPDATE` → flush: presents (merged) put black top + face + hands on screen; restores
+  then copy `eb0` back over every registered rect: black over the rectangle (the plate
+  is black there), face over the face, face over the hands.
+
+Tick 2 and later: the age-1 presents show the restored `eb2`, which is black with the
+face, so the screen keeps the black top and the face; the hands are redrawn each frame
+and erased by their own restore@0 at the end of the frame. The 640×350 black area is
+**not** an unerased leftover — it is erased every tick, to a black plate.
+
+Below row 350 no node is ever registered, so the screen there is never repainted by
+this card. The capture shows the splash and the host wave strip there because the
+screen is dirty-rect updated, not because any buffer holds them; after the first loop
+they are gone. The tracker lists this as an accepted deviation.
+
+### C.6 §A.2 versus the immediate-mode compositor
+
+Both were half right. The binary is immediate-mode with respect to `eb2`: every
+registered rect is restored from `eb0` in the same tick, so an actor that is not
+redrawn vanishes one tick later (what `composeTtmFrame` reproduces by clearing and
+replaying `frameOps`). It is persistent with respect to `eb0`: `LOAD_SCREEN`,
+`STORE_AREA`, `SAVE_BACKGROUND`, `FADE_OUT` and the host bake write a plate that every
+restore copies from, and nothing rebuilds that plate per tick (what §A.2 observed, but
+attributed to `eb2`).
+
+The current compositor's "clear to transparent, host canvas shows through" equals
+"restore from `eb0`" only while `eb0` equals the host canvas. It diverges when:
+
+- the plate is black (bit `0x2000` scenes) while the host canvas is not, or vice versa;
+- `LOAD_SCREEN` bakes a screen smaller than 640×480 (SUZBEACH, JOFFICE, …): the plate
+  outside the image keeps whatever `eb2` held, including earlier bakes and any sprite
+  drawn earlier in that tick;
+- `STORE_AREA` snapshots `eb2` mid-tick: it captures every sprite any thread drew
+  earlier in the same tick (restores run at the end of the tick), and the plate keeps
+  them until the next full bake;
+- a scene draws directly to the screen (wipes) or relies on dirty-rect staleness.
+
+`DRAW_GETPUT` and `SAVE_GETPUT_REGION` play no part in any of this; the port's
+per-environment GETPUT slots and `SAVE_IMAGE_REGION` bookkeeping model an op that the
+binary ignores.
+
+### C.7 Tracker questions
+
+| Question | Answer | Conf. |
+| --- | --- | --- |
+| Does the sprite handler register a restore, or rely on script GETPUT? | It registers its own triple (`1058:10b7` → `FUN_1050_0a85` with the frame's rect). Script GETPUT is inert unless `0xa054` filled the slot | asm |
+| What does `DRAW_GETPUT` present? | Nothing on its own. With a filled slot: present@0/@1 and restore@0 of the saved rect. No PUT of the saved pixels (that is `0xa064`) | asm |
+| Initial value of `2641` | 4 (word in the data segment). Only writer sets 2 on an unreachable device class | data, dc |
+| Who sets `27c0` / `287a` | `27c0`: ADS load → 0, TTM ops `0x0500`/`0x0510` (unused). `287a`: data = 1, app init → 0, never set again | asm, scan |
+| What is in `eb0` when MEANWHIL starts | Solid colour 5 (black), no island: all three callers carry catalogue bit `0x2000`. Forced capture: never-baked bitmap, also black | dc, data, capture |
+| Can a GETPUT save capture another scene's sprite | `0xa054` (GET), `STORE_AREA` and `LOAD_SCREEN` all snapshot `eb2` at op time; anything drawn earlier in the tick by any thread is in the snapshot. For `STORE_AREA`/`LOAD_SCREEN` that content then lives in `eb0` until the next full bake. `0xa054` matters only for GJGULIVR | asm, inf |
+| Does `DRAW_RECT` register present+restore | Yes, via the generic path `(x, y, w+8, h+2)` | asm |
+
+### C.8 Not settled
+
+- Colour index 5 in `JOHNCAST.PAL` is assumed black from the capture; not read from
+  the palette resource. Cheap to check with the port's palette loader.
+- Whether `DAT_1068_46da` is ever non-zero during normal play (it would suppress all
+  drawing for a thread). A DBX hook on the thread record would settle it.
+- `0xa704`, `0xaf02`, `0xa2x4`: unused by the shipped scripts; their draw helpers were
+  not read.
+- The exact merge heuristic in `FUN_1060_007e` (area ≤ sum + 0x14) only affects how
+  many blits happen, not what ends up on screen, as long as the plate is restored
+  before the next present.
+
+---
+
 ## Implications for the refactor
+
+*Note (Part C): Track A below was written against §A.2 and is superseded. The faithful
+model is a background plate (`eb0`) plus a world raster (`eb2`) that is restored from the
+plate every tick; see C.6 for the cases where "clear + replay" differs from it.*
 
 The findings split the work into two independent tracks:
 
