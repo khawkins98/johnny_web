@@ -547,11 +547,12 @@ describe('DgdsRuntime', () => {
         const child = getSceneState(runtime.state, 1, 1, -3, 1);
         runtime.state.scenes.push(child);
 
-        // SET_DELAY 8 rescales 16ms->20ms fine ticks: ceil(8 * 16 / 20) = 7.
+        // SET_DELAY 8 sets a deadline 8 units ahead on the 16 ms game clock
+        // (per-tick presents here: the clock reads floor(20 * n / 16)).
         runtime.tick(20);
-        expect(child.state.waitTicks).toBe(7);
+        expect(child.state.frameDeadline).toBe(1 + 8);
         runtime.tick(20);
-        expect(child.state.waitTicks).toBe(6);
+        expect(child.state.frameDeadline).toBe(9);
         runtime.tick(20);
 
         expect(child.runState).toBe('finished');

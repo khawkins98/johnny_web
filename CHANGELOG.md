@@ -4,6 +4,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 
 ## Unreleased
 
+- Fixed animation frames with a `SET_DELAY` of 7 lasting about 147 ms instead of the original's ~120 ms, which made those threads (the sailing ship in `BUILDING.ADS` #2, Johnny in `WALKSTUF.ADS` #1, the big fire in `BUILDING.ADS` #8) fall behind the threads they play alongside. Frame holds are now deadlines on the original's 16 ms game clock, read once per ~55 ms present, as in the binary (#53).
 - Renamed the story timeline's middle step from "which tide?" to "what time of day?". Its three bands (early day, late day, night) are the original's story clock, which also sets the night sky; high or low tide is a separate coin flip, so the old tide names were misleading (#53).
 - Night, tide and still waves now follow the original. The night sky comes from the game's 16-phase half-hour clock (its last four phases, counted from the original's 9:00 start time), not from the local hour; the **Live Local Clock** setting keeps the local-hour night as an option. High or low tide is a coin flip per visit unless a scene pins high tide, instead of following that clock. The sandcastle and ship-building visits (`BUILDING.ADS` #2/#4/#6, `MARY.ADS` #1, `VISITOR.ADS` #3) hold the waves still, as the original does (#53).
 - Fixed baked background areas disappearing in the boat-building gag (`BUILDING.ADS` #2): a new `STORE_AREA` now adds to the background plate instead of wiping it, so the anchored ship and the sandcastle stay until the gag ends (#53).

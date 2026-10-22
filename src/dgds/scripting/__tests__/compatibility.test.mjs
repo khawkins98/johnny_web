@@ -27,20 +27,20 @@ describe('browser presentation policy', () => {
 });
 
 describe('frame timing compatibility', () => {
-    it('rescales the authored 16ms-unit delay to 20ms fine ticks, floored to one', () => {
+    it('keeps the authored delay on the original 16 ms game clock', () => {
         const timing = createTimingCompatibility();
 
-        // ceil(9 * 16 / 20) = ceil(7.2) = 8 fine ticks: never advance
-        // before the authored deadline.
+        // The hold is a deadline of `now + delay` on the 16 ms clock, read at
+        // each ~55 ms present (see frame-hold-cadence.test.mjs for the holds).
         expect(timing.mapFrameBoundary(createFrameBoundary(9))).toMatchObject({
             authoredDelayTicks: 9,
-            runtimeDelayTicks: 8,
+            holdTicks: 9,
         });
-        // A zero-delay frame still floors to one fine tick so the countdown arms
-        // frameReady; the ~55ms WM_TIMER present gate provides the real minimum.
+        // A zero-delay frame passes at the next present; the ~55ms WM_TIMER
+        // present gate provides the real minimum.
         expect(timing.mapFrameBoundary(createFrameBoundary(0))).toMatchObject({
             authoredDelayTicks: 0,
-            runtimeDelayTicks: 1,
+            holdTicks: 0,
         });
     });
 
@@ -60,7 +60,7 @@ describe('frame timing compatibility', () => {
 
         expect(timing.mapFrameBoundary(boundary)).toEqual({
             authoredDelayTicks: 9,
-            runtimeDelayTicks: 5,
+            holdTicks: 5,
             profile: 'test-double-speed',
             patches: ['halve-holds'],
         });
