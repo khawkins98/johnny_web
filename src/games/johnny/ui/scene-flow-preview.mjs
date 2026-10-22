@@ -4,10 +4,9 @@ import { createTimingCompatibility } from '../../../dgds/scripting/timing-compat
 import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
 import { createBrowserFramePresenter } from '../../../dgds/hosts/browser-frame-presenter.mjs';
 import { createBrowserPresentationPolicy } from '../../../dgds/hosts/browser-presentation-policy.mjs';
-import { drawBackground } from '../../../dgds/scripting/frame-renderer.mjs';
 import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
 import { withHostBackground } from '../../../bottle/host-background.mjs';
-import { createJohnnyIslandPresentationState } from '../island-presenter.mjs';
+import { createJohnnyIslandPresentationState, createPreviewHostPainter } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
 
 /** Run one child TTM animation in its own silent, offscreen DGDS runtime. */
@@ -32,13 +31,14 @@ export function mountSceneFlowPreview({ host, resolveEntry, sequenceTools, scrip
     const mainContext = background.getContext('2d');
     const heldContext = heldFrame.getContext('2d');
     const foregroundContext = foreground.getContext('2d');
-    drawBackground(island, mainContext, policy);
+    const paintHost = createPreviewHostPainter({ island, presentationPolicy: policy });
+    paintHost(mainContext);
     const presenter = createBrowserFramePresenter({
         context: foregroundContext,
         mainContext,
         presentationPolicy: policy,
         backgroundDecorator: withHostBackground({
-            presentHost: (context) => (drawBackground(island, context, policy), island),
+            presentHost: paintHost,
             backgroundDecorator: null,
         }),
     });
