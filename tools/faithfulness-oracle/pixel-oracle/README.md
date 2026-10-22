@@ -62,7 +62,13 @@ sets, not by clock time:
    bakes (the samples Phase 0 says are most likely to show plate differences).
    They are capped at 48 per gag.
 4. Each keyframe is mapped to our tick at the same fraction of our span. The best
-   pair is then chosen over our ticks within ±6 and original ticks within ±1.
+   pair is then chosen over original ticks within ±1 and, for each of those, our
+   ticks within ±6 of the mapped tick moved by the same number of samples (2.85 of
+   our ticks each; a span's first tick often has no dump, so the next sample is
+   used). Mid-span keyframes widen the ±6 to a fifth of our span, up to ±40
+   (`align.mjs` `searchWindows`): steady motion drifts when the two sides pace a
+   span differently, and pacing is the sequencing and lifespan oracles' job.
+   Transitions and bakes keep ±6.
 
 ## Score
 
@@ -120,12 +126,32 @@ Verdicts use the aligned median and max (`report.mjs` `THRESHOLDS`): median
   (orig-only pixels) is missing from our foreground. Check whether a TTM redraws the
   trunk over passing actors, or whether it is a plate/host artefact of forced mode.
 
-The worst gags are mostly harness noise. BUILDING:2 (divergent, 12.6% median) has
-low live-set coverage (66%) and a moving ship at a different phase. Its result is
-the same with a ±20 tick window (8.9%), so it needs eyeballing. Outlier keyframes
-above 8% are mostly moving objects at a different phase within a long span (the
-plane in VISITOR:1, the boat in WALKSTUF:1, the pose phase in STAND:16), or the
-first keyframe of a gag.
+Three gags still have a keyframe above 8%. All three come from one timing
+difference, not from drawing: a `SET_DELAY 7` frame lasts about 147 ms in ours and
+about 120 ms in the original (2.13 samples a frame in WALKSTUF:1 `1:2`). The binary
+sets each frame's deadline as `now + delay` on its 16 ms clock and checks it once
+per ~55 ms sample (`FUN_1048_196e`), so two samples (6.9 units) usually pass a delay
+of 7. Ours rounds 112 ms up to 120 ms and then waits for a present, which makes it
+three presents. Threads with delay 7 then fall behind threads with other delays:
+
+- BUILDING:2 `1:35`/`1:40`/`1:41` (26%): the ship (`1:35`, delay 7) is slow
+  relative to `1:40` (delays 30/15/8), so `1:40` ends when the ship is at our tick
+  416 position, against our tick 460 in the original. `1:41` is a filler stopped
+  with `1:35`.
+- WALKSTUF:1 `1:4` (30%): `1:2` (delay 7) ends 24 ticks late relative to the boat
+  (`1:4`, delay 5), so `1:14` and `1:6` start late and the boat has gone by the
+  `1:4 1:6` keyframe.
+- BUILDING:8 `3:78` (8.1%): `3:44` (very large fire, 4 frames at delay 7) cycles
+  every 29-30 ticks against 9 samples; the repeated `3:78` spans drift, and the
+  keyframe pairs with the wrong cycle (o809 matches our tick 2030, mapped 1942).
+
+BUILDING:4/6 keep about 4-6% at `2:64 2:68` after the wider window. The original
+shows coloured noise in the 175x142 rectangle at (194, 123) from tick 621, where
+GJGULIVR `2:64` does `PUT_REGION` and `STORE_AREA` of the region `2:53` saved with
+`GET_REGION` at tick 281. The screen there was black at 281, so the original's
+saved buffer no longer holds those pixels when it is put back. This is probably a
+forced-capture artefact; a normal-play capture of the Lilliput sequence would
+settle it.
 
 ## Limitations
 
@@ -137,8 +163,9 @@ first keyframe of a gag.
 - One episode per gag is used, so branches the capture did not take are not scored.
   Low coverage (below 80%) means our best seed took a different branch for part of
   the gag.
-- Matching is by span fraction. Steady motion inside a long span can be out of
-  phase by more than the ±6 tick window.
+- Matching is by span fraction. Steady motion inside a long span is only
+  absorbed up to the mid-span window (a fifth of the span, at most ±40 ticks), and
+  transition keyframes still show pacing differences between threads.
 - A dump is written up to one VGA frame after tick entry. A few ticks have no dump
   (two ticks fell inside one frame). `±1` original tick absorbs both.
 - The `hostRemnant` and wave-area masks can hide real drawing by the original

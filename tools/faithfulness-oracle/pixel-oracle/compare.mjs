@@ -11,8 +11,9 @@
 //      differ between runs, so the seed with the same branches is the fair one.
 //   3. Keyframes at live-set transitions plus mid-span samples (align.mjs).
 //   4. Render ours (render-ours.mjs, browser presenter on a soft canvas) and score
-//      each keyframe (score.mjs) against original ticks k-1..k+1 and our ticks within
-//      +-window of the mapped tick; the best-aligned pair is the keyframe's score.
+//      each keyframe (score.mjs) against original ticks k-1..k+1 and our ticks in
+//      each candidate's window (align.mjs searchWindows: +-window, wider for mid-span
+//      keyframes); the best-aligned pair is the keyframe's score.
 //
 // Usage:
 //   node compare.mjs <NAME:tag> [--captures scratchpad/pixel-oracle/captures]
@@ -24,7 +25,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { driveGag, resolveEntry } from '../../../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { johnnyCastaway } from '../../../src/games/johnny/manifest.mjs';
-import { alignSpans, pickKeyframes, toSpans } from './align.mjs';
+import { alignSpans, pickKeyframes, searchWindows, toSpans } from './align.mjs';
 import { readFrame, sideBySide, writePng } from './images.mjs';
 import { compositeRgb, forcedTitleState, hasData, liveKeys, renderOurs } from './render-ours.mjs';
 import { DEFAULT_TOLERANCE, foregroundShift, hostRemnantMask, mapToRgb, scoreFrame } from './score.mjs';
@@ -161,7 +162,7 @@ const round = (x, digits = 2) => (x == null ? null : Number(x.toFixed(digits)));
  * @param {string} o.gag  'NAME:tag'
  * @param {string} [o.captureDir]
  * @param {number} [o.seeds=16]
- * @param {number} [o.window=6]   our-tick search radius around the mapped tick
+ * @param {number} [o.window=6]   our-tick search radius around the mapped tick (base; mid-span keyframes widen it)
  * @param {number} [o.origJitter=1] original-tick search radius
  * @param {number} [o.tolerance]
  * @param {string|null} [o.dumpDir] write orig|ours|diff PNGs per keyframe (scratch only)
@@ -221,9 +222,17 @@ export const compareGag = ({
     const needed = new Map(); // our tick -> keyframe indices
     keyframes.forEach((kf, i) => {
         kf.best = null;
-        kf.candidates = [];
-        for (let d = -origJitter; d <= origJitter; d++) if (capture.frames.has(kf.origTick + d)) kf.candidates.push(kf.origTick + d);
-        for (let t = Math.max(1, kf.ourTick - window); t <= kf.ourTick + window; t++) {
+        const ourSpan = ourSpans[alignment.pairs[kf.span][1]];
+        kf.candidates = searchWindows({
+            kf,
+            ourSpanLen: ourSpan.end - ourSpan.start,
+            hasFrame: (t) => capture.frames.has(t),
+            window,
+            origJitter,
+        });
+        const ticks = new Set();
+        for (const { from, to } of kf.candidates) for (let t = from; t <= to; t++) ticks.add(t);
+        for (const t of ticks) {
             if (!needed.has(t)) needed.set(t, []);
             needed.get(t).push(i);
         }
@@ -247,7 +256,8 @@ export const compareGag = ({
             if ((best.stream.live[tick] ?? []).join(' ') !== live.join(' ')) liveMismatch++;
             for (const i of needed.get(tick) ?? []) {
                 const kf = keyframes[i];
-                for (const origTick of kf.candidates) {
+                for (const { origTick, from, to } of kf.candidates) {
+                    if (tick < from || tick > to) continue;
                     const orig = origFrame(origTick);
                     const s = scoreFrame({ orig, backdrop, fg, bg, bgKind, tolerance, ignore, hostArea });
                     if (!kf.best || s.diffPct < kf.best.diffPct) {
