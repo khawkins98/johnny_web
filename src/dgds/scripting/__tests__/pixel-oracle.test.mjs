@@ -51,9 +51,25 @@ describe('pixel oracle alignment', () => {
         expect(matchedOrig).toBe(5);
         expect(totalOrig).toBe(6);
         const frames = pickKeyframes({ orig, ours, pairs });
-        expect(frames[0]).toMatchObject({ origTick: 1, ourTick: 1, kind: 'transition' });
+        expect(frames[0]).toMatchObject({ origTick: 1, ourTick: 1, kind: 'first-frame' });
         expect(frames.some((f) => f.kind === 'mid')).toBe(false);
         expect(frames.at(-1)).toMatchObject({ origTick: 4, ourTick: 5, kind: 'transition' });
+    });
+
+    it("gives the gag's first frame its own keyframe kind when both first spans match", () => {
+        const orig = toSpans([[], ['a'], ['a'], ['b'], ['b']]);
+        const ours = toSpans([[], ['a'], ['a'], ['a'], ['b'], ['b']]);
+        const frames = pickKeyframes({ orig, ours, pairs: alignSpans(orig, ours).pairs });
+        expect(frames.map((f) => f.kind)).toEqual(['first-frame', 'transition']);
+        expect(frames[0]).toMatchObject({ origTick: 1, ourTick: 1, span: 0 });
+    });
+
+    it('keeps a plain transition when our first span is not the matched one', () => {
+        // our seed took another branch first: span 0 of ours is unmatched
+        const orig = toSpans([[], ['b'], ['b']]);
+        const ours = toSpans([[], ['x'], ['b'], ['b']]);
+        const frames = pickKeyframes({ orig, ours, pairs: alignSpans(orig, ours).pairs });
+        expect(frames.map((f) => f.kind)).toEqual(['transition']);
     });
 });
 
@@ -64,6 +80,26 @@ describe('pixel oracle search windows', () => {
         const w = searchWindows({ kf: { kind: 'transition', origTick: 1, ourTick: 1 }, ourSpanLen: 300, hasFrame: has([0, 2]) });
         expect(w).toEqual([
             { origTick: 0, from: 1, to: 4 },
+            { origTick: 2, from: 1, to: 10 },
+        ]);
+    });
+    it("extends the first frame's window forward by our measured first-frame hold only", () => {
+        // The original passes a loading first frame at its next sample (the load's
+        // wall time eats the hold); ours holds it for the authored delay. Our second
+        // frame can therefore be up to `firstFrameHold` ticks later than mapped.
+        const kf = { kind: 'first-frame', origTick: 1, ourTick: 1 };
+        expect(searchWindows({ kf, ourSpanLen: 300, hasFrame: has([2]), firstFrameHold: 11 })).toEqual([
+            { origTick: 2, from: 1, to: 21 },
+        ]);
+        // without a measured hold it is an ordinary transition window
+        expect(searchWindows({ kf, ourSpanLen: 300, hasFrame: has([2]) })).toEqual([{ origTick: 2, from: 1, to: 10 }]);
+        // a long first-frame hold (MARY:5, STAND:11) is capped like a mid-span window
+        expect(searchWindows({ kf, ourSpanLen: 300, hasFrame: has([2]), firstFrameHold: 325 })).toEqual([
+            { origTick: 2, from: 1, to: 50 },
+        ]);
+        // the hold never widens other kinds
+        const t = { kind: 'transition', origTick: 1, ourTick: 1 };
+        expect(searchWindows({ kf: t, ourSpanLen: 300, hasFrame: has([2]), firstFrameHold: 11 })).toEqual([
             { origTick: 2, from: 1, to: 10 },
         ]);
     });

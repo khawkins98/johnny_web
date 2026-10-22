@@ -80,10 +80,16 @@ export const alignSpans = (orig, ours) => {
  * @param {number} [o.midEvery=24] one extra mid-span sample per this many original samples
  * @param {number} [o.maxPerSpan=4]
  * @param {number} [o.max=48] overall cap (evenly thinned)
- * @returns {{origTick:number, ourTick:number, key:string, kind:'transition'|'mid', span:number}[]}
+ * @returns {{origTick:number, ourTick:number, key:string, kind:'first-frame'|'transition'|'mid', span:number}[]}
+ *   The gag's first frame (the transition into the first span, when both sides'
+ *   first spans are the matched pair) is its own kind: the original passes a
+ *   loading first frame at its next sample, ours holds it for the authored delay
+ *   (README "Findings"), so `searchWindows` gives it a wider window and the report
+ *   can tell it apart from a handoff.
  */
 export const pickKeyframes = ({ orig, ours, pairs, midEvery = 24, maxPerSpan = 4, max = 48 }) => {
     const frames = [];
+    const firstPairIsFirstSpans = pairs.length > 0 && pairs[0][0] === 0 && pairs[0][1] === 0;
     pairs.forEach(([a, b], span) => {
         const o = orig[a];
         const u = ours[b];
@@ -97,13 +103,13 @@ export const pickKeyframes = ({ orig, ours, pairs, midEvery = 24, maxPerSpan = 4
                 kind,
                 span,
             });
-        at(0, 'transition');
+        at(0, span === 0 && firstPairIsFirstSpans ? 'first-frame' : 'transition');
         const mids = Math.min(maxPerSpan - 1, Math.max(oLen >= 4 ? 1 : 0, Math.floor(oLen / midEvery)));
         for (let k = 1; k <= mids; k++) at(k / (mids + 1), 'mid');
     });
     if (frames.length <= max) return frames;
     // keep every transition first, then thin the mids evenly
-    const transitions = frames.filter((f) => f.kind === 'transition');
+    const transitions = frames.filter((f) => f.kind !== 'mid');
     const mids = frames.filter((f) => f.kind === 'mid');
     const keepTransitions = transitions.length > max ? thin(transitions, max) : transitions;
     const keepMids = thin(mids, Math.max(0, max - keepTransitions.length));
@@ -135,6 +141,16 @@ export const TICKS_PER_SAMPLE = 2.85;
  * base window when they do not. Pacing inside a span is a timing question for the
  * sequencing and lifespan oracles; this one compares what is drawn. Transitions and
  * bakes keep the base window, so handoff frames are still judged at the handoff.
+ *
+ * The gag's first frame (`kind: 'first-frame'`) keeps the base window behind the
+ * mapped tick and extends it forward by `firstFrameHold`, the number of our ticks
+ * the gag's first frame was held (measured on our render, compare.mjs), capped at
+ * `maxWindow`. That is the accepted deviation and nothing more: the original's
+ * clock jumps by the load's wall time at the gag's first sample, so its first frame
+ * passes at the next sample whatever its delay, while ours holds the authored delay
+ * (README "Findings"). The cap keeps a long-delay first frame (MARY:5 holds 100
+ * ticks) from turning the window into a free search: the original's jump shortens
+ * such a hold by the load time, it does not remove it.
  * @returns {{origTick:number, from:number, to:number}[]}  inclusive our-tick ranges
  */
 export const searchWindows = ({
@@ -146,15 +162,17 @@ export const searchWindows = ({
     midFraction = 0.2,
     maxWindow = 40,
     ticksPerSample = TICKS_PER_SAMPLE,
+    firstFrameHold = 0,
 }) => {
     const radius =
         kf.kind === 'mid' ? Math.min(maxWindow, Math.max(window, Math.round(midFraction * ourSpanLen))) : window;
+    const ahead = kf.kind === 'first-frame' ? Math.min(maxWindow, Math.max(0, firstFrameHold)) : 0;
     const out = [];
     for (let d = -origJitter; d <= origJitter; d++) {
         const origTick = kf.origTick + d;
         if (!hasFrame(origTick)) continue;
         const centre = kf.ourTick + Math.round(d * ticksPerSample);
-        out.push({ origTick, from: Math.max(1, centre - radius), to: centre + radius });
+        out.push({ origTick, from: Math.max(1, centre - radius), to: centre + radius + ahead });
     }
     return out;
 };
