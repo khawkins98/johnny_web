@@ -9,6 +9,7 @@
 
 export const SURFACE_WIDTH = 640;
 export const SURFACE_HEIGHT = 480;
+const MAX_DRAWN_RECTS = 64;
 
 const fullSurface = (width = SURFACE_WIDTH, height = SURFACE_HEIGHT) => ({
     x: 0,
@@ -57,7 +58,19 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
     const extent = fullSurface(width, height);
     let occupiedBounds = null;
     let revision = 0;
-    const touch = () => { revision += 1; };
+    // Every rect changed since the last takeDrawnRects(): the areas the per-tick
+    // restore has to put back to the plate (the binary's per-draw restore rects).
+    // Past MAX_DRAWN_RECTS they collapse into their union.
+    let drawnRects = [];
+    const markDrawn = (rect) => {
+        if (!rect || rect.width <= 0 || rect.height <= 0) return;
+        if (drawnRects.length < MAX_DRAWN_RECTS) drawnRects.push({ ...rect });
+        else drawnRects = [drawnRects.reduce(mergeBounds, rect)];
+    };
+    const touch = (rect) => {
+        revision += 1;
+        markDrawn(rect);
+    };
 
     const pixelOffset = (x, y) => (y * width + x) * 4;
     const markPixel = (x, y) => {
@@ -135,10 +148,55 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             return occupiedBounds ? { ...occupiedBounds } : null;
         },
 
+        /** Flag an area for the next restore without drawing (a plate under it changed). */
+        markDrawn(rect) {
+            if (rect) markDrawn(intersectRect(rect, extent));
+        },
+
+        /** The rects changed since the last call, then forget them. */
+        takeDrawnRects() {
+            const drawn = drawnRects;
+            drawnRects = [];
+            return drawn;
+        },
+
+        /**
+         * Overwrite a rect with the same rect of `source` (zero where `source` is
+         * absent or smaller), row by row. Used by the per-tick restore. The occupied
+         * bounds are not rescanned, so they stay a superset until the next compose.
+         */
+        restoreRegionFrom(source, rect) {
+            const area = intersectRect(rect, extent);
+            if (area.width === 0 || area.height === 0) return;
+            const copy = source?.pixels
+                ? intersectRect(area, { x: 0, y: 0, width: source.width, height: source.height })
+                : { x: 0, y: 0, width: 0, height: 0 };
+            for (let y = area.y; y < area.y + area.height; y++) {
+                const start = pixelOffset(area.x, y);
+                const inSource = copy.width > 0 && y >= copy.y && y < copy.y + copy.height;
+                if (inSource && copy.width === area.width) {
+                    const from = (y * source.width + area.x) * 4;
+                    pixels.set(source.pixels.subarray(from, from + area.width * 4), start);
+                    continue;
+                }
+                pixels.fill(0, start, start + area.width * 4);
+                if (inSource) {
+                    const from = (y * source.width + copy.x) * 4;
+                    pixels.set(source.pixels.subarray(from, from + copy.width * 4), pixelOffset(copy.x, y));
+                }
+            }
+            const sourceBounds = source?.bounds;
+            if (sourceBounds) {
+                const kept = intersectRect(area, sourceBounds);
+                if (kept.width && kept.height) occupiedBounds = mergeBounds(occupiedBounds, kept);
+            }
+            touch(area);
+        },
+
         clear(rect) {
             const area = intersectRect(normalizeRect(rect, width, height), extent);
             if (area.width === 0 || area.height === 0) return;
-            touch();
+            touch(area);
             if (area.x === 0 && area.y === 0 && area.width === width && area.height === height) {
                 pixels.fill(0);
                 occupiedBounds = null;
@@ -148,6 +206,30 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                 pixels.fill(0, pixelOffset(area.x, y), pixelOffset(area.x + area.width, y));
             }
             if (occupiedBounds) recalculateBounds(mergeBounds(occupiedBounds, area));
+        },
+
+        // GET (0xa054): copy a rect of pixels out, rect-sized.
+        getRegion(rect) {
+            const area = intersectRect(normalizeRect(rect, width, height), extent);
+            const data = new Uint8ClampedArray(area.width * area.height * 4);
+            for (let row = 0; row < area.height; row++) {
+                const start = pixelOffset(area.x, area.y + row);
+                data.set(pixels.subarray(start, start + area.width * 4), row * area.width * 4);
+            }
+            return { ...area, pixels: data };
+        },
+
+        // PUT (0xa064): write a saved region back, overwriting (transparent included).
+        putRegion(region) {
+            if (!region?.pixels || !region.width || !region.height) return;
+            const area = intersectRect(region, extent);
+            if (!area.width || !area.height) return;
+            for (let row = area.y; row < area.y + area.height; row++) {
+                const source = ((row - region.y) * region.width + (area.x - region.x)) * 4;
+                pixels.set(region.pixels.subarray(source, source + area.width * 4), pixelOffset(area.x, row));
+            }
+            recalculateBounds(mergeBounds(occupiedBounds, area));
+            touch(area);
         },
 
         drawSprite(image, x, y, { clip = extent, flipX = false } = {}) {
@@ -185,13 +267,14 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                 }
             }
             if (drawnRight >= drawnLeft) {
-                occupiedBounds = mergeBounds(occupiedBounds, {
+                const drawn = {
                     x: drawnLeft,
                     y: drawnTop,
                     width: drawnRight - drawnLeft + 1,
                     height: drawnBottom - drawnTop + 1,
-                });
-                touch();
+                };
+                occupiedBounds = mergeBounds(occupiedBounds, drawn);
+                touch(drawn);
             }
         },
 
@@ -226,7 +309,14 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                     y += sy;
                 }
             }
-            if (drew) touch();
+            if (drew) {
+                touch(intersectRect({
+                    x: Math.min(Math.round(x1), endX),
+                    y: Math.min(Math.round(y1), endY),
+                    width: dx + 1,
+                    height: -dy + 1,
+                }, extent));
+            }
         },
 
         fillRect(x, y, rectangleWidth, rectangleHeight, color) {
@@ -239,7 +329,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             }
             if (rgba[3] !== 0 && area.width && area.height) {
                 occupiedBounds = mergeBounds(occupiedBounds, area);
-                touch();
+                touch(area);
             }
         },
 
@@ -274,13 +364,14 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                 }
             }
             if (drawnRight >= drawnLeft) {
-                occupiedBounds = mergeBounds(occupiedBounds, {
+                const drawn = {
                     x: drawnLeft,
                     y: drawnTop,
                     width: drawnRight - drawnLeft + 1,
                     height: drawnBottom - drawnTop + 1,
-                });
-                touch();
+                };
+                occupiedBounds = mergeBounds(occupiedBounds, drawn);
+                touch(drawn);
             }
         },
 
@@ -311,7 +402,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
             }
             if (drewPixel) {
                 occupiedBounds = mergeBounds(occupiedBounds, area);
-                touch();
+                touch(area);
             }
         },
 
@@ -342,7 +433,7 @@ export const createSoftwareSurface = ({ width = SURFACE_WIDTH, height = SURFACE_
                 }
             }
             recalculateBounds(mergeBounds(previousBounds, area));
-            touch();
+            touch(area);
         },
 
         fingerprint() {
@@ -406,6 +497,11 @@ export const createRecordingSurface = () => {
                 source,
                 rect: normalizeRect(rect),
             }),
+        getRegion: (rect) => {
+            record('getRegion', { rect: normalizeRect(rect) });
+            return { ...normalizeRect(rect), pixels: null };
+        },
+        putRegion: (region) => record('putRegion', { region }),
         fingerprint: () => ({ commandCount: commands.length }),
         get revision() {
             return revision;

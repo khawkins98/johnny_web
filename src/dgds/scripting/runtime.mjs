@@ -15,6 +15,7 @@ import { createAdsProgram, isAdsTagEnded, resetAdsProgram, stepAdsProgram } from
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 import { addSceneNode, clearAdsSceneBatch, findSceneNode, resetAdsDisplayList } from './ads-scene-changes.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
+import { restoreWorldRaster } from './composition.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
 
@@ -504,6 +505,9 @@ export class DgdsRuntime {
     #runScripts() {
         const state = this.state;
         if (state.type === 'ADS') {
+            // Draw -> present -> restore: last tick's draws are erased back to the
+            // plate before this tick's ADS walk and node pass draw anything.
+            restoreWorldRaster(state);
             const completed = this.#runAdsController();
             const scene = state.data.scenes[state.currentScene];
             const compose = !state.continue || scene === undefined;

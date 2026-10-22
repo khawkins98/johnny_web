@@ -19,8 +19,8 @@ export const TTMCommandType = [
     { opcode: 0x4200, command: 'STORE_AREA' },
     { opcode: 0x4210, command: 'SAVE_GETPUT_REGION' },
     { opcode: 0xa000, command: 'UNKNOWN_4' }, // Draw Line related?
-    { opcode: 0xa050, command: 'UNKNOWN_5' }, // Draw Line related?
-    { opcode: 0xa060, command: 'WIPE_RIGHT_TO_LEFT' },
+    { opcode: 0xa050, command: 'GET_REGION' }, // GET: save a world-raster rect (GJGULIVR only)
+    { opcode: 0xa060, command: 'PUT_REGION' }, // PUT: write the saved rect back (GJGULIVR only)
     { opcode: 0xa0a0, command: 'DRAW_LINE' },
     { opcode: 0xa100, command: 'DRAW_RECT' },
     { opcode: 0xa400, command: 'DRAW_BUBBLE' },

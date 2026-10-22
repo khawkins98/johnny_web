@@ -154,11 +154,21 @@ export const SAVE_IMAGE_REGION = (state, x, y, width, height) => {
 
 export const TTM_UNKNOWN_4 = (state, x, y, width, height) => {};
 
-export const SAVE_REGION = (state, x, y, width, height) => {};
+// GET (0xa054): save a rect of the world raster into the environment's slot 0.
+// Only GJGULIVR.TTM uses it (BUILDING:4/6), to save the ship-less sea before the
+// anchored ship is baked onto the plate.
+export const GET_REGION = (state, x, y, width, height) => {
+    const rect = { x, y, width, height };
+    emitFrameOperation(state, { type: FrameOperationType.GET_REGION, slot: 0, rect });
+    traceEvent(state, 'get-region', { slot: 0, rect });
+};
 
-// Wipes alter presentation timing in DOS but leave the composition unchanged.
-// The browser presenter currently applies the final composition atomically.
-export const WIPE_RIGHT_TO_LEFT = () => {};
+// PUT (0xa064): write slot 0's saved pixels back into the world raster at the
+// saved rect. GJGULIVR PUTs the sea back, then re-bakes it, so the ship sails off.
+export const PUT_REGION = (state, x, y, width, height) => {
+    state.layerRevision = (state.layerRevision || 0) + 1;
+    emitFrameOperation(state, { type: FrameOperationType.PUT_REGION, slot: 0, rect: { x, y, width, height } });
+};
 
 // Primitive draws bump the frame serial too, so a frame whose only change is a
 // primitive (no sprite / BEGIN_SCENE_FRAME) still triggers a recomposite under the

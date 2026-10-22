@@ -2,6 +2,40 @@ import { sequencePaintIndex } from './ttm-sequence-order.mjs';
 import { isTtmFinished } from './ttm-run-state.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
 
+const drawPlates = (state, surface, rect) => {
+    for (const environment of state.ttmEnvironments?.values?.() || []) {
+        const stored = environment?.assets?.saveBkg?.[0];
+        if (stored?.canDraw) surface.drawSurface(stored.surface, rect);
+    }
+};
+
+/**
+ * Restore the world raster from the plate before the scripts run (the binary's
+ * per-tick restore of eb2 from eb0 under every drawn region). A STORE_AREA or GET
+ * later this tick then reads the plate plus this tick's draws so far, not last
+ * tick's composite. Only the rects drawn since the last restore are put back
+ * (outside them the raster already equals the plate). Recording surfaces (unit tests) do not
+ * track drawn areas and are left alone.
+ */
+export const restoreWorldRaster = (state) => {
+    const surface = state.surface;
+    const dirty = surface?.takeDrawnRects?.();
+    if (!dirty?.length) return;
+    const plates = [];
+    for (const environment of state.ttmEnvironments?.values?.() || []) {
+        const stored = environment?.assets?.saveBkg?.[0];
+        if (stored?.canDraw) plates.push(stored.surface);
+    }
+    for (const rect of dirty) {
+        // The first plate is copied (erasing whatever was drawn); any others are
+        // layered over it in environment order, as composeTtmFrame draws them.
+        surface.restoreRegionFrom(plates[0] ?? null, rect);
+        for (const plate of plates.slice(1)) surface.drawSurface(plate, rect);
+    }
+    // The raster now equals the plate everywhere; the plate redraw is not a draw.
+    surface.takeDrawnRects();
+};
+
 /**
  * Faithful DGDS frame composition — immediate mode, reconstructed from the original
  * engine's per-tick loop (draw all active actors → present → restore background under
@@ -19,10 +53,10 @@ export const composeTtmFrame = (state) => {
     // eb0 plate: a scene bakes a region (e.g. a built sandcastle) that must persist
     // under the actors even after the storing scene finishes, until the ADS-tag
     // boundary prunes it (canDraw). Draw them first, beneath the actors.
-    for (const environment of state.ttmEnvironments?.values?.() || []) {
-        const stored = environment?.assets?.saveBkg?.[0];
-        if (stored?.canDraw) surface.drawSurface(stored.surface);
-    }
+    drawPlates(state, surface);
+    // Everything outside the replayed frames below now equals the plate, so only
+    // those frames need restoring before the next script pass.
+    surface.takeDrawnRects?.();
     const ordered = [...(state.scenes || [])].sort(
         (left, right) => sequencePaintIndex(state, left) - sequencePaintIndex(state, right),
     );
@@ -55,6 +89,8 @@ export const composeTtmFrame = (state) => {
 export const pruneEnvironmentBackground = (state, sceneIdx) => {
     const stored = state.ttmEnvironments?.get?.(sceneIdx)?.assets?.saveBkg?.[0];
     if (!stored) return;
+    // The raster still shows the old plate: have the next restore put it back.
+    if (stored.canDraw) state.surface?.markDrawn?.(stored.surface?.bounds);
     stored.canDraw = false;
     stored.surface?.clear?.();
 };
