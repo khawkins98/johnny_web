@@ -22,6 +22,7 @@ import {
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
+import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
 import { buildSceneFlowMap } from './scene-flow-graph.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
@@ -297,6 +298,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // Story steps (issue #47): which day, then which tide, then which gag.
     // `step` is where the viewer is; while `followLive` holds it tracks Johnny.
     let step = null;
+    let stepperRoot = null;
     let faceQueue = null;
     const stepperStyle = document.createElement('style');
     stepperStyle.textContent = STEPPER_STYLE;
@@ -464,7 +466,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
         faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
-        renderStoryStepper(shell, {
+        stepperRoot = renderStoryStepper(shell, {
             step,
             live,
             visit: visitSequence({
@@ -475,15 +477,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             }),
             gagName,
             faces: faceQueue,
-            onStep: (patch) => {
+            onStep: (patch, from = null) => {
+                const direction = stepDirection(step.level, patch.level ?? step.level);
                 step = { ...step, ...patch, followLive: false };
                 if (patch.gag) step.gag = gagFacts(patch.gag);
                 renderCurrent();
                 modal.scrollTop = 0;
+                playStepEntrance(stepperRoot, { direction, from });
             },
             onLive: () => {
+                const before = step.level;
                 followLive(sequenceTools?.status?.() ?? status);
                 renderCurrent();
+                playStepEntrance(stepperRoot, { direction: stepDirection(before, step.level) });
             },
             onPlayDay: canJumpDay() ? playDay : null,
             onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,

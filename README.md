@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). The wide map fills the browser while a fixed day ruler stays above it. Day keys form the story backbone; the known visit branches below its day and runs left to right from seen gags through Johnny's yellow live gag to dashed planned gags. **Next visit ?** moves to the unknown end, where example forks suggest different source scripts without predicting the next gag. Open its gate to inspect grouped catalog possibilities and their relative source weights. Use **Follow live**, **Fit story**, or **Script ↓** to navigate. Inside a gag, script references form colored branch lanes with visible forks and return loops; hovering a scene highlights its connections. Hover or focus a node for its label and a small original-game preview. Click a scene card to inspect it, or its **▶** control to start that scene immediately. **Selecting a day only explores it:** Johnny keeps playing until you choose **Play day**. Starting a scene on an explored day previews that action and then returns to the live visit.
+While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It asks one question at a time: which day, which tide, which gag. Each gag shows its steps with silent previews from the original game, and **▶ Play this gag** or **▶ Play this scene now** starts it. **Picking a day only explores it:** Johnny keeps playing until you choose **▶ Play day**.
 
 ## Development
 
