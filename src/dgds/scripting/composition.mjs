@@ -47,8 +47,14 @@ export const composeTtmFrame = (state) => {
     }
 };
 
-/** Clears the environment background canDraw flag. */
+/**
+ * Prune an environment's stored background: clear its canDraw flag and wipe the
+ * plate, so earlier bakes cannot reappear under the next STORE_AREA (bakes
+ * accumulate on the plate until it is pruned).
+ */
 export const pruneEnvironmentBackground = (state, sceneIdx) => {
     const stored = state.ttmEnvironments?.get?.(sceneIdx)?.assets?.saveBkg?.[0];
-    if (stored) stored.canDraw = false;
+    if (!stored) return;
+    stored.canDraw = false;
+    stored.surface?.clear?.();
 };

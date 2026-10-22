@@ -131,9 +131,9 @@ node tools/faithfulness-oracle/pixel-oracle/capture-gags.mjs
 node tools/faithfulness-oracle/pixel-oracle/sweep.mjs
 ```
 
-Generated 2026-10-22; comparator sweep 377s.
+Generated 2026-10-22; comparator sweep 213s.
 
-Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful, outlier keyframe 26 · faithful 35 · divergent 1 · close 2. Foreground offset (ours -> original, dx,dy): 1,0 in 64 gags.
+Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful, outlier keyframe 27 · faithful 35 · close 2. Foreground offset (ours -> original, dx,dy): 1,0 in 64 gags.
 
 | Gag | Live-set coverage | Seed | Keyframes | Raw median | Aligned median | Aligned max | Offset | Palette subst. | Stale px | Black plate (top) | Verdict |
 |-----|------|------|------|------|------|------|------|------|------|------|------|
@@ -148,7 +148,7 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | ACTIVITY:11 | 90.1% | 2 | 46 | 7.4% | 0.34% | 10.57% | 1,0 (44/44) | 0% | 0 | 40.16% | faithful, outlier keyframe |
 | ACTIVITY:12 | 80.7% | 1 | 24 | 3.83% | 0.06% | 15.91% | 1,0 (20/22) | 0% | 0 | 38.33% | faithful, outlier keyframe |
 | BUILDING:1 | 78.7% (low) | 1 | 19 | 13.42% | 0.19% | 13.42% | 1,0 (14/14) | 0% | 0 | 17.19% | faithful, outlier keyframe |
-| BUILDING:2 | 65.9% (low) | 1 | 50 | 16.16% | 12.59% | 30.34% | 1,0 (37/37) | 0% | 181 | 62.78% | divergent |
+| BUILDING:2 | 65.9% (low) | 1 | 50 | 15.75% | 0.93% | 30.34% | 1,0 (39/39) | 0% | 181 | 58.86% | faithful, outlier keyframe |
 | BUILDING:3 | 62% (low) | 1 | 31 | 5.56% | 0.03% | 5.01% | 1,0 (31/31) | 0% | 0 | 17.48% | faithful |
 | BUILDING:4 | 100% | 1 | 48 | 13.34% | 0.92% | 20.21% | 1,0 (41/41) | 0% | 181 | 62.46% | faithful, outlier keyframe |
 | BUILDING:5 | 71.3% (low) | 1 | 49 | 5.59% | 0% | 5.13% | 1,0 (46/47) | 0.15% | 0 | 21.48% | faithful |
@@ -170,7 +170,7 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | JOHNNY:4 | 100% | 1 | 20 | 6.17% | 0.15% | 5.71% | 1,0 (19/20) | 0% | 0 | 32.8% | faithful |
 | JOHNNY:5 | 79.4% (low) | 1 | 12 | 3.14% | 0.18% | 5.32% | 1,0 (11/12) | 0% | 0 | 31.75% | faithful |
 | JOHNNY:6 | 100% | 1 | 18 | 1.17% | 0.47% | 1.41% | 1,0 (18/18) | 20.2% | 32 | 66.2% | faithful |
-| MARY:1 | 100% | 1 | 28 | 7.28% | 3.6% | 11.47% | 1,0 (24/24) | 0% | 0 | 52.71% | close |
+| MARY:1 | 100% | 1 | 28 | 7.28% | 2.8% | 11.47% | 1,0 (25/25) | 0% | 0 | 51.1% | close |
 | MARY:2 | 100% | 1 | 17 | 5.72% | 0.17% | 3.8% | 1,0 (17/17) | 0% | 0 | 43.62% | faithful |
 | MARY:3 | 74% (low) | 1 | 49 | 5.7% | 0.25% | 8.11% | 1,0 (47/49) | 0% | 0 | 56.57% | faithful, outlier keyframe |
 | MARY:4 | 100% | 1 | 21 | 7.23% | 0.41% | 10.87% | 1,0 (18/21) | 0% | 0 | 34.87% | faithful, outlier keyframe |
