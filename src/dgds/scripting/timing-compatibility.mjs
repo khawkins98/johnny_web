@@ -4,26 +4,24 @@ import { DGDS_TICK_MS, WM_TIMER_MS } from './timing.mjs';
 const DEFAULT_TIMING_PROFILE = 'faithful-browser';
 const ORIGINAL_GAME_TICK_MS = 16;
 
-// The authored SET_DELAY operand is in the original engine's ~16 ms game-tick
-// unit; the runtime counts down in 20 ms fine ticks. Rescale 16 ms -> 20 ms.
-// A floor of 1 fine tick is kept below so every frame passes through the runtime's
-// waitTicks countdown (which arms `frameReady`, letting the interpreter advance
-// past the UPDATE). The real minimum on-screen time comes from the runtime's 55 ms
-// WM_TIMER present gate, not from this delay value.
-const wmTimerFrameCadence = (ticks) => Math.ceil((ticks * ORIGINAL_GAME_TICK_MS) / DGDS_TICK_MS);
+// The authored SET_DELAY operand is a count of the original engine's 16 ms game
+// clock (DAT_1068_2e72, advanced by the FUN_1008_16ce timer). The runtime keeps
+// it in that unit: a frame's deadline is `now + delay` on that clock, and the
+// clock is only read at each ~55 ms present (see gameClockAtPresent below).
+const identityFrameCadence = (ticks) => ticks;
 
 /**
  * Maps faithful DGDS timing into host scheduler timing.
  *
  * Named patches are intentionally data transformations, not opcode branches.
- * The default profile rescales the authored 16 ms-unit delay into the runtime's
- * 20 ms fine tick; frame advancement itself is gated to the ~55 ms WM_TIMER in the
- * runtime (see WM_TIMER_MS), which is what makes small/zero delays play at their
- * true ~18 fps instead of 50 fps.
+ * The default profile keeps the authored delay on the original 16 ms clock;
+ * frame advancement itself is gated to the ~55 ms WM_TIMER in the runtime (see
+ * WM_TIMER_MS), which is what makes small/zero delays play at their true ~18 fps
+ * instead of 50 fps.
  */
 export const createTimingCompatibility = ({
     profile = DEFAULT_TIMING_PROFILE,
-    patches = [{ name: 'wm-timer-frame-cadence', map: wmTimerFrameCadence }],
+    patches = [{ name: 'game-clock-frame-hold', map: identityFrameCadence }],
 } = {}) => ({
     profile,
     patchNames: patches.map((patch) => patch.name),
@@ -47,19 +45,32 @@ export const createTimingCompatibility = ({
         return { isPresent, accumulatorMs: isPresent ? next - periodMs : next };
     },
 
+    // The original's 16 ms game clock as the TTM controller sees it at present
+    // number `presentIndex` (FUN_1048_196e reads DAT_1068_2e72 once per ~55 ms
+    // tick). The clock is read at the present's nominal time, `presentIndex *
+    // periodMs`, not at the 20 ms fine tick that carries the present: on the fine
+    // grid two presents are 100 or 120 ms apart, which rounds a 112 ms (delay 7)
+    // hold up to three presents far more often than the original's 110 ms pair
+    // (6.875 units, so about 7 in 8 pairs pass a delay of 7).
+    gameClockAtPresent(presentIndex, periodMs = WM_TIMER_MS) {
+        return Math.floor((presentIndex * periodMs) / ORIGINAL_GAME_TICK_MS);
+    },
+
     mapFrameBoundary(boundary, context = {}) {
         if (!isFrameBoundary(boundary)) {
             throw new TypeError('Expected a faithful DGDS frame boundary');
         }
 
-        const runtimeDelayTicks = patches.reduce(
+        const holdTicks = patches.reduce(
             (ticks, patch) => patch.map(ticks, { boundary, context }),
             boundary.delayTicks,
         );
 
         return Object.freeze({
             authoredDelayTicks: boundary.delayTicks,
-            runtimeDelayTicks: Math.max(1, Math.round(runtimeDelayTicks || 0)),
+            // The hold in original 16 ms game-clock units: the frame's deadline is
+            // the present's game clock plus this.
+            holdTicks: Math.max(0, Math.round(holdTicks || 0)),
             profile,
             patches: patches.map((patch) => patch.name),
         });

@@ -126,24 +126,34 @@ Verdicts use the aligned median and max (`report.mjs` `THRESHOLDS`): median
   (orig-only pixels) is missing from our foreground. Check whether a TTM redraws the
   trunk over passing actors, or whether it is a plate/host artefact of forced mode.
 
-Three gags still have a keyframe above 8%. All three come from one timing
-difference, not from drawing: a `SET_DELAY 7` frame lasts about 147 ms in ours and
-about 120 ms in the original (2.13 samples a frame in WALKSTUF:1 `1:2`). The binary
-sets each frame's deadline as `now + delay` on its 16 ms clock and checks it once
-per ~55 ms sample (`FUN_1048_196e`), so two samples (6.9 units) usually pass a delay
-of 7. Ours rounds 112 ms up to 120 ms and then waits for a present, which makes it
-three presents. Threads with delay 7 then fall behind threads with other delays:
+The 2026-10-22 sweep had three gags with a keyframe above 8%, all from one timing
+difference: a `SET_DELAY 7` frame lasted about 147 ms in ours against about 120 ms
+in the original (2.13 samples a frame in WALKSTUF:1 `1:2`), because ours rounded
+112 ms up to six 20 ms ticks and then waited for a present. Frame holds are now the
+binary's deadline on the 16 ms game clock, read once per present (see the
+[methodology](../METHODOLOGY.md#frame-holds-53)). The re-run sweep:
 
-- BUILDING:2 `1:35`/`1:40`/`1:41` (26%): the ship (`1:35`, delay 7) is slow
-  relative to `1:40` (delays 30/15/8), so `1:40` ends when the ship is at our tick
-  416 position, against our tick 460 in the original. `1:41` is a filler stopped
-  with `1:35`.
-- WALKSTUF:1 `1:4` (30%): `1:2` (delay 7) ends 24 ticks late relative to the boat
-  (`1:4`, delay 5), so `1:14` and `1:6` start late and the boat has gone by the
-  `1:4 1:6` keyframe.
-- BUILDING:8 `3:78` (8.1%): `3:44` (very large fire, 4 frames at delay 7) cycles
-  every 29-30 ticks against 9 samples; the repeated `3:78` spans drift, and the
-  keyframe pairs with the wrong cycle (o809 matches our tick 2030, mapped 1942).
+- BUILDING:2 `1:35`/`1:40`/`1:41`: 26% to 3.1% (the ship, delay 7, no longer lags
+  `1:40`'s delays 30/15/8); live-set coverage 66% to 80%, so the median moved from
+  0.03% to 1.24% over more keyframes.
+- WALKSTUF:1 `1:4`: 30.5% to 0.3%.
+- BUILDING:8 `3:78`: the delay-7 fire cycle keyframes went from up to 8.1% to at
+  most 0.13%, but a `3:44 3:48` transition keyframe is at 8.4% (it was 6.0% before,
+  with fewer keyframes matched); the fire phase and the forced capture's black-plate
+  holes over the palm are what differ there.
+- Lifespan oracle: in-band actor spans went from 195/651 to 331/651, with no new
+  review beyond 3x.
+- ACTIVITY:8 (7.5% to 1.5%), MARY:1 (5.1% to 0.9%) and MARY:4 (6.1% to 1.1%) lost
+  their worst keyframes.
+- Two gags gained a keyframe above 8% at the gag's first frame: FISHING:5 `5:19`
+  (0.2% to 13.4%) and VISITOR:5 `5:1 5:8` (0.7% to 12.0%); JOHNNY:5 `2:9` went from
+  0.4% to 2.3% and MARY:2 from 0.5% to 1.5%. The first frame of those threads loads
+  the screen and bitmaps, and in the original the game clock jumps 7 to 27 units at
+  a sample that loads (the `DBX_DELAY` logs show +18 at tick 1 of every episode),
+  so that frame passes at the next sample whatever its delay. Ours has no load cost,
+  so the frame holds its full delay (four presents, since a changed SET_DELAY also
+  redraws the frame at the present its hold elapses). The ±6 window used to hide
+  this; it is a separate deviation, noted in the methodology.
 
 BUILDING:4/6 keep about 4-6% at `2:64 2:68` after the wider window. The original
 shows coloured noise in the 175x142 rectangle at (194, 123) from tick 621, where

@@ -41,7 +41,13 @@ const initialState = {
     skip: false,
     backgroundId: 1,
     delay: 0,
-    waitTicks: 0,
+    // Frame hold on the original 16 ms game clock (thread fields +0x29/+0x37 in
+    // FUN_1048_1acb): the deadline of the held frame, the delay that deadline was
+    // set with, and whether the frame is drawn once more at the present its hold
+    // elapses (a changed SET_DELAY anchors the deadline at the frame's own present).
+    frameDeadline: null,
+    holdDelay: 0,
+    holdRedraw: false,
     frameReady: false,
     frameBoundary: null,
     gotoRestart: false,

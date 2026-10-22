@@ -224,6 +224,63 @@ other ran alongside eight other captures, the load of a catalogue regeneration (
   `delay=8` lasts 3 samples (164 ms); `delay=12` lasts 4; `delay=16` lasts 5; `delay=209`
   lasts 209 units (3347 ms) over 61 samples.
 
+### Frame holds (#53)
+
+The hold rule, from `FUN_1048_196e` and its caller `FUN_1048_1acb` (the node pass):
+
+- The thread keeps a delay (`+0x29`) and a 32-bit deadline (`+0x37`/`+0x39`) on the
+  game clock `now` (`DAT_1068_2e72/2e74`, one unit per `FUN_1008_16ce` timer call,
+  16 ms). `FUN_1048_0b3e` zeroes both when the thread is created.
+- Each tick runs the current frame's ops again, then `FUN_1048_196e`: with delay 0
+  the thread advances at once; otherwise it advances only when `now >= deadline`,
+  and then sets `deadline = now + delay` for the next frame. `now` is read at the
+  tick, so a deadline is only ever checked once per ~55 ms sample.
+- A `SET_DELAY` whose value differs from the stored delay (compared through
+  `DAT_1068_46e8` after the ops run) sets `deadline = now + delay` at that tick and
+  stores the new delay. The frame that changes the delay is therefore drawn at the
+  tick its deadline is set and again at every tick up to and including the one
+  where it elapses, one sample longer than the frames after it.
+
+A frame with an unchanged delay is drawn at the samples after the previous frame
+passed, up to and including the sample where `now` reaches the previous pass's
+`now` plus the delay. With 3.44 clock units per 55 ms sample and `now` rounded
+down to whole units, the holds are: delay 1-3 one sample; 5 two; 7 two or three
+(110 ms is 6.875 units, so the pair passes only when the clock phase rounds up);
+8 three; 12 four; 16 five; 30 nine. These are the measured holds above.
+
+The browser applies the same rule. The runtime keeps a present counter and reads the
+game clock at each present's nominal time, `floor(presentIndex * 55 / 16)`
+(`timingCompatibility.gameClockAtPresent`); the frame run at a present gets
+`frameDeadline = clock + delay` and advances at the first later present whose clock
+has reached it, with the delay-change frame drawn once more (`holdRedraw`). The
+clock is read at the nominal present time, not at the 20 ms fine tick that carries
+the present, because on the fine-tick grid two presents are 100 or 120 ms apart and
+a delay-7 hold would round up to three presents half the time. On an exact 55 ms
+cadence the clock phase at each frame start follows from the previous hold, so
+delay-7 holds cycle 2,2,2,3,2,2,3 presents: a mean of 2.29 presents (126 ms). The
+original's 2.13 samples a frame (WALKSTUF:1 `1:2`) is lower because some of its
+sample intervals are skipped. Before this rule the browser rounded the 112 ms delay
+up to six 20 ms ticks and then waited for a present, 7.4 ticks (147 ms) a frame,
+which made delay-7 threads fall behind the others (BUILDING:2 `1:35`, WALKSTUF:1
+`1:2`, BUILDING:8 `3:44`). Delays 5, 8, 10 and 30 were already within a few percent
+and are unchanged; delay 3 goes from 73 ms to one present and delay 9 from 218 ms
+to three presents.
+
+The `DBX_DELAY` logs of the #40 captures confirm the rule directly (`now` and each
+thread's `+0x29`/`+0x37` fields are sampled at tick entry): BUILDING:7 `3:82`
+holds 37 delay-8 frames for 3 samples each; `3:139`'s SET_DELAY 10 frame shows
+the pass-tick deadline replaced one sample later by its own `now + 10`; `3:36`
+holds delay 7 for 2 samples 21 times and 3 samples 10 times. They also show what
+the rule does not cover: `now` advances 3 or 4 units a sample (mean 3.47) except
+at samples that load resources, where it jumps 7 to 27 units (18 at the first
+sample of both episodes, 10 to 27 when a new TTM resource is loaded mid-gag).
+A frame whose ops load the screen or bitmaps therefore usually passes at the next
+sample regardless of its delay. The browser's clock has no load cost, so a gag's
+first frame holds its full delay (FISHING:5 `5:19`, VISITOR:5 `5:1`, both delay 8
+or 9: one sample in the original, four presents in ours). This is a separate,
+pre-existing deviation; a load-cost model for the clock would need the per-load
+cost calibrated from those logs.
+
 So a reference span of N samples is about N x 57 ms, and our actor spans count 20 ms
 engine ticks. For the same duration, ours reads about 2.85x the reference value. Both
 side counts are live-thread observations, rather than rendered frames: the binary samples
@@ -285,8 +342,10 @@ samples.
 Clock-instrumented BUILDING:7 and MARY:4 captures then resolved the three
 remaining reviews. Negative ADS ADD counts are 16 ms game-clock deadlines, as
 are TTM frame delays. The requested 50 ms Windows timer presents on the
-~55 ms PC timer sample. The browser now rounds both deadline classes up to
-20 ms fine ticks and uses a 55 ms present gate. In a fresh BUILDING:7 episode,
+~55 ms PC timer sample. The browser rounds timed-ADD deadlines up to 20 ms fine
+ticks and uses a 55 ms present gate; frame delays were rounded up to fine ticks
+the same way until #53 replaced that with the binary's game-clock deadline (see
+"Frame holds" above). In a fresh BUILDING:7 episode,
 `3:82` held 115 samples (6.25 s) with delay-8 frames advancing about every
 160 ms; the browser holds it 313 ticks (6.26 s). `3:83` held 10 original
 samples and now lasts 19 browser ticks. In a fresh MARY:4 episode, `5:37`

@@ -1,5 +1,26 @@
 # BUILDING:7/8 fire handoff timing
 
+## Re-measured after the game-clock frame hold (#53)
+
+Frame delays are no longer rounded up to 20 ms fine ticks. A frame's deadline
+is `now + delay` on the original's 16 ms clock, read at each ~55 ms present,
+as `FUN_1048_196e` does (the rule is in the
+[methodology](../tools/faithfulness-oracle/METHODOLOGY.md#frame-holds-53)).
+Delay-8 frames still hold three presents, so the calibration below stands.
+Seed-1 browser spans, before → after, against the original episode:
+
+| Thread | Original | #40 browser | #53 browser |
+| --- | ---: | ---: | ---: |
+| `3:141` | 53 samples (~3.0 s) | 143 ticks (2.86 s) | 143 ticks (2.86 s) |
+| `3:82` | 115 samples (~6.25 s) | 313 ticks (6.26 s) | 316 ticks (6.32 s) |
+| `3:139` | 71 samples (~3.83 s) | 188 ticks (3.76 s) | 194 ticks (3.88 s) |
+| `3:83` | 10 samples (~0.5 s) | 19 ticks (0.38 s) | 22 ticks (0.44 s) |
+| whole gag | 61.0–68.4 s | 62.7 s | 61.4 s |
+
+BUILDING:8 has the same seed-1 spans. MARY:4 `5:37` goes from 30 to 41 ticks
+(0.82 s) against the original's 12–14 samples (about 0.70 s); its ADD still
+precedes the `5:33` STOP pulse.
+
 ## Calibrated result (#40)
 
 The original requests a 50 ms Windows timer, which resolves to one ~55 ms

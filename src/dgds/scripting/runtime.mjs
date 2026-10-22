@@ -93,8 +93,14 @@ export class DgdsRuntime {
             res: [],
             reentry: 0,
             delay: 0,
-            waitTicks: 0,
+            frameDeadline: null,
+            holdDelay: 0,
+            holdRedraw: false,
             frameReady: false,
+            // Present count and the original 16 ms game clock as read at the
+            // latest present (see timingCompatibility.gameClockAtPresent).
+            presentIndex: 0,
+            gameClockTicks: 0,
             frameBoundary: null,
             continue: true,
             backgroundId: 1,
@@ -213,6 +219,13 @@ export class DgdsRuntime {
         );
         this.state.presentAccumulatorMs = cadence.accumulatorMs;
         this.state.isPresentTick = cadence.isPresent;
+        if (cadence.isPresent) {
+            this.state.presentIndex++;
+            this.state.gameClockTicks = this.state.timingCompatibility.gameClockAtPresent(
+                this.state.presentIndex,
+                this.state.wmTimerMs,
+            );
+        }
         const execution = this.#runScripts();
         return Object.freeze({
             completed: execution.completed,
@@ -395,7 +408,7 @@ export class DgdsRuntime {
                 scene.timeLimitTicks--;
                 if (scene.timeLimitTicks <= 0) {
                     scene.state.played = true;
-                    scene.state.waitTicks = 0;
+                    scene.state.frameDeadline = null;
                     scene.runState = TtmRunState.FINISHED;
                     scene.playedPulse = true; // timer expiry -> state 4 (dc:15062)
                     sceneLog(scene.state, 'TIME_LIMIT', sceneLabel(rootState.scenesRes, scene.sceneIdx, scene.tagId));
@@ -404,19 +417,26 @@ export class DgdsRuntime {
             }
             const isEnvironmentOwner = scene.environment?.owner === scene;
             if (!canRunTtmScene(scene)) return;
-            if (scene.state.waitTicks > 0) {
-                scene.runState = TtmRunState.WAITING;
-                scene.state.waitTicks--;
-                if (scene.state.waitTicks > 0) {
+            // A held frame (FUN_1048_196e): its deadline is on the original 16 ms game
+            // clock, which is only read at a present, so the hold elapses at the first
+            // present whose clock has reached the deadline. A frame that changed the
+            // thread's delay is drawn once more at that present (holdRedraw) because
+            // the binary anchors its deadline at the frame's own present and only
+            // advances the thread AFTER drawing the frame whose hold elapsed.
+            if (scene.state.frameDeadline !== null) {
+                const elapsed = rootState.isPresentTick && rootState.gameClockTicks >= scene.state.frameDeadline;
+                if (!elapsed || scene.state.holdRedraw) {
+                    if (elapsed) scene.state.holdRedraw = false;
+                    scene.runState = TtmRunState.WAITING;
                     scene.execution = pendingExecution(scene.state, 'compatibility-delay');
                     return;
                 }
+                scene.state.frameDeadline = null;
                 scene.state.frameReady = true;
             }
 
-            // Frame advancement is gated to the effective ~55 ms WM_TIMER present. The fine-tick
-            // delay countdown above runs every tick, but once a frame is ready we only
-            // ADVANCE (run the script to emit the next frame) on a present tick;
+            // Frame advancement is gated to the effective ~55 ms WM_TIMER present: we
+            // only ADVANCE (run the script to emit the next frame) on a present tick;
             // otherwise hold the current frame untouched -- its recorded execution
             // state, runState, and frameOps carry over, so ADS sequencing reads a
             // stable scene and composeTtmFrame keeps drawing the held frame.
@@ -446,8 +466,23 @@ export class DgdsRuntime {
                         sceneIdx: scene.sceneIdx,
                         tagId: scene.tagId,
                     });
-                    scene.state.waitTicks = mapped.runtimeDelayTicks;
-                    traceEvent(scene.state, 'frame-timing-map', mapped);
+                    // The deadline is `now + delay` on the game clock as read at this
+                    // present (a first frame drawn between presents uses the latest
+                    // present's reading). A SET_DELAY that changed the thread's delay
+                    // (FUN_1048_1acb compares it with the stored +0x29) anchors the
+                    // deadline here, so the frame is also drawn at the present its hold
+                    // elapses; an unchanged delay was anchored at the previous frame's
+                    // passing present, which is this one. Delay 0 passes at once.
+                    const delayChanged = mapped.holdTicks !== scene.state.holdDelay;
+                    scene.state.holdDelay = mapped.holdTicks;
+                    scene.state.frameDeadline = rootState.gameClockTicks + mapped.holdTicks;
+                    scene.state.holdRedraw = delayChanged && mapped.holdTicks > 0;
+                    traceEvent(scene.state, 'frame-timing-map', {
+                        ...mapped,
+                        gameClockTicks: rootState.gameClockTicks,
+                        frameDeadline: scene.state.frameDeadline,
+                        holdRedraw: scene.state.holdRedraw,
+                    });
                 }
                 if (
                     isEnvironmentOwner &&
@@ -464,7 +499,9 @@ export class DgdsRuntime {
                         scene.state.played = false;
                         scene.state.reentry = scene.targetStart || 0;
                         scene.state.delay = 0;
-                        scene.state.waitTicks = 0;
+                        // The thread keeps its stored delay (+0x29) across a retry, so
+                        // the restarted body's SET_DELAY is not a change.
+                        scene.state.frameDeadline = null;
                         scene.state.frameReady = false;
                         scene.state.frameBoundary = null;
                         scene.execution = pendingExecution(
