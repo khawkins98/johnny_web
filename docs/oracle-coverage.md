@@ -120,9 +120,10 @@ limitations: [pixel-oracle/README.md](../tools/faithfulness-oracle/pixel-oracle/
 Scores are the percentage of masked pixels that differ, per keyframe; the gag
 figure is the median over keyframes (live-set transitions, mid-span samples,
 and the tick after each LOAD_SCREEN / STORE_AREA), best-aligned within a small
-tick window. `raw` is as rendered; `aligned` moves our foreground by the
-gag's dominant offset first (see the offset column). Palette substitutions
-(Windows static colours) are not counted as differences.
+tick window (wider for mid-span samples). `raw` is as rendered; `aligned`
+moves our foreground by the gag's dominant offset first (see the offset
+column). Palette substitutions (Windows static colours) are not counted as
+differences.
 
 Regenerate with (local only; needs the patched DOSBox-X and game data):
 
@@ -131,75 +132,75 @@ node tools/faithfulness-oracle/pixel-oracle/capture-gags.mjs
 node tools/faithfulness-oracle/pixel-oracle/sweep.mjs
 ```
 
-Generated 2026-10-22; comparator sweep 293s.
+Generated 2026-10-22; comparator sweep 403s.
 
-Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful, outlier keyframe 27 · faithful 36 · close 1. Foreground offset (ours -> original, dx,dy): 1,0 in 64 gags.
+Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe exceeds 8%; median <= 5% = close; else divergent): faithful 60 · faithful, outlier keyframe 3 · close 1. Foreground offset (ours -> original, dx,dy): 0,0 in 64 gags.
 
 | Gag | Live-set coverage | Seed | Keyframes | Raw median | Aligned median | Aligned max | Offset | Palette subst. | Stale px | Black plate (top) | Verdict |
 |-----|------|------|------|------|------|------|------|------|------|------|------|
-| ACTIVITY:1 | 100% | 2 | 9 | 7.7% | 0.09% | 12.33% | 1,0 (5/5) | 0% | 0 | 53.51% | faithful, outlier keyframe |
-| ACTIVITY:4 | 100% | 1 | 10 | 3.12% | 0.11% | 4.67% | 1,0 (8/9) | 0% | 0 | 45.93% | faithful |
-| ACTIVITY:5 | 100% | 1 | 36 | 6.37% | 0.05% | 1.42% | 1,0 (32/32) | 0% | 0 | 37.37% | faithful |
-| ACTIVITY:6 | 100% | 1 | 35 | 7.73% | 0.02% | 9.16% | 1,0 (34/35) | 0% | 0 | 17.03% | faithful, outlier keyframe |
-| ACTIVITY:7 | 100% | 1 | 25 | 8.22% | 0.02% | 9.16% | 1,0 (24/25) | 0% | 0 | 10.6% | faithful, outlier keyframe |
-| ACTIVITY:8 | 61.2% (low) | 1 | 26 | 16.65% | 0.82% | 12.7% | 1,0 (24/25) | 0% | 0 | 27.62% | faithful, outlier keyframe |
-| ACTIVITY:9 | 100% | 1 | 29 | 5.92% | 0.01% | 3.31% | 1,0 (25/26) | 0% | 0 | 42.29% | faithful |
-| ACTIVITY:10 | 64.4% (low) | 1 | 27 | 4.34% | 0.04% | 9.16% | 1,0 (26/27) | 0% | 0 | 35.93% | faithful, outlier keyframe |
-| ACTIVITY:11 | 90.1% | 2 | 46 | 7.4% | 0.34% | 10.57% | 1,0 (44/44) | 0% | 0 | 40.16% | faithful, outlier keyframe |
-| ACTIVITY:12 | 80.7% | 1 | 24 | 3.83% | 0.06% | 15.91% | 1,0 (20/22) | 0% | 0 | 38.33% | faithful, outlier keyframe |
-| BUILDING:1 | 78.7% (low) | 1 | 19 | 13.42% | 0.19% | 13.42% | 1,0 (14/14) | 0% | 0 | 17.19% | faithful, outlier keyframe |
-| BUILDING:2 | 65.9% (low) | 1 | 50 | 15.32% | 0.29% | 29.82% | 1,0 (40/40) | 0% | 181 | 59.46% | faithful, outlier keyframe |
-| BUILDING:3 | 62% (low) | 1 | 31 | 5.56% | 0.03% | 5.01% | 1,0 (31/31) | 0% | 0 | 17.48% | faithful |
-| BUILDING:4 | 100% | 1 | 48 | 11.44% | 0.22% | 16.67% | 1,0 (46/46) | 0% | 181 | 69.64% | faithful, outlier keyframe |
-| BUILDING:5 | 71.3% (low) | 1 | 49 | 5.59% | 0% | 5.13% | 1,0 (46/47) | 0.15% | 0 | 21.48% | faithful |
-| BUILDING:6 | 100% | 1 | 48 | 11.94% | 0.16% | 6.32% | 1,0 (48/48) | 0% | 181 | 68.46% | faithful |
-| BUILDING:7 | 68.7% (low) | 1 | 49 | 5.9% | 0% | 6.07% | 1,0 (48/48) | 0.15% | 0 | 21.54% | faithful |
-| BUILDING:8 | 66.7% (low) | 11 | 49 | 6.72% | 0.25% | 8.05% | 1,0 (41/42) | 0.15% | 0 | 21.69% | faithful, outlier keyframe |
-| BUILDING:9 | 70.4% (low) | 8 | 49 | 5.61% | 0% | 10.96% | 1,0 (46/47) | 0.15% | 0 | 21.4% | faithful, outlier keyframe |
-| FISHING:1 | 100% | 3 | 33 | 3.63% | 0.52% | 11.36% | 1,0 (29/32) | 0% | 0 | 38.5% | faithful, outlier keyframe |
-| FISHING:2 | 96.2% | 11 | 35 | 3.75% | 0.52% | 11.36% | 1,0 (34/34) | 0% | 0 | 36.31% | faithful, outlier keyframe |
-| FISHING:3 | 100% | 1 | 31 | 3.74% | 0.47% | 11.36% | 1,0 (29/29) | 0% | 0 | 49.48% | faithful, outlier keyframe |
-| FISHING:4 | 100% | 1 | 11 | 6.22% | 0.18% | 17.4% | 1,0 (6/6) | 0% | 0 | 25.01% | faithful, outlier keyframe |
-| FISHING:5 | 100% | 1 | 8 | 10.1% | 0.16% | 12.72% | 1,0 (4/4) | 0% | 0 | 16.47% | faithful, outlier keyframe |
-| FISHING:6 | 100% | 1 | 15 | 3.7% | 0.46% | 4.02% | 1,0 (14/14) | 0% | 0 | 36.39% | faithful |
-| FISHING:7 | 98.6% | 4 | 46 | 6.16% | 0.17% | 0.62% | 1,0 (46/46) | 0% | 0 | 16.61% | faithful |
-| FISHING:8 | 85.5% | 11 | 49 | 5.96% | 0.18% | 5.36% | 1,0 (48/49) | 0% | 0 | 16.61% | faithful |
-| JOHNNY:1 | 100% | 1 | 16 | 0.92% | 0% | 0.68% | 1,0 (11/11) | 23.08% | 32 | 66.2% | faithful |
-| JOHNNY:2 | 69% (low) | 1 | 24 | 6.13% | 0.14% | 10.89% | 1,0 (22/22) | 0% | 0 | 32.88% | faithful, outlier keyframe |
-| JOHNNY:3 | 85.5% | 1 | 19 | 3.06% | 0.13% | 5.32% | 1,0 (18/19) | 0% | 0 | 31.75% | faithful |
-| JOHNNY:4 | 100% | 1 | 20 | 6.17% | 0.15% | 5.71% | 1,0 (19/20) | 0% | 0 | 32.8% | faithful |
-| JOHNNY:5 | 79.4% (low) | 1 | 12 | 3.14% | 0.18% | 5.32% | 1,0 (11/12) | 0% | 0 | 31.75% | faithful |
-| JOHNNY:6 | 100% | 1 | 18 | 1.17% | 0.47% | 1.41% | 1,0 (18/18) | 20.2% | 32 | 66.2% | faithful |
-| MARY:1 | 100% | 1 | 28 | 6.04% | 0.05% | 11.47% | 1,0 (25/25) | 0% | 0 | 52.37% | faithful, outlier keyframe |
-| MARY:2 | 100% | 1 | 17 | 5.72% | 0.17% | 3.8% | 1,0 (17/17) | 0% | 0 | 43.62% | faithful |
-| MARY:3 | 74% (low) | 1 | 49 | 5.7% | 0.25% | 8.11% | 1,0 (47/49) | 0% | 0 | 56.57% | faithful, outlier keyframe |
-| MARY:4 | 100% | 1 | 21 | 7.23% | 0.41% | 10.87% | 1,0 (18/21) | 0% | 0 | 34.87% | faithful, outlier keyframe |
-| MARY:5 | 100% | 1 | 10 | 8.68% | 0.01% | 2.84% | 1,0 (7/7) | 0% | 0 | 18.15% | faithful |
-| MISCGAG:1 | 79.6% (low) | 11 | 29 | 5.88% | 0.03% | 0.73% | 1,0 (29/29) | 0% | 0 | 18.51% | faithful |
-| MISCGAG:2 | 100% | 1 | 12 | 4.41% | 0.16% | 6% | 1,0 (10/12) | 0% | 0 | 37.27% | faithful |
-| STAND:1 | 100% | 5 | 9 | 21.9% | 0.03% | 1.99% | 1,0 (9/9) | 0% | 0 | 2.42% | faithful |
-| STAND:2 | 97.2% | 16 | 24 | 38.85% | 0.56% | 5.41% | 1,0 (24/24) | 0% | 0 | 1.05% | faithful |
-| STAND:3 | 97.3% | 16 | 22 | 33.3% | 0.35% | 3.02% | 1,0 (22/22) | 0% | 0 | 0.95% | faithful |
-| STAND:4 | 79% (low) | 15 | 41 | 13.04% | 0.78% | 7.88% | 1,0 (41/41) | 0% | 0 | 5.04% | faithful |
-| STAND:5 | 100% | 14 | 20 | 23.51% | 0.82% | 6.94% | 1,0 (20/20) | 0% | 0 | 1.65% | faithful |
-| STAND:6 | 100% | 14 | 22 | 12.35% | 0.73% | 1.87% | 1,0 (22/22) | 0% | 0 | 4.75% | faithful |
-| STAND:7 | 96.1% | 10 | 21 | 31.85% | 2.75% | 4.18% | 1,0 (21/21) | 0% | 0 | 0.7% | close |
-| STAND:8 | 96% | 10 | 22 | 27.52% | 1.7% | 5.19% | 1,0 (22/22) | 0% | 0 | 1.23% | faithful |
-| STAND:9 | 100% | 1 | 19 | 16.85% | 1.05% | 2.27% | 1,0 (19/19) | 0% | 0 | 2.24% | faithful |
-| STAND:10 | 100% | 1 | 15 | 11.18% | 0.06% | 3.58% | 1,0 (15/15) | 0% | 0 | 4.28% | faithful |
-| STAND:11 | 100% | 1 | 13 | 11.12% | 0.05% | 1% | 1,0 (13/13) | 0% | 0 | 4.44% | faithful |
-| STAND:12 | 100% | 7 | 13 | 16.61% | 0.46% | 1.97% | 1,0 (13/13) | 0% | 0 | 3.19% | faithful |
-| STAND:15 | 78.5% (low) | 2 | 12 | 11.44% | 0.24% | 7.27% | 1,0 (12/12) | 0% | 0 | 6.23% | faithful |
-| STAND:16 | 90.7% | 16 | 12 | 22.87% | 0.5% | 34.58% | 1,0 (12/12) | 0% | 0 | 2.43% | faithful, outlier keyframe |
-| SUZY:1 | 100% | 1 | 30 | 3.12% | 1.03% | 2.65% | 1,0 (30/30) | 4.33% | 186 | 66.2% | faithful |
-| SUZY:2 | 100% | 1 | 15 | 5.14% | 0.88% | 3.25% | 1,0 (14/14) | 3.84% | 186 | 66.2% | faithful |
-| VISITOR:1 | 100% | 1 | 13 | 14.86% | 0.31% | 31.7% | 1,0 (12/12) | 0% | 0 | 8.2% | faithful, outlier keyframe |
-| VISITOR:4 | 100% | 3 | 11 | 16.81% | 0.08% | 3.25% | 1,0 (11/11) | 0% | 0 | 9.35% | faithful |
-| VISITOR:5 | 99.4% | 1 | 17 | 4.68% | 0.01% | 10.42% | 1,0 (15/15) | 0% | 0 | 23.28% | faithful, outlier keyframe |
-| VISITOR:6 | 100% | 1 | 22 | 9.36% | 0% | 3.25% | 1,0 (22/22) | 0% | 0 | 14.09% | faithful |
-| VISITOR:7 | 100% | 1 | 18 | 11.05% | 0.04% | 3.25% | 1,0 (18/18) | 0% | 0 | 9.47% | faithful |
-| WALKSTUF:1 | 86.1% | 1 | 30 | 6.7% | 0% | 30.5% | 1,0 (24/24) | 0% | 0 | 56.21% | faithful, outlier keyframe |
-| WALKSTUF:2 | 100% | 1 | 13 | 6.01% | 0.19% | 15.13% | 1,0 (13/13) | 0% | 0 | 15.28% | faithful, outlier keyframe |
-| WALKSTUF:3 | 100% | 1 | 36 | 5.31% | 0.15% | 18.21% | 1,0 (31/31) | 0% | 0 | 22.5% | faithful, outlier keyframe |
+| ACTIVITY:1 | 100% | 2 | 9 | 0.05% | 0.05% | 0.39% | 0,0 (8/8) | 1.61% | 0 | 53.58% | faithful |
+| ACTIVITY:4 | 100% | 1 | 10 | 0.08% | 0.08% | 0.23% | 0,0 (9/9) | 0.25% | 0 | 45.97% | faithful |
+| ACTIVITY:5 | 100% | 1 | 36 | 0.02% | 0.02% | 1.42% | 0,0 (32/32) | 0.99% | 0 | 36.88% | faithful |
+| ACTIVITY:6 | 100% | 1 | 35 | 0.01% | 0.01% | 0.48% | 0,0 (35/35) | 1.57% | 0 | 17.02% | faithful |
+| ACTIVITY:7 | 100% | 1 | 25 | 0.02% | 0.02% | 0.48% | 0,0 (25/25) | 2.16% | 0 | 10.58% | faithful |
+| ACTIVITY:8 | 61.2% (low) | 1 | 26 | 0.73% | 0.73% | 7.5% | 0,0 (24/25) | 3.49% | 0 | 27.63% | faithful |
+| ACTIVITY:9 | 100% | 1 | 29 | 0.01% | 0.01% | 0.75% | 0,0 (26/26) | 1.08% | 0 | 42.38% | faithful |
+| ACTIVITY:10 | 64.4% (low) | 1 | 27 | 0.04% | 0.04% | 4.35% | 0,0 (27/27) | 1.15% | 0 | 35.6% | faithful |
+| ACTIVITY:11 | 90.1% | 2 | 46 | 0.27% | 0.27% | 7.19% | 0,0 (46/46) | 0.64% | 0 | 40.24% | faithful |
+| ACTIVITY:12 | 80.7% | 1 | 24 | 0.02% | 0.02% | 0.48% | 0,0 (24/24) | 0.71% | 0 | 38.32% | faithful |
+| BUILDING:1 | 78.7% (low) | 1 | 19 | 0.03% | 0.03% | 0.27% | 0,0 (19/19) | 5.29% | 0 | 17.16% | faithful |
+| BUILDING:2 | 65.9% (low) | 1 | 50 | 0.03% | 0.03% | 26.08% | 0,0 (48/48) | 6.96% | 192 | 59.56% | faithful, outlier keyframe |
+| BUILDING:3 | 62% (low) | 1 | 31 | 0.01% | 0.01% | 5.01% | 0,0 (31/31) | 0.67% | 0 | 17.48% | faithful |
+| BUILDING:4 | 100% | 1 | 48 | 0.16% | 0.16% | 6.47% | 0,0 (48/48) | 3.89% | 192 | 69.35% | faithful |
+| BUILDING:5 | 71.3% (low) | 1 | 49 | 0% | 0% | 1.28% | 0,0 (47/47) | 1.51% | 0 | 21.48% | faithful |
+| BUILDING:6 | 100% | 1 | 48 | 0.12% | 0.12% | 6.05% | 0,0 (48/48) | 4.1% | 192 | 68.56% | faithful |
+| BUILDING:7 | 68.7% (low) | 1 | 49 | 0% | 0% | 6.07% | 0,0 (49/49) | 1.44% | 0 | 21.33% | faithful |
+| BUILDING:8 | 66.7% (low) | 11 | 49 | 0.07% | 0.07% | 8.06% | 0,0 (42/42) | 1.22% | 0 | 21.28% | faithful, outlier keyframe |
+| BUILDING:9 | 70.4% (low) | 8 | 49 | 0% | 0% | 1.29% | 0,0 (48/48) | 1.5% | 0 | 21.38% | faithful |
+| FISHING:1 | 100% | 3 | 33 | 0.51% | 0.51% | 0.7% | 0,0 (33/33) | 1.02% | 0 | 38.55% | faithful |
+| FISHING:2 | 96.2% | 11 | 35 | 0.52% | 0.52% | 4.34% | 0,0 (34/34) | 1.03% | 0 | 36.39% | faithful |
+| FISHING:3 | 100% | 1 | 31 | 0.46% | 0.46% | 0.7% | 0,0 (31/31) | 1.12% | 0 | 49.38% | faithful |
+| FISHING:4 | 100% | 1 | 11 | 0.16% | 0.16% | 0.45% | 0,0 (10/10) | 1.78% | 0 | 25% | faithful |
+| FISHING:5 | 100% | 1 | 8 | 0.11% | 0.11% | 0.24% | 0,0 (7/7) | 0.9% | 0 | 16.52% | faithful |
+| FISHING:6 | 100% | 1 | 15 | 0.26% | 0.26% | 3.59% | 0,0 (14/14) | 1.14% | 0 | 36.48% | faithful |
+| FISHING:7 | 98.6% | 4 | 46 | 0.17% | 0.17% | 0.3% | 0,0 (46/46) | 1.79% | 0 | 16.66% | faithful |
+| FISHING:8 | 85.5% | 11 | 49 | 0.17% | 0.17% | 0.3% | 0,0 (49/49) | 1.87% | 0 | 16.66% | faithful |
+| JOHNNY:1 | 100% | 1 | 16 | 0% | 0% | 0.23% | 0,0 (11/11) | 23.09% | 34 | 66.22% | faithful |
+| JOHNNY:2 | 69% (low) | 1 | 24 | 0.11% | 0.11% | 0.72% | 0,0 (24/24) | 0.67% | 0 | 33.49% | faithful |
+| JOHNNY:3 | 85.5% | 1 | 19 | 0.03% | 0.03% | 0.71% | 0,0 (19/19) | 0.5% | 0 | 32.32% | faithful |
+| JOHNNY:4 | 100% | 1 | 20 | 0.08% | 0.08% | 0.64% | 0,0 (20/20) | 0.7% | 0 | 32.84% | faithful |
+| JOHNNY:5 | 79.4% (low) | 1 | 12 | 0.09% | 0.09% | 0.39% | 0,0 (12/12) | 0.55% | 0 | 32.32% | faithful |
+| JOHNNY:6 | 100% | 1 | 18 | 0.46% | 0.46% | 0.61% | 0,0 (18/18) | 20.27% | 34 | 66.22% | faithful |
+| MARY:1 | 100% | 1 | 28 | 0.04% | 0.04% | 5.09% | 0,0 (28/28) | 2.4% | 0 | 52.43% | faithful |
+| MARY:2 | 100% | 1 | 17 | 0.17% | 0.17% | 0.46% | 0,0 (17/17) | 1.54% | 0 | 43.71% | faithful |
+| MARY:3 | 74% (low) | 1 | 49 | 0.18% | 0.18% | 2.92% | 0,0 (49/49) | 0.83% | 0 | 56.62% | faithful |
+| MARY:4 | 100% | 1 | 21 | 0.08% | 0.08% | 6.11% | 0,0 (19/21) | 0.81% | 0 | 34.98% | faithful |
+| MARY:5 | 100% | 1 | 10 | 0% | 0% | 0.04% | 0,0 (8/8) | 2.66% | 0 | 18.15% | faithful |
+| MISCGAG:1 | 79.6% (low) | 11 | 29 | 0.02% | 0.02% | 0.73% | 0,0 (29/29) | 1% | 0 | 18.51% | faithful |
+| MISCGAG:2 | 100% | 1 | 12 | 0.09% | 0.09% | 0.19% | 0,0 (12/12) | 1.2% | 0 | 37.31% | faithful |
+| STAND:1 | 100% | 5 | 9 | 0.03% | 0.03% | 0.24% | 0,0 (9/9) | 3.69% | 0 | 2.48% | faithful |
+| STAND:2 | 97.2% | 16 | 24 | 0.56% | 0.56% | 0.59% | 0,0 (24/24) | 6.07% | 0 | 1.05% | faithful |
+| STAND:3 | 97.3% | 16 | 22 | 0.35% | 0.35% | 0.86% | 0,0 (22/22) | 8.64% | 0 | 0.96% | faithful |
+| STAND:4 | 79% (low) | 15 | 41 | 0.78% | 0.78% | 0.92% | 0,0 (41/41) | 0% | 0 | 5.04% | faithful |
+| STAND:5 | 100% | 14 | 20 | 0.82% | 0.82% | 0.98% | 0,0 (20/20) | 1.43% | 0 | 1.65% | faithful |
+| STAND:6 | 100% | 14 | 22 | 0.73% | 0.73% | 1.87% | 0,0 (22/22) | 0% | 0 | 4.75% | faithful |
+| STAND:7 | 96.1% | 10 | 21 | 2.8% | 2.8% | 4.24% | 0,0 (21/21) | 0% | 0 | 0.7% | close |
+| STAND:8 | 96% | 10 | 22 | 1.7% | 1.7% | 1.7% | 0,0 (22/22) | 0% | 0 | 1.23% | faithful |
+| STAND:9 | 100% | 1 | 19 | 1.05% | 1.05% | 1.15% | 0,0 (19/19) | 0% | 0 | 2.26% | faithful |
+| STAND:10 | 100% | 1 | 15 | 0.06% | 0.06% | 1.26% | 0,0 (15/15) | 1.62% | 0 | 4.34% | faithful |
+| STAND:11 | 100% | 1 | 13 | 0.05% | 0.05% | 1% | 0,0 (13/13) | 0% | 0 | 4.44% | faithful |
+| STAND:12 | 100% | 7 | 13 | 0.41% | 0.41% | 0.7% | 0,0 (13/13) | 1.22% | 0 | 3.21% | faithful |
+| STAND:15 | 78.5% (low) | 2 | 12 | 0.21% | 0.21% | 0.54% | 0,0 (12/12) | 2.46% | 0 | 6.23% | faithful |
+| STAND:16 | 90.7% | 16 | 12 | 0.37% | 0.37% | 0.5% | 0,0 (12/12) | 3.87% | 0 | 2.43% | faithful |
+| SUZY:1 | 100% | 1 | 30 | 1% | 1% | 1.18% | 0,0 (30/30) | 4.77% | 198 | 66.22% | faithful |
+| SUZY:2 | 100% | 1 | 15 | 0.88% | 0.88% | 1.04% | 0,0 (15/15) | 5.7% | 198 | 66.22% | faithful |
+| VISITOR:1 | 100% | 1 | 13 | 0.28% | 0.28% | 0.54% | 0,0 (13/13) | 2.3% | 0 | 8.16% | faithful |
+| VISITOR:4 | 100% | 3 | 11 | 0.07% | 0.07% | 0.35% | 0,0 (11/11) | 2.6% | 0 | 9.39% | faithful |
+| VISITOR:5 | 99.4% | 1 | 17 | 0% | 0% | 0.73% | 0,0 (17/17) | 0.91% | 0 | 23.33% | faithful |
+| VISITOR:6 | 100% | 1 | 22 | 0% | 0% | 0.35% | 0,0 (22/22) | 2.32% | 0 | 14.12% | faithful |
+| VISITOR:7 | 100% | 1 | 18 | 0.01% | 0.01% | 0.49% | 0,0 (18/18) | 2.58% | 0 | 9.5% | faithful |
+| WALKSTUF:1 | 86.1% | 1 | 30 | 0% | 0% | 30.5% | 0,0 (24/24) | 0.6% | 0 | 56.21% | faithful, outlier keyframe |
+| WALKSTUF:2 | 100% | 1 | 13 | 0.11% | 0.11% | 0.22% | 0,0 (13/13) | 0.58% | 0 | 15.31% | faithful |
+| WALKSTUF:3 | 100% | 1 | 36 | 0.14% | 0.14% | 0.34% | 0,0 (33/33) | 2.41% | 0 | 22.48% | faithful |
 
 <!-- pixel-oracle:end -->

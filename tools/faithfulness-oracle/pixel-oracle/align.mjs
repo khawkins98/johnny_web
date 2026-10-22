@@ -117,3 +117,44 @@ const thin = (list, count) => {
     for (let k = 0; k < count; k++) out.push(list[Math.floor((k * list.length) / count)]);
     return out;
 };
+
+/** Our 20 ms ticks per original sample (METHODOLOGY "Trace sample cadence"). */
+export const TICKS_PER_SAMPLE = 2.85;
+
+/**
+ * Where to look for a keyframe's best (original, ours) pair.
+ *
+ * Each original candidate (origTick + d, |d| <= origJitter, with a dump) gets its own
+ * window of our ticks, centred d samples away from the mapped tick. A span's first
+ * live tick often has no dump, so the candidate is the next sample, and our window
+ * has to move with it.
+ *
+ * Mid-span keyframes get a window that grows with our span (midFraction of it,
+ * between `window` and `maxWindow`). Mapping by span fraction assumes both sides
+ * pace the span evenly, and steady motion (a sailing ship) drifts by more than the
+ * base window when they do not. Pacing inside a span is a timing question for the
+ * sequencing and lifespan oracles; this one compares what is drawn. Transitions and
+ * bakes keep the base window, so handoff frames are still judged at the handoff.
+ * @returns {{origTick:number, from:number, to:number}[]}  inclusive our-tick ranges
+ */
+export const searchWindows = ({
+    kf,
+    ourSpanLen,
+    hasFrame,
+    window = 6,
+    origJitter = 1,
+    midFraction = 0.2,
+    maxWindow = 40,
+    ticksPerSample = TICKS_PER_SAMPLE,
+}) => {
+    const radius =
+        kf.kind === 'mid' ? Math.min(maxWindow, Math.max(window, Math.round(midFraction * ourSpanLen))) : window;
+    const out = [];
+    for (let d = -origJitter; d <= origJitter; d++) {
+        const origTick = kf.origTick + d;
+        if (!hasFrame(origTick)) continue;
+        const centre = kf.ourTick + Math.round(d * ticksPerSample);
+        out.push({ origTick, from: Math.max(1, centre - radius), to: centre + radius });
+    }
+    return out;
+};

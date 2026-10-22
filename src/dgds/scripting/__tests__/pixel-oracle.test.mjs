@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { alignSpans, pickKeyframes, toSpans } from '../../../../tools/faithfulness-oracle/pixel-oracle/align.mjs';
+import { alignSpans, pickKeyframes, searchWindows, toSpans } from '../../../../tools/faithfulness-oracle/pixel-oracle/align.mjs';
 import { SoftCanvas } from '../../../../tools/faithfulness-oracle/pixel-oracle/soft-canvas.mjs';
 import {
     HEIGHT,
@@ -54,6 +54,26 @@ describe('pixel oracle alignment', () => {
         expect(frames[0]).toMatchObject({ origTick: 1, ourTick: 1, kind: 'transition' });
         expect(frames.some((f) => f.kind === 'mid')).toBe(false);
         expect(frames.at(-1)).toMatchObject({ origTick: 4, ourTick: 5, kind: 'transition' });
+    });
+});
+
+describe('pixel oracle search windows', () => {
+    const has = (ticks) => (t) => ticks.includes(t);
+    it('keeps a transition at the base window, shifting each original candidate by its sample offset', () => {
+        // The original's first live tick has no dump; its next sample is about 3 of our ticks later.
+        const w = searchWindows({ kf: { kind: 'transition', origTick: 1, ourTick: 1 }, ourSpanLen: 300, hasFrame: has([0, 2]) });
+        expect(w).toEqual([
+            { origTick: 0, from: 1, to: 4 },
+            { origTick: 2, from: 1, to: 10 },
+        ]);
+    });
+    it('widens a mid-span keyframe with the span length, capped', () => {
+        const short = searchWindows({ kf: { kind: 'mid', origTick: 50, ourTick: 100 }, ourSpanLen: 20, hasFrame: has([50]) });
+        expect(short).toEqual([{ origTick: 50, from: 94, to: 106 }]);
+        const mid = searchWindows({ kf: { kind: 'mid', origTick: 50, ourTick: 100 }, ourSpanLen: 140, hasFrame: has([50]) });
+        expect(mid).toEqual([{ origTick: 50, from: 72, to: 128 }]);
+        const long = searchWindows({ kf: { kind: 'mid', origTick: 50, ourTick: 100 }, ourSpanLen: 1000, hasFrame: has([50]) });
+        expect(long).toEqual([{ origTick: 50, from: 60, to: 140 }]);
     });
 });
 
@@ -133,6 +153,19 @@ describe('soft canvas', () => {
         ctx.drawImage(src, 0, 0);
         ctx.restore();
         expect([...dst.data]).toEqual([0, 0, 0, 0, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 0, 0]);
+    });
+});
+
+describe('forced host offsets', () => {
+    // FUN_1010_00fc: TTM sprites at 30c6 + 1, or 30c6 + 0x111 for LEFT_ISLAND (0x400).
+    // A forced capture never runs the island bake or the planner, so 30c6 = 0 and
+    // 30b4 != 2: every forced scene, off-island ones included, gets 1 or 273.
+    it('matches the binary with 30c6 = 0', async () => {
+        const { forcedTitleState } = await import('../../../../tools/faithfulness-oracle/pixel-oracle/render-ours.mjs');
+        expect(forcedTitleState('SUZY.ADS', 1).sceneOffset).toEqual({ x: 1, y: 0 });
+        expect(forcedTitleState('BUILDING.ADS', 4).sceneOffset).toEqual({ x: 1, y: 0 });
+        expect(forcedTitleState('FISHING.ADS', 4).sceneOffset).toEqual({ x: 273, y: 0 });
+        expect(forcedTitleState('MARY.ADS', 5).sceneOffset).toEqual({ x: 273, y: 0 });
     });
 });
 

@@ -19,9 +19,10 @@
 //
 // Host modes (--host):
 //   forced (default) what a forced capture of the original shows: no host island
-//          is painted (the forced director skips the planner's island bake), the
-//          island origin is (0, 0), and LEFT_ISLAND scenes keep their +272 x scene
-//          offset, which the original applies even when forced.
+//          is painted (the forced director skips the planner's island bake), so the
+//          island origin 30c6 is 0. The TTM sprite offset (FUN_1010_00fc) is still
+//          30c6 + 1, or 30c6 + 0x111 for LEFT_ISLAND: x 1 or 273. Off-island scenes
+//          get 1 too, because the planner never sets 30b4 = 2 when forced.
 //   none   no host selection at all (no titleState).
 //   story  the story controller's preview selection for the gag (island layout,
 //          ocean, raft, tide, clouds), painted by the Johnny island presenter, as the
@@ -78,7 +79,7 @@ const classifyBackground = (state, hostPainted) => {
 export const forcedTitleState = (adsName, tag) => {
     const scene = JOHNNY_SCENES.find((s) => s.script === adsName && s.tagId === Number(tag));
     const left = scene && (scene.flags & SceneFlags.LEFT_ISLAND) !== 0;
-    return Object.freeze({ island: false, x: 0, y: 0, sceneOffset: Object.freeze({ x: left ? 272 : 0, y: 0 }) });
+    return Object.freeze({ island: false, x: 0, y: 0, sceneOffset: Object.freeze({ x: left ? 0x111 : 1, y: 0 }) });
 };
 
 /** Deterministic story selection for --host story (fixed noon date, seeded random). */
