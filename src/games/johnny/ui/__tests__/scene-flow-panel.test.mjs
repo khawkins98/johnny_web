@@ -220,6 +220,8 @@ describe('scene-flow panel', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, storyDay: 2, tidePhase: 3 });
         sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
+        const startRun = vi.fn();
+        sequenceTools.startRun = startRun;
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
 
@@ -232,9 +234,17 @@ describe('scene-flow panel', () => {
         expect(spread.querySelector('.story-doors-caption').textContent).toMatch(/Day 02 of 11 · tide phase 3 · high tide/);
         expect(spread.querySelector('.story-doors-info').textContent).toContain('Johnny fishes');
 
-        // Selecting the planned card inspects it in the detail section.
+        // Selecting the planned card inspects it in the detail section, keeps
+        // the same spread mounted, and offers to play it.
         spread.querySelector('.story-doors-card[data-role="planned"]').click();
         await vi.waitFor(() => expect(detailName()).toContain('Johnny naps'));
+        expect(document.querySelector('.story-doors')).toBe(spread);
+        expect(spread.querySelector('.story-doors-card[aria-pressed="true"]').dataset.role).toBe('planned');
+        const play = Array.from(spread.querySelectorAll('.story-doors-actions button'))
+            .find((button) => button.textContent.includes('Play this gag'));
+        play.click();
+        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'FISHY.ADS', tagId: 6, storyDay: 2 });
+        expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
 
         panel.destroy();
         expect(document.querySelector('.story-doors')).toBeNull();
