@@ -37,8 +37,8 @@ export const SPREAD_STYLE = `
   color: #a4e5de; font-size: 20px; letter-spacing: .04em; text-transform: uppercase; text-shadow: 2px 2px 0 #020d5b; }
 .story-doors-caption strong { display: block; margin-top: 2px; font: 34px/1 'Caveat', cursive; color: #fff2a1;
   letter-spacing: 0; text-transform: none; }
-.story-doors-legend { position: absolute; left: 16px; bottom: 12px; pointer-events: none; display: flex; gap: 6px 16px;
-  flex-wrap: wrap; max-width: 44%; color: #bde9e9; font-size: 18px; text-shadow: 2px 2px 0 #020d5b; }
+.story-doors-legend { position: absolute; right: 16px; top: 12px; pointer-events: none; display: flex; gap: 4px 16px;
+  flex-wrap: wrap; justify-content: flex-end; max-width: 34%; color: #bde9e9; font-size: 18px; text-shadow: 2px 2px 0 #020d5b; }
 .story-doors-info { position: absolute; right: 14px; bottom: 14px; width: min(360px, 46%); box-sizing: border-box;
   padding: 10px 14px 12px; border: 2px solid #8b5a2b; background: #d4c4a8; color: #302816;
   box-shadow: 4px 4px 0 #020d5b; }
@@ -54,7 +54,11 @@ export const SPREAD_STYLE = `
 .story-doors-actions button:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 2px 2px 0 #704a1e; }
 .story-doors-actions button:disabled { opacity: .5; cursor: default; }
 .story-doors-actions button:focus-visible { outline: 3px solid #071998; outline-offset: 2px; }
-.story-doors-turn { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 6px; }
+.story-doors-scene-label { position: absolute; transform: translate(-50%, -100%); pointer-events: none; white-space: nowrap;
+  padding: 2px 8px; color: #a4e5de; font-size: 18px; letter-spacing: .04em; text-transform: uppercase;
+  background: rgba(6,20,108,.75); border: 1px solid rgba(101,200,226,.6); }
+.story-doors-scene-label.is-tide { transform: translate(-50%, 0); color: #ffe02d; border-color: rgba(255,224,45,.6); }
+.story-doors-turn { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 6px; }
 .story-doors-turn button { min-width: 44px; min-height: 40px; padding: 0 12px; cursor: pointer;
   border: 1px solid #65c8e2; background: #1642b1; color: #fffbdc; font: 24px/1 'VT323', monospace; }
 .story-doors-turn button:hover:not(:disabled) { background: #1d52d0; }
@@ -117,8 +121,7 @@ export function mountStoryDoorsSpread({
     captionName.textContent = live ? `Visit · gag ${liveIndex} of ${visitTotal}` : 'No visit yet';
     caption.appendChild(captionName);
     legend.innerHTML = '';
-    for (const text of ['Leaning back: played', 'Lit: now', 'Face down: planned',
-        `Behind: ${deck.length - sealedCount} open · ${sealedCount} sealed`, '☾ ends a visit', '✦ day key scene']) {
+    for (const text of ['Leaning back: played', 'Lit: now', 'Face down: planned', '☾ ends a visit', '✦ day key scene']) {
         const item = document.createElement('span');
         item.textContent = text;
         legend.appendChild(item);
@@ -126,7 +129,7 @@ export function mountStoryDoorsSpread({
 
     const nameOf = (card) => (card.pose ? 'Johnny pauses' : gagName(card));
     const kickerOf = (card) => {
-        if (card.role === 'deck') return card.door.open ? 'Could appear' : 'Sealed';
+        if (card.role === 'deck') return card.door.open ? 'Could come later' : describeDoor(card.door).replace(/^Sealed · /, '');
         const base = `${pad(card.index ?? 0)} · ${card.role === 'live' ? 'Now' : card.role === 'seen' ? 'Played' : 'Planned'}`;
         return card.repeat > 1 ? `${base} ×${card.repeat}` : base;
     };
@@ -527,8 +530,8 @@ export function mountStoryDoorsSpread({
             entry.holder = holder;
             entry.pivot = pivot;
             entry.texture = texture;
-            // Planned and sealed cards start face down; hovering turns them over.
-            entry.faceUp = !(card.role === 'planned' || sealedOf(card));
+            // Planned cards start face down; hovering turns them over.
+            entry.faceUp = card.role !== 'planned';
             entry.flip = entry.faceUp ? 0 : Math.PI;
             pivot.rotation.y = entry.flip;
             entry.repaint = () => {
@@ -609,6 +612,42 @@ export function mountStoryDoorsSpread({
             return true;
         };
 
+        // Labels that name the parts of the scene, pinned to 3D anchor points.
+        const sceneLabels = [
+            { text: `Not in this visit · ${deck.length - sealedCount} could come later · ${sealedCount} sealed`,
+                at: new THREE.Vector3(0, DECK_RING.y + (CARD_HEIGHT / CARD_WIDTH) * DECK_RING.scale * 0.5 + 0.12, DECK_RING.centerZ),
+                className: 'is-deck' },
+            // Pinned beside the lit "now" segment of the tide ring (see the
+            // RingGeometry angles above; the ring is laid flat by rotation.x).
+            ...(tidePhase == null ? [] : [(() => {
+                const theta = Math.PI / 2 + ((tidePhase + 0.5) / TIDE_PHASES) * Math.PI * 2;
+                return {
+                    text: `Tide now · phase ${tidePhase} of 16 · ${tidePhase >= LOW_TIDE_FROM ? 'low' : 'high'}`,
+                    at: new THREE.Vector3(Math.cos(theta) * 2.85, 0.02, -Math.sin(theta) * 2.85),
+                    className: 'is-tide',
+                };
+            })()]),
+        ].map((label) => {
+            const element = document.createElement('div');
+            element.className = `story-doors-scene-label ${label.className}`;
+            element.textContent = label.text;
+            element.setAttribute('aria-hidden', 'true');
+            root.insertBefore(element, labels);
+            return { ...label, element };
+        });
+        const anchor = new THREE.Vector3();
+        const placeSceneLabels = () => {
+            for (const label of sceneLabels) {
+                anchor.copy(label.at).project(camera);
+                // Keep labels inside the stage even when their anchor is cropped.
+                const half = label.element.offsetWidth / 2 + 12;
+                const x = Math.min(width - half, Math.max(half, (anchor.x + 1) / 2 * width));
+                const y = Math.min(height - label.element.offsetHeight - 64, (1 - anchor.y) / 2 * height);
+                label.element.style.left = `${x}px`;
+                label.element.style.top = `${y}px`;
+            }
+        };
+
         const corner = new THREE.Vector3();
         const placeButtons = () => {
             const halfH = (CARD_HEIGHT / CARD_WIDTH) / 2;
@@ -685,6 +724,7 @@ export function mountStoryDoorsSpread({
             }
             renderer.render(scene, camera);
             placeButtons();
+            placeSceneLabels();
             needsRender = false;
             if (moving && !document.hidden) frameId = requestAnimationFrame(animate);
         };

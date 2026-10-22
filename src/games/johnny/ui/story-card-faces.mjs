@@ -376,7 +376,22 @@ export function paintCardFace(context, { name, kicker, image = null, final = fal
         context.fillText(`✦${keyDay}`, CARD_WIDTH - 24, CARD_HEIGHT - 22);
     }
     if (sealed) {
-        context.fillStyle = 'rgba(6,20,108,.55)';
+        context.fillStyle = 'rgba(6,20,108,.5)';
         context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+        // A stamp across the picture, so a sealed card reads as sealed at a glance.
+        context.save();
+        context.translate(CARD_WIDTH / 2, windowY + windowH / 2);
+        context.rotate(-0.18);
+        context.fillStyle = 'rgba(212,196,168,.92)';
+        context.fillRect(-118, -30, 236, 60);
+        context.strokeStyle = '#9a3412';
+        context.lineWidth = 4;
+        context.strokeRect(-112, -24, 224, 48);
+        context.fillStyle = '#9a3412';
+        context.font = `44px ${CARD_FONT}`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('SEALED', 0, 2);
+        context.restore();
     }
 }

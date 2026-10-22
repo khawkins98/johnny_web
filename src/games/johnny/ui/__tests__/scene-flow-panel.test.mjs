@@ -45,6 +45,25 @@ const FISHY_ADS = {
             ],
         },
         {
+            tagId: { id: 7, description: 'Johnny writes' },
+            script: [
+                op('IF_NOT_PLAYED 2 1', [2, 1]),
+                op('ADD_SCENE 2 5 0 1', [2, 5, 0, 1], 1),
+                op('ADD_SCENE 2 1 0 1', [2, 1, 0, 1], 1),
+                op('END_IF', []),
+                op('END_SCENE_BRANCH', []),
+                op('IF_PLAYED 2 1', [2, 1]),
+                op('ADD_SCENE 2 2 0 1', [2, 2, 0, 1], 1),
+                op('END_IF', []),
+                op('END_SCENE_BRANCH', []),
+                op('IF_PLAYED 2 1', [2, 1]),
+                op('ADD_SCENE 2 3 0 1', [2, 3, 0, 1], 1),
+                op('END_IF', []),
+                op('END_SCENE_BRANCH', []),
+                op('END', []),
+            ],
+        },
+        {
             tagId: { id: 6, description: 'Johnny naps' },
             script: [
                 op('IF_NOT_PLAYED 2 4', [2, 4]),
@@ -63,6 +82,7 @@ const FISHY_TTM = {
         { id: 2, description: 'reels in a boot' },
         { id: 3, description: 'reels in a fish' },
         { id: 4, description: 'yawns' },
+        { id: 5, description: 'LOAD MESSAGE' },
     ],
 };
 
@@ -110,7 +130,9 @@ describe('scene-flow panel', () => {
         expect(detailName()).toContain('Johnny fishes');
 
         const guards = Array.from(modal.querySelectorAll('.scene-flow-guard')).map((el) => el.textContent);
-        expect(guards).toEqual(['at the start', 'after "rod snaps"']);
+        // Shown tidied: sentence case, scene names bold instead of quoted.
+        expect(guards).toEqual(['At the start', 'After rod snaps']);
+        expect(modal.querySelector('.scene-flow-guard strong').textContent).toBe('rod snaps');
 
         // jsdom has no real `innerText` (it doesn't compute layout), so it only
         // reflects text assigned directly to that node -- read `.textContent`
@@ -248,5 +270,19 @@ describe('scene-flow panel', () => {
 
         panel.destroy();
         expect(document.querySelector('.story-doors')).toBeNull();
+    });
+
+    it('tidies the script outline: hides loaders and merges steps that wait on the same scene', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 7 });
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+
+        const steps = Array.from(document.querySelectorAll('.scene-flow-step'));
+        expect(steps.map((step) => step.querySelector('.scene-flow-guard').textContent))
+            .toEqual(['At the start', 'After rod snaps']);
+        expect(steps[0].textContent).not.toMatch(/load message/i);
+        expect(Array.from(steps[1].querySelectorAll('.scene-flow-target'), (el) => el.textContent))
+            .toEqual(['reels in a boot', 'reels in a fish']);
+        expect(document.querySelector('.scene-flow-script-details').open).toBe(true);
     });
 });

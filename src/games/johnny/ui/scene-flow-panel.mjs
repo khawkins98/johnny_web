@@ -271,52 +271,20 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             padding: 18px 6px;
         }
 
-        .scene-flow-outline {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0;
-        }
-
-        .scene-flow-step {
-            background: #f4e4c8;
-            border: 2px solid #8b5a2b;
-            border-radius: 6px;
-            padding: 10px 14px;
-            box-shadow: 0 2px 4px rgba(74,53,32,0.16), inset 0 1px rgba(255,255,255,0.5);
-        }
-
-        .scene-flow-guard {
-            font-family: 'VT323', monospace;
-            font-size: 15px;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            color: #6b4a24;
-            margin-bottom: 4px;
-        }
-
-        .scene-flow-targets {
-            font-size: 22px;
-            line-height: 1.25;
-        }
-
-        .scene-flow-targets .scene-flow-pick {
-            display: block;
-            margin-left: 8px;
-        }
-
-        .scene-flow-pick::before {
-            content: '· ';
-        }
-
-        .scene-flow-connector {
-            text-align: center;
-            font-family: 'VT323', monospace;
-            font-size: 22px;
-            color: #8b5a2b;
-            line-height: 1;
-            padding: 2px 0;
-        }
+        .scene-flow-outline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: step; }
+        .scene-flow-step { display: grid; grid-template-columns: minmax(150px, 260px) 1fr; gap: 4px 14px; align-items: baseline;
+            padding: 8px 12px 8px 40px; position: relative; background: #f4e4c8; border: 2px solid #8b5a2b; counter-increment: step; }
+        .scene-flow-step::before { content: counter(step); position: absolute; left: 10px; top: 8px; font: 20px/1 'VT323', monospace; color: #8b5a2b; }
+        .scene-flow-guard { font: 18px/1.15 'VT323', monospace; color: #6b4a24; }
+        .scene-flow-guard strong { font-weight: normal; color: #302816; }
+        .scene-flow-targets { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 21px/1.15 'VT323', monospace; color: #302816; }
+        .scene-flow-target strong, .scene-flow-pick strong { font-weight: normal; }
+        .scene-flow-target::before { content: '→ '; color: #8b5a2b; }
+        .scene-flow-target.is-stop { color: #9a3412; }
+        .scene-flow-target.is-stop::before { content: '■ '; }
+        .scene-flow-pick-lead { flex-basis: 100%; color: #6b4a24; font-size: 18px; }
+        .scene-flow-pick::before { content: '◆ '; color: #c2410c; }
+        @media (max-width: 640px) { .scene-flow-step { grid-template-columns: 1fr; } }
 
         .scene-flow-links {
             margin-top: 18px;
@@ -801,6 +769,37 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         links.appendChild(methodLink);
     };
 
+    // Display tidy-ups for the script outline. The extractor's text is left
+    // as-is because the generated docs/scene-flows pages use it too.
+    const isLoaderTarget = (text) => /^"?load\b/i.test(text);
+    const tidyOutline = (outline) => {
+        const steps = [];
+        for (const step of outline) {
+            // Resource loaders ("LOAD MESSAGE") are setup, not something Johnny does.
+            const targets = step.targets.filter((text) => !isLoaderTarget(text));
+            if (!targets.length) continue;
+            const previous = steps.at(-1);
+            if (previous && !previous.random && !step.random && previous.guardText === step.guardText) {
+                previous.targets.push(...targets);
+                continue;
+            }
+            steps.push({ ...step, targets: [...targets] });
+        }
+        return steps;
+    };
+    // Quoted scene names become bold text; ALL-CAPS names are lowered to match the rest.
+    const appendNames = (element, text) => {
+        text.split(/"([^"]*)"/).forEach((part, index) => {
+            if (index % 2) {
+                const name = document.createElement('strong');
+                name.textContent = /[a-z]/.test(part) ? part : part.toLowerCase();
+                element.appendChild(name);
+            } else if (part) {
+                element.appendChild(document.createTextNode(part));
+            }
+        });
+    };
+
     const renderFlow = (adsName, ads, scene, host, restoreKey = null) => {
         const label = buildSceneFlowLabelResolver(ads, resolveEntry, labelCache);
         const flow = extractSceneFlow(scene, { label });
@@ -1028,51 +1027,49 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             if (generation === mapGeneration) headingHint.textContent = 'Map unavailable';
         });
 
+        const steps = tidyOutline(outline);
         const details = document.createElement('details');
         details.className = 'scene-flow-script-details';
+        details.open = true;
         const summary = document.createElement('summary');
-        summary.textContent = 'Read the original script steps';
+        summary.textContent = steps.length
+            ? `This gag as a script · ${steps.length} step${steps.length === 1 ? '' : 's'}`
+            : 'This gag as a script';
         details.appendChild(summary);
-        const container = document.createElement('div');
+        const container = document.createElement('ol');
         container.className = 'scene-flow-outline';
 
-        if (!outline.length) {
-            const empty = document.createElement('div');
+        if (!steps.length) {
+            const empty = document.createElement('li');
             empty.className = 'scene-flow-empty';
             empty.textContent = '(no scripted steps for this gag)';
             container.appendChild(empty);
         } else {
-            outline.forEach((step, index) => {
-                if (index > 0) {
-                    const connector = document.createElement('div');
-                    connector.className = 'scene-flow-connector';
-                    connector.textContent = '↓';
-                    container.appendChild(connector);
-                }
-                const card = document.createElement('div');
+            for (const step of steps) {
+                const card = document.createElement('li');
                 card.className = 'scene-flow-step';
                 const guard = document.createElement('div');
                 guard.className = 'scene-flow-guard';
-                guard.textContent = step.guardText;
+                appendNames(guard, step.guardText.charAt(0).toUpperCase() + step.guardText.slice(1));
                 card.appendChild(guard);
                 const targets = document.createElement('div');
                 targets.className = 'scene-flow-targets';
                 if (step.random) {
-                    const lead = document.createElement('div');
+                    const lead = document.createElement('span');
+                    lead.className = 'scene-flow-pick-lead';
                     lead.textContent = 'picks one of:';
                     targets.appendChild(lead);
-                    step.targets.forEach((t) => {
-                        const pick = document.createElement('span');
-                        pick.className = 'scene-flow-pick';
-                        pick.textContent = t;
-                        targets.appendChild(pick);
-                    });
-                } else {
-                    targets.textContent = `→ ${step.targets.join(', ')}`;
+                }
+                for (const text of step.targets) {
+                    const target = document.createElement('span');
+                    target.className = step.random ? 'scene-flow-pick' : 'scene-flow-target';
+                    if (/^stop\b/i.test(text)) target.classList.add('is-stop');
+                    appendNames(target, text);
+                    targets.appendChild(target);
                 }
                 card.appendChild(targets);
                 container.appendChild(card);
-            });
+            }
         }
         details.appendChild(container);
         host.appendChild(details);
