@@ -364,6 +364,6 @@ sample, and sample phase matters most for short spans.
 
 The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port matches 20,000 traced values exactly. An opt-in experiment shares it across confirmed host, walking, ocean, and ADS choices. Ambient animation remains separate because its draw count depends on real-time DOSBox execution. See [rng-port.md](./rng-port.md).
 
-## Retired pixel comparison
+## Pixel comparison
 
-An earlier tool captured VGA frames and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. `dosbox-x-oracle.patch` still contains optional framebuffer hooks for manual visual investigations.
+An earlier tool captured VGA frames on a wall-clock cadence and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. The [pixel oracle](./pixel-oracle/README.md) brings pixels back without those problems. `capture-original-gag.mjs --fb` sets `DBX_FB_TICKS`, which labels every framebuffer dump with the THREADS tick number, so frames line up with `timeline.jsonl`. The comparator matches keyframes through the live-set spans, masks host-owned pixels, and treats Windows palette substitutions separately. Scores are in the "Pixel oracle" section of [the coverage report](../../docs/oracle-coverage.md). They are advisory; no CI gate uses them.

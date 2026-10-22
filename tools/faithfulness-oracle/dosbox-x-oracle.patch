@@ -31,7 +31,7 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
  Bits CPU_Core_Normal_Run(void) {
  	if (CPU_Cycles <= 0)
  		return CBRET_NONE;
-@@ -171,6 +187,309 @@
+@@ -171,6 +187,351 @@
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -94,6 +94,17 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +			static unsigned int dbx_force_ads = 0, dbx_force_tag = 0;
 +			static uint16_t dbx_force_recoff = 0; /* cached near-off of target rec (0=unfound) */
 +			static bool dbx_force_armed = false;  /* one-time active-bit bootstrap */
++			/* tick-aligned framebuffer dumps (pixel oracle, DBX_FB_TICKS=1 + DBX_FB_DIR).
++			 * Each dump is labelled t<THREADS tick#> (the same 0-based index as the
++			 * DBX_THREADS line / timeline.jsonl row), so frames line up with the
++			 * live-thread stream. Armed on every live-set change (+DBX_FB_TICK_AFTER
++			 * following ticks) and every DBX_FB_TICK_EVERY ticks, for the first
++			 * DBX_FB_EPISODES loads of the forced ADS; plus one L<n>_t<tick#> dump
++			 * at each forced-ADS load (the pre-gag backdrop). */
++			static bool dbx_fbt_on = false;
++			static unsigned dbx_fbt_every = 4, dbx_fbt_after = 2, dbx_fbt_episodes = 1, dbx_fbt_left = 0;
++			static unsigned long long dbx_fbt_lastsig = ~0ULL;
++			static unsigned dbx_fbt_loads = 0;
 +			if (!dbx_ads_target_init) {
 +				dbx_ads_target_init = true;
 +				const char *t = getenv("DBX_FB_ADS");
@@ -106,6 +117,15 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +					dbx_force_ads = (unsigned int)strtoul(fa, NULL, 0) & 0xff;
 +					dbx_force_tag = (unsigned int)strtoul(ft, NULL, 0) & 0xff;
 +					dbx_force_on = true;
++				}
++				const char *fbt = getenv("DBX_FB_TICKS");
++				const char *fbd = getenv("DBX_FB_DIR");
++				if (fbt && *fbt && *fbt != '0' && fbd && *fbd) {
++					dbx_fbt_on = true;
++					const char *e;
++					if ((e = getenv("DBX_FB_TICK_EVERY")) && *e) dbx_fbt_every = (unsigned)strtoul(e, NULL, 10);
++					if ((e = getenv("DBX_FB_TICK_AFTER")) && *e) dbx_fbt_after = (unsigned)strtoul(e, NULL, 10);
++					if ((e = getenv("DBX_FB_EPISODES")) && *e) dbx_fbt_episodes = (unsigned)strtoul(e, NULL, 10);
 +				}
 +			}
 +			if (!dbx_init) {
@@ -245,6 +265,7 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +							const PhysPt dsb = SegPhys(ds);
 +							int16_t idx = (int16_t)mem_readw(dsb + 0x2608u); /* DAT_1068_2608 */
 +							fprintf(dbx_thr_fp, "THREADS %llu", dbx_tick_no);
++							unsigned long long fbt_sig = 1469598103934665603ULL;
 +							if (idx >= 0) {
 +								/* ADSctx far ptr = DS:*(idx*4+0x460e){off}, *(idx*4+0x4610){seg}.
 +								 * The context HEADER lives in its own segment (ctxseg); the
@@ -264,11 +285,23 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +									uint16_t rs   = mem_readw(dsb + (uint16_t)(node + 0x2f));
 +									fprintf(dbx_thr_fp, " %u:%u:%u",
 +										(unsigned)slot, (unsigned)tag, (unsigned)rs);
++									if (rs >= 1 && rs <= 3) /* live set signature (FNV-1a) */
++										fbt_sig = (fbt_sig ^ (((unsigned long long)slot << 16) | tag)) * 1099511628211ULL;
 +									node = mem_readw(dsb + (uint16_t)(node + 0x3b));
 +								}
 +							}
 +							fprintf(dbx_thr_fp, "\n");
 +							fflush(dbx_thr_fp);
++							if (dbx_fbt_on && dbx_fbt_loads >= 1 && dbx_fbt_loads <= dbx_fbt_episodes) {
++								if (fbt_sig != dbx_fbt_lastsig) dbx_fbt_left = dbx_fbt_after + 1;
++								bool want = dbx_fbt_left > 0 || (dbx_fbt_every != 0 && (dbx_tick_no % dbx_fbt_every) == 0);
++								if (dbx_fbt_left > 0) dbx_fbt_left--;
++								if (want) {
++									snprintf(dbx_fb_label, sizeof(dbx_fb_label), "t%06llu", dbx_tick_no);
++									dbx_fb_want = 1;
++								}
++							}
++							dbx_fbt_lastsig = fbt_sig;
 +							dbx_tick_no++;
 +						}
 +						if (fi == 3 && dbx_delay_fp) {
@@ -325,6 +358,15 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +							}
 +							fprintf(dbx_fp, "%llu ads-loader id=%04X\n", dbx_icount, (unsigned)adsid);
 +							fflush(dbx_fp);
++							if (dbx_fbt_on && dbx_force_on && (unsigned int)(adsid & 0xff) == dbx_force_ads) {
++								dbx_fbt_loads++;
++								fprintf(dbx_fp, "#FBLOAD n=%u tick=%llu\n", dbx_fbt_loads, dbx_tick_no);
++								fflush(dbx_fp);
++								if (dbx_fbt_loads <= dbx_fbt_episodes + 1) {
++									snprintf(dbx_fb_label, sizeof(dbx_fb_label), "L%u_t%06llu", dbx_fbt_loads, dbx_tick_no);
++									dbx_fb_want = 1;
++								}
++							}
 +							/* Tag + arm a framebuffer dump for the target ADS id. */
 +							if (dbx_ads_target <= 0xff && (unsigned int)(adsid & 0xff) == dbx_ads_target) {
 +								unsigned int id = adsid & 0xff;

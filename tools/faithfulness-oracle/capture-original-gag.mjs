@@ -25,6 +25,7 @@
  *
  * Usage:
  *   node capture-original-gag.mjs <adsIdHex> <tag> <outdir> [--secs 120] [--name NAME]
+ *       [--fb] [--episodes N]
  * e.g.
  *   node capture-original-gag.mjs 0x66 7 /tmp/cap-b7
  *
@@ -35,13 +36,25 @@
  *   trace.log     director/tick/completion trace (DBX_TRACE); carries the #FORCE line
  *   timeline.jsonl  threads.log converted to the shared per-tick timeline format
  *   run.log       emulator stdout/stderr
+ *   fb/           (--fb only) tick-aligned framebuffer dumps for the pixel oracle:
+ *                 t<NNNNNN>.ppm.gz, where NNNNNN is the 0-based THREADS tick (the
+ *                 same index as the timeline.jsonl row), plus L<n>_t<NNNNNN>.ppm.gz
+ *                 taken when the forced ADS is loaded for the n-th time (the
+ *                 backdrop the gag starts on). See pixel-oracle/README.md.
+ *
+ * --fb arms DBX_FB_TICKS in the patched emulator: one dump on every live-set change
+ * (and the 2 ticks after it) and every --fb-every'th tick (default 1: every tick), for
+ * the first --episodes (default 1) forced loads. With --fb the run stops as soon as
+ * the next load starts, instead of waiting for --secs. Dumps are gzipped while the
+ * run is in progress (a raw dump is 0.9 MB; a gzipped one is typically 5-40 KB).
  *
  * Env overrides:
  *   SP_DOSBOX  dir with driveC/driveD/dbx.conf (default: the session scratchpad/dosbox)
  *   DBX        path to the patched dosbox-x binary (default: SP_DOSBOX/../dosbox-x-src/src/dosbox-x)
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readFileSync, openSync, closeSync } from 'node:fs';
+import { mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readFileSync, openSync, closeSync, readdirSync } from 'node:fs';
+import { gzipSync } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -63,7 +76,8 @@ const ADS_NAMES = {
 // -- args --
 const argv = process.argv.slice(2);
 const flag = (f, d) => { const i = argv.indexOf(f); return i !== -1 ? argv[i + 1] : d; };
-const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--')));
+const BOOL_FLAGS = new Set(['--fb']);
+const positional = argv.filter((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--') && !BOOL_FLAGS.has(argv[i - 1])));
 const [adsHex, tagRaw, outdir] = positional;
 if (!adsHex || tagRaw === undefined || !outdir) {
     console.error('usage: node capture-original-gag.mjs <adsIdHex> <tag> <outdir> [--secs 120] [--name NAME]');
@@ -73,6 +87,9 @@ const adsId = Number.parseInt(adsHex, 16) & 0xff;
 const tag = Number(tagRaw);
 const secs = Number(flag('--secs', '120'));
 const name = flag('--name', ADS_NAMES[adsId] || `0x${adsId.toString(16)}`);
+const withFb = argv.includes('--fb');
+const episodes = Number(flag('--episodes', '1'));
+const fbEvery = Number(flag('--fb-every', '1'));
 const out = path.resolve(outdir);
 
 if (!existsSync(DBX)) { console.error(`patched dosbox-x not found: ${DBX} (set DBX or build it)`); process.exit(3); }
@@ -113,6 +130,40 @@ writeFileSync(confPath, conf);
 const threadsLog = path.join(out, 'threads.log');
 const traceLog = path.join(out, 'trace.log');
 const runLog = path.join(out, 'run.log');
+const fbDir = path.join(out, 'fb');
+if (withFb) mkdirSync(fbDir, { recursive: true });
+const fbEnv = withFb
+    ? { DBX_FB_DIR: fbDir, DBX_FB_TICKS: '1', DBX_FB_EPISODES: String(episodes), DBX_FB_TICK_EVERY: String(fbEvery) }
+    : {};
+// With --fb, stop once the forced ADS has been loaded `episodes + 1` times: the
+// dumps only cover the first `episodes` loads, so there is nothing left to record.
+const loadsSeen = () => {
+    try {
+        return (readFileSync(traceLog, 'utf8').match(/^#FBLOAD /gm) || []).length;
+    } catch {
+        return 0;
+    }
+};
+
+// Compress finished PPM dumps. The emulator numbers them fb_<shot>_<label>.ppm; the
+// newest one may still be being written, so `final` is false while it runs.
+let fbFrames = 0;
+const compressDumps = (final) => {
+    if (!withFb || !existsSync(fbDir)) return;
+    const raw = readdirSync(fbDir)
+        .map((f) => ({ f, m: f.match(/^fb_(\d+)_(.+)\.ppm$/) }))
+        .filter((x) => x.m)
+        .sort((a, b) => Number(a.m[1]) - Number(b.m[1]));
+    const ready = final ? raw : raw.slice(0, -1);
+    for (const { f, m } of ready) {
+        const src = path.join(fbDir, f);
+        if (/^(L\d+_)?t\d+$/.test(m[2])) {
+            writeFileSync(path.join(fbDir, `${m[2]}.ppm.gz`), gzipSync(readFileSync(src), { level: 6 }));
+            fbFrames++;
+        }
+        rmSync(src, { force: true });
+    }
+};
 
 // -- run dosbox-x headless, isolated, killed by ITS OWN pid on timeout --
 const runDosbox = () => new Promise((resolve) => {
@@ -128,13 +179,25 @@ const runDosbox = () => new Promise((resolve) => {
             DBX_FORCE_TAG: String(tag),
             DBX_THREADS: threadsLog,
             DBX_TRACE: traceLog,
+            ...fbEnv,
         },
     });
+    const poll = withFb
+        ? setInterval(() => {
+              compressDumps(false);
+              if (loadsSeen() > episodes) {
+                  // let the L<n> backdrop dump of the next load land, then stop
+                  setTimeout(() => { try { process.kill(child.pid, 'SIGKILL'); } catch {} }, 300);
+                  clearInterval(poll);
+              }
+          }, 500)
+        : null;
     let done = false;
     const finish = (code) => {
         if (!done) {
             done = true;
             clearTimeout(timer);
+            if (poll) clearInterval(poll);
             closeSync(logFd);
             resolve(code);
         }
@@ -172,6 +235,8 @@ for (const m of trace.matchAll(/ completion .*args=([0-9A-Fa-f]+),/g)) {
 }
 const adsLoads = new Set([...trace.matchAll(/ads-loader id=([0-9A-Fa-f]+)/g)].map((m) => Number.parseInt(m[1], 16) & 0xff));
 
+compressDumps(true);
+
 const summary = {
     gag: `${name}:${tag}`, adsId: `0x${adsId.toString(16)}`, tag,
     forced: !!forceLine, forceLine,
@@ -181,6 +246,7 @@ const summary = {
     isolatedToTarget: adsLoads.size <= 1 && (adsLoads.size === 0 || adsLoads.has(adsId))
         && Object.keys(compTags).every((t) => Number(t) === tag),
     outdir: out, threadsLog, timeline: timelinePath,
+    ...(withFb ? { fbFrames, fbLoads: loadsSeen() } : {}),
 };
 console.log(JSON.stringify(summary, null, 2));
 if (!summary.forced) { console.error('WARN: no #FORCE line in trace -- injection may not have armed'); process.exit(5); }

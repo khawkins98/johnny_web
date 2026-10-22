@@ -12,7 +12,8 @@ The normal test path uses:
 Supporting files:
 
 - `rendering-oracle/` converts DOSBox-X thread logs into timelines and fingerprints.
-- `dosbox-x-oracle.patch` adds tracing, gag isolation, and optional frame capture to the pinned DOSBox-X revision.
+- `pixel-oracle/` compares rendered pixels with tick-aligned framebuffer captures of the original; see [pixel-oracle/README.md](./pixel-oracle/README.md).
+- `dosbox-x-oracle.patch` adds tracing, gag isolation, and optional frame capture (tick-labelled with `DBX_FB_TICKS`) to the pinned DOSBox-X revision.
 - JavaScript draws can be recorded with matching ordinal, site, and raw-word fields through `createFaithfulRng(..., { onDraw })`.
 - `ne_entry.py`, `ne_reloc.py`, and `ne_mask.py` locate functions safely in the Win16 executable.
 - `dbx.conf` configures the DOSBox-X test environment.
