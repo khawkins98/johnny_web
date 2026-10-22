@@ -278,7 +278,7 @@ describe('scene-flow panel', () => {
         expect(crumbs()[0]).toBe('Day 07');
         expect(crumbs().at(-1)).toBe('↖ Johnny now');
         document.querySelector('.story-steps-play').click();
-        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'MARY.ADS', tagId: 4, storyDay: 7 });
+        expect(startRun).toHaveBeenCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7 });
         expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
 
         // Reopening returns to Johnny now.

@@ -313,8 +313,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const playGag = (gag, day) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
         try {
+            // 'preview' plays exactly this gag now, then the story carries on.
+            // ('sequence' would plan a whole visit around it: a gag that ends a
+            // visit would then play last, after other gags.)
             sequenceTools.startRun({
-                mode: 'sequence', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day,
+                mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day,
             });
             close();
             return true;
