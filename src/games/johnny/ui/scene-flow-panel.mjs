@@ -295,7 +295,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let mountedPreview = null;
     let previewGeneration = 0;
     let renderedGagId = null;
-    // Story steps (issue #47): which day, then which tide, then which gag.
+    // Story steps (issue #47): which day, then what time of day, then which gag.
     // `step` is where the viewer is; while `followLive` holds it tracks Johnny.
     let step = null;
     let stepperRoot = null;
@@ -461,7 +461,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const live = liveSpot(status);
         if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
-        subtitle.textContent = `STORY DAY ${live.day} OF 11 · PICK A DAY, A TIDE, THEN A GAG`;
+        subtitle.textContent = `STORY DAY ${live.day} OF 11 · PICK A DAY, A TIME, THEN A GAG`;
 
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';

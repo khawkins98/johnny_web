@@ -1,6 +1,6 @@
 # Explore the story timeline
 
-The timeline asks one question at a time: **which day, which tide, which gag**. It opens on the gag Johnny is playing now, with the path to it shown as a breadcrumb (for example **Day 10 › Early high tide › Eat**). Click any part of the breadcrumb to go back to that question. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
+The timeline asks one question at a time: **which day, what time of day, which gag**. It opens on the gag Johnny is playing now, with the path to it shown as a breadcrumb (for example **Day 10 › Early day › Eat**). Click any part of the breadcrumb to go back to that question. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
 
 ## Open and close
 
@@ -12,13 +12,13 @@ Card pictures are real frames, rendered in your browser from your own game data 
 
 Johnny's story runs over 11 days. Each day card shows that day's **key scene**; playing it unlocks the next day. Today is marked.
 
-## Which tide?
+## What time of day?
 
-The tide decides which gags can appear. The game tracks 16 tide phases, but every gag's tide window starts and ends at the same points, so three bands cover them exactly: **early high tide**, **late high tide**, and **low tide**. Each option says how many gags it allows, and the tide right now is marked. **▶ Play day N** saves that story day and restarts playback from its key scene.
+The game's story clock decides which gags can appear. It counts half hours from the original's Start Time (9:00 by default) and repeats every 8 hours; its last 2 hours are night, when the original shows the night sky. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day**, and **night**. Each option says how many gags it allows, and the time right now is marked. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) **▶ Play day N** saves that story day and restarts playback from its key scene.
 
 ## Which gag?
 
-These are the gags the game can choose on that day at that tide, with the day's key scene first. Corner marks on a card: **☾** ends a visit, **✦N** is the key scene for day N. On today's day and tide, a **This visit** strip shows the visit the game has planned, in order, with Johnny's current gag highlighted.
+These are the gags the game can choose on that day at that time, with the day's key scene first. Corner marks on a card: **☾** ends a visit, **✦N** is the key scene for day N. On today's day and time, a **This visit** strip shows the visit the game has planned, in order, with Johnny's current gag highlighted.
 
 ## A gag
 

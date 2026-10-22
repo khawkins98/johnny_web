@@ -9,7 +9,7 @@ describe('tide bands', () => {
         for (let phase = 0; phase < 16; phase++) expect(bandForPhase(phase)).not.toBeNull();
         expect(bandForPhase(7).id).toBe('early');
         expect(bandForPhase(8).id).toBe('late');
-        expect(bandForPhase(12).id).toBe('low');
+        expect(bandForPhase(12).id).toBe('night');
         expect(bandForPhase(null)).toBeNull();
     });
 
@@ -32,7 +32,7 @@ describe('gagsFor', () => {
     it('applies tide windows by band', () => {
         const key = (gag) => gag.key;
         // BUILDING#9 is [12,16): low tide only.
-        expect(gagsFor(1, bandById('low')).map(key)).toContain('BUILDING.ADS:9');
+        expect(gagsFor(1, bandById('night')).map(key)).toContain('BUILDING.ADS:9');
         expect(gagsFor(1, bandById('early')).map(key)).not.toContain('BUILDING.ADS:9');
         // A key scene whose window misses the band is left out: day 5's MARY#1 is [12,16).
         expect(gagsFor(5, bandById('early')).some((gag) => gag.keyDay)).toBe(false);
@@ -46,7 +46,7 @@ describe('gagsFor', () => {
 
     it('counts gags per band', () => {
         const counts = gagCountsByBand(1);
-        expect(Object.keys(counts)).toEqual(['early', 'late', 'low']);
+        expect(Object.keys(counts)).toEqual(['early', 'late', 'night']);
         expect(counts.early).toBe(gagsFor(1, bandById('early')).length);
     });
 
@@ -79,10 +79,10 @@ describe('visitSequence', () => {
 
 describe('gag words', () => {
     it('describes tide windows by band', () => {
-        expect(describeTideWindow(0, 16)).toBe('Any tide');
-        expect(describeTideWindow(12, 16)).toBe('Low tide only');
-        expect(describeTideWindow(0, 12)).toBe('High tide only');
-        expect(describeTideWindow(0, 8)).toBe('Early high tide only');
+        expect(describeTideWindow(0, 16)).toBe('Any time');
+        expect(describeTideWindow(12, 16)).toBe('Night only');
+        expect(describeTideWindow(0, 12)).toBe('Daytime only');
+        expect(describeTideWindow(0, 8)).toBe('Early day only');
     });
 
     it('fills in catalogue facts for a gag reference', () => {

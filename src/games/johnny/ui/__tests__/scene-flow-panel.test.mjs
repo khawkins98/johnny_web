@@ -250,7 +250,7 @@ describe('scene-flow panel', () => {
 
         // Opens on Johnny's live gag, with the path to it as a breadcrumb.
         const crumbs = () => Array.from(document.querySelectorAll('.story-steps-crumbs button'), (b) => b.textContent);
-        expect(crumbs()).toEqual(['Day 02', 'Early high tide', 'Johnny fishes']);
+        expect(crumbs()).toEqual(['Day 02', 'Early day', 'Johnny fishes']);
         expect(detailName()).toContain('Johnny fishes · LIVE GAG');
 
         // Back up to the day question: 11 day cards, today marked.
@@ -262,10 +262,10 @@ describe('scene-flow panel', () => {
 
         // Day 7 -> tide question, with Play day.
         days[6].click();
-        expect(document.querySelector('.story-steps-head h3').textContent).toBe('Day 07 · which tide?');
+        expect(document.querySelector('.story-steps-head h3').textContent).toBe('Day 07 · what time of day?');
         const tides = Array.from(document.querySelectorAll('.story-steps-tide'));
         expect(tides).toHaveLength(3);
-        expect(tides[0].getAttribute('aria-label')).toMatch(/the tide now/);
+        expect(tides[0].getAttribute('aria-label')).toMatch(/the time now/);
 
         // Early high tide -> day 7's gags, key scene first; the live visit strip only shows on the live day.
         tides[0].click();
@@ -283,7 +283,7 @@ describe('scene-flow panel', () => {
 
         // Reopening returns to Johnny now.
         panel.open();
-        expect(crumbs()).toEqual(['Day 02', 'Early high tide', 'Johnny fishes']);
+        expect(crumbs()).toEqual(['Day 02', 'Early day', 'Johnny fishes']);
         panel.destroy();
     });
 
