@@ -55,13 +55,25 @@ const SCENE_METRICS = new Map([
     ['SUZY#1', [35, 10]], ['SUZY#2', [25, 10]],
 ]);
 
-// Raw catalogue flagsB bit 0x0200 forces executable island-position band 0.
+// Raw catalogue flagsB bit 0x0200 forces 30c2 = 0 (FUN_1010_1c41): the batch is
+// baked at high tide, which also selects the wide island-position band 0.
 // Kept as a semantic datum rather than folded into SceneFlags, whose bits are
 // browser selection behavior rather than a copy of the executable record.
 const FORCE_LAYOUT0 = new Set([
     'ACTIVITY#8', 'WALKSTUF#2', 'BUILDING#2', 'MARY#2', 'MARY#3', 'MARY#4', 'MARY#5',
     'ACTIVITY#1', 'FISHING#5', 'JOHNNY#4', 'JOHNNY#5', 'MISCGAG#2', 'ACTIVITY#6',
     'ACTIVITY#11', 'BUILDING#4', 'BUILDING#6', 'VISITOR#3',
+]);
+
+// Raw catalogue word +0xd: the island layout word (binary FUN_1010_1c41). 0x10 pins
+// the batch to fixed layout 1 (island layer 0 at 289/299), 0x20 to fixed layout 2
+// (17/309); bits 1/2/4/8 restrict the random origin to the top-left, top-right,
+// bottom-left or bottom-right quadrant of the band. Records absent here are 0.
+const FLAGS_D = new Map([
+    ['BUILDING#2', 0x08], ['VISITOR#5', 0x01], ['MARY#2', 0x08], ['MARY#3', 0x08], ['MARY#1', 0x08],
+    ['MARY#4', 0x08], ['MARY#5', 0x03], ['FISHING#3', 0x10], ['FISHING#6', 0x10], ['FISHING#4', 0x20],
+    ['FISHING#5', 0x05], ['ACTIVITY#11', 0x0a], ['BUILDING#4', 0x08], ['BUILDING#6', 0x08],
+    ['ACTIVITY#9', 0x10], ['VISITOR#1', 0x10], ['WALKSTUF#1', 0x10], ['VISITOR#3', 0x10],
 ]);
 
 // A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
@@ -75,7 +87,87 @@ const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day,
     return Object.freeze({
         script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
         tideMin, tideMax, width, weight, repeat: isPose, forceLayout0: FORCE_LAYOUT0.has(key),
+        flagsD: FLAGS_D.get(key) ?? 0,
     });
+};
+
+/**
+ * Fold the planned records' layout words into the binary's 30c0 (FUN_1010_1c41,
+ * 1010:1c41), in the binary's order: the ending first, then the rest of the batch.
+ * A 0x20 record sets 1, a 0x10 record sets 2 (replacing earlier quadrant bits);
+ * bits 1/2/4/8 OR in 0x04/0x08/0x10/0x20. Returns 0 when no record carries a word.
+ */
+export const accumulateIslandLayout = (scenes) => {
+    let bits = null;
+    for (const { flagsD = 0 } of scenes) {
+        if ((flagsD & 0x3f) === 0) continue;
+        if (bits === null) bits = 0;
+        if (flagsD & 0x20) bits = 1;
+        else if (flagsD & 0x10) bits = 2;
+        if (flagsD & 0x01) bits |= 0x04;
+        if (flagsD & 0x02) bits |= 0x08;
+        if (flagsD & 0x04) bits |= 0x10;
+        if (flagsD & 0x08) bits |= 0x20;
+    }
+    return bits ?? 0;
+};
+
+/**
+ * The picker's layout compatibility test (FUN_1018_0edb, 1018:0edb): a candidate's
+ * +0xd word is refused when it conflicts with the batch's 30c0 so far. Fixed layout
+ * 2 conflicts with layout 1 or a right quadrant (0x2a); layout 1 with layout 2 or a
+ * left quadrant (0x15); a quadrant bit conflicts with the opposite column unless its
+ * row-mate is set, and with the opposite row unless its column-mate is set.
+ */
+export const isLayoutCompatible = (flagsD, bits) => {
+    if (!bits) return true;
+    if (flagsD & 0x20 && bits & 0x2a) return false;
+    if (flagsD & 0x10 && bits & 0x15) return false;
+    if (flagsD & 0x01 && ((!(flagsD & 0x02) && bits & 0x2a) || (!(flagsD & 0x04) && bits & 0x30))) return false;
+    if (flagsD & 0x02 && ((!(flagsD & 0x01) && bits & 0x15) || (!(flagsD & 0x08) && bits & 0x30))) return false;
+    if (flagsD & 0x04 && ((!(flagsD & 0x08) && bits & 0x2a) || (!(flagsD & 0x01) && bits & 0x0c))) return false;
+    if (flagsD & 0x08 && ((!(flagsD & 0x04) && bits & 0x15) || (!(flagsD & 0x02) && bits & 0x0c))) return false;
+    return true;
+};
+
+// Island layer 0 top-left for each world origin: the bake draws it at
+// 30c6 + 0x121, 30c4 + 0x117, so titleState (= 30c6/30c4) is origin - (289, 279).
+const ISLAND_LAYER0 = Object.freeze({ x: 0x121, y: 0x117 });
+const FIXED_LAYOUTS = Object.freeze({
+    layout1: Object.freeze({ x: 0x121, y: 299 }),
+    layout2: Object.freeze({ x: 0x11, y: 0x135 }),
+});
+// Random bands (FUN_1010_1b00): x/y minimum and range, by 30c2 (low tide).
+const ISLAND_BANDS = Object.freeze({
+    high: Object.freeze({ x: 0x43, width: 0xe2, y: 0xff, height: 0x81 }),
+    low: Object.freeze({ x: 0xa8, width: 0x6f, y: 0xff, height: 0x3b }),
+});
+
+/**
+ * Resolve the island world origin (titleState x/y) from the accumulated layout
+ * word, the tide, and a `draw(divisor, site)` random source (FUN_1010_1b00,
+ * 1010:1b00). 30c0 & 2 is fixed layout 1 (289/299), 30c0 & 1 fixed layout 2
+ * (17/309); otherwise x = xmin + rand % width, y = ymin + rand % height in the
+ * tide's band, with the quadrant bits halving a range (unless a whole row or
+ * column is allowed) and offsetting it for the right/bottom quadrants.
+ */
+export const resolveIslandOrigin = (layoutBits, lowTide, draw) => {
+    const fixed = layoutBits & 2 ? FIXED_LAYOUTS.layout1 : layoutBits & 1 ? FIXED_LAYOUTS.layout2 : null;
+    if (fixed) return { x: fixed.x - ISLAND_LAYER0.x, y: fixed.y - ISLAND_LAYER0.y };
+    const band = lowTide ? ISLAND_BANDS.low : ISLAND_BANDS.high;
+    let { x, y, width, height } = band;
+    const bits = layoutBits & 0x3c;
+    if (bits !== 0) {
+        const halfWidth = Math.floor(width / 2);
+        const halfHeight = Math.floor(height / 2);
+        if (bits === 0x10 || bits === 0x20 || bits === 0x30) y += halfHeight;
+        if (!((bits & 0x04 && bits & 0x10) || (bits & 0x08 && bits & 0x20))) height = halfHeight;
+        if (bits === 0x08 || bits === 0x20 || bits === 0x28) x += halfWidth;
+        if (!((bits & 0x04 && bits & 0x08) || (bits & 0x10 && bits & 0x20))) width = halfWidth;
+    }
+    const originX = x + (width > 0 ? draw(width, 'island-x') : 0);
+    const originY = y + (height > 0 ? draw(height, 'island-y') : 0);
+    return { x: originX - ISLAND_LAYER0.x, y: originY - ISLAND_LAYER0.y };
 };
 
 /**
@@ -330,10 +422,11 @@ const createIslandState = (
     date,
     random,
     storyRandom = null,
-    { allowLowTide = true, allowVariablePosition = true, startTime = 0, layoutIndex = 1 } = {},
+    { allowLowTide = true, startTime = 0, layoutBits = 0, forceHighTide = false } = {},
 ) => {
     const tidePhase = tidePhaseFor(date, startTime);
-    const lowTide = allowLowTide && tidePhase >= LOW_TIDE_PHASES;
+    // flagsB 0x200 on any planned record forces 30c2 = 0: high tide (FUN_1010_1c41).
+    const lowTide = allowLowTide && !forceHighTide && tidePhase >= LOW_TIDE_PHASES;
     const night = date.getHours() < 6 || date.getHours() >= 18;
     let x = 0;
     let y = 0;
@@ -342,30 +435,16 @@ const createIslandState = (
     const oceanIndex = storyRandom
         ? (night ? 0 : storyRandom.modulo(3, 'island-ocean'))
         : randomIndex(random, 3);
-    // The island world origin is randomized ONCE per island CHAIN and held fixed for
-    // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136,
-    // dec 5161/5693). It is randomized UNCONDITIONALLY for an island chain -- VARPOS
-    // (flagsB 0x1000) does NOT gate position; it only turns waves off (dec 4314). The
-    // The faithful path uses the selected layout's ordinary band. Holiday-specific
-    // flagsD modifiers remain deferred. LEFT_ISLAND is a per-scene foreground nudge,
-    // not a whole-island move.
-    if (allowVariablePosition && hasAll(finalScene.flags, F.ISLAND)) {
-        if (storyRandom) {
-            const band = layoutIndex === 0
-                ? { baseX: 67, width: 226, baseY: 255, height: 129 }
-                : { baseX: 168, width: 111, baseY: 255, height: 59 };
-            x = band.baseX + storyRandom.modulo(band.width, 'island-x') - 289;
-            y = band.baseY + storyRandom.modulo(band.height, 'island-y') - 279;
-        } else if (random() >= 0.5) {
-            x = -222 + Math.floor(random() * 109);
-            y = -44 + Math.floor(random() * 128);
-        } else if (random() >= 0.5) {
-            x = -114 + Math.floor(random() * 134);
-            y = -14 + Math.floor(random() * 99);
-        } else {
-            x = -114 + Math.floor(random() * 119);
-            y = -73 + Math.floor(random() * 60);
-        }
+    // The island world origin is chosen ONCE per island CHAIN and held fixed for
+    // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136):
+    // a fixed layout when any planned record carries +0xd 0x10/0x20, else a random
+    // band for the tide, narrowed by the records' quadrant bits. LEFT_ISLAND is a
+    // per-scene foreground nudge, not a whole-island move.
+    if (hasAll(finalScene.flags, F.ISLAND)) {
+        const draw = storyRandom
+            ? (divisor, site) => storyRandom.modulo(divisor, site)
+            : (divisor) => randomIndex(random, divisor);
+        ({ x, y } = resolveIslandOrigin(layoutBits, lowTide, draw));
     }
     const raft = hasAll(finalScene.flags, F.NORAFT) ? 0 : storyDay <= 2 ? 1 : storyDay <= 5 ? storyDay - 1 : 5;
     return Object.freeze({
@@ -515,12 +594,9 @@ export const createJohnnyStoryController = ({
             ? {
                   startTime: resolvedStartTime,
                   allowLowTide: anchorScene.tideMax > LOW_TIDE_PHASES,
-                  allowVariablePosition: hasAll(anchorScene.flags, F.VARPOS_OK),
               }
             : { startTime: resolvedStartTime };
         const tidePhase = tidePhaseFor(date, resolvedStartTime);
-        const variablePosition =
-            (constraints.allowVariablePosition ?? true) && hasAll(finalScene.flags, F.ISLAND);
         const planned = [];
         let previous = null;
 
@@ -530,11 +606,11 @@ export const createJohnnyStoryController = ({
         }
 
         if (!hasAll(finalScene.flags, F.FIRST)) {
-            let wanted = 0;
-            if (variablePosition) wanted |= F.VARPOS_OK;
             // Poses are ADS-less "stand at spot" fillers, selectable as intermediates
             // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
-            // from the intermediate pool here.
+            // from the intermediate pool here; a fixed-layout intermediate (VISITOR#1)
+            // is an ordinary candidate that pins the batch's island origin.
+            const wanted = 0;
             let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
             // 300-unit spatial walk-span budget (FUN_1018_08b9): the ending's width is
             // spent first, then intermediates fill until the budget runs out (or the 298
@@ -545,8 +621,15 @@ export const createJohnnyStoryController = ({
             let budget = 300 - finalScene.width - (anchorScene ? anchorScene.width : 0);
             let slots = anchorScene ? 1 : 0;
             while (budget > 0 && slots < 298) {
+                // The binary folds the ending's layout word first, then each planned
+                // record's, and refuses candidates whose word conflicts (FUN_1018_0edb).
+                const layoutSoFar = accumulateIslandLayout([
+                    finalScene,
+                    ...planned.map(({ scene: selected }) => selected),
+                ]);
                 const candidates = eligible(storyDay, wanted, unwanted, tidePhase).filter(
-                    (candidate) => candidate.width / 2 < budget,
+                    (candidate) =>
+                        candidate.width / 2 < budget && isLayoutCompatible(candidate.flagsD, layoutSoFar),
                 );
                 if (candidates.length === 0) break;
                 const next = weightedPick(random, candidates, storyRandom, 'director-intermediate-scene');
@@ -575,12 +658,13 @@ export const createJohnnyStoryController = ({
             }
         }
         planned.push({ scene: finalScene, walkFrom: previous });
-        // The executable accumulates flags across the complete queue. Any scene
-        // carrying raw flagsB 0x0200 forces position band 0; otherwise band 1.
-        const layoutIndex = planned.some(({ scene: selected }) => selected.forceLayout0) ? 0 : 1;
+        // The executable folds every planned record's flags into the batch state
+        // before the bake (FUN_1018_08b9 -> FUN_1010_1c41), ending first.
+        const batch = [finalScene, ...planned.slice(0, -1).map(({ scene: selected }) => selected)];
         const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
             ...constraints,
-            layoutIndex,
+            layoutBits: accumulateIslandLayout(batch),
+            forceHighTide: batch.some((selected) => selected.forceLayout0),
         });
         return { planned, islandState };
     };
@@ -707,11 +791,12 @@ export const createJohnnyStoryController = ({
             const storyDay = debugStoryDay(selected, requestedDay);
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
             const date = now();
+            const batch = finalScene === selected ? [selected] : [finalScene, selected];
             const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
                 startTime: getStartTime(storage, date),
                 allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
-                allowVariablePosition: hasAll(selected.flags, F.VARPOS_OK),
-                layoutIndex: selected.forceLayout0 ? 0 : 1,
+                layoutBits: accumulateIslandLayout(batch),
+                forceHighTide: batch.some((s) => s.forceLayout0),
             });
             return Object.freeze({
                 ...makeSelection({ selected, islandState, index: 0, total: 1, wipe: null }),
