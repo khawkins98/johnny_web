@@ -8,6 +8,7 @@ import { createSoftwareSurface } from '../dgds/scripting/surface.mjs';
 import { createEntryResourceProvider } from '../dgds/resource-provider.mjs';
 import { createBrowserPresentationPolicy } from '../dgds/hosts/browser-presentation-policy.mjs';
 import { createDebugRunCoordinator } from './debug-run-coordinator.mjs';
+import { withHostBackground } from './host-background.mjs';
 import { diagnostics } from '../dgds/scripting/diagnostics.mjs';
 import { faithfulRandomFromArchive } from '../dgds/scripting/faithful-rng.mjs';
 
@@ -281,11 +282,17 @@ export const runBrowserPresentation = async ({
                         ...(faithfulPick ? { faithfulPick } : {}),
                         ...(faithfulRandom ? { storyRandom: faithfulRandom } : {}),
                         resourceProvider,
-                        backgroundDecorator,
+                        backgroundDecorator: hasPersistentBackground
+                            ? withHostBackground({
+                                  presentHost: (target) => selectionPresenter(selection, target),
+                                  backgroundDecorator,
+                              })
+                            : backgroundDecorator,
                         game,
                         audioManager,
                         adsSceneTag: tagId,
                         singleAdsScene: tagId !== null,
+                        ...(selection.childScenePreview ? { childScenePreview: selection.childScenePreview } : {}),
                         titleState: selection.titleState ?? null,
                         hostManagedTransitions: Boolean(selectScene),
                         presentationPolicy,

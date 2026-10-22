@@ -85,6 +85,7 @@ describe('settings UI', () => {
             '↓',
             'H',
             'S',
+            'T',
             'D',
             'F',
             'R',

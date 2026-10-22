@@ -23,9 +23,11 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
 
-Move the pointer to reveal the Settings cog, or press `S`. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
+Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
+
+While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It asks one question at a time: which day, which tide, which gag. Each gag shows its steps with silent previews from the original game, and **▶ Play this gag** or **▶ Play this scene now** starts it. **Picking a day only explores it:** Johnny keeps playing until you choose **▶ Play day**.
 
 ## Development
 
@@ -37,9 +39,12 @@ pnpm run preview  # Serve the production build locally
 
 Start with [Contributing](CONTRIBUTING.md) for the source layout, local data setup, and checks to run before a PR. The [architecture guide](docs/architecture.md) explains how the engine fits together.
 
+See the [changelog](CHANGELOG.md) for the v1 baseline and v1.1 scene flow explorer.
+
 For a specific task:
 
 - [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
+- [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.
 - [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.
 - [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
 - [Read the resource format](docs/resindex.md) — archive layout and decoding notes.

@@ -117,8 +117,10 @@ const renderIndex = (entries) => {
     md +=
         'Explore the conditions and choices inside every gag. These pages are generated from the ' +
         'original game scripts, so the diagrams stay in step with the engine. They show possible ' +
-        'routes rather than exact timing. See [Johnny\'s 11-day story](../story-over-time.md) for ' +
-        'how the game chooses gags over time.\n\n';
+        'routes rather than exact timing or a recording of live playback. Use the in-app compass ' +
+        'to inspect these paths and preview a scene; the [story timeline guide]' +
+        '(../story-timeline-guide.md) explains its controls. See [Johnny\'s 11-day story]' +
+        '(../story-over-time.md) for how the game chooses gags over time.\n\n';
     for (const { adsName, gagCount } of entries) {
         md += `- [${adsName}](./${adsName}.md) — ${gagCount} gag${gagCount === 1 ? '' : 's'}\n`;
     }

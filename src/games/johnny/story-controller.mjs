@@ -212,8 +212,17 @@ const tidePhaseFor = (date, startTime) => {
     const now = date.getHours() * 100 + (date.getMinutes() < 30 ? 0 : 30);
     return (hphase(now) - hphase(startTime) + TIDE_PHASES) % TIDE_PHASES;
 };
-const inTideWindow = (candidate, tidePhase) =>
+export const inTideWindow = (candidate, tidePhase) =>
     tidePhase == null || (candidate.tideMin <= tidePhase && tidePhase < candidate.tideMax);
+export { TIDE_PHASES };
+
+/**
+ * Story-layer eligibility for one catalogue record, shared by the picker and the
+ * story visualizer: a scene must be common (day 0) or locked to this story day,
+ * and the current tide phase must fall in its [tideMin, tideMax) window.
+ */
+export const isStoryEligible = (candidate, storyDay, tidePhase = null) =>
+    (candidate.day === 0 || candidate.day === storyDay) && inTideWindow(candidate, tidePhase);
 // The story StartTime reference (month*100 + day), captured on first run and persisted.
 const getStartTime = (storage, date) => {
     let stored;
@@ -409,8 +418,7 @@ export const createJohnnyStoryController = ({
             (candidate) =>
                 hasAll(candidate.flags, wanted) &&
                 (candidate.flags & unwanted) === 0 &&
-                (candidate.day === 0 || candidate.day === storyDay) &&
-                inTideWindow(candidate, tidePhase),
+                isStoryEligible(candidate, storyDay, tidePhase),
         );
 
     // Faithful ending selection (FUN_1018_08b9 / FUN_1018_0d76, phase6 §3): a 10%-gated
@@ -592,6 +600,7 @@ export const createJohnnyStoryController = ({
             final: Object.freeze({ script: planned.at(-1).scene.script, tagId: planned.at(-1).scene.tagId }),
             anchor,
             lowTide: islandState.lowTide,
+            tidePhase: islandState.tidePhase,
             next: Object.freeze({ script: planned[0].scene.script, tagId: planned[0].scene.tagId }),
         });
         publishStatus();

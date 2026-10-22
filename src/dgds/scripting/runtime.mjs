@@ -13,7 +13,7 @@ import { ExecutionStatus, pendingExecution } from './execution-outcome.mjs';
 import { debugLog, runScript, sceneLabel, sceneLog } from './script-runner.mjs';
 import { createAdsProgram, isAdsTagEnded, resetAdsProgram, stepAdsProgram } from './ads-walker.mjs';
 import { presentSurfaceFrameOperation } from './surface-frame-presenter.mjs';
-import { clearAdsSceneBatch, resetAdsDisplayList } from './ads-scene-changes.mjs';
+import { addSceneNode, clearAdsSceneBatch, findSceneNode, resetAdsDisplayList } from './ads-scene-changes.mjs';
 import { selectOceanIndex } from './background-resources.mjs';
 import { isTtmFinished, TtmRunMode, TtmRunState } from './ttm-run-state.mjs';
 import { sequenceKey, sequencePaintIndex } from './ttm-sequence-order.mjs';
@@ -223,6 +223,43 @@ export class DgdsRuntime {
 
     #runAdsController() {
         const state = this.state;
+        // Explorer preview: replay the chosen route's earlier TTM children to
+        // populate their shared image/palette environment, then play the chosen
+        // child. Later children often draw from resources loaded by the first
+        // child (for example, MJJOG's left-foot press uses the load-jog image).
+        // This remains separate from the faithful normal-playback path.
+        if (state.childScenePreview) {
+            const preview = state.childScenePreview;
+            const route = preview.route?.length ? preview.route : [{ slot: preview.slot, tag: preview.tag }];
+            const routeIndex = preview.index || 0;
+            const child = route[routeIndex];
+            if (!child) return true;
+            if (!preview.armed) {
+                const authoredAdd = preview.continueAds && routeIndex === route.length - 1
+                    ? state.data.scenes[state.currentScene]?.script.find((op) =>
+                        op.opcode === 0x2005 && op.params?.[0] === child.slot && op.params?.[1] === child.tag)
+                    : null;
+                preview.available = Boolean(addSceneNode(
+                    state, child.slot, child.tag, authoredAdd?.params?.[2] ?? 0, authoredAdd?.params?.[3] ?? 1,
+                ));
+                preview.armed = true;
+            }
+            if (!preview.available) return true;
+            this.#runTtmController();
+            state.continue = false;
+            if (!isTtmFinished(findSceneNode(state, child.slot, child.tag))) return false;
+            if (routeIndex === route.length - 1) {
+                if (!preview.continueAds) return true;
+                // The selected child has just emitted its one-tick completion
+                // pulse. Let the normal ADS walker consume that pulse on the
+                // next tick, so its authored successor branch runs from here.
+                state.childScenePreview = null;
+                return false;
+            }
+            preview.index = routeIndex + 1;
+            preview.armed = false;
+            return false;
+        }
         const scene = state.data.scenes[state.currentScene];
 
         if (scene === undefined) {
