@@ -65,6 +65,18 @@ const FORCE_LAYOUT0 = new Set([
     'ACTIVITY#11', 'BUILDING#4', 'BUILDING#6', 'VISITOR#3',
 ]);
 
+// Raw catalogue flagsB bit 0x0800 sets 30b4 = 1 (FUN_1010_1c41): the batch bakes
+// NIGHT.SCR whatever the phase says (FUN_1010_0136 only draws a day ocean when
+// `30b4 == 0 && 30ba < 12`). Only MARY#1 carries it; its window [12,16) is night anyway.
+const FORCE_NIGHT = new Set(['MARY#1']);
+
+// Raw catalogue flagsB bit 0x1000 sets 30b2 = 1 (FUN_1010_1c41): the bake draws the
+// waves once, also into the background plate, and clears the wave timer
+// (FUN_1010_0136 `2f40 = 0`; FUN_1010_040e skips the wave pass while 30b2 is set), so
+// the ocean stands still for the whole batch. The gags that bake a sandcastle or a
+// ship near the water line use it.
+const WAVES_OFF = new Set(['BUILDING#2', 'BUILDING#4', 'BUILDING#6', 'MARY#1', 'VISITOR#3']);
+
 // Raw catalogue word +0xd: the island layout word (binary FUN_1010_1c41). 0x10 pins
 // the batch to fixed layout 1 (island layer 0 at 289/299), 0x20 to fixed layout 2
 // (17/309); bits 1/2/4/8 restrict the random origin to the top-left, top-right,
@@ -87,6 +99,7 @@ const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day,
     return Object.freeze({
         script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
         tideMin, tideMax, width, weight, repeat: isPose, forceLayout0: FORCE_LAYOUT0.has(key),
+        forceNight: FORCE_NIGHT.has(key), wavesOff: WAVES_OFF.has(key),
         flagsD: FLAGS_D.get(key) ?? 0,
     });
 };
@@ -290,20 +303,27 @@ const repeatCount = (random, storyRandom = null) => {
     return REPEAT_WEIGHTS.length;
 };
 
-// Tide runs over 16 phases; a scene is eligible when its [tideMin, tideMax) window
-// contains the current phase. Recovered from the original (FUN_1018_0540 / hasher
-// FUN_1018_0c48): the phase is TIME-OF-DAY driven at half-hour resolution, offset by
-// the persisted story StartTime, NOT random.
+// The 16-phase clock (binary 30ba, FUN_1018_0540 / hasher FUN_1018_0c48) is
+// TIME-OF-DAY driven at half-hour resolution, offset by StartTime, NOT random:
 //   hphase(x) = (floor(x/50) + floor((x%100)/30) + 14) % 16
 //   tidePhase = (hphase(hour*100 + (min<30?0:30)) - hphase(StartTime) + 16) % 16
-// where StartTime is the (month*100 + day) captured when the story first started.
+// so it advances one phase per half hour and wraps every eight hours. StartTime is
+// the HHMM "Start Time" of the original's settings dialog (FUN_1008_12f7 rounds it to
+// the half hour; the data segment defaults it to 0900 and SCRANTIC.INI persists it).
+// The phase is recomputed when each batch is planned. It gates eligibility through
+// every record's [tideMin, tideMax) window and picks the sky at the bake: phases
+// 12..15 bake NIGHT.SCR (FUN_1010_0136, `30ba < 0xc` selects a day ocean). It does
+// NOT pick the rendered tide: that is 30c2, a per-batch coin flip (createIslandState).
+// The catalogue calls the window a tide window, so the name stays.
 const TIDE_PHASES = 16;
-const LOW_TIDE_PHASES = 12; // render low tide when tidePhase >= 12 (0x0c)
+const NIGHT_PHASE = 12; // NIGHT.SCR when tidePhase >= 12 (0x0c)
+export const DEFAULT_START_TIME = 900;
 const hphase = (x) => (Math.floor(x / 50) + Math.floor((x % 100) / 30) + 14) % TIDE_PHASES;
-const tidePhaseFor = (date, startTime) => {
+export const tidePhaseFor = (date, startTime = DEFAULT_START_TIME) => {
     const now = date.getHours() * 100 + (date.getMinutes() < 30 ? 0 : 30);
     return (hphase(now) - hphase(startTime) + TIDE_PHASES) % TIDE_PHASES;
 };
+export const isNightPhase = (tidePhase) => tidePhase >= NIGHT_PHASE;
 export const inTideWindow = (candidate, tidePhase) =>
     tidePhase == null || (candidate.tideMin <= tidePhase && tidePhase < candidate.tideMax);
 export { TIDE_PHASES };
@@ -315,27 +335,24 @@ export { TIDE_PHASES };
  */
 export const isStoryEligible = (candidate, storyDay, tidePhase = null) =>
     (candidate.day === 0 || candidate.day === storyDay) && inTideWindow(candidate, tidePhase);
-// The story StartTime reference (month*100 + day), captured on first run and persisted.
-const getStartTime = (storage, date) => {
+// StartTime (HHMM): the original's default 0900 unless a stored override exists.
+// Earlier builds stored month*100 + day here, which shifted every phase by a
+// date-dependent amount; a stored value is still honoured so a settings control can
+// set it the way the original's dialog does.
+const getStartTime = (storage) => {
     let stored;
     try {
         stored = storage?.getItem('jc-start-time');
     } catch {
-        // Storage may be unavailable (privacy mode); fall back to today's date.
+        // Storage may be unavailable (privacy mode); use the default.
     }
     // Guard a corrupted stored value: a NaN StartTime would poison tidePhase (NaN),
-    // empty the eligible set, and crash the picker. Fall back to recomputing from today.
+    // empty the eligible set, and crash the picker.
     if (stored) {
         const parsed = Number(stored);
         if (Number.isFinite(parsed)) return parsed;
     }
-    const startTime = (date.getMonth() + 1) * 100 + date.getDate();
-    try {
-        storage?.setItem('jc-start-time', String(startTime));
-    } catch {
-        // Persistence is optional.
-    }
-    return startTime;
+    return DEFAULT_START_TIME;
 };
 
 // Dual-counter day advance, recovered from FUN_1018_0ba5. Two persisted counters:
@@ -422,33 +439,45 @@ const createIslandState = (
     date,
     random,
     storyRandom = null,
-    { allowLowTide = true, startTime = 0, layoutBits = 0, forceHighTide = false } = {},
+    {
+        startTime = DEFAULT_START_TIME,
+        layoutBits = 0,
+        forceHighTide = false,
+        forceNight = false,
+        wavesOff = false,
+    } = {},
 ) => {
     const tidePhase = tidePhaseFor(date, startTime);
-    // flagsB 0x200 on any planned record forces 30c2 = 0: high tide (FUN_1010_1c41).
-    const lowTide = allowLowTide && !forceHighTide && tidePhase >= LOW_TIDE_PHASES;
-    const night = date.getHours() < 6 || date.getHours() >= 18;
+    const island = hasAll(finalScene.flags, F.ISLAND);
+    // The bake (FUN_1010_0136) in the binary's order. Sky first: solid black for an
+    // off-island batch (30b4 == 2, catalogue 0x2000), NIGHT.SCR when the phase is
+    // 12..15 or a planned record carries 0x800 (30b4 == 1), else one of the three
+    // day oceans by a random draw. The wall clock plays no part beyond the phase.
+    const night = forceNight || isNightPhase(tidePhase);
+    const draw = storyRandom
+        ? (divisor, site) => storyRandom.modulo(divisor, site)
+        : (divisor) => randomIndex(random, divisor);
+    // Browser-created clouds remain on `random` and cannot advance this stream.
+    const oceanIndex = !island || night ? 0 : draw(3, 'island-ocean');
+    // Tide next (30c2): the planner resets it to -1; flagsB 0x200 on any planned
+    // record sets 0 (high tide, FUN_1010_1c41); otherwise the bake flips a coin,
+    // `rand & 1`, with 1 = low tide. The phase and the records' tide windows never
+    // touch it, so a low-window gag can play at high tide and vice versa.
+    const lowTide =
+        !forceHighTide && (storyRandom ? storyRandom.bit(1, 'island-tide') === 1 : randomIndex(random, 2) === 1);
     let x = 0;
     let y = 0;
-    // The executable bakes the day ocean before island origin coordinates.
-    // Browser-created clouds remain on `random` and cannot advance this stream.
-    const oceanIndex = storyRandom
-        ? (night ? 0 : storyRandom.modulo(3, 'island-ocean'))
-        : randomIndex(random, 3);
     // The island world origin is chosen ONCE per island CHAIN and held fixed for
     // every scene in it (binary FUN_1010_1b00 via the New-Scene bake FUN_1010_0136):
     // a fixed layout when any planned record carries +0xd 0x10/0x20, else a random
     // band for the tide, narrowed by the records' quadrant bits. LEFT_ISLAND is a
     // per-scene foreground nudge, not a whole-island move.
-    if (hasAll(finalScene.flags, F.ISLAND)) {
-        const draw = storyRandom
-            ? (divisor, site) => storyRandom.modulo(divisor, site)
-            : (divisor) => randomIndex(random, divisor);
+    if (island) {
         ({ x, y } = resolveIslandOrigin(layoutBits, lowTide, draw));
     }
     const raft = hasAll(finalScene.flags, F.NORAFT) ? 0 : storyDay <= 2 ? 1 : storyDay <= 5 ? storyDay - 1 : 5;
     return Object.freeze({
-        island: hasAll(finalScene.flags, F.ISLAND),
+        island,
         // The host always composes Johnny's persistent island with the primary
         // island layout. TTM scenes may load ISLAND2.SCR for their own drawing;
         // that child-local background id must not move the host-owned island.
@@ -459,14 +488,9 @@ const createIslandState = (
         raft,
         x,
         y,
-        // VARPOS (binary flagsB 0x1000) turns the animated ocean waves OFF for the
-        // chain (dec 4314: waves disabled when VARPOS set) -- it never affects
-        // position. Carried here so the datum is ready.
-        // TODO(waves-wiring): thread `waves` into the wave renderer. Waves are
-        // currently gated by a user setting in frame-renderer.mjs
-        // (policy.setting(profile.settings.waves)); per-chain suppression needs a new
-        // path from this flag into that renderer, not wired in this pass.
-        waves: !hasAll(finalScene.flags, F.VARPOS_OK),
+        // false when any planned record carries flagsB 0x1000 (30b2 = 1): the waves
+        // stand on their bake frames for the whole batch (frame-renderer honours it).
+        waves: !wavesOff,
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
         oceanIndex,
         presentationKey: Object.freeze({}),
@@ -588,14 +612,18 @@ export const createJohnnyStoryController = ({
         return pick(random, candidates);
     };
 
+    // What FUN_1010_1c41 folds into the batch state from every planned record's
+    // flags (ending first): the island layout word, and the 0x200 / 0x800 / 0x1000
+    // bits that force high tide, the night sky and still waves for the whole batch.
+    const batchOptions = (batch) => ({
+        layoutBits: accumulateIslandLayout(batch),
+        forceHighTide: batch.some((selected) => selected.forceLayout0),
+        forceNight: batch.some((selected) => selected.forceNight),
+        wavesOff: batch.some((selected) => selected.wavesOff),
+    });
+
     const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now(), startTime }) => {
-        const resolvedStartTime = startTime ?? getStartTime(storage, date);
-        const constraints = anchorScene
-            ? {
-                  startTime: resolvedStartTime,
-                  allowLowTide: anchorScene.tideMax > LOW_TIDE_PHASES,
-              }
-            : { startTime: resolvedStartTime };
+        const resolvedStartTime = startTime ?? getStartTime(storage);
         const tidePhase = tidePhaseFor(date, resolvedStartTime);
         const planned = [];
         let previous = null;
@@ -662,9 +690,8 @@ export const createJohnnyStoryController = ({
         // before the bake (FUN_1018_08b9 -> FUN_1010_1c41), ending first.
         const batch = [finalScene, ...planned.slice(0, -1).map(({ scene: selected }) => selected)];
         const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
-            ...constraints,
-            layoutBits: accumulateIslandLayout(batch),
-            forceHighTide: batch.some((selected) => selected.forceLayout0),
+            startTime: resolvedStartTime,
+            ...batchOptions(batch),
         });
         return { planned, islandState };
     };
@@ -691,6 +718,7 @@ export const createJohnnyStoryController = ({
             anchor,
             lowTide: islandState.lowTide,
             tidePhase: islandState.tidePhase,
+            night: islandState.night,
             next: Object.freeze({ script: planned[0].scene.script, tagId: planned[0].scene.tagId }),
         });
         publishStatus();
@@ -699,7 +727,7 @@ export const createJohnnyStoryController = ({
 
     const buildSequence = () => {
         const date = now();
-        const startTime = getStartTime(storage, date);
+        const startTime = getStartTime(storage);
         const storyDay = updateStoryDay(storage, date);
         const finalScene = chooseFinalScene(storyDay, tidePhaseFor(date, startTime));
         recentFinals.push(finalScene);
@@ -760,9 +788,8 @@ export const createJohnnyStoryController = ({
     };
 
     const resetStory = () => {
-        const date = now();
         try {
-            storage?.setItem('jc-start-time', String((date.getMonth() + 1) * 100 + date.getDate()));
+            storage?.removeItem?.('jc-start-time');
         } catch {
             // Persistence is optional.
         }
@@ -793,10 +820,8 @@ export const createJohnnyStoryController = ({
             const date = now();
             const batch = finalScene === selected ? [selected] : [finalScene, selected];
             const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
-                startTime: getStartTime(storage, date),
-                allowLowTide: selected.tideMax > LOW_TIDE_PHASES,
-                layoutBits: accumulateIslandLayout(batch),
-                forceHighTide: batch.some((s) => s.forceLayout0),
+                startTime: getStartTime(storage),
+                ...batchOptions(batch),
             });
             return Object.freeze({
                 ...makeSelection({ selected, islandState, index: 0, total: 1, wipe: null }),

@@ -153,9 +153,21 @@ end spot/heading, `+7` width, `+8/+9` tide window `[min,max)`, `+0xa` story day,
 
 **B.6.1 Tide phase (`FUN_1018_0540` + `FUN_1018_0c48`)** — time-of-day, half-hour resolution, not random:
 `hphase(x) = (⌊x/50⌋ + ⌊(x%100)/30⌋ + 14) % 16`;
-`tidePhase = ( hphase(hour*100 + (minute<30?0:30)) − hphase(StartTime) + 16 ) % 16`, where
-`StartTime` = persisted `month*100 + day` of the story start. Scene eligibility uses the
-`[tideMin,tideMax)` window; low-tide *render* at `tidePhase ≥ 12`.
+`tidePhase = ( hphase(hour*100 + (minute<30?0:30)) − hphase(StartTime) + 16 ) % 16`, stored in
+`30ba` once per batch (`FUN_1018_0540`, before `FUN_1018_08b9(30ba, 300)`), so it advances one
+phase per half hour and wraps every 8 hours. `StartTime` (`DAT_1068_00be`) is the HHMM
+"Start Time" of the settings dialog: `FUN_1008_12f7` (1008:12f7) rounds it to the half hour and
+the ±30-minute buttons (`0x78`/`0x79`) step it; the data segment defaults it to `900` and
+`SCRANTIC.INI` `StartTime` persists it (it is *not* a date). Scene eligibility uses the
+`[tideMin,tideMax)` window. The phase's only render effect is the sky: at the bake
+(`FUN_1010_0136`, 1010:0136) `30b4 == 0 && 30ba < 12` draws one of three day oceans
+(`rand % 3`), otherwise `NIGHT.SCR`; so phases 12–15 (6–8 h after StartTime, e.g. 15:00–17:00,
+23:00–01:00 and 07:00–09:00 with the default) are night, whatever the wall clock. `30b4 == 1`
+(flagsB `0x800`, MARY #1 only) forces `NIGHT.SCR`; `30b4 == 2` (flagsB `0x2000`) draws solid
+colour 5. The low-tide *render* is **not** the phase: it is `30c2`, a per-batch coin flip
+(B.6.3a). Verified by normal-play captures with no INI (StartTime 900): 21:15 local (phase 8)
+drew the day sky, 23:20 (phase 12) drew `NIGHT.SCR`; the wall-clock rule 06–18 h would have
+drawn night at both.
 
 **B.6.2 Dual-counter day advance (`FUN_1018_0ba5`)** — `target` (unlocked keyframe day) + `cur`
 (calendar). Per real-date change: `if (cur<target) cur++; if (cur>11||cur<2){target=1;cur=1;}`.
@@ -185,7 +197,20 @@ word: BUILDING #2/#4/#6 and MARY #1–#4 `0x08`; MARY #5 `0x03`; VISITOR #5 `0x0
 `0x05`; ACTIVITY #11 `0x0a`; FISHING #3/#6, ACTIVITY #9, VISITOR #1, VISITOR #3, WALKSTUF #1
 `0x10`; FISHING #4 `0x20`. Normal-play captures show layer 0 at exactly 289/299 and 17/309 for the
 two fixed layouts. Note for B.6.1: `30ba ≥ 12` selects `NIGHT.SCR` (`FUN_1010_0136`); the low-tide
-*render* is `30c2`, not the phase.
+*render* is `30c2`, not the phase. The coin is flipped at every bake whose `30c2` is still `-1`,
+including off-island (`30b4 == 2`) batches, and nothing else constrains it: neither the phase
+nor the records' tide windows, so a `[12,16)` record can play at high tide and a `[0,12)` one
+at low tide. The bake order is sky (`rand % 3` only for a day island), tide coin, then
+`FUN_1010_1b00`'s origin draws. `30c2` also picks the raft spot (`FUN_1010_1d69`: high
+`30c6+0x201, 30c4+0x10a`, low `30c6+0x212, 30c4+0x119`) and the wave set (`FUN_1010_0e74`).
+
+**B.6.3b Still waves (flagsB `0x1000` → `30b2`)** — `FUN_1010_1c41` sets `30b2 = 1` when any
+planned record carries `0x1000` (BUILDING #2/#4/#6, MARY #1, VISITOR #3). The bake then clears
+the wave timer (`2f40 = 0`, the same path as INI `Waves=0`) and `FUN_1010_040e(0)` returns
+before the wave pass while `30b2` is set, so the waves never advance for the batch. The bake's
+own wave pass (`FUN_1010_0e74(0)` after presetting counters `0282/0284/0286 = 2`, which the
+first pass turns into `0, 2, 2`) also blits those frames into `eb0` when `30b2 == 1`, so the
+plate carries them. `0x1000` has nothing to do with island position (the old `VARPOS` name).
 
 **B.6.4 Walk path-finding — precomputed route table (`FUN_1018_0094`, `FUN_1018_03ac/03ea`)**
 (supersedes the earlier "3-D matrix" guess). Route matrix at file `0x18894`, row stride `0x0c`

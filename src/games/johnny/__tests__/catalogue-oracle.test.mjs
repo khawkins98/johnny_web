@@ -60,6 +60,9 @@ describe.skipIf(!hasData)('catalogue matches the binary 79-record table', () => 
             expect(js.width).toBe(rec.width);
             expect(js.weight).toBe(rec.weight);
             expect(js.forceLayout0).toBe((rec.flagsB & 0x0200) !== 0);
+            // 0x800 bakes NIGHT.SCR (30b4 = 1); 0x1000 stills the waves (30b2 = 1).
+            expect(js.forceNight).toBe((rec.flagsB & 0x0800) !== 0);
+            expect(js.wavesOff).toBe((rec.flagsB & 0x1000) !== 0);
             // Island layout word (+0xd): fixed layouts 0x10/0x20 and quadrant bits 1/2/4/8.
             expect(js.flagsD).toBe(rec.flagsD);
             // Ending status: the derived F.FINAL flag must track the binary's ending

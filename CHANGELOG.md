@@ -4,6 +4,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 
 ## Unreleased
 
+- Night, tide and still waves now follow the original. The night sky comes from the game's 16-phase half-hour clock (its last four phases, counted from the original's 9:00 start time), not from the local hour; the **Live Local Clock** setting keeps the local-hour night as an option. High or low tide is a coin flip per visit unless a scene pins high tide, instead of following that clock. The sandcastle and ship-building visits (`BUILDING.ADS` #2/#4/#6, `MARY.ADS` #1, `VISITOR.ADS` #3) hold the waves still, as the original does (#53).
 - Fixed baked background areas disappearing in the boat-building gag (`BUILDING.ADS` #2): a new `STORE_AREA` now adds to the background plate instead of wiping it, so the anchored ship and the sandcastle stay until the gag ends (#53).
 - Fixed the anchored ship in the Gulliver gags (`BUILDING.ADS` #4 and #6) staying behind, or showing twice, after the ship sails away. The world raster is now restored to the background plate before each tick's scripts run, and the GET/PUT pair those scenes use (`0xa054`/`0xa064`) is implemented (#53).
 - Fixed the island and Johnny's scripted animations being drawn 1 px left of the original. The island now sits at the original's base (x 289, or 17 for the second layout), and walks and the palm-trunk overlap line up with it as in the original (#53).

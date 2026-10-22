@@ -37,12 +37,12 @@ const layer0 = ({ titleState }) => ({
     y: background.layers[0].y + titleState.y,
 });
 
-// 2026-07-21 12:00 with a fresh storage is tide phase 10 (high tide); 13:00 is
-// phase 12 (low tide).
+// With the original's default StartTime (0900), 12:00 is phase 6 (day sky). The
+// rendered tide is a per-batch coin flip (`rand & 1`, site 'island-tide'), not a
+// phase: `chooseBit` picks it in these tests.
 const HIGH_TIDE = () => new Date(2026, 6, 21, 12);
-const LOW_TIDE = () => new Date(2026, 6, 21, 13);
 
-const recordingSource = (chooseModulo = () => 0) => {
+const recordingSource = (chooseModulo = () => 0, chooseBit = () => 0) => {
     const draws = [];
     return {
         draws,
@@ -51,13 +51,17 @@ const recordingSource = (chooseModulo = () => 0) => {
                 draws.push({ site, divisor });
                 return chooseModulo(divisor, site);
             },
+            bit(mask, site) {
+                draws.push({ site, mask });
+                return chooseBit(mask, site);
+            },
             weightedBucket: () => 1,
         },
     };
 };
 
-const controller = ({ now = HIGH_TIDE, chooseModulo, random = () => 0 } = {}) => {
-    const { draws, source } = recordingSource(chooseModulo);
+const controller = ({ now = HIGH_TIDE, chooseModulo, chooseBit, random = () => 0 } = {}) => {
+    const { draws, source } = recordingSource(chooseModulo, chooseBit);
     const story = createJohnnyStoryController({ random, storyRandom: source, storage: memoryStorage(), now });
     return { story, draws };
 };
@@ -340,10 +344,11 @@ describe('island origin in planned batches', () => {
         expect(layer0(first)).toEqual({ x: 67 + 225, y: 255 + 128 });
     });
 
-    it('draws the low-tide band when the island shows low tide', () => {
-        const { story, draws } = controller({ now: LOW_TIDE });
+    it('draws the low-tide band when the coin flip lands on low tide', () => {
+        const { story, draws } = controller({ chooseBit: () => 1 });
         const first = story.preview('MISCGAG.ADS', 1);
         expect(first.titleState.lowTide).toBe(true);
+        expect(draws.filter(({ site }) => site === 'island-tide')).toEqual([{ site: 'island-tide', mask: 1 }]);
         expect(islandDraws(draws)).toEqual([
             { site: 'island-x', divisor: 111 },
             { site: 'island-y', divisor: 59 },
@@ -351,11 +356,12 @@ describe('island origin in planned batches', () => {
         expect(layer0(first)).toEqual({ x: 168, y: 255 });
     });
 
-    it('flagsB 0x200 forces high tide (30c2 = 0) and therefore the high-tide band', () => {
-        const { story, draws } = controller({ now: LOW_TIDE });
+    it('flagsB 0x200 forces high tide (30c2 = 0) without a coin flip, so the high-tide band', () => {
+        const { story, draws } = controller({ chooseBit: () => 1 });
         story.planFrom('ACTIVITY.ADS', 1, { storyDay: 1 });
         const first = story.next();
         expect(first.titleState.lowTide).toBe(false);
+        expect(draws.some(({ site }) => site === 'island-tide')).toBe(false);
         expect(islandDraws(draws)).toEqual([
             { site: 'island-x', divisor: 226 },
             { site: 'island-y', divisor: 129 },
@@ -400,7 +406,13 @@ describe('island origin in planned batches', () => {
         });
         const first = story.preview('MISCGAG.ADS', 1);
         expect(calls).toBeGreaterThan(0);
-        expect(layer0(first)).toEqual({ x: 67 + 225, y: 255 + 128 });
+        // random() -> 0.999 lands the tide coin on 1 (low tide) and the band's far corner.
+        expect(first.titleState.lowTide).toBe(true);
+        expect(layer0(first)).toEqual({ x: 168 + 110, y: 255 + 58 });
+        const high = createJohnnyStoryController({ random: () => 0, storage: memoryStorage(), now: HIGH_TIDE });
+        const highFirst = high.preview('MISCGAG.ADS', 1);
+        expect(highFirst.titleState.lowTide).toBe(false);
+        expect(layer0(highFirst)).toEqual({ x: 67, y: 255 });
         const fixed = createJohnnyStoryController({ random: () => 0.5, storage: memoryStorage(), now: HIGH_TIDE });
         expect(layer0(fixed.preview('FISHING.ADS', 4))).toEqual({ x: 17, y: 309 });
     });

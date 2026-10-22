@@ -6,12 +6,13 @@ const memoryStorage = (initial = {}) => {
     return {
         getItem: (key) => values.get(key) ?? null,
         setItem: (key, value) => values.set(key, value),
+        removeItem: (key) => values.delete(key),
         values,
     };
 };
 
 describe('Johnny host story controller', () => {
-    const recordingStoryRandom = (chooseModulo = () => 0) => {
+    const recordingStoryRandom = (chooseModulo = () => 0, chooseBit = () => 0) => {
         const draws = [];
         return {
             draws,
@@ -19,6 +20,10 @@ describe('Johnny host story controller', () => {
                 modulo(divisor, site) {
                     draws.push({ site, divisor });
                     return chooseModulo(divisor, site);
+                },
+                bit(mask, site) {
+                    draws.push({ site, mask });
+                    return chooseBit(mask, site);
                 },
                 weightedBucket(weights, site) {
                     draws.push({ site, weights });
@@ -107,9 +112,10 @@ describe('Johnny host story controller', () => {
         );
     });
 
-    it('uses the low-tide band at low tide without drawing a layout choice', () => {
-        const { source, draws } = recordingStoryRandom((divisor, site) =>
-            site === 'island-x' ? divisor - 1 : 0,
+    it('uses the low-tide band when the tide coin lands on 1, without drawing a layout choice', () => {
+        const { source, draws } = recordingStoryRandom(
+            (divisor, site) => (site === 'island-x' ? divisor - 1 : 0),
+            () => 1,
         );
         const controller = createJohnnyStoryController({
             random: () => 0,
@@ -120,8 +126,10 @@ describe('Johnny host story controller', () => {
 
         const preview = controller.preview('MISCGAG.ADS', 1, { storyDay: 1 });
         expect(preview.titleState).toMatchObject({ islandLayoutId: 1, lowTide: true, x: -11, y: -24 });
+        // The bake's order (FUN_1010_0136): day ocean, tide coin, then the origin.
         expect(draws).toEqual([
             { site: 'island-ocean', divisor: 3 },
+            { site: 'island-tide', mask: 1 },
             { site: 'island-x', divisor: 111 },
             { site: 'island-y', divisor: 59 },
         ]);
@@ -133,12 +141,13 @@ describe('Johnny host story controller', () => {
             random: () => 0,
             storyRandom: source,
             storage: memoryStorage(),
-            now: () => new Date(2026, 6, 21, 22),
+            // 23:00 with the default StartTime 0900 is phase 12: NIGHT.SCR.
+            now: () => new Date(2026, 6, 21, 23),
         });
 
         const preview = controller.preview('MISCGAG.ADS', 1, { storyDay: 1 });
         expect(preview.titleState.night).toBe(true);
-        expect(draws.map(({ site }) => site)).toEqual(['island-x', 'island-y']);
+        expect(draws.map(({ site }) => site)).toEqual(['island-tide', 'island-x', 'island-y']);
     });
 
     it('carries the executable-owned 79-record catalogue (validated against the binary in catalogue-oracle)', () => {
@@ -342,7 +351,7 @@ describe('Johnny host story controller', () => {
             expect(storage.values.get('jc-story-day')).toBe('1');
         });
 
-        it('resetStory sets day 1 and re-anchors StartTime to today', () => {
+        it('resetStory sets day 1 and drops any StartTime override', () => {
             const storage = memoryStorage({
                 'jc-story-day': '8',
                 'jc-story-target': '9',
@@ -354,9 +363,9 @@ describe('Johnny host story controller', () => {
             expect(storage.values.get('jc-story-day')).toBe('1');
             expect(storage.values.get('jc-story-target')).toBe('1');
             expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
-            expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+            expect(storage.values.has('jc-start-time')).toBe(false);
             expect(controller.getStoryDay()).toBe(1);
-            expect(controller.getStartTime()).toBe((6 + 1) * 100 + 21);
+            expect(controller.getStartTime()).toBeNull();
         });
 
         it('after setStoryDay(N) a subsequent sequence status reflects day N', () => {
@@ -368,20 +377,30 @@ describe('Johnny host story controller', () => {
         });
     });
 
-    it('derives tide deterministically from the wall clock + persisted StartTime, not randomness', () => {
+    it('derives the phase from the wall clock + StartTime (default 0900) and the tide from a coin', () => {
         const clock = () => new Date(2026, 6, 21, 15, 0);
-        const lowTideFor = (rng) => {
-            const storage = memoryStorage({ 'jc-start-time': '721' });
+        const statusFor = (rng, initial = {}) => {
+            const storage = memoryStorage(initial);
             const controller = createJohnnyStoryController({ random: rng, storage, now: clock });
             controller.next();
-            return controller.status().lowTide;
+            return { status: controller.status(), storage };
         };
-        // Same clock + StartTime -> same tide regardless of the rng stream.
-        expect(lowTideFor(() => 0)).toBe(lowTideFor(() => 0.999));
-        // StartTime (month*100 + day) is captured and persisted on first run.
-        const storage = memoryStorage();
-        createJohnnyStoryController({ random: () => 0, storage, now: clock }).next();
-        expect(storage.values.get('jc-start-time')).toBe(String((6 + 1) * 100 + 21));
+        // Same clock + StartTime -> same phase regardless of the rng stream: 15:00 with
+        // the original's default StartTime 0900 is phase 12, a night sky.
+        const zero = statusFor(() => 0);
+        const top = statusFor(() => 0.999);
+        expect(zero.status.tidePhase).toBe(12);
+        expect(top.status.tidePhase).toBe(12);
+        expect(zero.status.night).toBe(true);
+        // Nothing is written: StartTime is the original's setting, not a first-run date.
+        expect(zero.storage.values.has('jc-start-time')).toBe(false);
+        // A stored HHMM override shifts the phase the way the original's dialog does.
+        expect(statusFor(() => 0, { 'jc-start-time': '1500' }).status.tidePhase).toBe(0);
+        // The rendered tide is the bake's coin flip, so it follows the rng.
+        const controller = createJohnnyStoryController({ random: () => 0.999, storage: memoryStorage(), now: clock });
+        expect(controller.preview('MISCGAG.ADS', 1).titleState.lowTide).toBe(true);
+        const high = createJohnnyStoryController({ random: () => 0, storage: memoryStorage(), now: clock });
+        expect(high.preview('MISCGAG.ADS', 1).titleState.lowTide).toBe(false);
     });
 
     it('sizes a sequence by the 300-unit walk-span budget (bounded, not a fixed count)', () => {
@@ -402,7 +421,8 @@ describe('Johnny host story controller', () => {
         const controller = createJohnnyStoryController({
             random: () => 0,
             storage: memoryStorage(),
-            now: () => new Date(2026, 6, 21, 20),
+            // 23:00 is phase 12 with the default StartTime: the night sky.
+            now: () => new Date(2026, 6, 21, 23),
         });
         const selections = [];
         do selections.push(controller.next());
@@ -456,14 +476,16 @@ describe('Johnny host story controller', () => {
             if (anchor.flags & SceneFlags.FINAL) expect(anchorIndex).toBe(selections.length - 1);
             else expect(anchorIndex).toBe(0);
 
-            for (const selection of selections.slice(0, -1)) {
+            for (const [index, selection] of selections.slice(0, -1).entries()) {
                 const metadata = JOHNNY_SCENES.find(
                     (scene) => scene.script === selection.script && scene.tagId === selection.tagId,
                 );
-                if (selection.titleState.lowTide) {
-                    // Tide is now a [tideMin, tideMax) window; a scene shown at low tide
-                    // must be eligible for a low phase (tideMin below the 12-phase mark).
-                    expect(metadata.tideMin, `${selection.script}#${selection.tagId} at low tide`).toBeLessThan(12);
+                // The rendered tide (titleState.lowTide) is the bake's coin flip and
+                // says nothing about the record's [tideMin, tideMax) window, which
+                // gates eligibility by the phase instead. The anchor itself is forced.
+                if (index !== anchorIndex) {
+                    expect(metadata.tideMin).toBeLessThanOrEqual(selection.titleState.tidePhase);
+                    expect(metadata.tideMax).toBeGreaterThan(selection.titleState.tidePhase);
                 }
                 if (selection.titleState.x || selection.titleState.y) {
                     // The island origin randomizes per ISLAND chain (binary: it is
@@ -533,10 +555,11 @@ describe('faithful island positioning (phase7)', () => {
         for (const s of selections) expect(s.titleState).toMatchObject({ x: 0x11 - 0x121, y: 0x135 - 0x117 });
     });
 
-    it('VARPOS gates waves, not position', () => {
-        // ACTIVITY#1 is FINAL|ISLAND|VARPOS_OK -> waves OFF for the chain.
-        expect(drive('ACTIVITY.ADS', 1).at(-1).titleState.waves).toBe(false);
-        // FISHING#4 is ISLAND without VARPOS -> waves ON.
+    it('flagsB 0x1000 (30b2) stills the waves for the whole batch; nothing else does', () => {
+        // BUILDING#2 carries 0x1000: every scene in its chain shows still waves.
+        for (const selection of drive('BUILDING.ADS', 2)) expect(selection.titleState.waves).toBe(false);
+        // ACTIVITY#1 (0x200 only) and FISHING#4 (0x400 only) keep the waves rolling.
+        expect(drive('ACTIVITY.ADS', 1).at(-1).titleState.waves).toBe(true);
         expect(drive('FISHING.ADS', 4).at(-1).titleState.waves).toBe(true);
     });
 });

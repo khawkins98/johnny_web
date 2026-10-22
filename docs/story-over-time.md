@@ -11,7 +11,7 @@ There are two kinds of variation:
 - **Within a day:** scenes are chosen at random, using the weights stored in the original game data. This keeps repeated visits varied.
 - **Across days:** some scenes belong to a specific story day. These key scenes form the longer plot, from Johnny finding the message through the day-11 finale. Ordinary scenes can appear on any day.
 
-The tide follows a separate half-hour clock. Its starting point is saved on the first run, so it changes predictably with the time of day.
+Which scenes are eligible also follows a separate half-hour clock that wraps every eight hours, counted from the original's start time setting (9:00 unless a stored `jc-start-time` HHMM overrides it), so it changes predictably with the time of day. Its last quarter brings the night sky. Whether the beach shows high or low tide is a coin flip per visit, as in the original.
 
 ## How the day advances
 
@@ -23,7 +23,7 @@ If browser storage is unavailable, playback still works, but starts from day 1 e
 
 ## Viewing or changing the story day
 
-Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and resets the tide's starting point. In the compass timeline, selecting a day first shows its key scene, possible gags, and script paths without changing playback. **Play day** saves that story position and restarts the visit from its key scene. **Play only this scene** previews an individual action and then resumes the current visit without changing the saved day.
+Settings shows the current day, the story's start date, and a **Restart story** button. Restarting returns to day 1 and drops any stored start-time override. In the compass timeline, selecting a day first shows its key scene, possible gags, and script paths without changing playback. **Play day** saves that story position and restarts the visit from its key scene. **Play only this scene** previews an individual action and then resumes the current visit without changing the saved day.
 
 The developer panel (`D`) can set a day directly or advance one day. A change applies to the next gag because the current sequence has already been planned. The separate preview-day control only previews a scene and does not change saved progress.
 
@@ -34,9 +34,9 @@ The developer panel (`D`) can set a day directly or advance one day. A change ap
 | Method | Purpose |
 | --- | --- |
 | `getStoryDay()` | Return the saved day, from 1 to 11. |
-| `getStartTime()` | Return the saved tide anchor, or `null` before the first run. |
+| `getStartTime()` | Return the stored start-time override (HHMM), or `null` when the original's 9:00 default applies. |
 | `setStoryDay(day)` | Save a day from 1 to 11. |
 | `advanceStoryDay()` | Advance one day, wrapping 11 to 1. |
-| `resetStory()` | Return to day 1 and reset the tide anchor. |
+| `resetStory()` | Return to day 1 and drop the start-time override. |
 
 These methods update the same saved state used by normal playback; there is no separate debug timeline.

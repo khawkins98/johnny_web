@@ -11,7 +11,9 @@ import { JOHNNY_SCENES, SceneFlags, TIDE_PHASES } from './story-controller.mjs';
 /**
  * Tide in three bands rather than 16 phases. Every tide window in the catalogue
  * starts and ends on phase 0, 8, 12 or 16, so these bands are exact: a gag can
- * appear for a whole band or not at all. Phases 12+ render as low tide.
+ * appear for a whole band or not at all. The names follow the catalogue's "tide
+ * window"; in the original, phases 12+ bake the night sky, while the beach's
+ * high/low tide is a per-visit coin flip (story-controller createIslandState).
  */
 export const TIDE_BANDS = Object.freeze([
     Object.freeze({ id: 'early', label: 'Early high tide', min: 0, max: 8 }),
