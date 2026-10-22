@@ -96,15 +96,28 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
     const paint = () => {
         if (!context) return;
         context.clearRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
-        paintCardFace(context, { name, kicker, image, final: gag.final, keyDay: gag.keyDay, live });
+        paintCardFace(context, { name, kicker, image, script: gag.script, final: gag.final, keyDay: gag.keyDay, live });
     };
     paint();
-    faces?.request(gag, (frame) => {
-        if (!frame) return;
-        image = frame;
-        paint();
-    });
-    if (priority) faces?.prioritize(gag);
+    // Only render a real frame once the card is (nearly) on screen, and drop the
+    // request if the card has gone by the time its turn comes.
+    const requestFace = () => {
+        faces?.request(gag, (frame) => {
+            if (!frame) return;
+            image = frame;
+            paint();
+        }, { wanted: () => button.isConnected });
+        if (priority) faces?.prioritize(gag);
+    };
+    if (priority || typeof IntersectionObserver !== 'function') requestFace();
+    else {
+        const observer = new IntersectionObserver((entries) => {
+            if (!entries.some((entry) => entry.isIntersecting)) return;
+            observer.disconnect();
+            requestFace();
+        }, { rootMargin: '200px' });
+        observer.observe(button);
+    }
     // Card text uses the VT323 webfont; repaint once it is ready.
     document.fonts?.load?.("44px 'VT323'").then(paint).catch(() => {});
     return button;
