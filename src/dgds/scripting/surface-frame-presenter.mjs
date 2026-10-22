@@ -12,8 +12,9 @@ const setSavedRect = (saved, rect) => {
 // The actor/primitive draws that make up a scene's CURRENT frame. Recorded per
 // scene as they execute so `composeTtmFrame` can replay them every tick (faithful
 // immediate-mode: redraw every active scene, every tick). BEGIN_SCENE_FRAME starts
-// a fresh frame; STORE_AREA/SAVE_IMAGE_REGION/CLEAR_SURFACE are engine bookkeeping,
-// not part of the visible frame, so they are not recorded/replayed.
+// a fresh frame; STORE_AREA/SAVE_IMAGE_REGION/CLEAR_SURFACE/GET_REGION are engine
+// bookkeeping, not part of the visible frame, so they are not recorded/replayed.
+// PUT_REGION is a draw and is recorded with its snapshot (below).
 const RECORDED_DRAWS = new Set([
     FrameOperationType.DRAW_SPRITE,
     FrameOperationType.FILL_RECT,
@@ -40,6 +41,13 @@ export const presentSurfaceFrameOperation = (state, operation, replay = false) =
         state.frameOps = [];
     } else if (!replay && RECORDED_DRAWS.has(operation.type)) {
         (state.frameOps ||= []).push(operation);
+    } else if (!replay && operation.type === FrameOperationType.PUT_REGION) {
+        // A PUT is a draw of the pixels saved by the last GET: record it with that
+        // snapshot so the replay draws the same pixels even after a later GET.
+        const region = state.getSlots?.[operation.slot];
+        if (!region) return;
+        operation = Object.freeze({ ...operation, region });
+        (state.frameOps ||= []).push(operation);
     }
 
     switch (operation.type) {
@@ -63,6 +71,15 @@ export const presentSurfaceFrameOperation = (state, operation, replay = false) =
             saved.surface.replaceRegionFrom(state.surface, shifted);
             break;
         }
+
+        case FrameOperationType.GET_REGION:
+            // Snapshot the world raster (restored plate + this tick's draws so far).
+            if (!replay) (state.getSlots ||= [])[operation.slot] = state.surface.getRegion?.(rect(operation.rect));
+            break;
+
+        case FrameOperationType.PUT_REGION:
+            if (operation.region) state.surface.putRegion?.(operation.region);
+            break;
 
         case FrameOperationType.SAVE_IMAGE_REGION:
             // Sprite save-under (DGDS GET) has no pixel effect: the shipped engine's

@@ -3,6 +3,8 @@ export const FrameOperationType = Object.freeze({
     BEGIN_SCENE_FRAME: 'begin-scene-frame',
     STORE_AREA: 'store-area',
     SAVE_IMAGE_REGION: 'save-image-region',
+    GET_REGION: 'get-region',
+    PUT_REGION: 'put-region',
     DRAW_LINE: 'draw-line',
     FILL_RECT: 'fill-rect',
     FILL_CIRCLE: 'fill-circle',
