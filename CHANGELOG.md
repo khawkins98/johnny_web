@@ -20,6 +20,7 @@ This changelog tracks the browser project. **v1** is the project as it stood bef
 - Added a control to jump into a selected scene, continue its scripted gag, then return to the planned screensaver sequence.
 - Added story day, current sequence, and planned gag context alongside the map, with links to the original script steps and flow documentation.
 - Improved scene labels and hover ordering so labels stay readable over nearby nodes.
+- Fixed WOULDBEAS (`WALKSTUF.ADS` #1) playing over a black screen. Gags that load no screen of their own now play over the host's island, as in the original (#49).
 
 ## v1 — Browser screensaver baseline
 
