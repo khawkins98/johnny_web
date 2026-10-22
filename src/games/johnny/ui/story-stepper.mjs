@@ -1,6 +1,6 @@
 /**
  * story-stepper.mjs — the story timeline as one question at a time (issue #47):
- * which day, then which tide, then which gag. A breadcrumb shows the path,
+ * which day, then what time of day, then which gag. A breadcrumb shows the path,
  * starting from where Johnny is now, and every level is one click away.
  *
  * The panel owns the state ({ level, day, band, gag }); this module renders the
@@ -46,7 +46,9 @@ export const STEPPER_STYLE = `
 .story-steps-tide:focus-visible { outline: 3px solid #ffe02d; outline-offset: 3px; }
 .story-steps-tide strong { font: 30px/1 'Caveat', cursive; color: #fff2a1; }
 .story-steps-tide .story-steps-sea { height: 46px; margin: 2px 0 4px; border-bottom: 2px solid #d4c4a8;
-  background: linear-gradient(#071998, #071998) bottom / 100% var(--sea) no-repeat, #0b2384; }
+  background: linear-gradient(#071998, #071998) bottom / 100% 40% no-repeat, #66d8e8; }
+.story-steps-tide .story-steps-sea.is-night {
+  background: radial-gradient(circle at 78% 30%, #fffbe2 0 6px, transparent 7px), linear-gradient(#071998, #071998) bottom / 100% 40% no-repeat, #06146c; }
 .story-steps-tide .story-steps-count { color: #a4e5de; }
 .story-steps-tide .story-steps-badge { position: absolute; top: -10px; right: -6px; padding: 2px 6px; background: #ffe02d; color: #302816;
   border: 2px solid #704a1e; font-size: 16px; }
@@ -240,14 +242,13 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
 
     if (step.level === 'tide') {
         const key = keySceneFor(step.day);
-        head(`Day ${pad(step.day)} · which tide?`,
-            `The tide decides which gags can appear.${key ? ` Day ${step.day}'s key scene is ${gagName(key)}.` : ''}`,
+        head(`Day ${pad(step.day)} · what time of day?`,
+            `The story clock decides which gags can appear. It runs in half-hour steps from the Start Time and repeats every 8 hours; the last 2 hours of each cycle are night.${key ? ` Day ${step.day}'s key scene is ${gagName(key)}.` : ''}`,
             onPlayDay ? playButton(`▶ Play day ${pad(step.day)}`, 'Save this story day and start a visit from its key scene',
                 () => onPlayDay(step.day)) : null);
         const counts = gagCountsByBand(step.day);
         const tides = document.createElement('div');
         tides.className = 'story-steps-tides';
-        const seaHeight = { early: '85%', late: '60%', low: '25%' };
         for (const option of TIDE_BANDS) {
             const tile = document.createElement('button');
             tile.type = 'button';
@@ -255,8 +256,8 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
             const name = document.createElement('strong');
             name.textContent = option.label;
             const sea = document.createElement('span');
-            sea.className = 'story-steps-sea';
-            sea.style.setProperty('--sea', seaHeight[option.id]);
+            // Sky over the sea: the original bakes the night sky for phases 12+.
+            sea.className = option.id === 'night' ? 'story-steps-sea is-night' : 'story-steps-sea';
             sea.setAttribute('aria-hidden', 'true');
             const count = document.createElement('span');
             count.className = 'story-steps-count';
@@ -268,7 +269,7 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
                 badge.textContent = 'NOW';
                 tile.appendChild(badge);
             }
-            tile.setAttribute('aria-label', `${option.label}: ${counts[option.id]} gags can appear${option.id === live.band ? ' (the tide now)' : ''}`);
+            tile.setAttribute('aria-label', `${option.label}: ${counts[option.id]} gags can appear${option.id === live.band ? ' (the time now)' : ''}`);
             tile.addEventListener('click', (event) => onStep({ level: 'gag', band: option.id }, originOf(event)));
             tides.appendChild(tile);
         }
@@ -302,7 +303,7 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
         if (!gags.length) {
             const empty = document.createElement('p');
             empty.className = 'story-steps-empty';
-            empty.textContent = 'No gags can appear on this day at this tide.';
+            empty.textContent = 'No gags can appear on this day at this time.';
             root.appendChild(empty);
             return root;
         }

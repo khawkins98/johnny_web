@@ -27,7 +27,7 @@ Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
-While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It asks one question at a time: which day, which tide, which gag. Each gag shows its steps with silent previews from the original game, and **▶ Play this gag** or **▶ Play this scene now** starts it. **Picking a day only explores it:** Johnny keeps playing until you choose **▶ Play day**.
+While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It asks one question at a time: which day, what time of day, which gag. Each gag shows its steps with silent previews from the original game, and **▶ Play this gag** or **▶ Play this scene now** starts it. **Picking a day only explores it:** Johnny keeps playing until you choose **▶ Play day**.
 
 ## Development
 

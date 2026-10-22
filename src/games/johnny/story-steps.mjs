@@ -1,24 +1,27 @@
 /**
  * story-steps.mjs — the data behind the story timeline's step-by-step view
- * (issue #47): pick a day, then a tide, then a gag.
+ * (issue #47): pick a day, then a time of day, then a gag.
  *
- * Pure functions over the host catalogue (JOHNNY_SCENES). Day locks and tide
- * windows decide which gags the game can choose; this module answers "on day
- * D at this tide, which gags can appear?" in the same terms the picker uses.
+ * Pure functions over the host catalogue (JOHNNY_SCENES). Day locks and
+ * story-clock windows decide which gags the game can choose; this module
+ * answers "on day D at this time, which gags can appear?" in the same terms
+ * the picker uses.
  */
 import { JOHNNY_SCENES, SceneFlags, TIDE_PHASES } from './story-controller.mjs';
 
 /**
- * Tide in three bands rather than 16 phases. Every tide window in the catalogue
- * starts and ends on phase 0, 8, 12 or 16, so these bands are exact: a gag can
- * appear for a whole band or not at all. The names follow the catalogue's "tide
- * window"; in the original, phases 12+ bake the night sky, while the beach's
- * high/low tide is a per-visit coin flip (story-controller createIslandState).
+ * The story clock in three bands rather than 16 phases. The catalogue calls
+ * these "tide" windows (tideMin/tideMax), but in the original the phase is a
+ * half-hour clock counted from StartTime that repeats every 8 hours, and
+ * phases 12+ bake the night sky. The beach's high/low tide is a separate
+ * per-batch coin flip (story-controller createIslandState), so the bands are
+ * named for the time of day. Every window starts and ends on phase 0, 8, 12 or
+ * 16, so these bands are exact: a gag can appear for a whole band or not at all.
  */
 export const TIDE_BANDS = Object.freeze([
-    Object.freeze({ id: 'early', label: 'Early high tide', min: 0, max: 8 }),
-    Object.freeze({ id: 'late', label: 'Late high tide', min: 8, max: 12 }),
-    Object.freeze({ id: 'low', label: 'Low tide', min: 12, max: TIDE_PHASES }),
+    Object.freeze({ id: 'early', label: 'Early day', min: 0, max: 8 }),
+    Object.freeze({ id: 'late', label: 'Late day', min: 8, max: 12 }),
+    Object.freeze({ id: 'night', label: 'Night', min: 12, max: TIDE_PHASES }),
 ]);
 
 export const bandForPhase = (phase) =>
@@ -38,12 +41,12 @@ export const keySceneFor = (day) => (day > 0 ? JOHNNY_SCENES.find((record) => re
 
 const coversBand = (record, band) => record.tideMin <= band.min && band.max <= record.tideMax;
 
-/** Tide window [min, max) over 16 phases as words, in the bands above. */
+/** Story-clock window [min, max) over 16 phases as words, in the bands above. */
 export function describeTideWindow(min, max) {
-    if (min === 0 && max === TIDE_PHASES) return 'Any tide';
-    if (min === 0 && max === 12) return 'High tide only';
+    if (min === 0 && max === TIDE_PHASES) return 'Any time';
+    if (min === 0 && max === 12) return 'Daytime only';
     const names = TIDE_BANDS.filter((band) => min <= band.min && band.max <= max).map((band) => band.label.toLowerCase());
-    return names.length ? `${names.join(' or ')} only`.replace(/^./, (c) => c.toUpperCase()) : 'Any tide';
+    return names.length ? `${names.join(' or ')} only`.replace(/^./, (c) => c.toUpperCase()) : 'Any time';
 }
 
 const describeRecord = (record) => ({
@@ -64,7 +67,7 @@ export const gagFacts = (gag) => {
 };
 
 /**
- * Gags the game can choose on `day` at tide `band`: the day's key scene first,
+ * Gags the game can choose on `day` in time band `band`: the day's key scene first,
  * then common gags by selection weight (heaviest first).
  */
 export function gagsFor(day, band) {
@@ -80,7 +83,7 @@ export function gagsFor(day, band) {
     return gags.sort((a, b) => Boolean(b.keyDay) - Boolean(a.keyDay) || b.weight - a.weight);
 }
 
-/** How many gags each tide band allows on `day`, keyed by band id. */
+/** How many gags each time band allows on `day`, keyed by band id. */
 export const gagCountsByBand = (day) =>
     Object.fromEntries(TIDE_BANDS.map((band) => [band.id, gagsFor(day, band).length]));
 
