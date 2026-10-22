@@ -192,6 +192,7 @@ export function mountStoryDoorsSpread({
         ...shownDeck.map((card) => ({ card, group: 'deck' })),
     ];
     let hovered = null;
+    let leaveTimer = null;
     let selected = cards.find((entry) => inspectedKey && entryKey(entry.card) === inspectedKey)
         ?? cards.find((entry) => entry.card === live) ?? null;
     const showInfo = () => {
@@ -239,8 +240,14 @@ export function mountStoryDoorsSpread({
         const extra = card.role === 'deck' ? describeDoor(card.door) : roleWords[card.role];
         button.setAttribute('aria-label', `${kickerOf(card)}: ${nameOf(card)}. ${extra}.`);
         if (card.role === 'live') button.setAttribute('aria-current', 'step');
-        button.addEventListener('pointerenter', () => setHovered(entry));
-        button.addEventListener('pointerleave', () => { if (hovered === entry) setHovered(null); });
+        button.addEventListener('pointerenter', () => {
+            clearTimeout(leaveTimer);
+            setHovered(entry);
+        });
+        button.addEventListener('pointerleave', () => {
+            clearTimeout(leaveTimer);
+            leaveTimer = setTimeout(() => { if (hovered === entry) setHovered(null); }, 140);
+        });
         button.addEventListener('focus', () => setHovered(entry));
         button.addEventListener('blur', () => { if (hovered === entry) setHovered(null); });
         if (card.pose) button.disabled = true;
@@ -506,6 +513,14 @@ export function mountStoryDoorsSpread({
                 stand.add(glow);
                 entry.glow = glow;
             }
+            // The click target follows this resting footprint, not the moving
+            // card: mid-flip the card is edge-on, and a target that shrank with
+            // it would slip out from under the pointer and flip the card back.
+            const hit = new THREE.Object3D();
+            hit.position.y = entry.baseY;
+            hit.scale.setScalar(cardScale);
+            stand.add(hit);
+            entry.hit = hit;
             if (entry.group === 'deck') placeOnRing(stand, entry.angle, DECK_RING);
             scene.add(stand);
             entry.stand = stand;
@@ -598,13 +613,13 @@ export function mountStoryDoorsSpread({
         const placeButtons = () => {
             const halfH = (CARD_HEIGHT / CARD_WIDTH) / 2;
             for (const entry of cards) {
-                entry.holder.updateMatrixWorld();
+                entry.stand.updateMatrixWorld();
                 let minX = Infinity;
                 let minY = Infinity;
                 let maxX = -Infinity;
                 let maxY = -Infinity;
                 for (const [cx, cy] of [[-0.5, -halfH], [0.5, -halfH], [-0.5, halfH], [0.5, halfH]]) {
-                    corner.set(cx, cy, 0).applyMatrix4(entry.pivot.matrixWorld).project(camera);
+                    corner.set(cx, cy, 0).applyMatrix4(entry.hit.matrixWorld).project(camera);
                     const sx = (corner.x + 1) / 2 * width;
                     const sy = (1 - corner.y) / 2 * height;
                     minX = Math.min(minX, sx);
@@ -650,6 +665,9 @@ export function mountStoryDoorsSpread({
                 } else entry.flip = goal;
                 entry.pivot.rotation.y = entry.flip;
                 const lift = entry === selected ? 0.3 : entry === hovered ? 0.18 : 0;
+                // Selection (not hover) moves the click target with the card,
+                // so the outline stays on it without feeding back into hover.
+                entry.hit.position.y = entry.baseY + (entry === selected ? 0.3 : 0);
                 const baseY = entry.baseY;
                 const bob = !reducedMotion && entry.card.role === 'live' ? Math.sin(now / 900) * 0.05 : 0;
                 const goalY = baseY + lift + bob;
@@ -712,6 +730,7 @@ export function mountStoryDoorsSpread({
         },
         destroy() {
             destroyed = true;
+            clearTimeout(leaveTimer);
             gl?.destroy();
             root.remove();
         },
