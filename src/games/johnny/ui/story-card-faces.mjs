@@ -16,13 +16,25 @@ import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
 import { createJohnnyIslandPresentationState } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
 
-export const CARD_WIDTH = 256;
-export const CARD_HEIGHT = 384;
+export const CARD_WIDTH = 320;
+export const CARD_HEIGHT = 480;
 
-export const GOLD = '#c9a45c';
-const GOLD_DIM = '#6f5a33';
-const INK = '#0b0f1c';
-const PARCHMENT = '#efe3c4';
+// The app's own palette (scene-flow-panel.mjs, settings.mjs): parchment and
+// brown for paper, island blue with cyan and yellow for the screen.
+export const PALETTE = Object.freeze({
+    paper: '#d4c4a8',
+    paperShade: '#bfa982',
+    brown: '#8b5a2b',
+    ink: '#302816',
+    blue: '#071998',
+    blueMid: '#12339c',
+    blueDeep: '#06146c',
+    cyan: '#66d8e8',
+    yellow: '#ffe02d',
+    cream: '#fffbe2',
+});
+const P = PALETTE;
+export const CARD_FONT = "'VT323', monospace";
 
 // How long (in game ticks) to search a gag for a good frame. 20 ms ticks, so
 // 750 ticks is 15 s of game time. Ticks run in small slices between frames.
@@ -238,17 +250,7 @@ export function createCardFaceQueue({ resolveEntry, sequenceTools }) {
     };
 }
 
-const roundRect = (context, x, y, width, height, radius) => {
-    context.beginPath();
-    context.moveTo(x + radius, y);
-    context.arcTo(x + width, y, x + width, y + height, radius);
-    context.arcTo(x + width, y + height, x, y + height, radius);
-    context.arcTo(x, y + height, x, y, radius);
-    context.arcTo(x, y, x + width, y, radius);
-    context.closePath();
-};
-
-const wrap = (context, text, maxWidth) => {
+const wrap = (context, text, maxWidth, maxLines) => {
     const words = text.split(/\s+/);
     const lines = [];
     let line = '';
@@ -260,52 +262,52 @@ const wrap = (context, text, maxWidth) => {
         } else line = next;
     }
     if (line) lines.push(line);
-    return lines.slice(0, 3);
+    if (lines.length > maxLines) {
+        lines.length = maxLines;
+        lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s*\S*$/, '')}…`;
+    }
+    return lines;
 };
 
-const frame = (context, colour) => {
-    context.fillStyle = INK;
-    roundRect(context, 0, 0, CARD_WIDTH, CARD_HEIGHT, 14);
-    context.fill();
-    context.strokeStyle = colour;
-    context.lineWidth = 3;
-    roundRect(context, 8, 8, CARD_WIDTH - 16, CARD_HEIGHT - 16, 10);
-    context.stroke();
-    context.lineWidth = 1;
-    roundRect(context, 15, 15, CARD_WIDTH - 30, CARD_HEIGHT - 30, 7);
-    context.stroke();
+// Square, pixel-style frame like the panel's buttons and inspector.
+const frame = (context, { fill, border, inner, width = 6 }) => {
+    context.fillStyle = border;
+    context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+    context.fillStyle = fill;
+    context.fillRect(width, width, CARD_WIDTH - width * 2, CARD_HEIGHT - width * 2);
+    context.strokeStyle = inner;
+    context.lineWidth = 2;
+    context.strokeRect(width + 7, width + 7, CARD_WIDTH - (width + 7) * 2, CARD_HEIGHT - (width + 7) * 2);
 };
 
-/** The shared card back: a gold sun over a sea, drawn rather than stored. */
+/** The shared card back: an island-blue screen with a cyan sun over the sea. */
 export function paintCardBack(context, { sealed = false } = {}) {
-    const colour = sealed ? GOLD_DIM : GOLD;
-    frame(context, colour);
+    const line = sealed ? '#3d6f9a' : P.cyan;
+    frame(context, { fill: sealed ? P.blueDeep : P.blueMid, border: sealed ? '#2a3c78' : P.cyan, inner: line });
+    // Scanlines, as on the panel's map.
+    context.fillStyle = 'rgba(83,219,255,.10)';
+    for (let y = 16; y < CARD_HEIGHT - 16; y += 8) context.fillRect(16, y, CARD_WIDTH - 32, 1);
     const cx = CARD_WIDTH / 2;
-    const cy = CARD_HEIGHT / 2 - 10;
-    context.strokeStyle = colour;
-    context.lineWidth = 1.5;
-    for (let ray = 0; ray < 16; ray++) {
-        const angle = (ray / 16) * Math.PI * 2;
+    const cy = CARD_HEIGHT / 2 - 24;
+    context.strokeStyle = line;
+    context.lineWidth = 3;
+    for (let ray = 0; ray < 12; ray++) {
+        const angle = (ray / 12) * Math.PI * 2;
         context.beginPath();
-        context.moveTo(cx + Math.cos(angle) * 30, cy + Math.sin(angle) * 30);
-        context.lineTo(cx + Math.cos(angle) * (ray % 2 ? 48 : 64), cy + Math.sin(angle) * (ray % 2 ? 48 : 64));
+        context.moveTo(cx + Math.cos(angle) * 40, cy + Math.sin(angle) * 40);
+        context.lineTo(cx + Math.cos(angle) * (ray % 2 ? 60 : 78), cy + Math.sin(angle) * (ray % 2 ? 60 : 78));
         context.stroke();
     }
+    context.fillStyle = sealed ? '#3d6f9a' : P.yellow;
     context.beginPath();
-    context.arc(cx, cy, 24, 0, Math.PI * 2);
-    context.stroke();
-    // Palm-and-island glyph in the sun.
-    context.beginPath();
-    context.ellipse(cx, cy + 12, 16, 4, 0, Math.PI, 0);
-    context.moveTo(cx, cy + 9);
-    context.quadraticCurveTo(cx + 3, cy - 2, cx - 1, cy - 12);
-    context.stroke();
+    context.arc(cx, cy, 30, 0, Math.PI * 2);
+    context.fill();
     for (let wave = 0; wave < 3; wave++) {
-        const y = cy + 92 + wave * 12;
+        const y = cy + 118 + wave * 18;
         context.beginPath();
-        for (let x = 40; x <= CARD_WIDTH - 40; x += 4) {
-            const yy = y + Math.sin((x + wave * 9) / 9) * 2.5;
-            if (x === 40) context.moveTo(x, yy);
+        for (let x = 44; x <= CARD_WIDTH - 44; x += 4) {
+            const yy = y + Math.sin((x + wave * 11) / 11) * 4;
+            if (x === 44) context.moveTo(x, yy);
             else context.lineTo(x, yy);
         }
         context.stroke();
@@ -313,64 +315,68 @@ export function paintCardBack(context, { sealed = false } = {}) {
 }
 
 /**
- * Paint a card face: real frame in a window, gag name below, flag glyphs in
- * the corners (☾ final scene, ✦ key scene for a story day).
+ * Paint a card face: parchment card, real frame in a window, gag name below,
+ * flag glyphs in the corners (☾ ends a visit, ✦N key scene for day N).
  */
 export function paintCardFace(context, { name, kicker, image = null, final = false, keyDay = null, sealed = false, live = false }) {
-    const colour = sealed ? GOLD_DIM : GOLD;
-    frame(context, live ? '#ffd77a' : colour);
-    const windowX = 24;
-    const windowY = 40;
-    const windowW = CARD_WIDTH - 48;
-    const windowH = Math.round(windowW * 0.75 + 30);
-    context.save();
-    roundRect(context, windowX, windowY, windowW, windowH, 6);
-    context.clip();
-    context.fillStyle = '#10204a';
+    frame(context, {
+        fill: P.paper,
+        border: live ? P.yellow : P.brown,
+        inner: live ? P.brown : P.paperShade,
+        width: live ? 10 : 6,
+    });
+    const windowX = 26;
+    const windowY = 56;
+    const windowW = CARD_WIDTH - 52;
+    const windowH = Math.round(windowW * 0.82);
+    context.fillStyle = P.blue;
     context.fillRect(windowX, windowY, windowW, windowH);
     if (image) {
+        context.save();
+        context.beginPath();
+        context.rect(windowX, windowY, windowW, windowH);
+        context.clip();
         context.imageSmoothingEnabled = false;
         const scale = Math.max(windowW / image.width, windowH / image.height);
         const w = image.width * scale;
         const h = image.height * scale;
         context.drawImage(image, windowX + (windowW - w) / 2, windowY + (windowH - h) / 2, w, h);
+        context.restore();
     } else {
-        context.fillStyle = 'rgba(201,164,92,.35)';
-        context.font = '42px Georgia, serif';
+        context.fillStyle = P.cyan;
+        context.font = `64px ${CARD_FONT}`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        context.fillText('☀', windowX + windowW / 2, windowY + windowH / 2);
+        context.fillText(name === 'Johnny pauses' ? '…' : '?', windowX + windowW / 2, windowY + windowH / 2);
     }
-    if (sealed) {
-        context.fillStyle = 'rgba(5,8,18,.62)';
-        context.fillRect(windowX, windowY, windowW, windowH);
-    }
-    context.restore();
-    context.strokeStyle = colour;
-    context.lineWidth = 1;
-    roundRect(context, windowX, windowY, windowW, windowH, 6);
-    context.stroke();
+    context.strokeStyle = P.brown;
+    context.lineWidth = 4;
+    context.strokeRect(windowX, windowY, windowW, windowH);
 
     context.textAlign = 'center';
     context.textBaseline = 'alphabetic';
-    context.fillStyle = colour;
-    context.font = '600 13px Georgia, serif';
-    context.fillText((kicker || '').toUpperCase(), CARD_WIDTH / 2, 30);
+    context.fillStyle = P.brown;
+    context.font = `30px ${CARD_FONT}`;
+    context.fillText((kicker || '').toUpperCase(), CARD_WIDTH / 2, 44);
 
-    context.fillStyle = sealed ? '#8d8270' : PARCHMENT;
-    context.font = '22px Georgia, serif';
-    const lines = wrap(context, name, CARD_WIDTH - 52);
-    const top = windowY + windowH + 36;
-    lines.forEach((line, index) => context.fillText(line, CARD_WIDTH / 2, top + index * 26));
+    context.fillStyle = P.ink;
+    context.font = `44px ${CARD_FONT}`;
+    const lines = wrap(context, name.toUpperCase(), CARD_WIDTH - 48, 3);
+    const top = windowY + windowH + 46;
+    lines.forEach((line, index) => context.fillText(line, CARD_WIDTH / 2, top + index * 38));
 
-    context.font = '18px Georgia, serif';
-    context.fillStyle = colour;
+    context.font = `34px ${CARD_FONT}`;
+    context.fillStyle = P.brown;
     if (final) {
         context.textAlign = 'left';
-        context.fillText('☾', 22, CARD_HEIGHT - 22);
+        context.fillText('☾', 24, CARD_HEIGHT - 22);
     }
     if (keyDay) {
         context.textAlign = 'right';
-        context.fillText(`✦ ${keyDay}`, CARD_WIDTH - 22, CARD_HEIGHT - 22);
+        context.fillText(`✦${keyDay}`, CARD_WIDTH - 24, CARD_HEIGHT - 22);
+    }
+    if (sealed) {
+        context.fillStyle = 'rgba(6,20,108,.55)';
+        context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
     }
 }

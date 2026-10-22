@@ -24,47 +24,54 @@ const LOW_TIDE_FROM = 12;
 const pad = (value) => String(value).padStart(2, '0');
 
 export const SPREAD_STYLE = `
-.story-doors { position: relative; height: clamp(360px, 52vh, 520px); margin: 4px 0 14px;
-  border-radius: 14px; overflow: hidden; color: #efe3c4;
-  background: radial-gradient(ellipse at 50% 110%, #1d1a2c 0%, #090b14 55%, #04050a 100%);
-  font-family: Georgia, 'Times New Roman', serif; }
+.story-doors { position: relative; height: clamp(460px, 64vh, 700px); margin: 6px 0 14px; overflow: hidden;
+  color: #fffbe2; font: 20px/1.1 'VT323', monospace; border: 2px solid #65c8e2;
+  background: repeating-linear-gradient(0deg, transparent 0 17px, rgba(83,219,255,.08) 18px 19px), #071998; }
 .story-doors canvas.story-doors-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .story-doors-labels { position: absolute; inset: 0; pointer-events: none; }
 .story-doors-card { position: absolute; pointer-events: auto; background: transparent; border: 0;
-  padding: 0; margin: 0; cursor: pointer; border-radius: 8px; }
-.story-doors-card:focus-visible { outline: 2px solid #ffd77a; outline-offset: 3px; }
-.story-doors-caption { position: absolute; left: 18px; top: 14px; font-size: 11px; letter-spacing: .22em;
-  color: #c9a45c; text-transform: uppercase; pointer-events: none; }
-.story-doors-caption strong { display: block; margin-top: 6px; font-weight: 400; letter-spacing: 0;
-  font-size: 22px; color: #efe3c4; text-transform: none; }
-.story-doors-legend { position: absolute; left: 18px; bottom: 14px; font-size: 11px; letter-spacing: .08em;
-  color: #a8987a; pointer-events: none; display: flex; gap: 14px; flex-wrap: wrap; max-width: 46%; }
-.story-doors-info { position: absolute; right: 14px; bottom: 14px; width: min(320px, 46%);
-  padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(201,164,92,.45);
-  background: rgba(14,16,28,.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.story-doors-info small { display: block; font-size: 10px; letter-spacing: .2em; color: #c9a45c; text-transform: uppercase; }
-.story-doors-info strong { display: block; margin: 4px 0 6px; font-weight: 400; font-size: 19px; }
-.story-doors-info p { margin: 2px 0; font-size: 13px; line-height: 1.35; color: #cfc3a6; }
-.story-doors-info .is-sealed { color: #e0a070; }
-.story-doors-turn { position: absolute; left: 50%; top: 14px; transform: translateX(-50%); display: flex; gap: 6px; }
-.story-doors-turn button { min-width: 34px; height: 30px; padding: 0 10px; border-radius: 15px; cursor: pointer;
-  border: 1px solid rgba(201,164,92,.55); background: rgba(14,16,28,.7); color: #efe3c4;
-  font: 14px Georgia, serif; letter-spacing: .06em; }
-.story-doors-turn button:hover:not(:disabled) { border-color: #ffd77a; color: #ffd77a; }
-.story-doors-turn button:disabled { opacity: .35; cursor: default; }
-.story-doors-turn button:focus-visible { outline: 2px solid #ffd77a; outline-offset: 2px; }
-.story-doors.is-flat { height: auto; padding: 58px 14px 150px; }
-.story-doors.is-flat .story-doors-labels { position: static; display: grid; gap: 10px;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  padding: 0; margin: 0; cursor: pointer; }
+.story-doors-card:focus-visible { outline: 3px solid #ffe02d; outline-offset: 3px; }
+.story-doors-card[aria-pressed="true"] { outline: 3px dashed #ffe02d; outline-offset: 5px; }
+.story-doors-caption { position: absolute; left: 16px; top: 12px; pointer-events: none;
+  color: #a4e5de; font-size: 20px; letter-spacing: .04em; text-transform: uppercase; text-shadow: 2px 2px 0 #020d5b; }
+.story-doors-caption strong { display: block; margin-top: 2px; font: 34px/1 'Caveat', cursive; color: #fff2a1;
+  letter-spacing: 0; text-transform: none; }
+.story-doors-legend { position: absolute; left: 16px; bottom: 12px; pointer-events: none; display: flex; gap: 6px 16px;
+  flex-wrap: wrap; max-width: 44%; color: #bde9e9; font-size: 18px; text-shadow: 2px 2px 0 #020d5b; }
+.story-doors-info { position: absolute; right: 14px; bottom: 14px; width: min(360px, 46%); box-sizing: border-box;
+  padding: 10px 14px 12px; border: 2px solid #8b5a2b; background: #d4c4a8; color: #302816;
+  box-shadow: 4px 4px 0 #020d5b; }
+.story-doors-info small { display: block; font-size: 18px; color: #8b5a2b; text-transform: uppercase; }
+.story-doors-info strong { display: block; margin: 2px 0 6px; font: 32px/1 'Caveat', cursive; }
+.story-doors-info p { margin: 2px 0; font-size: 20px; line-height: 1.05; }
+.story-doors-info .is-sealed { color: #9a3412; }
+.story-doors-info .is-hint { color: #6b5a3a; }
+.story-doors-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.story-doors-actions button { flex: 1 1 auto; min-height: 42px; padding: 4px 10px; cursor: pointer;
+  border: 2px solid #704a1e; background: #fff8dc; color: #302816; font: 20px/1 'VT323', monospace; }
+.story-doors-actions button.is-play { background: #ffe02d; }
+.story-doors-actions button:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 2px 2px 0 #704a1e; }
+.story-doors-actions button:disabled { opacity: .5; cursor: default; }
+.story-doors-actions button:focus-visible { outline: 3px solid #071998; outline-offset: 2px; }
+.story-doors-turn { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); display: flex; gap: 6px; }
+.story-doors-turn button { min-width: 44px; min-height: 40px; padding: 0 12px; cursor: pointer;
+  border: 1px solid #65c8e2; background: #1642b1; color: #fffbdc; font: 24px/1 'VT323', monospace; }
+.story-doors-turn button:hover:not(:disabled) { background: #1d52d0; }
+.story-doors-turn button:disabled { opacity: .4; cursor: default; }
+.story-doors-turn button:focus-visible { outline: 3px solid #ffe02d; outline-offset: 2px; }
+.story-doors.is-flat { height: auto; padding: 84px 14px 14px; }
+.story-doors.is-flat .story-doors-labels { position: static; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 .story-doors.is-flat .story-doors-card { position: static; width: 100%; aspect-ratio: 2 / 3; }
-.story-doors.is-flat .story-doors-card canvas { width: 100%; height: 100%; display: block; border-radius: 8px; }
-.story-doors.is-flat .story-doors-card[data-role="seen"] { opacity: .6; }
-.story-doors.is-flat .story-doors-card[data-role="live"] { box-shadow: 0 0 0 2px #ffd77a, 0 0 24px rgba(255,215,122,.45); }
-.story-doors.is-flat .story-doors-card[data-sealed="true"] { opacity: .5; }
-.story-doors.is-flat .story-doors-divider { grid-column: 1 / -1; font-size: 11px; letter-spacing: .2em; color: #c9a45c; }
+.story-doors.is-flat .story-doors-card canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.story-doors.is-flat .story-doors-card[data-role="seen"] { opacity: .65; }
+.story-doors.is-flat .story-doors-card[data-sealed="true"] { opacity: .55; }
+.story-doors.is-flat .story-doors-divider { grid-column: 1 / -1; color: #a4e5de; font-size: 20px; text-transform: uppercase; }
+.story-doors.is-flat .story-doors-info, .story-doors.is-flat .story-doors-legend { position: static; width: auto; max-width: none; margin-top: 14px; }
 @media (max-width: 640px) {
   .story-doors-info { position: static; width: auto; margin: 12px; }
-  .story-doors-legend { max-width: none; }
+  .story-doors-legend { display: none; }
 }
 `;
 
@@ -76,7 +83,10 @@ const chooseDeck = (deck) => [
     ...deck.filter((card) => !card.door.open).slice(0, DECK_SEALED_LIMIT),
 ];
 
-export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onInspect = () => {}, inspectedKey = null, reducedMotion = false }) {
+export function mountStoryDoorsSpread({
+    host, spread, gagName, faces = null, onInspect = () => {}, onPlay = null, onRead = null,
+    inspectedKey = null, reducedMotion = false,
+}) {
     let destroyed = false;
     const root = document.createElement('section');
     root.className = 'story-doors';
@@ -121,8 +131,10 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         return card.repeat > 1 ? `${base} ×${card.repeat}` : base;
     };
 
-    const describe = (card) => {
+    const entryKey = (card) => `${card.key}:${card.index ?? ''}`;
+    const describe = (card, isSelected) => {
         info.textContent = '';
+        if (!card) return;
         const kicker = document.createElement('small');
         kicker.textContent = card.role === 'deck'
             ? `Deck · ${card.door.open ? 'open for a later visit' : 'sealed'}`
@@ -144,7 +156,35 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         }
         if (card.final) line('☾ Ends a visit');
         if (card.keyDay) line(`✦ Key scene for day ${card.keyDay}`);
-        if (!card.pose) line(card.role === 'deck' ? 'Select to read its script' : 'Select to read its script below');
+        if (card.pose) return;
+        if (!isSelected) {
+            line('Click to select this card', 'is-hint');
+            return;
+        }
+        const actions = document.createElement('div');
+        actions.className = 'story-doors-actions';
+        if (onPlay) {
+            const play = document.createElement('button');
+            play.type = 'button';
+            play.className = 'is-play';
+            play.textContent = card.role === 'live' ? '▶ Replay this gag' : '▶ Play this gag';
+            play.title = 'Start a new visit from this gag; the story carries on from there';
+            play.addEventListener('click', () => {
+                if (onPlay(card) === false) {
+                    play.disabled = true;
+                    play.textContent = 'Could not start this gag';
+                }
+            });
+            actions.appendChild(play);
+        }
+        if (onRead) {
+            const read = document.createElement('button');
+            read.type = 'button';
+            read.textContent = 'Read its script ↓';
+            read.addEventListener('click', () => onRead(card));
+            actions.appendChild(read);
+        }
+        if (actions.childElementCount) info.appendChild(actions);
     };
 
     const cards = [
@@ -152,10 +192,26 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         ...shownDeck.map((card) => ({ card, group: 'deck' })),
     ];
     let hovered = null;
+    let selected = cards.find((entry) => inspectedKey && entryKey(entry.card) === inspectedKey)
+        ?? cards.find((entry) => entry.card === live) ?? null;
+    const showInfo = () => {
+        const shown = hovered ?? selected ?? cards[0] ?? null;
+        describe(shown?.card ?? null, Boolean(shown) && shown === selected);
+    };
     const setHovered = (entry) => {
+        if (hovered === entry) return;
         hovered = entry;
-        describe((entry ?? cards.find((c) => c.card === live) ?? cards[0])?.card ?? null);
+        showInfo();
         requestRender();
+    };
+    const select = (entry, { notify = true } = {}) => {
+        if (!entry || entry.card.pose) return;
+        selected = entry;
+        for (const other of cards) other.button.setAttribute('aria-pressed', String(other === entry));
+        showInfo();
+        gl?.focusEntry(entry);
+        requestRender();
+        if (notify) onInspect(entry.card);
     };
 
     const sealedOf = (card) => card.role === 'deck' && !card.door.open;
@@ -182,13 +238,13 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         if (sealedOf(card)) button.dataset.sealed = 'true';
         const extra = card.role === 'deck' ? describeDoor(card.door) : roleWords[card.role];
         button.setAttribute('aria-label', `${kickerOf(card)}: ${nameOf(card)}. ${extra}.`);
-        if (inspectedKey && inspectedKey === `${card.key}:${card.index ?? ''}`) button.setAttribute('aria-current', 'true');
+        if (card.role === 'live') button.setAttribute('aria-current', 'step');
         button.addEventListener('pointerenter', () => setHovered(entry));
         button.addEventListener('pointerleave', () => { if (hovered === entry) setHovered(null); });
         button.addEventListener('focus', () => setHovered(entry));
         button.addEventListener('blur', () => { if (hovered === entry) setHovered(null); });
         if (card.pose) button.disabled = true;
-        else button.addEventListener('click', () => onInspect(card));
+        else button.addEventListener('click', () => select(entry));
         entry.button = button;
         entry.image = null;
     }
@@ -215,7 +271,15 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         if (live) faces.prioritize(live);
     }
 
-    setHovered(null);
+    for (const entry of cards) entry.button.setAttribute('aria-pressed', String(entry === selected));
+    showInfo();
+    if (selected) gl?.focusEntry(selected, { instant: true });
+    // Card text is painted in VT323; repaint once the webfont is ready.
+    document.fonts?.load?.("44px 'VT323'").then(() => {
+        if (destroyed) return;
+        for (const entry of cards) entry.repaint?.();
+        requestRender();
+    }).catch(() => {});
 
     function requestRender() {
         gl?.requestRender();
@@ -254,15 +318,15 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         canvas.setAttribute('aria-hidden', 'true');
         const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
         renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-        renderer.setClearColor(0x05060c, 1);
+        renderer.setClearColor(0x06146c, 1);
         root.insertBefore(canvas, labels);
         for (const entry of cards) labels.appendChild(entry.button);
 
         const scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0x05060c, 14, 30);
+        scene.fog = new THREE.Fog(0x06146c, 12, 26);
         const camera = new THREE.PerspectiveCamera(34, 2, 0.1, 80);
-        const target = new THREE.Vector3(0, 1.35, -1.2);
-        camera.position.set(0, 3.4, 10.5);
+        const target = new THREE.Vector3(0, 1.75, -1.2);
+        camera.position.set(0, 2.9, 7.6);
         camera.lookAt(target);
         const disposables = [];
         const keep = (...items) => { disposables.push(...items); return items[0]; };
@@ -283,12 +347,12 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         const starGeometry = keep(new THREE.BufferGeometry());
         starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
         const stars = new THREE.Points(starGeometry, keep(new THREE.PointsMaterial({
-            color: 0xe9d9a8, size: 0.07, transparent: true, opacity: 0.8, fog: false,
+            color: 0xfffbe2, size: 0.08, transparent: true, opacity: 0.85, fog: false,
         })));
         scene.add(stars);
 
         // Observatory floor: concentric brass rings and spokes.
-        const brass = keep(new THREE.LineBasicMaterial({ color: 0x8a6a35, transparent: true, opacity: 0.55 }));
+        const brass = keep(new THREE.LineBasicMaterial({ color: 0x65c8e2, transparent: true, opacity: 0.35 }));
         const circle = (radius) => {
             const points = [];
             for (let step = 0; step <= 128; step++) {
@@ -309,7 +373,7 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         }
         const floor = new THREE.Mesh(
             keep(new THREE.CircleGeometry(11.5, 96)),
-            keep(new THREE.MeshBasicMaterial({ color: 0x0c0d18 })),
+            keep(new THREE.MeshBasicMaterial({ color: 0x071998 })),
         );
         floor.rotation.x = -Math.PI / 2;
         floor.position.y = -0.01;
@@ -333,9 +397,9 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
             tideSegments.forEach((material, phase) => {
                 const low = phase >= LOW_TIDE_FROM;
                 const inWindow = window && phase >= window.min && phase < window.max;
-                let colour = low ? 0x1d3340 : 0x262640;
-                if (inWindow) colour = low ? 0x3d7d8c : 0x5d5a8c;
-                if (phase === tidePhase) colour = 0xffd77a;
+                let colour = low ? 0x0e4f7a : 0x1642b1;
+                if (inWindow) colour = low ? 0x66d8e8 : 0xa4e5de;
+                if (phase === tidePhase) colour = 0xffe02d;
                 material.color.setHex(colour);
                 material.opacity = window && !inWindow && phase !== tidePhase ? 0.45 : 1;
             });
@@ -343,7 +407,7 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
 
         // Cards.
         const cardGeometry = keep(new THREE.PlaneGeometry(1, CARD_HEIGHT / CARD_WIDTH));
-        const postMaterial = keep(new THREE.MeshBasicMaterial({ color: 0x7a5a2c }));
+        const postMaterial = keep(new THREE.MeshBasicMaterial({ color: 0x8b5a2b }));
         const postGeometry = keep(new THREE.CylinderGeometry(0.025, 0.035, 1, 8));
         const baseGeometry = keep(new THREE.CylinderGeometry(0.16, 0.2, 0.06, 20));
         const glowTexture = (() => {
@@ -351,8 +415,8 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
             glowCanvas.width = glowCanvas.height = 128;
             const context = glowCanvas.getContext('2d');
             const gradient = context.createRadialGradient(64, 64, 4, 64, 64, 64);
-            gradient.addColorStop(0, 'rgba(255,215,122,.85)');
-            gradient.addColorStop(1, 'rgba(255,215,122,0)');
+            gradient.addColorStop(0, 'rgba(255,224,45,.7)');
+            gradient.addColorStop(1, 'rgba(255,224,45,0)');
             context.fillStyle = gradient;
             context.fillRect(0, 0, 128, 128);
             return keep(new THREE.CanvasTexture(glowCanvas));
@@ -365,8 +429,8 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
         // buttons and keyboard focus rotate it.
         // `bow` -1 fans away from the viewer (edges recede, like a tarot fan);
         // +1 curves toward the viewer (edges wrap around them).
-        const VISIT_RING = { radius: 6, centerZ: -0.2, y: 1.2, scale: 0.9, step: 0.17, maxAngle: 1.3, bow: -1 };
-        const DECK_RING = { radius: 11, centerZ: -6.2, y: 3.25, scale: 0.62, bow: 1 };
+        const VISIT_RING = { radius: 5.6, centerZ: -0.4, y: 1.3, scale: 1.05, step: 0.2, maxAngle: 1.3, bow: -1 };
+        const DECK_RING = { radius: 10, centerZ: -5.6, y: 3.6, scale: 0.7, bow: 1 };
         const placeOnRing = (stand, angle, ring) => {
             stand.position.set(Math.sin(angle) * ring.radius, 0,
                 ring.centerZ + ring.bow * ring.radius * (1 - Math.cos(angle)));
@@ -378,7 +442,7 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
             entry.stands = true;
         });
         const deckStep = deckEntries.length > 1
-            ? Math.min((84 * Math.PI / 180) / (deckEntries.length - 1), (DECK_RING.scale * 1.18) / DECK_RING.radius) : 0;
+            ? Math.min((58 * Math.PI / 180) / (deckEntries.length - 1), (DECK_RING.scale * 1.12) / DECK_RING.radius) : 0;
         deckEntries.forEach((entry, index) => {
             entry.angle = (index - (deckEntries.length - 1) / 2) * deckStep;
             entry.home = { y: DECK_RING.y, scale: DECK_RING.scale };
@@ -523,8 +587,8 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
             renderer.setSize(width, height, false);
             camera.aspect = width / height;
             // Narrow screens: step back so the whole arc stays in view.
-            const pullBack = Math.max(0, 1.6 - camera.aspect) * 6;
-            camera.position.set(0, 3.4 + pullBack * 0.25, 10.5 + pullBack);
+            const pullBack = Math.max(0, 1.6 - camera.aspect) * 5;
+            camera.position.set(0, 2.9 + pullBack * 0.25, 7.6 + pullBack);
             camera.lookAt(target);
             camera.updateProjectionMatrix();
             return true;
@@ -577,7 +641,7 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
             placeVisit();
             const highlighted = hovered?.card ?? null;
             for (const entry of cards) {
-                const wantFaceUp = entry.faceUp || entry === hovered;
+                const wantFaceUp = entry.faceUp || entry === hovered || entry === selected;
                 const goal = wantFaceUp ? 0 : Math.PI;
                 if (reducedMotion) entry.flip = goal;
                 else if (Math.abs(entry.flip - goal) > 0.001) {
@@ -585,7 +649,7 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
                     moving = true;
                 } else entry.flip = goal;
                 entry.pivot.rotation.y = entry.flip;
-                const lift = entry === hovered ? 0.18 : 0;
+                const lift = entry === selected ? 0.3 : entry === hovered ? 0.18 : 0;
                 const baseY = entry.baseY;
                 const bob = !reducedMotion && entry.card.role === 'live' ? Math.sin(now / 900) * 0.05 : 0;
                 const goalY = baseY + lift + bob;
@@ -618,6 +682,14 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
 
         return {
             requestRender: requestRenderGl,
+            // Turn the wheel so a selected visit card comes to the front.
+            focusEntry(entry, { instant = false } = {}) {
+                if (entry.group !== 'visit') return;
+                focusGoal = entry.slot;
+                if (instant) focus = focusGoal;
+                updateTurnButtons();
+                requestRenderGl();
+            },
             get needsRender() { return needsRender; },
             destroy() {
                 if (frameId !== null) cancelAnimationFrame(frameId);
@@ -631,6 +703,13 @@ export function mountStoryDoorsSpread({ host, spread, gagName, faces = null, onI
     }
 
     return {
+        element: root,
+        /** Mark a card selected without telling the panel (it already knows). */
+        select(key) {
+            const entry = cards.find((candidate) => entryKey(candidate.card) === key)
+                ?? cards.find((candidate) => candidate.card.key === key.split(':').slice(0, 2).join(':'));
+            if (entry && entry !== selected) select(entry, { notify: false });
+        },
         destroy() {
             destroyed = true;
             gl?.destroy();

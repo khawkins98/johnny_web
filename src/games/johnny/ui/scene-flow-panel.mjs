@@ -608,19 +608,43 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             return false;
         }
     };
+    const playGag = (card, storyDay) => {
+        if (typeof sequenceTools?.startRun !== 'function') return false;
+        try {
+            sequenceTools.startRun({
+                mode: 'sequence', script: card.script, tagId: card.tagId, storyDay: card.keyDay || storyDay,
+            });
+            close();
+            return true;
+        } catch {
+            return false;
+        }
+    };
     const mountSpread = (spreadHost, status, storyDay) => {
-        const generation = ++spreadGeneration;
-        const spread = buildStorySpread({
+        const input = {
             storyDay,
             tidePhase: status.tidePhase ?? null,
             seen: seenGags,
             active: status.active,
             current: status.current,
             planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
-        });
+        };
         const inspected = viewedGag
             ? `${viewedGag.script}:${viewedGag.tagId}:${viewedGag.index ?? ''}`
             : `${status.active.script}:${status.active.tagId}:${status.current}`;
+        // Same visit as last time (e.g. the viewer just selected a card): move
+        // the existing scene into the new layout instead of rebuilding WebGL.
+        const signature = JSON.stringify([input.storyDay, input.tidePhase, input.current,
+            input.active, input.seen.map((gag) => [gag.script, gag.tagId, gag.index]),
+            input.planned.map((gag) => [gag.script, gag.tagId])]);
+        if (mountedSpread && mountedSpread.signature === signature) {
+            spreadHost.appendChild(mountedSpread.element);
+            mountedSpread.select(inspected);
+            return;
+        }
+        dropSpread();
+        const generation = ++spreadGeneration;
+        const spread = buildStorySpread(input);
         import('./story-doors-spread.mjs').then(({ mountStoryDoorsSpread, createCardFaceQueue, SPREAD_STYLE }) => {
             if (generation !== spreadGeneration || !isOpen || !spreadHost.isConnected) return;
             if (!spreadStyle) {
@@ -640,7 +664,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     { script: card.script, tagId: card.tagId, index: card.index },
                     card.role === 'deck',
                 ),
+                onPlay: typeof sequenceTools?.startRun === 'function' ? (card) => playGag(card, storyDay) : null,
+                onRead: () => body.querySelector('.scene-flow-matrix-detail')
+                    ?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' }),
             });
+            mountedSpread.signature = signature;
         }).catch(() => {
             if (generation === spreadGeneration) spreadHost.textContent = 'The card spread could not load.';
         });
@@ -814,7 +842,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const introTitle = document.createElement('h3');
         introTitle.textContent = 'This visit, dealt as cards';
         const introNote = document.createElement('p');
-        introNote.textContent = 'The lit card is Johnny now. Hover a face-down card to turn it over; select any card to read its script. The day map below still starts playback.';
+        introNote.textContent = 'The lit card is Johnny now. Hover a face-down card to turn it over. Select a card to play it or read its script.';
         introCopy.append(introTitle, introNote);
         const inspectCurrent = document.createElement('button');
         inspectCurrent.type = 'button';
@@ -1452,7 +1480,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const oldScrollTop = modal.scrollTop;
         const previousGagId = renderedGagId;
         const previousSceneKey = selectedKey;
-        dropSpread();
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
