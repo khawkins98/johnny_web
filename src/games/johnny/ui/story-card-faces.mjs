@@ -1,10 +1,12 @@
 /**
- * story-card-faces.mjs — painted card faces for the "Doors" story visualizer.
+ * story-card-faces.mjs — painted card faces for the story timeline.
  *
  * Each gag card shows a real frame of that gag, rendered by running it in its
  * own silent offscreen DGDS runtime (the same pipeline scene-flow-preview.mjs
- * uses). Frames are made in the browser from the user's own game data and only
- * cached in memory; nothing derived from the proprietary data is committed.
+ * uses). Frames are made in the browser from the user's own game data and
+ * cached in that browser (IndexedDB); nothing derived from the proprietary data
+ * is committed or shipped. Until a frame exists, a card shows an original
+ * pixel icon for its gag family.
  */
 import { DgdsRuntime } from '../../../dgds/scripting/runtime.mjs';
 import { createSoftwareSurface } from '../../../dgds/scripting/surface.mjs';
@@ -38,13 +40,20 @@ const P = PALETTE;
 export const CARD_FONT = "'VT323', monospace";
 
 // How long (in game ticks) to search a gag for a good frame. 20 ms ticks, so
-// 750 ticks is 15 s of game time. Ticks run in small slices between frames.
+// 750 ticks is 15 s of game time.
 const MAX_TICKS = 750;
-const SLICE_TICKS = 25;
-const SAMPLE_EVERY = 10;
+const SAMPLE_EVERY = 15;
 // Once Johnny (or anything) is on screen, keep watching this long for a busier frame.
 const SETTLE_TICKS = 150;
 const MIN_OPAQUE = 900;
+// A candidate frame must be mostly lit. Some gags open on a "meanwhile" clock
+// over black, which is the busiest early frame but a poor picture.
+const MIN_LIT = 0.35;
+// ...and its drawn layer mostly not black: the "meanwhile" clock sits in a
+// black box over the sea, so the frame is lit but the box is most of the drawing.
+const MAX_DARK = 0.5;
+// Ticks run in short slices so the game behind the panel keeps animating.
+const SLICE_BUDGET_MS = 6;
 
 const canvas2d = (width, height, options = undefined) => {
     const canvas = document.createElement('canvas');
@@ -53,30 +62,57 @@ const canvas2d = (width, height, options = undefined) => {
     return { canvas, context: canvas.getContext('2d', options) };
 };
 
+const CPU = Object.freeze({ willReadFrequently: true });
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+const nextSlice = (fn) => (typeof requestIdleCallback === 'function'
+    ? requestIdleCallback(fn, { timeout: 250 })
+    : setTimeout(fn, 16));
+
 /** Opaque-pixel count and bounding box of a 640x480 foreground. */
-const measure = (context) => {
-    const { data } = context.getImageData(0, 0, 640, 480);
+const measure = (data) => {
     let count = 0;
+    let dark = 0;
     let minX = 640;
     let minY = 480;
     let maxX = -1;
     let maxY = -1;
     for (let y = 0; y < 480; y += 2) {
         for (let x = 0; x < 640; x += 2) {
-            if (!data[(y * 640 + x) * 4 + 3]) continue;
+            const i = (y * 640 + x) * 4;
+            if (!data[i + 3]) continue;
             count++;
+            if (data[i] + data[i + 1] + data[i + 2] <= 40) dark++;
             if (x < minX) minX = x;
             if (x > maxX) maxX = x;
             if (y < minY) minY = y;
             if (y > maxY) maxY = y;
         }
     }
-    return { count: count * 4, box: maxX < 0 ? null : { minX, minY, maxX, maxY } };
+    return { count: count * 4, darkShare: count ? dark / count : 0, box: maxX < 0 ? null : { minX, minY, maxX, maxY } };
+};
+
+/**
+ * Share of the composed frame that isn't (near) black, sampled on a grid.
+ * Reads the two layers directly rather than composing them first.
+ */
+const litFraction = (foreground, background) => {
+    const isLit = (data, i) => data[i] + data[i + 1] + data[i + 2] > 40;
+    let lit = 0;
+    let total = 0;
+    for (let y = 0; y < 480; y += 8) {
+        for (let x = 0; x < 640; x += 8) {
+            const i = (y * 640 + x) * 4;
+            total++;
+            if (foreground[i + 3] ? isLit(foreground, i) : isLit(background, i)) lit++;
+        }
+    }
+    return lit / total;
 };
 
 /**
  * Run one gag offscreen and keep its busiest early frame, cropped around the
- * action. Resolves to a canvas, or null if the gag can't run here.
+ * action. Resolves to a canvas, or null if the gag can't run here or never
+ * shows a usable frame.
  */
 function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay, isCancelled }) {
     return new Promise((resolve) => {
@@ -85,8 +121,8 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
         let runtime;
         let presenter;
         try {
-            background = canvas2d(640, 480);
-            foreground = canvas2d(640, 480, { willReadFrequently: true });
+            background = canvas2d(640, 480, CPU);
+            foreground = canvas2d(640, 480, CPU);
             if (!background.context || !foreground.context) {
                 resolve(null);
                 return;
@@ -123,18 +159,25 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
             return;
         }
 
-        const best = canvas2d(640, 480);
+        const best = canvas2d(640, 480, CPU);
         let bestCount = 0;
         let bestBox = null;
         let ticks = 0;
         let firstSeenAt = null;
 
-        const finish = () => {
-            if (!bestBox) {
-                resolve(null);
-                return;
-            }
-            resolve(crop(best.canvas, bestBox));
+        const finish = () => resolve(bestBox ? crop(best.canvas, bestBox) : null);
+        const consider = () => {
+            const front = foreground.context.getImageData(0, 0, 640, 480).data;
+            const { count, darkShare, box } = measure(front);
+            if (count < MIN_OPAQUE || count <= bestCount || darkShare > MAX_DARK) return;
+            const back = background.context.getImageData(0, 0, 640, 480).data;
+            if (litFraction(front, back) < MIN_LIT) return;
+            bestCount = count;
+            bestBox = box;
+            firstSeenAt ??= ticks;
+            best.context.clearRect(0, 0, 640, 480);
+            best.context.drawImage(background.canvas, 0, 0);
+            best.context.drawImage(foreground.canvas, 0, 0);
         };
 
         const slice = () => {
@@ -142,21 +185,13 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
                 resolve(null);
                 return;
             }
+            const started = now();
             try {
-                for (let step = 0; step < SLICE_TICKS && ticks < MAX_TICKS; step++, ticks++) {
+                while (ticks < MAX_TICKS && now() - started < SLICE_BUDGET_MS) {
                     const result = runtime.tick(DGDS_TICK_MS);
                     presenter.present(runtime.state, result.presentation);
-                    if (ticks % SAMPLE_EVERY === 0) {
-                        const { count, box } = measure(foreground.context);
-                        if (count >= MIN_OPAQUE && count > bestCount) {
-                            bestCount = count;
-                            bestBox = box;
-                            firstSeenAt ??= ticks;
-                            best.context.clearRect(0, 0, 640, 480);
-                            best.context.drawImage(background.canvas, 0, 0);
-                            best.context.drawImage(foreground.canvas, 0, 0);
-                        }
-                    }
+                    if (ticks % SAMPLE_EVERY === 0) consider();
+                    ticks++;
                     if (result.completed) {
                         finish();
                         return;
@@ -168,9 +203,9 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
             }
             const settled = firstSeenAt !== null && ticks - firstSeenAt >= SETTLE_TICKS;
             if (ticks >= MAX_TICKS || settled) finish();
-            else setTimeout(slice, 0);
+            else nextSlice(slice);
         };
-        setTimeout(slice, 0);
+        nextSlice(slice);
     });
 }
 
@@ -193,63 +228,146 @@ function crop(source, box) {
     return out.canvas;
 }
 
+// Card pictures are kept in this browser's IndexedDB, beside the game data the
+// user imported, so each gag is rendered once rather than on every visit.
+// Bump CACHE_VERSION when the capture rules change so old pictures are redone.
+const CACHE_VERSION = 3;
+const DB_NAME = 'jc-card-faces';
+const STORE = 'faces';
+const NONE = 'none';
+
+/** A tiny IndexedDB key/value store. Every failure degrades to "not cached". */
+export function createFaceStore() {
+    let opening = null;
+    const open = () => {
+        if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+        opening ??= new Promise((resolve) => {
+            try {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
+                request.onblocked = () => resolve(null);
+            } catch {
+                resolve(null);
+            }
+        });
+        return opening;
+    };
+    const run = async (mode, action) => {
+        const db = await open();
+        if (!db) return undefined;
+        return new Promise((resolve) => {
+            try {
+                const request = action(db.transaction(STORE, mode).objectStore(STORE));
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(undefined);
+            } catch {
+                resolve(undefined);
+            }
+        });
+    };
+    return {
+        /** A cached picture (ImageBitmap), null for "no usable frame", or undefined if not cached. */
+        async get(key) {
+            const value = await run('readonly', (store) => store.get(key));
+            if (value === NONE) return null;
+            if (!(value instanceof Blob) || typeof createImageBitmap !== 'function') return undefined;
+            try {
+                return await createImageBitmap(value);
+            } catch {
+                return undefined;
+            }
+        },
+        async put(key, canvas) {
+            if (!canvas) {
+                await run('readwrite', (store) => store.put(NONE, key));
+                return;
+            }
+            const blob = await new Promise((resolve) => {
+                try {
+                    canvas.toBlob(resolve, 'image/png');
+                } catch {
+                    resolve(null);
+                }
+            });
+            if (blob) await run('readwrite', (store) => store.put(blob, key));
+        },
+    };
+}
+
 /**
- * A small queue that renders card thumbnails one at a time, so the panel stays
- * responsive while faces fill in. Results are cached for the page's lifetime.
+ * Renders card pictures one at a time, cheapest first: memory, then this
+ * browser's cache, then a fresh offscreen run. Requests for cards that have
+ * left the screen (`wanted()` false) are dropped before they cost anything.
  */
-export function createCardFaceQueue({ resolveEntry, sequenceTools }) {
-    const cache = new Map();
-    const waiting = [];
+export function createCardFaceQueue({ resolveEntry, sequenceTools, store = createFaceStore() }) {
+    const memory = new Map();
+    const jobs = new Map();
+    const order = [];
     let running = false;
     let destroyed = false;
+    const keyOf = (gag) => `${gag.script}:${gag.tagId}`;
+    const storeKey = (key) => `${CACHE_VERSION}:${IMAGE_WIDTH}x${IMAGE_HEIGHT}:${key}`;
 
     const pump = async () => {
         if (running) return;
         running = true;
-        while (waiting.length && !destroyed) {
-            const job = waiting.shift();
-            if (cache.has(job.key) && cache.get(job.key) !== 'pending') {
-                job.resolve(cache.get(job.key));
+        while (order.length && !destroyed) {
+            const key = order.shift();
+            const job = jobs.get(key);
+            if (!job) continue;
+            for (const listener of [...job.listeners]) if (!listener.wanted()) job.listeners.delete(listener);
+            if (!job.listeners.size) {
+                jobs.delete(key);
                 continue;
             }
-            const frame = await captureGagFrame({ resolveEntry, sequenceTools, ...job.gag, isCancelled: () => destroyed });
-            cache.set(job.key, frame);
-            for (const listener of job.listeners) listener(frame);
+            let image = await store.get(storeKey(key));
+            if (image === undefined) {
+                image = await captureGagFrame({ resolveEntry, sequenceTools, ...job.gag, isCancelled: () => destroyed });
+                if (!destroyed) store.put(storeKey(key), image);
+            }
+            if (destroyed) break;
+            memory.set(key, image);
+            jobs.delete(key);
+            for (const listener of job.listeners) listener.onReady(image);
         }
         running = false;
     };
 
     return {
-        /** Ask for a gag's frame; `onReady(canvas|null)` fires once it exists. */
-        request(gag, onReady) {
+        /** Ask for a gag's picture; `onReady(image|null)` fires once it exists. */
+        request(gag, onReady, { wanted = () => true } = {}) {
             if (gag.script === 'POSE') {
                 onReady(null);
                 return;
             }
-            const key = `${gag.script}:${gag.tagId}`;
-            const cached = cache.get(key);
-            if (cached !== undefined && cached !== 'pending') {
-                onReady(cached);
+            const key = keyOf(gag);
+            if (memory.has(key)) {
+                onReady(memory.get(key));
                 return;
             }
-            const existing = waiting.find((job) => job.key === key);
-            if (existing) {
-                existing.listeners.push(onReady);
+            const listener = { onReady, wanted };
+            const job = jobs.get(key);
+            if (job) {
+                job.listeners.add(listener);
+                if (!order.includes(key)) order.push(key);
                 return;
             }
-            cache.set(key, 'pending');
-            waiting.push({ key, gag, listeners: [onReady], resolve: onReady });
+            jobs.set(key, { gag, listeners: new Set([listener]) });
+            order.push(key);
             pump();
         },
-        /** Move a gag to the front of the queue (e.g. the live card). */
+        /** Move a gag to the front of the queue (e.g. the chosen card). */
         prioritize(gag) {
-            const key = `${gag.script}:${gag.tagId}`;
-            const index = waiting.findIndex((job) => job.key === key);
-            if (index > 0) waiting.unshift(...waiting.splice(index, 1));
+            const key = keyOf(gag);
+            const index = order.indexOf(key);
+            if (index > 0) order.unshift(...order.splice(index, 1));
         },
         destroy() {
             destroyed = true;
-            waiting.length = 0;
+            order.length = 0;
+            jobs.clear();
         },
     };
 }
@@ -284,11 +402,80 @@ const frame = (context, { fill, border, inner, width = 6 }) => {
     context.strokeRect(width + 7, width + 7, CARD_WIDTH - (width + 7) * 2, CARD_HEIGHT - (width + 7) * 2);
 };
 
+// Original 12x12 pixel icons, one per gag family (the ADS script a gag lives
+// in). Shown while a card's real frame renders, or when a gag has no usable
+// frame. Drawn at a whole-number scale so the pixels stay square.
+const ICON_COLOURS = {
+    Y: P.yellow, W: P.cream, C: P.cyan, B: P.brown, R: '#d8432c', O: '#f08a24', G: '#3fae4a', K: P.ink,
+};
+const FAMILY_ICONS = {
+    FISHING: [
+        '............', '............', '....CCCC...C', '..CCCCCCC.CC', '.CKCCCCCCCCC', '.CCCCCCCCCCC',
+        '..CCCCCCC.CC', '....CCCC...C', '............', '...W........', '..W.W.......', '...W........',
+    ],
+    BUILDING: [
+        '............', '.....R......', '....RR......', '....RRR.....', '...RRORR....', '...ROYORR...',
+        '..RROYYORR..', '..ROYYYYOR..', '..ROYYYYOR..', '...ROYYOR...', '..BBBBBBBB..', '.BB.B..B.BB.',
+    ],
+    VISITOR: [
+        '............', '.....W......', '.....WW.....', '.....WWW....', '.....WWWW...', '.....WWWWW..',
+        '.....B......', 'RRRRRRRRRRR.', '.RWWWWWWWR..', '..RRRRRRR...', 'CCCCCCCCCCCC', '.C.C.C.C.C.C',
+    ],
+    MARY: [
+        '............', '............', '..RR....RR..', '.RRRR..RRRR.', 'RRRRRRRRRRRR', 'RRWRRRRRRRRR',
+        'RRRRRRRRRRRR', '.RRRRRRRRRR.', '..RRRRRRRR..', '...RRRRRR...', '....RRRR....', '.....RR.....',
+    ],
+    SUZY: [
+        '............', '..W.........', '..W.....W...', '.WWW....WW..', '.WYW.WW.WW..', '.WWW.WY.WWW.',
+        '.WYWWWWWWYW.', 'WWWWWYWWWWWW', 'WYWWWWWYWWYW', 'WWWWWWWWWWWW', 'CCCCCCCCCCCC', '............',
+    ],
+    JOHNNY: [
+        '..........BB', '.........BB.', '........GG..', '.......GGG..', '......GWWG..', '.....GWWG...',
+        '....GWWG....', '...GWWG.....', '..GGGG......', '..GGG.......', '............', 'CCCCCCCCCCCC',
+    ],
+    ACTIVITY: [
+        '.....Y......', '..Y..Y..Y...', '...Y...Y....', '....YYY.....', 'YY.YYYYY.YY.', '....YYY.....',
+        '...Y...Y....', '..Y..Y..Y...', '.....Y......', '............', 'CCCCCCCCCCCC', 'C.C.C.C.C.C.',
+    ],
+    WALKSTUF: [
+        '............', '.........W..', '........WWW.', '........WWW.', '..W......W..', '.WWW........',
+        '.WWW.....W..', '..W.....WWW.', '........WWW.', '..W......W..', '.WWW........', '.WWW........',
+    ],
+    MISCGAG: [
+        '.....Y......', '.....Y......', '....YYY.....', 'YYYYYYYYYYY.', '.YYYYYYYYY..', '..YYYYYYY...',
+        '...YYYYY....', '..YYY.YYY...', '.YY.....YY..', 'Y.........Y.', '............', '............',
+    ],
+    PAUSE: [
+        '............', '............', '............', '............', '............', '............',
+        '.WW..WW..WW.', '.WW..WW..WW.', '............', '............', '............', '............',
+    ],
+};
+export const familyOf = (script) => {
+    if (!script || script === 'POSE' || script === 'STAND.ADS') return 'PAUSE';
+    const family = script.replace(/\.ADS$/, '');
+    return FAMILY_ICONS[family] ? family : 'MISCGAG';
+};
+
+function paintFamilyIcon(context, x, y, width, height, script) {
+    const rows = FAMILY_ICONS[familyOf(script)];
+    const scale = Math.floor(Math.min(width, height) * 0.7 / 12);
+    const left = x + Math.round((width - 12 * scale) / 2);
+    const top = y + Math.round((height - 12 * scale) / 2);
+    rows.forEach((row, rowIndex) => {
+        [...row].forEach((cell, column) => {
+            const colour = ICON_COLOURS[cell];
+            if (!colour) return;
+            context.fillStyle = colour;
+            context.fillRect(left + column * scale, top + rowIndex * scale, scale, scale);
+        });
+    });
+}
+
 /**
  * Paint a card face: parchment card, real frame in a window, gag name below,
  * flag glyphs in the corners (☾ ends a visit, ✦N key scene for day N).
  */
-export function paintCardFace(context, { name, kicker, image = null, final = false, keyDay = null, sealed = false, live = false }) {
+export function paintCardFace(context, { name, kicker, image = null, script = null, final = false, keyDay = null, sealed = false, live = false }) {
     frame(context, {
         fill: P.paper,
         border: live ? P.yellow : P.brown,
@@ -312,11 +499,7 @@ export function paintCardFace(context, { name, kicker, image = null, final = fal
             windowY + Math.round((windowH - image.height) / 2));
         context.restore();
     } else {
-        context.fillStyle = P.cyan;
-        context.font = `64px ${CARD_FONT}`;
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.fillText(name === 'Johnny pauses' ? '…' : '?', windowX + windowW / 2, windowY + windowH / 2);
+        paintFamilyIcon(context, windowX, windowY, windowW, windowH, script);
     }
     context.strokeStyle = P.brown;
     context.lineWidth = 4;
