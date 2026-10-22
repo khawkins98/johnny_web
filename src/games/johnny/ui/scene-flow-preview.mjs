@@ -6,6 +6,7 @@ import { createBrowserFramePresenter } from '../../../dgds/hosts/browser-frame-p
 import { createBrowserPresentationPolicy } from '../../../dgds/hosts/browser-presentation-policy.mjs';
 import { drawBackground } from '../../../dgds/scripting/frame-renderer.mjs';
 import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
+import { withHostBackground } from '../../../bottle/host-background.mjs';
 import { createJohnnyIslandPresentationState } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
 
@@ -36,9 +37,10 @@ export function mountSceneFlowPreview({ host, resolveEntry, sequenceTools, scrip
         context: foregroundContext,
         mainContext,
         presentationPolicy: policy,
-        backgroundDecorator: (state, context) => {
-            if (!state.bkgScreen && !state.bkgOcean?.length) drawBackground(island, context, policy);
-        },
+        backgroundDecorator: withHostBackground({
+            presentHost: (context) => (drawBackground(island, context, policy), island),
+            backgroundDecorator: null,
+        }),
     });
     const data = resolveEntry(script);
     if (!data) throw new Error(`Missing ADS resource ${script}`);

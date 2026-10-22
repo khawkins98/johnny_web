@@ -13,6 +13,7 @@ import { createBrowserFramePresenter } from '../../../dgds/hosts/browser-frame-p
 import { createBrowserPresentationPolicy } from '../../../dgds/hosts/browser-presentation-policy.mjs';
 import { drawBackground } from '../../../dgds/scripting/frame-renderer.mjs';
 import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
+import { withHostBackground } from '../../../bottle/host-background.mjs';
 import { createJohnnyIslandPresentationState } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
 
@@ -105,9 +106,10 @@ function captureGagFrame({ resolveEntry, sequenceTools, script, tagId, storyDay,
                 context: foreground.context,
                 mainContext: background.context,
                 presentationPolicy: policy,
-                backgroundDecorator: (state, context) => {
-                    if (!state.bkgScreen && !state.bkgOcean?.length) drawBackground(island, context, policy);
-                },
+                backgroundDecorator: withHostBackground({
+                    presentHost: (context) => (drawBackground(island, context, policy), island),
+                    backgroundDecorator: null,
+                }),
             });
             runtime = new DgdsRuntime({
                 type: 'ADS', data, adsSceneTag: tagId, singleAdsScene: true,
