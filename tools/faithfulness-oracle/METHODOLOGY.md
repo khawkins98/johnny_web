@@ -180,7 +180,7 @@ node tools/faithfulness-oracle/coverage-report.mjs
 
 Raw traces and the patched DOSBox-X checkout belong in `scratchpad/` and are not committed. Commit the scripts, patches, and derived JSON references.
 
-Two catalogue entries cannot be isolated: `STAND:14` is a shared setup macro, and `VISITOR:3` is orphaned content reached only with another visitor gag. Their callers provide indirect coverage.
+Two catalogue entries cannot be isolated: `STAND:14` is a shared setup macro, and `VISITOR:3` can't be isolated as a forced gag. Their callers provide indirect coverage, and normal-play captures show `VISITOR:3` playing as an ending.
 
 ## Bugs found by the oracle
 
