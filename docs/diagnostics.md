@@ -5,7 +5,7 @@ Press `D` to open the developer panel and enable diagnostics. You can also turn 
 ## Capture a trace
 
 1. Enable diagnostics, then reproduce the issue.
-2. Click **Download JSONL trace** in the developer panel.
+2. Click **Download JSONL Trace** in the developer panel.
 3. Attach the file to your bug report with a description of what you saw.
 
 The panel shows the active build ID, which is also included in the trace. The first record identifies the build, browser, display, and engine state; later records describe scene changes, drawing, timing, and audio. See [architecture diagnostics](architecture.md#diagnostics) for event details and capture limits.
@@ -23,7 +23,7 @@ The panel's **Console detail** control changes log verbosity without a reload. S
 
 The panel's **Holiday Theme** selector previews Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year without changing your system clock. Calendar is the default.
 
-Story-day controls can advance or set saved progress. The separate preview-day control leaves saved progress alone. For the visitor-facing day exploration and explicit **Play day** control, see the [story timeline guide](story-timeline-guide.md); for automatic day progression, see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
+**Saved day for normal playback** sets or advances saved story progress. **Simulated day for this run** applies only to a debug run and leaves saved progress alone; see [developer panel runs](johnny-host-behavior.md#developer-panel-runs). For the visitor-facing day exploration and explicit **Play day** control, see the [story timeline guide](story-timeline-guide.md); for automatic day progression, see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
 
 ## Inspect the original resources
 
