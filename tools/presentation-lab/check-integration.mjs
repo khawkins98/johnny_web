@@ -22,7 +22,7 @@ try {
         assert(!document.querySelector('#johnny-crt-output'), 'Off must allocate no GPU canvas');
         crtCheck.controller.update(true, crtCheck.presets.balanced); await frames();
         assert(active(), crtCheck.status);
-        const output=document.querySelector('#johnny-crt-output'), gl=output.getContext('webgl');
+        const output=document.querySelector('#johnny-crt-output');
         const firstSize=[output.width,output.height];
         root.style.width='320px'; root.style.height='240px'; await frames();
         assert(output.width===Math.round(320*devicePixelRatio), 'Resize did not update GPU dimensions');
@@ -33,9 +33,14 @@ try {
         document.querySelector('#data-error').classList.remove('visible'); await frames(); assert(active(), 'Import UI recovery failed');
         crtCheck.controller.update(true, {...crtCheck.presets.balanced,bypass:true}); await frames();
         assert(!active() && output.hidden, 'Bypass must reveal source');
+        window.dispatchEvent(new PageTransitionEvent('pagehide'));
+        window.dispatchEvent(new PageTransitionEvent('pageshow')); await frames();
+        assert(!active()&&!document.querySelector('#johnny-crt-output'),'Bypassed bfcache resume allocated output');
         crtCheck.controller.update(true, crtCheck.presets.balanced); await frames();
-        const extension=gl.getExtension('WEBGL_lose_context'); assert(extension, 'Loss extension unavailable');
-        extension.loseContext(); await waitFor(()=>!active()); assert(output.hidden, 'Context loss must reveal source');
+        const currentGl=document.querySelector('#johnny-crt-output').getContext('webgl');
+        const currentOutput=document.querySelector('#johnny-crt-output');
+        const extension=currentGl.getExtension('WEBGL_lose_context'); assert(extension, 'Loss extension unavailable');
+        extension.loseContext(); await waitFor(()=>!active()); assert(currentOutput.hidden, 'Context loss must reveal source');
         extension.restoreContext(); await waitFor(active);
         assert(JSON.stringify(nativeHash())===JSON.stringify(before), 'CRT mutated native pixels');
         const restoredStatus=crtCheck.status;
@@ -50,7 +55,24 @@ try {
         HTMLCanvasElement.prototype.getContext=original;
         crtCheck.controller.update(false,crtCheck.presets.balanced);
         crtCheck.controller.update(true,crtCheck.presets.balanced); await frames(); assert(active(),'Retry failed');
+        crtCheck.controller.update(false,crtCheck.presets.balanced);
+        let deletedShaders=0;
+        HTMLCanvasElement.prototype.getContext=function(type,...args){
+            const value=original.call(this,type,...args);
+            if(type!=='webgl'||!value) return value;
+            return new Proxy(value,{get(target,key){
+                if(key==='getShaderParameter') return ()=>false;
+                if(key==='getShaderInfoLog') return ()=>'Forced compile failure';
+                if(key==='deleteShader') return shader=>{deletedShaders++;target.deleteShader(shader)};
+                const member=target[key]; return typeof member==='function'?member.bind(target):member;
+            }});
+        };
+        crtCheck.controller.update(true,crtCheck.presets.balanced); await frames();
+        assert(!active()&&deletedShaders>0&&crtCheck.status.includes('Forced compile failure'),'Compile failure leaked shader or hid baseline');
+        HTMLCanvasElement.prototype.getContext=original;
+        crtCheck.controller.update(false,crtCheck.presets.balanced);
+        crtCheck.controller.update(true,crtCheck.presets.balanced); await frames(); assert(active(),'Compile failure retry failed');
         crtCheck.controller.dispose(); assert(!active()&&!document.querySelector('#johnny-crt-output'),'Dispose leaked output');
-        return {firstSize, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','dispose']};
+        return {firstSize, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','compile failure cleanup/retry','dispose']};
     })()`), null, 2));
 } finally { run('close'); }

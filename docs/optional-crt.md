@@ -54,9 +54,17 @@ pnpm build
 pnpm test:golden
 ```
 
-Set `LAB_URL` to your actual Vite origin for browser scripts. They use isolated agent-browser sessions and close their own browser. The integration fixture needs no proprietary assets. Checks exercise default off, resize, zero-size recovery, file-import layering, bypass, real context loss/restoration, unchanged native pixels, page lifecycle, no-WebGL fallback/retry and disposal. Unit tests cover named preset save/update/reload/delete, text-safe names, corrupt storage, limits and storage failure. The original GPU checks cover each effect, neutral identity, scanline contrast and shared comparison controls.
+Set `LAB_URL` to your actual Vite origin for browser scripts. They use isolated agent-browser sessions and close their own browser. The integration fixture needs no proprietary assets. Checks exercise default off, resize, zero-size recovery, file-import layering, bypass, real context loss/restoration, unchanged native pixels, page lifecycle, no-WebGL fallback/retry, shader-compilation failure cleanup/retry and disposal. Bypassed back/forward-cache returns also leave GPU output unallocated. Unit tests cover named preset save/update/reload/delete, text-safe names, corrupt storage, limits and storage failure. The original GPU checks cover each effect, neutral identity, scanline contrast and shared comparison controls.
 
 Screenshots of actual Johnny and selected settings are attached to issue #81 rather than committed, respecting the repository's game-asset policy. Initial implementation validation uses Chromium 153 via agent-browser 0.37.1 on macOS, with emulated DPR 1 and 2. Firefox, Safari, physical cross-monitor/zoom testing, mobile GPU cost and long motion/performance runs remain review work. Frame submission here is not a GPU timing benchmark. The implementation reads completed layers from a separate rAF rather than receiving an engine-present event; this can add presentation latency. No performance claim is made.
+
+## Validation record · 2026-10-23
+
+- Focused settings/preset suite: **20 passed**. Geometry: **4 passed**.
+- Both actual WebGL scripts pass; lifecycle checks pass at emulated DPR 1 and 2, including forced compile failure cleanup and retry.
+- Production build and all four game-data rendering goldens pass.
+- Actual Johnny: Balanced values, native canvas dimensions, enabled/current-setting persistence and named-preset reload checked. At 375×812 CSS/DPR 2, controls use one column with no modal horizontal overflow. Chromium fullscreen preserves matching source/output rectangles.
+- `pnpm exec vitest run --maxWorkers=1` with local game data: **856 passed, 2 skipped, 1 failed** in 554.92s. The failure is the existing `timed-handoff-cadence.test.mjs` BUILDING:7 case exceeding its 5000ms timeout. The same case passes alone in 310ms of test execution using `--testNamePattern 'keeps BUILDING:7'`. All 29 tests in the five suites that failed during an earlier parallel run also pass together with one worker. The parallel run was interrupted after those timing failures during concurrent capture work. Engine code and test timeout limits are unchanged; the full-suite run is not reported as green.
 
 ## Credit and references
 
