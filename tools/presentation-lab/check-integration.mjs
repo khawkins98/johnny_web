@@ -87,6 +87,20 @@ try {
             modelChecks.push(model);
         }
         crtCheck.controller.dispose(); assert(!active()&&!document.querySelector('#johnny-crt-output'),'Dispose leaked output');
-        return {firstSize,modelChecks, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','compile failure cleanup/retry','dispose']};
+        const {setupCrtSettings}=await import('../../src/games/johnny/ui/crt/settings.mjs');
+        const controls=document.createElement('section');document.body.append(controls);
+        const settingsController=setupCrtSettings(controls),setItem=Storage.prototype.setItem;
+        try{
+            Storage.prototype.setItem=function(){throw Error('Forced quota failure')};
+            const enabled=controls.querySelector('#jc-crt-enabled');enabled.checked=true;enabled.dispatchEvent(new Event('change'));
+            await frames();assert(active(),'Failed save should not disable the usable CRT picture');
+            const warning=controls.querySelector('[data-crt-save-status]');
+            assert(!warning.hidden&&warning.textContent.includes('could not be saved'),'Renderer activation erased save failure');
+            Storage.prototype.setItem=setItem;
+            enabled.checked=false;enabled.dispatchEvent(new Event('change'));await frames();
+            assert(warning.hidden&&!warning.textContent,'Successful save did not clear stale warning');
+        }finally{Storage.prototype.setItem=setItem;settingsController.dispose();controls.remove()}
+
+        return {firstSize,modelChecks, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','compile failure cleanup/retry','dispose','save warning survives renderer activation and clears on recovery']};
     })()`), null, 2));
 } finally { run('close'); }

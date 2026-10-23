@@ -18,6 +18,8 @@ export function setupCrtSettings(container) {
     model.value = ['vga', 'lottes'].includes(saved?.model) ? saved.model : 'creative'; modelLabel.append(model);
     const help = document.createElement('p');
     const status = document.createElement('p'); status.setAttribute('role', 'status');
+    const saveStatus = document.createElement('p'); saveStatus.dataset.crtSaveStatus = '';
+    saveStatus.setAttribute('role', 'status'); saveStatus.hidden = true;
     const creativePanel = document.createElement('div'), vgaPanel = document.createElement('div'), lottesPanel = document.createElement('div');
     creativePanel.dataset.crtPanel = 'creative'; vgaPanel.dataset.crtPanel = 'vga'; lottesPanel.dataset.crtPanel = 'lottes';
     details.append(summary, label, modelLabel, help, creativePanel, vgaPanel, lottesPanel); container.append(details);
@@ -36,14 +38,14 @@ export function setupCrtSettings(container) {
     const settings = () => ({ ...(model.value === 'vga' ? vga.getSettings() : model.value === 'lottes' ? lottes.getSettings() : creative.getSettings()), model: model.value });
     const update = () => {
         show(); presentation.update(enabled.checked, settings());
-        if (!writeStored(storage, key, { enabled: enabled.checked, model: model.value, settings: creative.getSettings(), vga: vga.getSettings(), lottes: lottes.getSettings() })) {
-            status.textContent += ' Changes could not be saved in this browser.';
-        }
+        const saved = writeStored(storage, key, { enabled: enabled.checked, model: model.value, settings: creative.getSettings(), vga: vga.getSettings(), lottes: lottes.getSettings() });
+        saveStatus.hidden = saved;
+        saveStatus.textContent = saved ? '' : 'Changes could not be saved in this browser.';
     };
     const creative = setupCrtControls(creativePanel, update, { storage, initial: sanitizeSettings(saved?.settings ?? presets.balanced) });
     const vga = setupVgaControls(vgaPanel, update, { storageKey: 'jc-game-vga-v1', initial: saved?.vga });
     const lottes = setupLottesControls(lottesPanel, update, { initial: saved?.lottes ?? {} });
-    details.append(status); enabled.addEventListener('change', update); model.addEventListener('change', update);
+    details.append(status, saveStatus); enabled.addEventListener('change', update); model.addEventListener('change', update);
     show(); presentation.update(enabled.checked, settings());
     return presentation;
 }
