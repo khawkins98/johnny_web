@@ -56,8 +56,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
             position: fixed;
             inset: 0;
             z-index: 2000;
-            background: rgba(0, 6, 12, 0.48);
-            backdrop-filter: blur(1px);
+            background: transparent;
             justify-content: center;
             align-items: center;
         }
