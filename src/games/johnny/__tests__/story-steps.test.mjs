@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
 import {
-    TIDE_BANDS, bandById, bandForPhase, describeTideWindow, gagCountsByBand, gagFacts, gagsFor, keySceneFor, visitSequence,
+    TIDE_BANDS, bandById, bandForPhase, describeTideWindow, describeWhenItPlays, gagCountsByBand, gagFacts, gagsFor,
+    keySceneFor, visitSequence,
 } from '../story-steps.mjs';
 
 describe('tide bands', () => {
@@ -29,13 +30,25 @@ describe('gagsFor', () => {
         expect(gags.filter((gag) => gag.keyDay)).toHaveLength(1);
     });
 
-    it('applies tide windows by band', () => {
+    it('applies tide windows by band to common gags only', () => {
         const key = (gag) => gag.key;
-        // BUILDING#9 is [12,16): low tide only.
+        // BUILDING#9 is [12,16): night only.
         expect(gagsFor(1, bandById('night')).map(key)).toContain('BUILDING.ADS:9');
         expect(gagsFor(1, bandById('early')).map(key)).not.toContain('BUILDING.ADS:9');
-        // A key scene whose window misses the band is left out: day 5's MARY#1 is [12,16).
-        expect(gagsFor(5, bandById('early')).some((gag) => gag.keyDay)).toBe(false);
+        // A key scene is reached through the keyframe gate, which ignores the window:
+        // day 5's MARY#1 is [12,16) but can end a daytime visit (captures: JOHNNY#6 and
+        // JOHNNY#1 played by day). So it is listed in every band on its day.
+        for (const band of TIDE_BANDS) {
+            expect(gagsFor(5, band)[0]).toMatchObject({ script: 'MARY.ADS', tagId: 1, keyDay: 5 });
+        }
+        // Day 4's MARY#3 is [8,16) and still heads the early-day list (captured at phase 5).
+        expect(gagsFor(4, bandById('early'))[0]).toMatchObject({ script: 'MARY.ADS', tagId: 3, keyDay: 4 });
+        // Another day's key scene never appears.
+        expect(gagsFor(4, bandById('night')).filter((gag) => gag.keyDay)).toHaveLength(1);
+    });
+
+    it('lists ACTIVITY#11, which plays alone or opens a visit', () => {
+        expect(gagsFor(1, bandById('early')).map((gag) => gag.key)).toContain('ACTIVITY.ADS:11');
     });
 
     it('leaves out idle fillers and orders the rest by weight', () => {
@@ -85,8 +98,17 @@ describe('gag words', () => {
         expect(describeTideWindow(0, 8)).toBe('Early day only');
     });
 
+    it('says a key scene can come at any time of day, in about one visit in ten', () => {
+        expect(describeWhenItPlays(gagFacts({ script: 'MARY.ADS', tagId: 1 }))).toBe(
+            'Any time of day on day 5, in about 1 visit in 10',
+        );
+        expect(describeWhenItPlays(gagFacts({ script: 'BUILDING.ADS', tagId: 9 }))).toBe('Night only');
+        expect(describeWhenItPlays(gagFacts({ script: 'ACTIVITY.ADS', tagId: 11 }))).toBe('Any time');
+    });
+
     it('fills in catalogue facts for a gag reference', () => {
-        expect(gagFacts({ script: 'MARY.ADS', tagId: 4, index: 3 })).toMatchObject({ index: 3, keyDay: 7, final: true });
+        expect(gagFacts({ script: 'MARY.ADS', tagId: 4, index: 3 })).toMatchObject({ index: 3, keyDay: 7, final: true, first: false });
+        expect(gagFacts({ script: 'ACTIVITY.ADS', tagId: 11 })).toMatchObject({ final: true, first: true, keyDay: null });
         expect(gagFacts({ script: 'NOPE.ADS', tagId: 1 })).toEqual({ script: 'NOPE.ADS', tagId: 1 });
     });
 });

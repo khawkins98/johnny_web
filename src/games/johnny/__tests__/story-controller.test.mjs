@@ -231,7 +231,7 @@ describe('Johnny host story controller', () => {
         expect(transitions).toEqual([0, 1, 2, 3, 4, 0]);
     });
 
-    it('final selection is weighted with last-two anti-repeat, not a uniform pick (#2)', () => {
+    it('final selection is weighted with last-one anti-repeat, not a uniform pick (#2, #68)', () => {
         let seed = 0x1234;
         const rng = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 0x100000000);
         const controller = createJohnnyStoryController({
@@ -240,19 +240,20 @@ describe('Johnny host story controller', () => {
             now: () => new Date(2026, 6, 21, 12), // fixed date -> constant story day
         });
         const finals = [];
+        let batches = 0;
         controller.subscribeStatus((status) => {
-            if (!status?.final) return;
-            const key = `${status.final.script}#${status.final.tagId}`;
-            if (finals.at(-1) !== key) finals.push(key);
+            if (status?.current === 0) batches++;
         });
-        for (let i = 0; i < 80; i++) controller.next();
-        // Endings vary (not one finale replayed forever) and no ending repeats within a
-        // window of three (the binary's last-two anti-repeat).
-        expect(new Set(finals).size).toBeGreaterThan(3);
-        for (let i = 2; i < finals.length; i++) {
-            expect(finals[i]).not.toBe(finals[i - 1]);
-            expect(finals[i]).not.toBe(finals[i - 2]);
+        while (batches < 400) {
+            const selection = controller.next();
+            if (selection.sequenceEnd) finals.push(`${selection.script}#${selection.tagId}`);
         }
+        // Endings vary (not one finale replayed forever); the binary refuses only the
+        // previous batch's ending (30e8), so the one two back does come round again
+        // (normal-play captures: 0/132 equal to the previous, 8/114 to the one before).
+        expect(new Set(finals).size).toBeGreaterThan(3);
+        for (let i = 1; i < finals.length; i++) expect(finals[i]).not.toBe(finals[i - 1]);
+        expect(finals.some((final, i) => i >= 2 && final === finals[i - 2])).toBe(true);
     });
 
     it('advances the story via the dual counter: the calendar day chases the unlocked target one step per real day', () => {

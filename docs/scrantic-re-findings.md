@@ -171,13 +171,43 @@ drawn night at both.
 
 **B.6.2 Dual-counter day advance (`FUN_1018_0ba5`)** — `target` (unlocked keyframe day) + `cur`
 (calendar). Per real-date change: `if (cur<target) cur++; if (cur>11||cur<2){target=1;cur=1;}`.
-`target++` only when a new sequence ran **and** a day-locked keyframe actually played **and**
-`target ≤ cur`. Range 1..11; selection uses `cur`.
+`target++` when a new sequence ran **and** a day-locked keyframe was planned or played (`30ee`)
+**and** `target ≤ cur`. The keyframe gate (B.6.3, mask `0x80`) resets `target = cur` every time it
+opens, so the key scene can be planned again the same day and only a keyframe planned after the
+last open gate carries the story on. Range 1..11; selection uses `cur`.
 
-**B.6.3 300-unit walk-span budget (`FUN_1018_08b9(tide,300)`)** — place the ending first, then fill
-`while (budget != 0 && slot < 298)`: a candidate needs its `[tideMin,tideMax)` window satisfied and
-`width/2 < budget`, chosen by weight-roulette (`weight` = byte `+2`); `flagsB & 0x08` idle scenes
-repeat 1..6× via buckets `{10,20,30,20,10,10}`; each placement subtracts `width`.
+**B.6.3 Batch planner (`FUN_1018_08b9(tide,300)` at `1018:08b9`) and picker (`FUN_1018_0d76` at
+`1018:0d76`)** — confirmed record for record by replaying the first batch of all eight
+timing-faithful normal-play captures at the boot offset (`align-planner.mjs --all`, 8/8 exact).
+
+*The picker* `FUN_1018_0d76(mask, phase, budget)` walks the catalogue once, marking candidates
+(`+0xd |= 0x4000`) and summing their weights, then draws `word % total + 1` and walks the marked
+records in catalogue order subtracting weights. `mask` selects a class by `flagsB & mask`, the low
+nibble of flagsB: `0x01` first slot, `0x02` intermediate, `0x04` ending, `0x08` idle repeat (every
+common non-ending record is `0x03` except ACTIVITY #8, `0x01`; endings are `0x04`, or `0x05` for
+those that also play alone: ACTIVITY #11, MARY #3/#5, SUZY #1/#2, JOHNNY #6/#1; poses `0x0b`). A
+candidate must also have `day == 0`, `tideMin <= phase < tideMax`, `width/2 < budget` (`budget` is
+forced to 999 for mask 4) and pass the layout filter `FUN_1018_0edb` against `30c0`. Mask `0x80` is
+the **keyframe gate**: it first spends a draw on `word % 10 != 0 → return 0`, then sets
+`2d9b = 2d9c` and marks every record whose `+0xa` day equals it, with **no** tide, budget or layout
+check (so a `[12,16)` key scene plays by day: captures show JOHNNY #6 at phase 1 and JOHNNY #1 at
+phases 3–4). Day-locked records are reachable only through this mask.
+
+*The planner* then: (1) `k = pick(0x80)`; if `k` is neither `30e8` (previous ending) nor `30ea`
+(previous keyframe), it becomes the ending when `flagsB & 4`, else the pending keyframe
+intermediate. (2) `do ending = pick(4) while (ending == 0 || ending == 30e8 || (keyframe && ending.flagsB & 1))`:
+the previous ending is refused by **re-drawing**, not by shrinking the pool, and solo endings are
+refused only while a keyframe intermediate is pending. (3) `budget -= ending.width`, fold the ending
+(`FUN_1010_1c41`), `30e8 = ending`; if a keyframe is pending, `budget -= keyframe.width` and fold it;
+`30ea = keyframe`; `30ee = 1` when either carries the day (the unlock, applied by `FUN_1018_0ba5`
+at the next planning or by `FUN_1018_06bf` when the record finishes). (4) Unless the ending has
+`flagsB & 1` (then `budget = 0`, a one-record batch), the first slot is the pending keyframe on a
+50 % coin (`FUN_1018_1f1b(0x32)`), else `pick(1, phase, budget)`, paid and folded. (5)
+`while (budget != 0 && slot < 298)`: a pending keyframe is inserted on a 5 % coin
+(`FUN_1018_1f1b(5)`, already paid), else `r = pick(2, phase, budget)` (break on 0), repeated
+1..6× for `flagsB & 8` via buckets `{10,20,30,20,10,10}` re-drawn while `width*n > budget`; each
+placement pays `width` and folds. A keyframe never inserted is dropped (its width stays spent).
+(6) The ending is appended and every queued record gets `+0xd |= 0x8000`.
 
 **B.6.3a Island origin (`FUN_1010_1c41` at `1010:1c41`, `FUN_1010_1b00` at `1010:1b00`)** — the
 planner resets `30c0 = 30c2 = -1` (`FUN_1010_1c41(-1,-1)` from `FUN_1018_0540`), then calls

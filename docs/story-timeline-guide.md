@@ -18,7 +18,7 @@ The game's story clock decides which gags can appear. It counts half hours from 
 
 ## Which gag?
 
-These are the gags the game can choose on that day at that time, with the day's key scene first. Corner marks on a card: **☾** ends a visit, **✦N** is the key scene for day N. On today's day and time, a **This visit** strip shows the visit the game has planned, in order, with Johnny's current gag highlighted.
+These are the gags the game can choose on that day at that time, with the day's key scene first. The key scene is listed under every time of day, because the game reaches it through a one-in-ten chance at the start of a visit that ignores the clock; ordinary gags follow their clock windows. Corner marks on a card: **☾** ends a visit, **✦N** is the key scene for day N. On today's day and time, a **This visit** strip shows the visit the game has planned, in order, with Johnny's current gag highlighted.
 
 ## A gag
 

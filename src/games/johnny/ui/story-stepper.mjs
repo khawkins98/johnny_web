@@ -7,7 +7,7 @@
  * breadcrumb and the current step, and reports choices through callbacks.
  */
 import {
-    TIDE_BANDS, bandById, describeTideWindow, gagCountsByBand, gagsFor, keySceneFor,
+    TIDE_BANDS, bandById, describeWhenItPlays, gagCountsByBand, gagsFor, keySceneFor,
 } from '../story-steps.mjs';
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
 import { DEFAULT_START_TIME, bandClockRanges, formatStartTime } from '../start-time.mjs';
@@ -364,8 +364,8 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
     };
     if (isLive) fact('Johnny is playing this now.');
     if (gag.keyDay) fact(`✦ Key scene for day ${gag.keyDay}: playing it unlocks the next day.`);
-    if (gag.final) fact('☾ Ends a visit.');
-    if (gag.tideMin != null) fact(describeTideWindow(gag.tideMin, gag.tideMax));
+    if (gag.final) fact(gag.first && !gag.keyDay ? '☾ Ends a visit, or plays on its own.' : '☾ Ends a visit.');
+    fact(describeWhenItPlays(gag));
     info.append(h, facts);
     if (onPlayGag) {
         info.appendChild(playButton(isLive ? '▶ Replay this gag' : '▶ Play this gag',
