@@ -90,9 +90,9 @@ Other apparent randomness stays on the browser's cosmetic random source:
 
 | Feature | Why it is separate |
 | --- | --- |
-| Clouds and other ambient motion | Their draws are interleaved according to wall-clock timing. |
+| Ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
-| Browser-created clouds | Their model and draw count differ from the original. |
+| Clouds | The model is the original's (`clouds.mjs`, `FUN_1010_0a38`), but the bake also draws shoreline sparkles (`FUN_1010_04a2`) and off-screen cloud refills (`FUN_1010_0b67`) that the browser does not model, so clouds stay off the shared stream. |
 
 Ordinary island positioning is connected. Holiday fixed quadrants and range modifiers remain deferred until raw `flagsD` is decoded and validated; the browser does not guess them.
 

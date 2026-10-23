@@ -281,8 +281,8 @@ export const HOST_THRESHOLDS = Object.freeze({ never: 0.5, waves: 90 });
 /**
  * Verdict for one batch's host-canvas result: island layers and the ocean below the
  * horizon must have (almost) no pixel that never matches ours in any sampled frame,
- * and the wave regions must match a BACKGRND frame. The sky is reported, not judged:
- * the original drifts clouds there and ours draws none in this check.
+ * and the wave regions must match a BACKGRND frame. The sky is reported, not judged
+ * (host-check paints the clouds it finds in the original, so it shows rendering only).
  */
 export const hostVerdict = (r) => {
     if (r.skipped) return 'skipped';

@@ -1,3 +1,4 @@
+import { bakeClouds, wordsFromRandom } from './clouds.mjs';
 import {
     DEFAULT_START_TIME,
     START_TIME_KEY,
@@ -402,32 +403,6 @@ const unlockKeyframeDay = (storage) => {
     }
 };
 
-const createClouds = (random) => {
-    const dimensions = [
-        [128, 36],
-        [192, 57],
-        [264, 76],
-    ];
-    const flipX = random() < 0.5;
-    let count;
-    if (random() >= 0.5) count = 1;
-    else if (random() >= 0.5) count = 0;
-    else if (Math.floor(random() * 4) !== 0) count = 2;
-    else if (Math.floor(random() * 4) !== 0) count = 3;
-    else if (Math.floor(random() * 4) !== 0) count = 4;
-    else count = 5;
-    return Array.from({ length: count }, () => {
-        const frame = randomIndex(random, 3);
-        const [width, height] = dimensions[frame];
-        return Object.freeze({
-            frame: frame + 15,
-            x: Math.floor(random() * (640 - width)),
-            y: Math.floor(random() * (135 - height)),
-            flipX,
-        });
-    });
-};
-
 const createIslandState = (
     finalScene,
     storyDay,
@@ -489,7 +464,8 @@ const createIslandState = (
         holidayAllowed: !hasAll(finalScene.flags, F.HOLIDAY_NOK),
         oceanIndex,
         presentationKey: Object.freeze({}),
-        clouds: Object.freeze(createClouds(random)),
+        // FUN_1010_0a38 at every bake: static for the batch, day and night (clouds.mjs).
+        clouds: Object.freeze(bakeClouds(wordsFromRandom(random)).map((cloud) => Object.freeze(cloud))),
         storyDay,
     });
 };

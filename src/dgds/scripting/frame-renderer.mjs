@@ -122,7 +122,10 @@ export const drawBackground = (state, context, policy) => {
             presentation.cloudDrift = drift;
             presentation.cloudX = animation.cloudX;
             for (const cloud of state.titleState.clouds) {
-                blit(profile.cloud.source, cloud.frame, cloud.x + drift, cloud.y, cloud.flipX);
+                // The original mirrors a cloud (wind blowing right) with a negative-width
+                // StretchBlt (FUN_1038_0ae4 flag 2), which lands it on x + 1 .. x + w.
+                const mirrorShift = cloud.flipX ? 1 : 0;
+                blit(profile.cloud.source, cloud.frame, cloud.x + mirrorShift + drift, cloud.y, cloud.flipX);
             }
         } else {
             presentation.cloudCount = state.cloudIdx == null ? 0 : 1;
