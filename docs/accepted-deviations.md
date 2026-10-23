@@ -2,7 +2,7 @@
 
 This port aims to look and behave like the original *Johnny Castaway* screensaver (`SCRANTIC.SCR`). The [pixel oracle](../tools/faithfulness-oracle/pixel-oracle/README.md) compares our frames with captures of the original. The [sequencing oracle](../tools/faithfulness-oracle/README.md) compares which scenes run and when. The differences below are known and kept on purpose. Each says why. Anything not listed here that the oracles find is treated as a bug.
 
-The rendering model behind these notes is the buffer contract in [scrantic-re-findings.md, Part C](scrantic-re-findings.md). The work that produced this list is tracked in [#53](https://github.com/khawkins98/johnny_web/issues/53).
+The rendering model behind these notes is the buffer contract in [scrantic-re-findings.md, Part C](scrantic-re-findings.md). The work that produced this list is in [#53](https://github.com/khawkins98/johnny_web/issues/53).
 
 ## Drawing
 
@@ -13,9 +13,14 @@ The rendering model behind these notes is the buffer contract in [scrantic-re-fi
 
 ## Timing
 
-- **The clock jump while loading.** The original's game clock keeps running while it reads a scene from disk. How much it advances depends on the machine: 190 ms to 1.8 s in our captures. So in the original, the first frame of a newly loaded scene can pass almost at once, and a scene loaded mid-gag can leave its actor a couple of frames ahead. We have no load cost, so the first frame holds for its scripted delay. The same frames play in the same order. Details: [METHODOLOGY, "Load-time clock jumps"](../tools/faithfulness-oracle/METHODOLOGY.md).
+- **The clock jump while loading.** The original's game clock keeps running while it reads a scene from disk. How much it advances depends on the machine: 190 ms to 1.8 s in our captures. So in the original, the first frame of a newly loaded scene can pass almost at once, and a scene loaded mid-gag can leave its actor a couple of frames ahead. We have no load cost, so the first frame holds for its scripted delay. The same frames play in the same order. Details: [METHODOLOGY, "Load-time clock jumps"](../tools/faithfulness-oracle/METHODOLOGY.md#load-time-clock-jumps).
+- **Late timer ticks.** When the browser falls behind (a slow paint or a background tab), we run at most one tick and drop the rest. The original runs every missed tick in a burst ([scrantic-re-findings A.5](scrantic-re-findings.md#a5-frame-cadence)). In a browser, a burst inside one paint would skip the frames it draws and start their sounds at once.
 
-## Not yet verified
+## Checked in normal play
 
-- **The host canvas in normal play.** Pixel checks so far use forced-gag captures, which skip the original's island setup. A check of the island, ocean, night sky, waves and raft in normal play is in progress under #53.
-- **Story picker.** Four known differences in which gags the planner picks are tracked in [#68](https://github.com/khawkins98/johnny_web/issues/68). They are bugs to fix, not accepted differences.
+Normal-play captures of the original ([pixel oracle README, "Normal play"](../tools/faithfulness-oracle/pixel-oracle/README.md#normal-play)) cover what forced-gag captures skip:
+
+- **Host canvas.** Island, day ocean, night sky, clouds, waves and raft match in all 41 checked island batches (#73, #75, #76).
+- **Story picker.** The first batch of every captured run replays gag for gag, and the gag mix over 150 batches is within a few points of the original's (#77).
+
+Not yet checked against a capture: the five end-of-visit wipes (their order comes from jc_reborn) and the holiday overlays.
