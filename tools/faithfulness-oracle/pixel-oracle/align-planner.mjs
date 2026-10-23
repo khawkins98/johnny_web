@@ -14,7 +14,8 @@
 // pace that depends on timing.
 //
 // Usage: node align-planner.mjs <runDir> [--window 60]
-import { readFileSync } from 'node:fs';
+//        node align-planner.mjs --all [runsDir]   (every timing-faithful run, exact offset)
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -57,7 +58,9 @@ const memoryStorage = (entries) => {
 
 /** Our planner's first batch with the faithful RNG advanced by `skip` words. */
 export const replayFirstBatch = ({ archive, skip, day, phase, startTime = 900 }) => {
-    const rng = faithfulRandomFromArchive(archive.buffer.slice(archive.byteOffset, archive.byteOffset + archive.byteLength));
+    // A plain view, not a sliced ArrayBuffer: under vitest the slice comes from
+    // another realm and fails the RNG's `instanceof ArrayBuffer` check.
+    const rng = faithfulRandomFromArchive(new Uint8Array(archive.buffer, archive.byteOffset, archive.byteLength));
     for (let i = 0; i < skip; i++) rng.nextWord();
     // phase p at StartTime 0900 is the half hour starting 09:00 + p * 30 min
     const date = new Date(2026, 0, 15, 9, phase * 30);
@@ -77,14 +80,71 @@ export const replayFirstBatch = ({ archive, skip, day, phase, startTime = 900 })
     return { queue, titleState: selection.titleState };
 };
 
+/** Where the maintainer keeps normal-play runs (directories with host.log and trace.log). */
+export const DEFAULT_RUNS_DIR =
+    process.env.JOHNNY_NORMAL_PLAY_RUNS ?? path.resolve(here, '../../../scratchpad/maintainer/captures/normal-play/runs');
+
+/** The timing-faithful runs under `root` (turbo runs are for the story mix only). */
+export const faithfulRunDirs = (root = DEFAULT_RUNS_DIR) =>
+    existsSync(root)
+        ? readdirSync(root)
+              .map((name) => path.join(root, name))
+              .filter((dir) => existsSync(path.join(dir, 'host.log')) && existsSync(path.join(dir, 'trace.log')))
+              .filter((dir) => {
+                  const summary = path.join(dir, 'summary.json');
+                  return !existsSync(summary) || !JSON.parse(readFileSync(summary, 'utf8')).turbo;
+              })
+              .sort()
+        : [];
+
+/**
+ * Replay one run's first batch at the exact boot offset and compare it with the
+ * capture: `exact` is true when the queues are identical, record for record.
+ */
+export const replayRun = (dir, { archive = readFileSync(SCR) } = {}) => {
+    const draws = firstPlannerDraws(readFileSync(path.join(dir, 'trace.log'), 'utf8'));
+    const [captured] = batchesFromHost(parseHostLog(readFileSync(path.join(dir, 'host.log'), 'utf8')));
+    const { queue, titleState } = replayFirstBatch({ archive, skip: draws.before, day: captured.day, phase: captured.phase });
+    const equal = queue.filter((name, i) => name === captured.queue[i]).length;
+    return {
+        name: path.basename(dir),
+        day: captured.day,
+        phase: captured.phase,
+        skip: draws.before,
+        captured: captured.queue,
+        replayed: queue,
+        equal,
+        exact: queue.length === captured.queue.length && equal === queue.length,
+        lowTide: titleState.lowTide,
+        // titleState.x/y are the binary's 30c6/30c4 after the bake, as the host log records them.
+        layoutMatches:
+            Boolean(titleState.island) === !captured.offIsland &&
+            (captured.offIsland || (titleState.x === captured.origin.x && titleState.y === captured.origin.y)),
+    };
+};
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
     const argv = process.argv.slice(2);
     const dir = argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--')));
     const wi = argv.indexOf('--window');
     const window = wi === -1 ? 60 : Number(argv[wi + 1]);
+    if (argv.includes('--all')) {
+        // Every timing-faithful run at its exact boot offset: the first-batch oracle.
+        const archive = readFileSync(SCR);
+        const results = faithfulRunDirs(dir ?? DEFAULT_RUNS_DIR).map((runDir) => replayRun(runDir, { archive }));
+        for (const r of results) {
+            console.log(`${r.exact ? 'EXACT ' : 'DIFF  '} ${r.name} (day ${r.day}, phase ${r.phase}, skip ${r.skip}): ${r.equal}/${r.captured.length}`);
+            if (!r.exact) {
+                console.log(`  captured: ${r.captured.join(' ')}`);
+                console.log(`  ours:     ${r.replayed.join(' ')}`);
+            }
+        }
+        console.log(`${results.filter((r) => r.exact).length}/${results.length} first batches replay exactly`);
+        process.exit(0);
+    }
     if (!dir) {
-        console.error('usage: align-planner.mjs <runDir> [--window 60]');
+        console.error('usage: align-planner.mjs <runDir> [--window 60] | align-planner.mjs --all [runsDir]');
         process.exit(2);
     }
     const draws = firstPlannerDraws(readFileSync(path.join(dir, 'trace.log'), 'utf8'));

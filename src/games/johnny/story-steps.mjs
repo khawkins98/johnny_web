@@ -49,11 +49,23 @@ export function describeTideWindow(min, max) {
     return names.length ? `${names.join(' or ')} only`.replace(/^./, (c) => c.toUpperCase()) : 'Any time';
 }
 
+/**
+ * When a gag can play, in words. A key scene is reached only through the game's
+ * 10% keyframe gate, which looks at the story day and ignores the clock window
+ * (story-controller isStoryEligible), so its window is not what decides.
+ */
+export function describeWhenItPlays(gag) {
+    if (gag.keyDay) return `Any time of day on day ${gag.keyDay}, in about 1 visit in 10`;
+    return gag.tideMin != null ? describeTideWindow(gag.tideMin, gag.tideMax) : 'Any time';
+}
+
 const describeRecord = (record) => ({
     key: keyOf(record),
     script: record.script,
     tagId: record.tagId,
     final: Boolean(record.flags & SceneFlags.FINAL),
+    // An ending that can also be a whole visit on its own (binary flagsB & 1).
+    first: Boolean(record.flags & SceneFlags.FIRST),
     keyDay: record.day || null,
     weight: record.weight,
     tideMin: record.tideMin,
@@ -68,13 +80,17 @@ export const gagFacts = (gag) => {
 
 /**
  * Gags the game can choose on `day` in time band `band`: the day's key scene first,
- * then common gags by selection weight (heaviest first).
+ * then common gags by selection weight (heaviest first). This is the controller's
+ * eligibility (isStoryEligible) by band: a common gag needs its window to cover
+ * the band; the key scene comes through the keyframe gate, which ignores the
+ * clock, so it is listed in every band on its day.
  */
 export function gagsFor(day, band) {
     const seen = new Set();
     const gags = [];
     for (const record of JOHNNY_SCENES) {
-        if (isFiller(record) || (record.day !== 0 && record.day !== day) || !coversBand(record, band)) continue;
+        if (isFiller(record)) continue;
+        if (record.day !== 0 ? record.day !== day : !coversBand(record, band)) continue;
         const key = keyOf(record);
         if (seen.has(key)) continue;
         seen.add(key);

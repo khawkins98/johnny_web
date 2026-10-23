@@ -71,6 +71,9 @@ describe.skipIf(!hasData)('catalogue matches the binary 79-record table', () => 
             if (!rec.pose) {
                 expect((js.flags & SceneFlags.FINAL) !== 0).toBe((rec.flagsB & 0x4) !== 0);
             }
+            // The picker classes (FUN_1018_0d76 masks 1/2/4 and the 0x8 repeat bit) are
+            // the binary's flagsB low nibble, carried verbatim.
+            expect(js.classBits).toBe(rec.flagsB & 0x0f);
         });
     }
 });

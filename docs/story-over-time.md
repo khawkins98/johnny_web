@@ -8,14 +8,14 @@ For an interactive view of days, visits, and gags, see the [story timeline guide
 
 There are two kinds of variation:
 
-- **Within a day:** scenes are chosen at random, using the weights stored in the original game data. This keeps repeated visits varied.
-- **Across days:** some scenes belong to a specific story day. These key scenes form the longer plot, from Johnny finding the message through the day-11 finale. Ordinary scenes can appear on any day.
+- **Within a day:** scenes are chosen at random, using the weights stored in the original game data. This keeps repeated visits varied. A visit ends with a different scene from the one before, though the same ending can come back two visits later. A few scenes play on their own as a whole visit (for example `ACTIVITY.ADS` #11 and the Suzy and Johnny key scenes).
+- **Across days:** some scenes belong to a specific story day. These key scenes form the longer plot, from Johnny finding the message through the day-11 finale. Ordinary scenes can appear on any day. A key scene is reached only through a one-in-ten chance at the start of each visit, as in the original, so it turns up in about one visit in ten on its day, and at any time of day.
 
-Which scenes are eligible also follows a separate half-hour clock that wraps every eight hours, counted from the **Start Time** setting (9:00 by default, as in the original; stored as `jc-start-time-hhmm`. Older versions saved a first-run date under `jc-start-time`; it is deleted on load and never read), so it changes predictably with the time of day. Its last quarter brings the night sky. Whether the beach shows high or low tide is a coin flip per visit, as in the original.
+Which ordinary scenes are eligible also follows a separate half-hour clock that wraps every eight hours, counted from the **Start Time** setting (9:00 by default, as in the original; stored as `jc-start-time-hhmm`. Older versions saved a first-run date under `jc-start-time`; it is deleted on load and never read), so it changes predictably with the time of day. Its last quarter brings the night sky. Key scenes ignore this clock. Whether the beach shows high or low tide is a coin flip per visit, as in the original.
 
 ## How the day advances
 
-The game stores both the current day and the next unlocked day. Playing a day's key scene unlocks the next one. When the calendar date changes, the current day moves one step toward that unlocked day. It never skips ahead, and day 11 wraps back to day 1.
+The game stores both the current day and the next unlocked day. Planning a visit with the day's key scene unlocks the next one. When the calendar date changes, the current day moves one step toward that unlocked day. It never skips ahead, and day 11 wraps back to day 1. As in the original, each time the one-in-ten key-scene chance comes up the unlocked day is first set back to the current day, so the key scene can play more than once a day; the day still advances as long as the key scene was planned after that last chance.
 
 This reproduces the screensaver's original pace: brief visits over several real days reveal the story. Restarting the screensaver does not restart the plot.
 

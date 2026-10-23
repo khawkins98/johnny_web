@@ -24,6 +24,23 @@ export const SceneFlags = Object.freeze({
 });
 
 const F = SceneFlags;
+
+/**
+ * The picker's record classes: the low nibble of the catalogue's flagsB word
+ * (`+0xb`), which FUN_1018_0d76 (1018:0d76) masks on. The batch planner
+ * FUN_1018_08b9 asks for the ENDING class, then one FIRST-class record for the
+ * opening slot, then INTERMEDIATE-class records until the budget is spent; REPEAT
+ * marks the idle poses that run 1..6 times. KEYFRAME is the planner's own mask for
+ * the 10%-gated pick among the current story day's records.
+ */
+export const PickClass = Object.freeze({
+    FIRST: 0x01,
+    INTERMEDIATE: 0x02,
+    ENDING: 0x04,
+    REPEAT: 0x08,
+    KEYFRAME: 0x80,
+});
+
 // Pure-pose records have no ADS file; this sentinel marks their `script`.
 const POSE = 'POSE';
 const A = 0;
@@ -99,10 +116,21 @@ const FLAGS_D = new Map([
     ['ACTIVITY#9', 0x10], ['VISITOR#1', 0x10], ['WALKSTUF#1', 0x10], ['VISITOR#3', 0x10],
 ]);
 
+// The binary's flagsB low nibble (PickClass bits), asserted record for record by the
+// catalogue oracle. Every common non-ending record is 0x03 (first slot or
+// intermediate) except ACTIVITY#8, 0x01 (first slot only); endings are 0x04, or 0x05
+// when they also play alone (F.FIRST: ACTIVITY#11, MARY#3/#5, SUZY, JOHNNY#6/#1);
+// the idle poses are 0x0b.
+const classBitsFor = (key, flags) => {
+    if (flags & F.POSE) return PickClass.FIRST | PickClass.INTERMEDIATE | PickClass.REPEAT;
+    if (flags & F.FINAL) return PickClass.ENDING | (flags & F.FIRST ? PickClass.FIRST : 0);
+    return key === 'ACTIVITY#8' ? PickClass.FIRST : PickClass.FIRST | PickClass.INTERMEDIATE;
+};
+
 // A scene record. `tideMin`/`tideMax` are the binary's tide-eligibility window
 // [tideMin, tideMax) over the 16 tide phases (default [0,16) = any tide). `width`/`weight`
 // come from SCENE_METRICS; `repeat` (binary flagsB & 0x08) marks the idle poses that may
-// repeat 1..6x in a sequence.
+// repeat 1..6x in a sequence; `classBits` is the flagsB low nibble the picker masks on.
 const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags, tideMin = 0, tideMax = 16) => {
     const isPose = script === POSE;
     const key = `${script.replace('.ADS', '')}#${tagId}`;
@@ -111,7 +139,7 @@ const scene = (script, tagId, startSpot, startHeading, endSpot, endHeading, day,
         script, tagId, startSpot, startHeading, endSpot, endHeading, day, flags,
         tideMin, tideMax, width, weight, repeat: isPose, forceLayout0: FORCE_LAYOUT0.has(key),
         forceNight: FORCE_NIGHT.has(key), wavesOff: WAVES_OFF.has(key),
-        flagsD: FLAGS_D.get(key) ?? 0,
+        flagsD: FLAGS_D.get(key) ?? 0, classBits: classBitsFor(key, flags),
     });
 };
 
@@ -339,12 +367,15 @@ export const inTideWindow = (candidate, tidePhase) =>
 export { TIDE_PHASES };
 
 /**
- * Story-layer eligibility for one catalogue record, shared by the picker and the
- * story visualizer: a scene must be common (day 0) or locked to this story day,
- * and the current tide phase must fall in its [tideMin, tideMax) window.
+ * Can the planner reach this record on `storyDay` at `tidePhase` by any path? Shared
+ * with the story timeline. A common record (day 0) needs the phase in its
+ * [tideMin, tideMax) window (FUN_1018_0d76's ordinary classes). A day-locked record
+ * is reached only through the 10% keyframe gate (FUN_1018_0d76(0x80)), which
+ * compares the day and nothing else: no tide window, so a night-only key scene can
+ * play by day (normal-play captures: JOHNNY#6 at phase 1, JOHNNY#1 at phases 3-4).
  */
 export const isStoryEligible = (candidate, storyDay, tidePhase = null) =>
-    (candidate.day === 0 || candidate.day === storyDay) && inTideWindow(candidate, tidePhase);
+    candidate.day !== 0 ? candidate.day === storyDay : inTideWindow(candidate, tidePhase);
 // StartTime (HHMM): the original's default 0900 unless the Settings "Start Time"
 // control stored an override (start-time.mjs). Read once per planned batch, as the
 // original recomputes the phase per New Scene. A corrupted value falls back to the
@@ -387,9 +418,10 @@ const updateStoryDay = (storage, date) => {
     return cur;
 };
 
-// Unlock the next keyframe day: only when a day-locked keyframe scene actually plays
-// AND the calendar has caught up (target <= cur). The binary's unlock is unconditional
-// (`DAT_2d9b + 1`): target reaches 12, the next calendar tick drives `cur` to 12, and
+// Unlock the next keyframe day: when a day-locked keyframe scene is planned AND the
+// calendar has caught up (target <= cur). The binary's unlock is unconditional
+// (`DAT_2d9b + 1`, from FUN_1018_0ba5 at the next planning or FUN_1018_06bf when the
+// keyframe finishes): target reaches 12, the next calendar tick drives `cur` to 12, and
 // `updateStoryDay`'s `cur > 11` branch then wraps the whole story back to day 1. Capping
 // target at 11 (the old code) made that wrap dead code and pinned the story on the day-11
 // finale forever -- so there is intentionally no cap here.
@@ -398,6 +430,19 @@ const unlockKeyframeDay = (storage) => {
         const target = Number(storage?.getItem('jc-story-target')) || 1;
         const cur = Number(storage?.getItem('jc-story-day')) || 1;
         if (target <= cur) storage?.setItem('jc-story-target', String(target + 1));
+    } catch {
+        // Persistence is optional.
+    }
+};
+
+// The keyframe gate's side effect (FUN_1018_0d76(0x80): `2d9b = 2d9c` once the 10%
+// draw passes, before any record is looked at): the unlocked target falls back to
+// the current day, so a key scene can be planned again on the same day and only
+// a keyframe planned after the last open gate carries the story forward.
+const resetKeyframeTarget = (storage) => {
+    try {
+        const cur = Number(storage?.getItem('jc-story-day')) || 1;
+        storage?.setItem('jc-story-target', String(cur));
     } catch {
         // Persistence is optional.
     }
@@ -483,37 +528,96 @@ export const createJohnnyStoryController = ({
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
-    const recentFinals = []; // anti-repeat: the last two chosen endings (FUN_1018_08b9)
+    // Anti-repeat state (FUN_1018_08b9): 30e8 is the previous batch's ending, 30ea the
+    // previous batch's keyframe intermediate (or none). The ending roulette refuses
+    // only 30e8; the keyframe gate refuses both. Session memory, as in the binary.
+    let lastEnding = null;
+    let lastKeyframe = null;
     const statusListeners = new Set();
 
     const publishStatus = () => {
         for (const listener of statusListeners) listener(sequenceStatus);
     };
 
-    const eligible = (storyDay, wanted = 0, unwanted = 0, tidePhase = null) =>
-        JOHNNY_SCENES.filter(
-            (candidate) =>
-                hasAll(candidate.flags, wanted) &&
-                (candidate.flags & unwanted) === 0 &&
-                isStoryEligible(candidate, storyDay, tidePhase),
-        );
+    // A percentage coin (FUN_1018_1f1b with one bucket): true when the draw lands in it.
+    const chance = (percent, site) =>
+        storyRandom ? storyRandom.weightedBucket([percent], site) !== 0 : random() * 100 < percent;
 
-    // Faithful ending selection (FUN_1018_08b9 / FUN_1018_0d76, phase6 §3): a 10%-gated
-    // day-locked keyframe first, else a WEIGHT-ROULETTE over ordinary `flagsB & 4`
-    // endings -- excluding first-intermediate (`flagsB & 1` -> F.FIRST) scenes and the
-    // last two chosen endings (anti-repeat). Replaces the old uniform `pick`, which
-    // over-represented keyframes and low-weight endings.
-    const chooseFinalScene = (storyDay, tidePhase) => {
-        const finals = eligible(storyDay, F.FINAL, 0, tidePhase);
-        if (finals.length === 0) return pick(random, JOHNNY_SCENES.filter((s) => hasAll(s.flags, F.FINAL)));
-        if (storyRandom ? storyRandom.modulo(10, 'director-keyframe-gate') === 0 : random() < 0.1) {
-            const keyframe = finals.find((s) => s.day === storyDay && s.day !== 0 && !recentFinals.includes(s));
-            if (keyframe) return keyframe;
+    /**
+     * The picker, FUN_1018_0d76(mask, phase, budget). A candidate must carry the
+     * class bit, be a common record (day 0), have the phase in its tide window, have
+     * width/2 < budget (999 for the ending class) and not clash with the island layout
+     * folded so far (FUN_1018_0edb); one is drawn by weight roulette in catalogue
+     * order. The KEYFRAME mask is different: it first spends a draw on the 10% gate
+     * (word % 10 == 0), sets the unlocked day back to the current day, and then
+     * weighs every record locked to that day, ignoring tide windows and the layout.
+     * Returns null when nothing qualifies (or the gate stays shut).
+     */
+    const pickRecord = (mask, { storyDay, tidePhase, budget = 999, layoutBits = 0 }) => {
+        let candidates;
+        let site;
+        if (mask === PickClass.KEYFRAME) {
+            if (storyRandom ? storyRandom.modulo(10, 'director-keyframe-gate') !== 0 : random() >= 0.1) return null;
+            resetKeyframeTarget(storage);
+            candidates = JOHNNY_SCENES.filter((candidate) => candidate.day === storyDay);
+            site = 'director-keyframe-scene';
+        } else {
+            const limit = mask === PickClass.ENDING ? 999 : budget;
+            candidates = JOHNNY_SCENES.filter(
+                (candidate) =>
+                    (candidate.classBits & mask) !== 0 &&
+                    candidate.day === 0 &&
+                    inTideWindow(candidate, tidePhase) &&
+                    candidate.width / 2 < limit &&
+                    isLayoutCompatible(candidate.flagsD, layoutBits),
+            );
+            site =
+                mask === PickClass.ENDING
+                    ? 'director-final-scene'
+                    : mask === PickClass.FIRST
+                      ? 'director-first-scene'
+                      : 'director-intermediate-scene';
         }
-        let pool = finals.filter((s) => !hasAll(s.flags, F.FIRST) && !recentFinals.includes(s));
-        if (pool.length === 0) pool = finals.filter((s) => !recentFinals.includes(s));
-        if (pool.length === 0) pool = finals;
-        return weightedPick(random, pool, storyRandom, 'director-final-scene');
+        if (candidates.length === 0) return null;
+        return weightedPick(random, candidates, storyRandom, site);
+    };
+
+    /**
+     * The head of FUN_1018_08b9: the gated keyframe pick, then the ending roulette.
+     * A keyframe that is neither the previous ending nor the previous keyframe is
+     * taken: as the ending when it carries the ending bit, else as a pending
+     * intermediate. The ending is then drawn from the ENDING class and re-drawn
+     * (not pooled out) while it is null, equals the previous ending, or is a solo
+     * ending (flagsB & 1) while a keyframe intermediate is pending. The binary
+     * loops until the stream cooperates; a degenerate `random` here would never
+     * cooperate, so after many refusals the refused records are dropped from the
+     * pool instead.
+     */
+    const chooseEnding = (storyDay, tidePhase) => {
+        let keyframe = null;
+        let ending = null;
+        const key = pickRecord(PickClass.KEYFRAME, { storyDay, tidePhase });
+        if (key && key !== lastEnding && key !== lastKeyframe) {
+            if (key.classBits & PickClass.ENDING) ending = key;
+            else keyframe = key;
+        }
+        const refused = (candidate) =>
+            !candidate || candidate === lastEnding || (keyframe && (candidate.classBits & PickClass.FIRST) !== 0);
+        for (let attempt = 0; attempt < 64 && refused(ending); attempt++) {
+            ending = pickRecord(PickClass.ENDING, { storyDay, tidePhase });
+        }
+        if (refused(ending)) {
+            const pool = JOHNNY_SCENES.filter(
+                (candidate) =>
+                    (candidate.classBits & PickClass.ENDING) !== 0 &&
+                    candidate.day === 0 &&
+                    inTideWindow(candidate, tidePhase) &&
+                    !refused(candidate),
+            );
+            if (pool.length > 0) ending = weightedPick(random, pool, storyRandom, 'director-final-scene');
+            else ending ??= JOHNNY_SCENES.find((candidate) => (candidate.classBits & PickClass.ENDING) !== 0);
+        }
+        return { ending, keyframe };
     };
 
     const findScene = (script, tagId) =>
@@ -576,12 +680,17 @@ export const createJohnnyStoryController = ({
         });
     };
 
-    const chooseDebugFinal = (anchor, storyDay) => {
-        const candidates = eligible(storyDay, F.FINAL, F.FIRST).filter(
+    // A debug-run ending for an anchored ordinary scene: a common, non-solo ending
+    // (any phase) whose layout word accepts the anchor's.
+    const chooseDebugFinal = (anchor) => {
+        const candidates = JOHNNY_SCENES.filter(
             (candidate) =>
-                hasAll(anchor.flags, F.VARPOS_OK) ||
-                !hasAll(candidate.flags, F.LEFT_ISLAND) ||
-                hasAll(candidate.flags, F.VARPOS_OK),
+                (candidate.classBits & (PickClass.ENDING | PickClass.FIRST)) === PickClass.ENDING &&
+                candidate.day === 0 &&
+                isLayoutCompatible(anchor.flagsD, accumulateIslandLayout([candidate])) &&
+                (hasAll(anchor.flags, F.VARPOS_OK) ||
+                    !hasAll(candidate.flags, F.LEFT_ISLAND) ||
+                    hasAll(candidate.flags, F.VARPOS_OK)),
         );
         return pick(random, candidates);
     };
@@ -596,76 +705,92 @@ export const createJohnnyStoryController = ({
         wavesOff: batch.some((selected) => selected.wavesOff),
     });
 
-    const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now(), startTime }) => {
+    // An idle record's repeat count (FUN_1018_08b9): centre-weighted 1..6, re-drawn
+    // while it would overrun the budget (a count of 1 is always accepted, as is one
+    // that lands exactly on 0). The binary re-draws until the stream cooperates; a
+    // degenerate `random` never would, so after many tries the count is clamped.
+    const fittingRepeatCount = (record, budget) => {
+        let reps = repeatCount(random, storyRandom);
+        for (let attempt = 0; attempt < 1000 && reps > 1 && record.width * reps > budget; attempt++) {
+            reps = repeatCount(random, storyRandom);
+        }
+        if (reps > 1 && record.width * reps > budget) reps = Math.max(1, Math.floor(budget / record.width));
+        return reps;
+    };
+
+    /**
+     * The body of FUN_1018_08b9(phase, 300) once the ending (and any pending keyframe
+     * intermediate) is known. The 300-unit walk-span budget pays for the ending and
+     * the keyframe first; their layout words are folded first too (FUN_1010_1c41,
+     * ending first). Unless the ending plays alone (flagsB & 1), the opening slot is
+     * the pending keyframe on a 50% coin, else a FIRST-class pick. Then, while the
+     * budget is not exactly spent and fewer than 298 records are queued: a pending
+     * keyframe goes in on a 5% coin (its width was already paid), else an
+     * INTERMEDIATE-class pick is placed, 1..6 times for an idle pose. A keyframe
+     * never inserted is simply dropped. A debug `anchorScene` takes the opening
+     * slot instead of the FIRST pick.
+     */
+    const createPlan = ({ storyDay, finalScene, keyframe = null, anchorScene = null, date = now(), startTime }) => {
         const resolvedStartTime = normalizeStartTime(startTime) ?? getStartTime(storage);
         const tidePhase = tidePhaseFor(date, resolvedStartTime);
         const planned = [];
+        const folded = [finalScene];
         let previous = null;
+        let budget = 300 - finalScene.width;
+        let pending = null;
+        if (keyframe) {
+            budget -= keyframe.width;
+            folded.push(keyframe);
+            pending = keyframe;
+        }
+        const place = (record) => {
+            planned.push({ scene: record, walkFrom: previous });
+            previous = record;
+        };
+        const pay = (record) => {
+            budget -= record.width;
+            folded.push(record);
+        };
+        const pickNext = (mask) =>
+            pickRecord(mask, { storyDay, tidePhase, budget, layoutBits: accumulateIslandLayout(folded) });
 
         if (anchorScene) {
-            planned.push({ scene: anchorScene, walkFrom: null });
-            previous = anchorScene;
+            place(anchorScene);
+            pay(anchorScene);
+        } else if ((finalScene.classBits & PickClass.FIRST) === 0) {
+            if (pending && (pending.classBits & PickClass.FIRST) !== 0 && chance(50, 'director-keyframe-first')) {
+                place(pending);
+                pending = null;
+            } else {
+                const first = pickNext(PickClass.FIRST);
+                if (first) {
+                    place(first);
+                    pay(first);
+                }
+            }
+        } else {
+            budget = 0;
         }
-
-        if (!hasAll(finalScene.flags, F.FIRST)) {
-            // Poses are ADS-less "stand at spot" fillers, selectable as intermediates
-            // (the host renders them via runJohnnyPose). Only FINAL scenes are excluded
-            // from the intermediate pool here; a fixed-layout intermediate (VISITOR#1)
-            // is an ordinary candidate that pins the batch's island origin.
-            const wanted = 0;
-            let unwanted = F.FINAL | (anchorScene ? F.FIRST : 0);
-            // 300-unit spatial walk-span budget (FUN_1018_08b9): the ending's width is
-            // spent first, then intermediates fill until the budget runs out (or the 298
-            // slot cap). Each candidate must fit its tide window (already applied by
-            // eligible) and have width/2 < remaining budget; one is chosen by weight
-            // roulette. An idle (repeat) scene runs 1..6x, centre-weighted, rejecting a
-            // repeat count that would overrun the budget unless it lands exactly on 0.
-            let budget = 300 - finalScene.width - (anchorScene ? anchorScene.width : 0);
-            let slots = anchorScene ? 1 : 0;
-            while (budget > 0 && slots < 298) {
-                // The binary folds the ending's layout word first, then each planned
-                // record's, and refuses candidates whose word conflicts (FUN_1018_0edb).
-                const layoutSoFar = accumulateIslandLayout([
-                    finalScene,
-                    ...planned.map(({ scene: selected }) => selected),
-                ]);
-                const candidates = eligible(storyDay, wanted, unwanted, tidePhase).filter(
-                    (candidate) =>
-                        candidate.width / 2 < budget && isLayoutCompatible(candidate.flagsD, layoutSoFar),
-                );
-                if (candidates.length === 0) break;
-                const next = weightedPick(random, candidates, storyRandom, 'director-intermediate-scene');
-                let reps = 1;
-                if (next.repeat) {
-                    reps = repeatCount(random, storyRandom);
-                    // Re-roll a repeat count that would overrun the budget (unless it lands
-                    // exactly on 0), bounded so a degenerate/constant rng still terminates.
-                    for (
-                        let attempt = 0;
-                        attempt < 8 && reps > 1 && next.width * reps > budget && next.width * reps - budget !== 0;
-                        attempt++
-                    ) {
-                        reps = repeatCount(random, storyRandom);
-                    }
-                    // Hard guarantee: never place more repeats than the budget can hold.
-                    reps = Math.min(reps, Math.max(1, Math.floor(budget / next.width)));
-                }
-                for (let placed = 0; placed < reps && slots < 298; placed++) {
-                    planned.push({ scene: next, walkFrom: previous });
-                    previous = next;
-                    budget -= next.width;
-                    slots++;
-                }
-                unwanted |= F.FIRST;
+        while (budget !== 0 && planned.length < 298) {
+            if (pending && chance(5, 'director-keyframe-insert')) {
+                place(pending);
+                pending = null;
+                continue;
+            }
+            const next = pickNext(PickClass.INTERMEDIATE);
+            if (!next) break;
+            const reps = next.classBits & PickClass.REPEAT ? fittingRepeatCount(next, budget) : 1;
+            for (let placed = 0; placed < reps && planned.length < 298; placed++) {
+                place(next);
+                pay(next);
             }
         }
         planned.push({ scene: finalScene, walkFrom: previous });
-        // The executable folds every planned record's flags into the batch state
+        // The executable has folded every planned record's flags into the batch state
         // before the bake (FUN_1018_08b9 -> FUN_1010_1c41), ending first.
-        const batch = [finalScene, ...planned.slice(0, -1).map(({ scene: selected }) => selected)];
         const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
             startTime: resolvedStartTime,
-            ...batchOptions(batch),
+            ...batchOptions(folded),
         });
         return { planned, islandState, startTime: resolvedStartTime };
     };
@@ -706,14 +831,15 @@ export const createJohnnyStoryController = ({
         const date = now();
         const startTime = getStartTime(storage);
         const storyDay = updateStoryDay(storage, date);
-        const finalScene = chooseFinalScene(storyDay, tidePhaseFor(date, startTime));
-        recentFinals.push(finalScene);
-        if (recentFinals.length > 2) recentFinals.shift();
-        // A day-locked keyframe scene playing this sequence unlocks the next story day
-        // (the dual-counter's second half). The calendar counter then chases it on the
-        // next real-date change (see updateStoryDay).
-        if (finalScene.day !== 0) unlockKeyframeDay(storage);
-        installPlan(createPlan({ storyDay, finalScene, date, startTime }));
+        const { ending: finalScene, keyframe } = chooseEnding(storyDay, tidePhaseFor(date, startTime));
+        lastEnding = finalScene;
+        lastKeyframe = keyframe;
+        // A day-locked keyframe planned for this sequence unlocks the next story day
+        // (the dual-counter's second half; the binary sets 30ee and increments 2d9b
+        // by the next planning). The calendar counter then chases it on the next
+        // real-date change (see updateStoryDay).
+        if (finalScene.day !== 0 || keyframe) unlockKeyframeDay(storage);
+        installPlan(createPlan({ storyDay, finalScene, keyframe, date, startTime }));
     };
 
     const debugStoryDay = (sceneMetadata, requestedDay) =>
@@ -790,7 +916,7 @@ export const createJohnnyStoryController = ({
             const selected = findScene(script, tagId);
             if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
             const storyDay = debugStoryDay(selected, requestedDay);
-            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected);
             const date = now();
             const batch = finalScene === selected ? [selected] : [finalScene, selected];
             const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
@@ -808,7 +934,7 @@ export const createJohnnyStoryController = ({
             const selected = findScene(script, tagId);
             if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
             const storyDay = debugStoryDay(selected, requestedDay);
-            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, storyDay);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected);
             const anchorScene = hasAll(selected.flags, F.FINAL) ? null : selected;
             const anchor = Object.freeze({ script: selected.script, tagId: selected.tagId });
             installPlan(createPlan({ storyDay, finalScene, anchorScene }), anchor);

@@ -301,26 +301,33 @@ the same decisions; where they differ, the rule or the candidate pool differs.
 Only the first batch can be replayed: walks, poses and TTM delays draw from the
 same stream at a timing-dependent pace.
 
-| Run | Day / phase | Captured first batch | Ours at the same offset |
-|---|---|---|---|
-| d1-st900-a | 1 / 1 | FISHING#1 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 VISITOR#7 BUILDING#7 POSE **ACTIVITY#6** | **STAND#10** POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 FISHING#7 **BUILDING#4** (9/17 equal) |
-| d1-st900-b | 1 / 1 | FISHING#7 STAND#10 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 **ACTIVITY#5** | **BUILDING#3** STAND#10 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 **ACTIVITY#10** (13/15) |
-| d5-st300-night | 5 / 13 | BUILDING#3 FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 STAND#9 POSE **ACTIVITY#1** | **ACTIVITY#7** FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 VISITOR#1 BUILDING#8 STAND#15 **MARY#1** (9/13) |
-| d9-st330-night | 9 / 12 | (same as d5) | ACTIVITY#7 ... STAND#6 VISITOR#1 BUILDING#9 FISHING#7 ACTIVITY#1 (9/13, ending matches) |
+`node align-planner.mjs --all [runsDir]` replays every timing-faithful run at its
+exact offset and reports how many first batches are identical; the same check runs
+as `src/games/johnny/__tests__/planner-replay.test.mjs` whenever the game data and
+the captures are present (`JOHNNY_NORMAL_PLAY_RUNS` overrides the runs directory).
 
-So on days without day-locked intermediates the two planners consume the same
-words for the same picks: positions 2-10 (d1-a), 2-14 (d1-b) and 2-10 (d5/d9)
-are identical at the exact boot offset. Two decisions differ from the same word:
-the **ending** (the roulette's candidate set or order: ACTIVITY#6 vs BUILDING#4,
-ACTIVITY#5 vs ACTIVITY#10, ACTIVITY#1 vs MARY#1 at night on day 5) and the **first
-slot** (the binary's `FUN_1018_0d76(1, ...)` picks the first record from the
-flagsB-bit-1 class; ours has no separate first pick). The ending's width then moves
-the budget, so the tails differ. Day 2, 6 and 10 runs (JOHNNY#2/#3 and the day-10
-keyframe in play) do not replay at any nearby offset: our candidate pools differ
-there (the day-locked intermediates are ordinary candidates in ours). The
-160-161 draws of the first planner call plus bake are: 1 gate, 15 roulette picks
-(`140F:0E67`), 103 bucket draws (`140F:1F33`: pose repeat counts and 15 cloud
-slots), 1 ocean (`1417:01FA`), and 13 cloud positions, speeds and phases.
+| Run | Day / phase | Skip | Captured first batch | Ours at the same offset |
+|---|---|---:|---|---|
+| d1-st230-night | 1 / 14 | 25136 | FISHING#7 ACTIVITY#7 FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 STAND#9 VISITOR#4 ACTIVITY#10 | identical (14/14) |
+| d1-st900-a | 1 / 1 | 25137 | FISHING#1 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 VISITOR#7 BUILDING#7 POSE ACTIVITY#6 | identical (17/17) |
+| d1-st900-b | 1 / 1 | 25136 | FISHING#7 STAND#10 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 ACTIVITY#5 | identical (15/15) |
+| d10-st900 | 10 / 1 | 25137 | (as d1-st900-a) | identical (17/17) |
+| d2-st500 | 2 / 9 | 25137 | ACTIVITY#4 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 BUILDING#7 FISHING#2 POSE POSE POSE FISHING#6 | identical (19/19) |
+| d5-st300-night | 5 / 13 | 25137 | BUILDING#3 FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 STAND#9 POSE ACTIVITY#1 | identical (13/13) |
+| d6-st700 | 6 / 5 | 25137 | (as d1-st900-a) | identical (17/17) |
+| d9-st330-night | 9 / 12 | 25137 | (as d5-st300-night) | identical (13/13) |
+
+Before the #68 planner fix the intermediates already matched (positions 2-10 of
+d1-a, 2-14 of d1-b, 2-10 of d5/d9) but the **ending** and the **first slot** did
+not, and the day 2, 6 and 10 runs did not replay at any nearby offset because
+day-locked records sat in our ordinary pools. With the planner re-derived from
+`FUN_1018_08b9`/`FUN_1018_0d76` (a separate first-slot roulette over the flagsB-bit-1
+class, the ending re-drawn rather than pooled out when it equals the previous one,
+day-locked records only through the 10 % keyframe gate) all eight first batches,
+their island layout words and origins replay exactly. The 160-161 draws of the first
+planner call plus bake are: 1 gate, 15 roulette picks (`140F:0E67`), 103 bucket draws
+(`140F:1F33`: pose repeat counts and 15 cloud slots), 1 ocean (`1417:01FA`), and 13
+cloud positions, speeds and phases.
 
 ### Host canvas
 
