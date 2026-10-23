@@ -21,13 +21,13 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 ## Playback
 
-Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
+Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling and moving clouds and waves. Both modes offer the playback toolbar and optional Captain’s log. You can adjust individual options in Settings.
 
 **CRT picture** in Settings is optional and off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
 
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
-Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
+The bottom toolbar opens Settings, Picture controls and the story Timeline. **Log** toggles a right sidebar with session stats and day/gag navigation. **Hide** or `H` clears the toolbar; the corner button or `H` restores it. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` for full screen. [Toolbar and Captain’s log guide](docs/playback-toolbar.md).
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 

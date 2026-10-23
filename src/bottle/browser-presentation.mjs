@@ -160,7 +160,7 @@ export const runBrowserPresentation = async ({
     // Uses the same resourceProvider the runtime itself resolves ADS/TTM
     // entries through, and the same sequenceTools (story controller) the
     // debug panel tracks the running gag with.
-    setupSceneFlowUI({
+    const sceneFlow = setupSceneFlowUI({
         resolveEntry: (name) => resourceProvider.resolve(name),
         sequenceTools,
     });
@@ -193,7 +193,10 @@ export const runBrowserPresentation = async ({
         });
         audioManager = start.audioManager;
         enhancedUI?.destroy();
-        enhancedUI = start.experience === 'enhanced' ? setupEnhancedUI() : null;
+        enhancedUI = setupEnhancedUI({
+            settings, sequenceTools, sceneFlow,
+            resolveEntry: (name) => resourceProvider.resolve(name),
+        });
 
         // One host-owned raster per sequence (story day), persisting across
         // the per-event DgdsRuntime instances created below (faithful to the

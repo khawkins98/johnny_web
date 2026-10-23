@@ -1,0 +1,415 @@
+/* Original nautical chrome, inspired by the utility strips of 1990s adventures. */
+#enhanced-hud {
+    --ink: #382c1d;
+    --paper: #e2d2ac;
+    --brass: #d3aa61;
+    color: var(--ink);
+    font:
+        20px/1.15 'VT323',
+        monospace;
+    font-variant-numeric: tabular-nums;
+}
+#enhanced-hud [hidden],
+#jc-deck-restore[hidden] {
+    display: none !important;
+}
+#enhanced-hud.is-hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+#jc-deck {
+    position: fixed;
+    z-index: 900;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    min-height: 76px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 2px 6px;
+    color: #efdfb9;
+    background: #3e3226 url('./deck-icons/wood-tile.svg') repeat;
+    background-size: 32px 32px;
+    border: 8px solid transparent;
+    border-image: url('./deck-icons/brass-frame.svg') 8 stretch;
+    border-radius: 0;
+    box-shadow:
+        inset 0 1px #e0bd78,
+        inset 0 -3px #211c18,
+        0 6px 20px #0008;
+}
+#jc-deck::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    background: #aa8c55;
+    box-shadow: inset 1px 1px #f2d28c;
+    border-radius: 50%;
+    flex: none;
+}
+.jc-deck-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-right: auto;
+    min-width: 0;
+}
+.jc-deck-brand > svg {
+    width: 48px;
+    height: 48px;
+    color: #ddbd76;
+    flex: none;
+}
+.jc-deck-brand strong {
+    display: block;
+    font:
+        700 25px/1 'Caveat',
+        cursive;
+    color: #fff0c9;
+    white-space: nowrap;
+}
+.jc-deck-brand small {
+    display: block;
+    margin-top: 4px;
+    font-size: 16px;
+    color: #cbb893;
+}
+.jc-deck-tools {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+#enhanced-hud button,
+#enhanced-hud select,
+#jc-deck-restore {
+    font: inherit;
+    cursor: pointer;
+}
+#enhanced-hud button {
+    min-width: 40px;
+    min-height: 40px;
+    color: inherit;
+}
+#jc-deck button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 58px;
+    min-height: 52px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #e8d7b3;
+    font-size: 16px;
+    box-shadow: none;
+    transition:
+        background-color 120ms,
+        transform 120ms;
+}
+#jc-deck button svg {
+    width: 24px;
+    height: 24px;
+}
+#jc-deck button:hover {
+    color: #fff4d5;
+    background: #ffffff12;
+    border-color: #92764c;
+}
+#jc-deck button[aria-expanded='true'] {
+    background: #172e30;
+    border-color: #ac9966;
+    color: #f5d991;
+    box-shadow: inset 0 -2px #7fa7a0;
+}
+#enhanced-hud button:active,
+#jc-deck-restore:active {
+    transform: scale(0.96);
+}
+#enhanced-hud :focus-visible,
+#jc-deck-restore:focus-visible {
+    outline: 3px solid #efca72;
+    outline-offset: 3px;
+}
+#jc-deck button + .jc-deck-divider {
+    height: 32px;
+    width: 1px;
+    background: #92764c;
+    margin: 0 6px;
+}
+#jc-deck #enhanced-hud-dismiss {
+    min-width: 40px;
+    padding: 4px;
+}
+#jc-log {
+    position: fixed;
+    z-index: 910;
+    top: 12px;
+    right: 12px;
+    bottom: 96px;
+    width: 300px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    overflow: auto;
+    background: #e4d3ad url('./deck-icons/paper-tile.svg') repeat;
+    background-size: 32px 32px;
+    border: 8px solid transparent;
+    border-image: url('./deck-icons/paper-frame.svg') 8 stretch;
+    border-radius: 0;
+    box-shadow:
+        inset 0 0 0 3px #f6e8c530,
+        inset 0 0 28px #896e3820,
+        0 8px 28px #0005;
+}
+.jc-log-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid #a58b5d;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+}
+.jc-log-title h2 {
+    margin: 0;
+    font:
+        700 32px/1 'Caveat',
+        cursive;
+    text-wrap: balance;
+}
+#jc-log button {
+    border: 1px solid #a08b62;
+    background: #f4e8c9;
+    border-radius: 3px;
+    padding: 6px 10px;
+    box-shadow: 0 2px #b5a17b;
+    transition:
+        background-color 120ms,
+        transform 120ms;
+}
+#jc-log button:hover {
+    background: #fff4d5;
+}
+#jc-log button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+#jc-log .jc-log-close {
+    border: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+    font-size: 28px;
+}
+.jc-eyebrow {
+    display: block;
+    color: #786442;
+    font-size: 14px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+#jc-log h3 {
+    font:
+        700 27px/1.05 'Caveat',
+        cursive;
+    margin: 5px 0 10px;
+    text-wrap: balance;
+}
+.jc-day-track {
+    display: flex;
+    gap: 4px;
+    margin: 10px 0 6px;
+}
+.jc-day-track span {
+    flex: 1;
+    height: 7px;
+    background: #aa98704d;
+    border: 1px solid #a08b6240;
+}
+.jc-day-track span.is-visited {
+    background: #8f9270;
+}
+.jc-day-track span.is-current {
+    background: #2d6563;
+    border-color: #264c49;
+}
+.jc-log-note {
+    font-size: 15px;
+    color: #786442;
+    margin: 5px 0 16px;
+}
+.jc-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 14px 0;
+    margin: 0;
+    border-block: 1px solid #a58b5d80;
+}
+.jc-stat-grid dt {
+    color: #786442;
+    font-size: 15px;
+}
+.jc-stat-grid dd {
+    margin: 5px 0 0;
+    font-size: 27px;
+    color: #314e49;
+}
+.jc-current {
+    margin: 18px 0;
+}
+.jc-current h3 {
+    min-height: 2.1em;
+}
+.jc-visit-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    color: #786442;
+}
+#jc-log progress {
+    display: block;
+    width: 100%;
+    height: 6px;
+    accent-color: #326c65;
+    margin-top: 7px;
+    border: 0;
+    background: #b6a780;
+}
+#jc-log progress::-webkit-progress-bar {
+    background: #b6a780;
+}
+#jc-log progress::-webkit-progress-value {
+    background: #326c65;
+}
+.jc-log-navigation {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid #a58b5d;
+}
+.jc-log-navigation label {
+    display: block;
+    margin: 12px 0 5px;
+    color: #786442;
+    font-size: 15px;
+}
+.jc-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#jc-log select {
+    min-width: 0;
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid #a08b62;
+    border-radius: 3px;
+    padding: 5px;
+    background: #f7ebcf;
+    color: #382c1d;
+}
+#jc-log .jc-play-day {
+    flex: 1;
+    background: #315e59;
+    color: #fff1cc;
+    border-color: #294b46;
+    box-shadow: 0 2px #203e39;
+}
+#jc-log .jc-full-width {
+    width: 100%;
+    margin-top: 10px;
+}
+.jc-log-error {
+    color: #863b24;
+    font-size: 16px;
+}
+#jc-deck-announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+#jc-deck-restore {
+    position: fixed;
+    z-index: 900;
+    right: 12px;
+    bottom: 12px;
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid #ae8e52;
+    border-radius: 4px;
+    background: #3e3428;
+    color: #f2dba4;
+    font:
+        20px 'VT323',
+        monospace;
+    box-shadow: 0 3px 12px #0006;
+}
+body.jc-deck-visible #settings-cog,
+body.jc-deck-visible #scene-flow-cog {
+    display: none;
+}
+@media (max-width: 1000px) {
+    .jc-deck-brand strong {
+        font-size: 23px;
+    }
+    .jc-deck-brand > svg {
+        display: none;
+    }
+    #jc-deck {
+        gap: 8px;
+    }
+}
+@media (max-width: 700px) {
+    #jc-deck {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        min-height: 68px;
+        padding: 0;
+        gap: 0;
+    }
+    #jc-deck::before,
+    .jc-deck-brand,
+    .jc-deck-divider {
+        display: none;
+    }
+    .jc-deck-tools {
+        justify-content: space-between;
+        width: 100%;
+        gap: 0;
+    }
+    #jc-deck button {
+        min-width: 40px;
+        padding: 3px;
+        font-size: 13px;
+    }
+    #jc-log {
+        top: 8px;
+        right: 8px;
+        bottom: 84px;
+        width: min(300px, calc(100vw - 16px));
+        padding: 12px;
+    }
+}
+@media (max-width: 700px) {
+    #jc-deck-fullscreen span {
+        font-size: 0;
+    }
+    #jc-deck-fullscreen span::after {
+        content: 'Full';
+        font-size: 13px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #enhanced-hud button {
+        transition: none;
+    }
+}

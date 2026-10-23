@@ -953,15 +953,13 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Handle Resize
     window.addEventListener('resize', () => {
         const mode = localStorage.getItem('jc-scale-mode') || 'native';
-        if (mode === 'integer' || mode === 'freeform') {
-            applyScaling(mode);
-        }
+        applyScaling(mode);
     });
 
     // Apply initial
     applyScaling(savedScale);
 
-    return { open, close, applyExperience, restart };
+    return { open, close, applyExperience, restart, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'native') };
 }
 
 function applyScaling(mode) {
@@ -970,15 +968,20 @@ function applyScaling(mode) {
 
     const width = 640;
     const height = 480;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const deck = document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
+    const rail = document.getElementById('jc-log');
+    // Keep the picture in its own available area; CRT follows these same bounds.
+    const bottom = deck ? window.innerHeight - deck.getBoundingClientRect().top + 12 : 0;
+    const right = deck && rail && !rail.hidden && window.innerWidth > 900 ? rail.getBoundingClientRect().width + 24 : 0;
+    const vw = Math.max(1, window.innerWidth - right);
+    const vh = Math.max(1, window.innerHeight - bottom);
 
     // Reset basics
     root.style.transform = 'none';
     root.style.width = '640px';
     root.style.height = '480px';
-    root.style.top = '50%';
-    root.style.left = '50%';
+    root.style.top = deck ? `${vh / 2}px` : '50%';
+    root.style.left = deck ? `${vw / 2}px` : '50%';
     root.style.marginTop = '-240px';
     root.style.marginLeft = '-320px';
     root.style.imageRendering = 'auto';
@@ -1002,8 +1005,8 @@ function applyScaling(mode) {
         const scale = Math.min(vw / width, vh / height);
         root.style.transform = `scale(${scale})`;
     } else if (mode === 'stretch') {
-        root.style.width = '100vw';
-        root.style.height = '100vh';
+        root.style.width = deck ? `${vw}px` : '100vw';
+        root.style.height = deck ? `${vh}px` : '100vh';
         root.style.top = '0';
         root.style.left = '0';
         root.style.marginTop = '0';
