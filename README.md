@@ -49,6 +49,7 @@ For a specific task:
 - [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
 - [Read the resource format](docs/resindex.md) — archive layout and decoding notes.
 - [Compare with the original](tools/faithfulness-oracle/README.md) — recording tools and [current coverage](docs/oracle-coverage.md).
+- [Accepted differences from the original](docs/accepted-deviations.md) — what we deliberately do differently, and why.
 
 ## A personal note and acknowledgements
 
