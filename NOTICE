@@ -52,3 +52,15 @@ that provenance and preserve all applicable license and copyright obligations.
   [Johnny-Castaway-Open-Source](https://github.com/nivs1978/Johnny-Castaway-Open-Source)
 - **Vasco Costa** (vcosta) and the **ScummVM DGDS contributors** — DGDS engine work in
   [ScummVM](https://github.com/scummvm/scummvm/tree/master/engines/dgds)
+
+## CRT-Lottes Research Reference
+
+The development-only presentation lab vendors Timothy Lottes' **CRT-Lottes**
+shader, whose preserved source header declares it public domain. The file is
+unchanged from Libretro `glsl-shaders` revision
+`e808ca09c699db7a843154cf7dc4dfd766d18a8a`:
+https://github.com/libretro/glsl-shaders/blob/e808ca09c699db7a843154cf7dc4dfd766d18a8a/crt/shaders/crt-lottes.glsl
+
+See `tools/presentation-lab/vendor/README.md` for provenance and the browser
+adapter. The experimental VGA beam shader is original code. These lab renderers
+are separate from the production game's existing CRT renderer.

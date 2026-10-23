@@ -4,6 +4,8 @@
 
 Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; it does not change the production settings or Enhanced default.
 
+**VGA/Libretro research:** [New four-renderer lab, diagnostics, setup and credits](VGA.md). This adds an original beam model and an actual pinned CRT-Lottes comparison; it does not replace the production game shader.
+
 ## Run the lab
 
 Use Node 24+, pnpm 10, then:

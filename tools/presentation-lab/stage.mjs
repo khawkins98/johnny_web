@@ -1,4 +1,7 @@
 import { resolveScale } from './scaling.mjs';
+import { createVga } from './vga.mjs';
+import { createLottes } from './lottes.mjs';
+import { maskVisibility } from './vga-model.mjs';
 import { createCrt } from './crt.mjs';
 
 /** One output target. Source acquisition stays in the lab, shared by every target. */
@@ -10,6 +13,7 @@ export function createStage(viewport) {
         return canvas;
     };
     const baseline = makeCanvas(), raster = makeCanvas(), output = makeCanvas();
+    const renderers = new Map();
     let crt = null, failure = '', geometry, effect = 'none', dpr = 1, available, sizing, lastCrtSettings;
     function fail(message) {
         failure = message; output.hidden = true; raster.hidden = true; baseline.hidden = false;
@@ -30,8 +34,16 @@ export function createStage(viewport) {
         output.style.imageRendering = 'auto'; raster.style.imageRendering = 'auto';
         failure = ''; output.hidden = true; raster.hidden = true; baseline.hidden = false;
         if (effect === 'unavailable') fail('Forced WebGL unavailable · unfiltered fallback');
-        if (effect === 'crt' && !crt) {
-            try { crt = createCrt(output, fail); } catch (error) { fail(error.message); }
+        if (['crt', 'vga', 'lottes'].includes(effect)) {
+            // One WebGL context per canvas; release the old shader before rebuilding.
+            // dispose(false) on the creative renderer avoids forcibly losing that shared context.
+            if (crt && !renderers.has(effect)) { crt.dispose(false); renderers.clear(); crt = null; }
+            if (!renderers.has(effect)) {
+                try {
+                    const factory = { crt: createCrt, vga: createVga, lottes: createLottes }[effect];
+                    crt = factory(output, fail); renderers.set(effect, crt);
+                } catch (error) { fail(error.message); }
+            } else crt = renderers.get(effect);
         }
     }
     function draw(source, settings) {
@@ -44,15 +56,16 @@ export function createStage(viewport) {
             context.drawImage(source, 0, 0, width, height);
             raster.hidden = false; baseline.hidden = true;
         }
-        if (effect === 'crt' && settings.bypass) { output.hidden = true; raster.hidden = true; baseline.hidden = false; }
-        if (effect === 'crt' && !settings.bypass && crt && !failure) {
+        if (['crt', 'vga', 'lottes'].includes(effect) && settings.bypass) { output.hidden = true; raster.hidden = true; baseline.hidden = false; }
+        if (['crt', 'vga', 'lottes'].includes(effect) && !settings.bypass && crt && !failure) {
             try { crt.draw(source, width, height, settings, geometry.sharp); output.hidden = false; baseline.hidden = true; }
             catch (error) { fail(error.message); }
         }
     }
     function metrics() {
         const rect = viewport.getBoundingClientRect();
-        return { available, mode: sizing, geometry, effect, failure, crt: effect === 'crt' ? lastCrtSettings : null,
+        return { available, mode: sizing, geometry, effect, failure, crt: ['crt', 'vga', 'lottes'].includes(effect) ? lastCrtSettings : null,
+            vgaMaskVisibility: effect === 'vga' && lastCrtSettings ? maskVisibility(output.width, lastCrtSettings.triads) : null,
             layoutDeviceOrigin: [(rect.left + geometry.x) * dpr, (rect.top + geometry.y) * dpr],
             glSize: [output.width, output.height], rasterSize: [raster.width, raster.height] };
     }
