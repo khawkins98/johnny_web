@@ -11,6 +11,8 @@ Follow the [README setup](README.md#run-locally) to get the app running. You can
 | `src/dgds/hosts/` | Browser scheduling, audio, and frame presentation |
 | `src/bottle/` | Shared application startup, package APIs, and developer panel |
 | `test/` | Rendering goldens and comparisons with the original program |
+| `tools/faithfulness-oracle/` | Capture and comparison tools for checking against the original ([overview](tools/faithfulness-oracle/README.md)) |
+| `tools/story-mix/` | Simulates many visits to show which gags the planner picks |
 
 Unit tests also live alongside the source in `__tests__/` directories. Read the [architecture guide](docs/architecture.md) when working on execution or rendering, and use the [diagnostics guide](docs/diagnostics.md) to investigate playback bugs.
 
@@ -24,7 +26,7 @@ pnpm run extract "<path-to-zip>"
 
 The extractor requires `unzip` and `mcopy` on your PATH. On macOS, `unzip` is built in and `brew install mtools` provides `mcopy`. On Debian/Ubuntu, install both with `apt install unzip mtools`.
 
-This creates `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`. Keep these proprietary files out of Git. The output directories `public/data/`, `dumps/`, and `traces/` are ignored; save lasting reverse-engineering findings in tests or documentation instead of committing generated asset dumps or inventories.
+This creates `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`. Keep these proprietary files out of Git. The output directories `public/data/`, `dumps/`, and `traces/` are ignored, as is `scratchpad/`, where captures of the original and other game-derived files go. Save lasting reverse-engineering findings in tests or documentation; never commit game data, captures, extracted assets, or decompiled code.
 
 To test the first-run import screen, use `pnpm run dev:empty`. It hides local assets and opens `/?reset`, which clears the browser's imported data.
 
@@ -54,7 +56,7 @@ pnpm run test:golden
 
 **CI has no game data.** It runs the test suite and build, but skips data-dependent gag, faithfulness, and rendering checks. A green CI run therefore doesn't establish fidelity to the original. Run those checks locally with data present; `test:golden` also skips when data is absent.
 
-Only run `pnpm run test:golden:update` after visually reviewing an intentional rendering change. To run just the comparison with the original program, use `pnpm run test:faithful`. Regenerating its reference recordings requires a patched DOSBox-X build; see the [oracle methodology](tools/faithfulness-oracle/METHODOLOGY.md).
+Only run `pnpm run test:golden:update` after visually reviewing an intentional rendering change. To run just the comparison with the original program, use `pnpm run test:faithful`. Regenerating its reference recordings requires a patched DOSBox-X build; see the [oracle methodology](tools/faithfulness-oracle/METHODOLOGY.md). If a change makes the port differ from the original on purpose, add it to [accepted differences](docs/accepted-deviations.md).
 
 For rendering bugs, enable [diagnostics](docs/diagnostics.md), reproduce the issue, and attach a downloaded JSONL trace.
 

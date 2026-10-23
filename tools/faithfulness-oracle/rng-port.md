@@ -82,9 +82,7 @@ Opcode `0x2020` is an RNG consumer. Its actual TTM handler is `1058:0e08` (the e
 
 A focused JOHNNY:2 capture observed arguments `(60,180)`, RNG ordinal 49,533 with word `0x1f2f`, and thread delay 123: `60 + (0x1f2f % 120) = 123`. This confirms both the machine-code formula and the live state transition.
 
-Island layout is not randomly selected. Catalogue `flagsB` is the little-endian word at record offset `+0x0b`; bit `0x0200` on any planned scene forces layout 0. The browser preserves that semantic flag and, after planning the complete chain, draws ocean, X, and Y in the original order and ranges.
-
-Holiday-specific coordinate modifiers are not connected because their raw `flagsD` field is not yet preserved. Timing-dependent ambient consumers also remain outside the shared browser stream, so this does not reproduce the original draw order end to end.
+After planning the whole batch, the browser draws the bake's random values in the original's order: the day ocean, the tide coin unless a planned scene forces high tide (`flagsB 0x200`), then the island X and Y within the band the batch's layout word allows (record word `+0xd`; see `docs/scrantic-re-findings.md` B.6.3a). Timing-dependent ambient consumers stay outside the shared stream, so this does not reproduce the original draw order end to end.
 
 Other apparent randomness stays on the browser's cosmetic random source:
 
@@ -93,8 +91,6 @@ Other apparent randomness stays on the browser's cosmetic random source:
 | Ambient motion | Their draws are interleaved according to wall-clock timing. |
 | Per-runtime fallback ocean choice | Johnny's host supplies its confirmed shared-stream ocean choice; the generic DGDS fallback remains cosmetic. |
 | Clouds | The model is the original's (`clouds.mjs`, `FUN_1010_0a38`), but the bake also draws shoreline sparkles (`FUN_1010_04a2`) and off-screen cloud refills (`FUN_1010_0b67`) that the browser does not model, so clouds stay off the shared stream. |
-
-Ordinary island positioning is connected. Holiday fixed quadrants and range modifiers remain deferred until raw `flagsD` is decoded and validated; the browser does not guess them.
 
 Keeping these separate makes the experimental path deterministic, but it also means its choices do not line up with a live original-program session. Add `?faithfulRng=on` to enable it; the default remains `Math.random`.
 
@@ -108,12 +104,12 @@ The patch also records the caller CS:IP. To summarize a raw local capture withou
 node tools/faithfulness-oracle/rng-consumer-report.mjs scratchpad/capture/trace.log
 ```
 
-`rng-consumer-evidence.json` is the non-proprietary derived record from one normal boot. It observed 47,942 draws before the first director call; that number is deliberately recorded as a sample, not a stable offset.
+`rng-consumer-evidence.json` is the non-proprietary derived record from one normal boot. It observed 47,942 draws before the first director call, in an interactive session.
 
 `src/dgds/scripting/__tests__/faithful-rng.test.mjs` keeps the first 64 traced words as a compact CI check. It can also record each JavaScript draw as an ordinal, call-site label, and raw word for comparison with emulator traces. `faithful-story.test.mjs` confirms that sampled story streams complete, including the fishing return path.
 
 ## Limit of exact replay
 
-The generator is exact, but a live DOSBox-X session cannot yet be replayed draw for draw. In the original program, intro and ambient animation share the generator with story logic. Their wall-clock-driven loops consume a different number of words depending on emulator timing; observed boots reached the story after roughly 400 to more than 20,000 draws.
+The generator is exact, and the first batch of a visit can now be replayed: a headless DOSBox-X boot makes 25,136 or 25,137 draws before the first director call, and replaying our planner from that offset reproduces all eight captured first batches (`pixel-oracle/align-planner.mjs`; see the pixel-oracle README, "Replaying the first batch"). Interactive boots vary much more (from about 400 to about 48,000 draws).
 
-The browser therefore reproduces the original generator and weighted-choice rule, but not the timing-dependent ambient interleave. A fully aligned trace would require a fixed emulator clock or a measured starting offset. Until then, claims of exactness apply to the generator and choice formula, not to every choice made during a live original-program session.
+After the first batch, walks, poses and TTM delays draw from the same stream at a pace set by wall-clock timing, so a live session can't be replayed draw for draw. Claims of exactness apply to the generator, the choice formulas and the first batch, not to every later choice.

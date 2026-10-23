@@ -7,7 +7,7 @@
  * its +/- buttons add or subtract 30 (0x1e) in HHMM arithmetic, a value below 0
  * or above 2359 wraps by 2400 (with a beep), and the minutes round down to :00
  * or :30, a minutes field of 60..69 carrying into the next hour. SCRANTIC.INI
- * persists it as [Screen Antics] StartTime; we persist it as `jc-start-time-hhmm`.
+ * persists it as [ScreenSaver.ScreenAntics] StartTime; we persist it as `jc-start-time-hhmm`.
  *
  * One quirk is not copied: the dialog shows 23:30 + 30 as "24:00" before wrapping
  * to 00:30 on the next press. 24:00 and 00:00 give the same phases, so we wrap

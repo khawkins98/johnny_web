@@ -36,7 +36,7 @@ The engine uses logical ticks, instance-owned state, injected resources, and a s
 | --- | --- |
 | Application startup | `src/games/johnny/browser-app.mjs` composes the package and UI with `src/bottle/browser-presentation.mjs`. |
 | Game configuration | `src/games/johnny/manifest.mjs` supplies resource names and metadata; `src/bottle/game-package.mjs` validates the base package. |
-| Story and island | `src/games/johnny/story-controller.mjs` selects scenes; `walking.mjs` and `island-presenter.mjs` handle movement and persistent island state. |
+| Story and island | `src/games/johnny/story-controller.mjs` plans each visit; `start-time.mjs` holds the Start Time setting; `walking.mjs`, `clouds.mjs` and `island-presenter.mjs` handle walks, the cloud layout and persistent island state. |
 | Resource loading | `src/dgds/resource.mjs`, `resources/`, and `compression/` decode archives; `resource-provider.mjs` resolves names for the runtime. |
 | Script execution | `src/dgds/scripting/runtime.mjs` coordinates ADS and TTM; `script-runner.mjs` dispatches opcodes; `scene-factory.mjs` creates scene state. |
 | Rendering | `src/dgds/scripting/surface-frame-presenter.mjs` applies drawing operations; `composition.mjs` redraws active scenes onto the shared `surface.mjs` raster. |
@@ -72,6 +72,8 @@ CLI extraction writes the three proprietary runtime archives under ignored `publ
 | `SCR`     | Screen and background image          |
 | `PAL`     | Palette data                         |
 
+`SCR` screens are drawn opaque, so palette index 0 is a real colour on them; `BMP` sprites treat index 0 as transparent.
+
 ADS scripts sequence gags and start, stop, or test TTM scenes. TTM scripts load assets and execute drawing, timing, sound, and control opcodes. ADS and TTM use separate dispatch tables because identical opcode values can mean different things in the two formats.
 
 TTM raw opcodes encode their integer argument count in the low nibble. A low nibble of `15` denotes a string payload. `SET_SCENE` marks the start of a named sequence; it does not terminate the preceding thread. A thread can keep reading frames across later `SET_SCENE` markers until `PURGE`, `GOTO`, or the resource end. Its ADS-visible tag remains the one it started with during that fallthrough. In 40 of Johnny's 41 TTMs, the separate frame-zero prologue ends at `UPDATE` before the first `SET_SCENE`. `WOULDBE.TTM` begins with `SET_SCENE`, so its screen and palette setup belongs to the first named thread's frame and runs again when that thread loops.
@@ -95,16 +97,15 @@ The original resources and traces are primary evidence. The project also cross-c
 
 `runScript(state, script)` uses `state.reentry` as its program counter. It runs until an opcode blocks, normally `UPDATE`, then returns `yielded`, `looped`, or `completed`. `UPDATE` emits an authored frame boundary with the current `SET_DELAY`. The scheduler maps it through the named timing profile and owns the wait. `GOTO` requests a restart or switches to another tagged TTM script.
 
-ADS `ADD_SCENE` has a separate execution-lifetime parameter. A positive value is a finite run count; zero allows the child TTM to run normally; a negative value starts a time-limited child for that many DGDS timer ticks. A time-limited child restarts its TTM body after `END` until the cutoff, just as it continues through a `GOTO` loop; the cutoff, rather than the shape of the TTM body, determines when ADS may advance. It must not be folded into `SET_DELAY`, which controls only the interval between that child's authored frames.
+ADS `ADD_SCENE` has a separate execution-lifetime parameter. A positive value is a finite run count; zero allows the child TTM to run normally; a negative value starts a time-limited child for that many 16 ms game-clock ticks. A time-limited child restarts its TTM body after `END` until the cutoff, just as it continues through a `GOTO` loop; the cutoff, rather than the shape of the TTM body, determines when ADS may advance. It must not be folded into `SET_DELAY`, which controls only the interval between that child's authored frames.
 
 For a host-selected ADS tag, reaching ADS `END` stops interpreting that tag but does not discard finite children it started in its final branch. The runtime continues ticking those children without entering the next ADS tag. Once they complete, it clears the complete child batch—including any unbounded ambient loop—and reports the selected tag complete to the host controller.
 
 ADS `RUN_SCRIPT` is a synchronous subroutine call to another named ADS segment. The runtime expands those calls with recursion protection while retaining the selected segment as the host-visible execution boundary. This is required by `STAND.ADS`: every ordinary stand segment calls its initializer, which loads `MJ_AMB.BMP` before the chosen ambient sequence draws from it.
 
-Each `DgdsRuntime` owns its mutable script, scene, and composition state. The browser scheduler supplies the recovered fixed 50 Hz logical tick. Animation timestamps feed an accumulator. A late browser frame advances at most one logical tick and discards stale whole ticks, so a delayed paint or suspended tab cannot trigger an animation/audio burst. `SET_DELAY` and random delays remain integer DGDS ticks. The default `faithful-browser` timing profile preserves them and applies one named compatibility rule — `browser-yield-floor` makes a zero-delay frame visible for one logical tick. Browser wall time does not enter opcode execution.
+Each `DgdsRuntime` owns its mutable script, scene, and composition state. The browser scheduler supplies a fixed 20 ms logical tick. Animation timestamps feed an accumulator. A late browser frame advances at most one logical tick and discards stale whole ticks, so a delayed paint or suspended tab cannot trigger an animation/audio burst (an [accepted difference](accepted-deviations.md)). `SET_DELAY` and random delays stay as authored; the `faithful-browser` timing profile maps them to the original's clocks (see [frame cadence](#frame-composition) below). Browser wall time does not enter opcode execution.
 
-The runtime receives randomness and timing compatibility directly; it does not retain storage, wall time, or presentation policy. The browser policy owns enhanced cloud and wave state without writing it into authored scene state. Thus enhancements cannot alter interpreter timers, random choices, or scene state. The browser clock coalesces overdue timer events to one logical tick per paint: replaying several ticks synchronously would hide intermediate Canvas frames and start their audio operations as a burst, unlike the original message-driven timer.
-
+The runtime receives randomness and timing compatibility directly; it does not retain storage, wall time, or presentation policy. The browser policy owns cloud and wave presentation without writing it into authored scene state. Thus enhancements cannot alter interpreter timers, random choices, or scene state. 
 `PLAY_SAMPLE` emits a logical `play-sample` operation into the current tick result. The opcode does not inspect, resume, load, or await browser audio. The browser audio adapter consumes those operations after the tick and separately records whether playback started or was unavailable. Audio host state therefore cannot block ADS and TTM scheduling.
 
 Drawing opcodes similarly emit logical frame operations. Primitive drawing, sprites, saved-background (STORE_AREA) stores, and script-requested clears do not call Canvas. The surface-frame presenter applies each operation synchronously into deterministic RGBA pixels (so an in-pass STORE_AREA reads the pixels drawn earlier in the same pass) and records each scene's draw ops so `composeTtmFrame` can replay them (see [Frame composition](#frame-composition)). `DgdsRuntime.tick()` also returns the emitted operations for conformance tests and alternate hosts.
@@ -137,8 +138,7 @@ Branch commit is explicitly remove-before-add. An ADS branch may therefore finis
 ## Frame composition
 
 All active scenes draw onto one shared software raster. This model follows the
-[rendering findings from the original executable](scrantic-re-findings.md#part-a--rendering-model-root-cause-of-the-glitches).
-The historical note below explains how it replaced the earlier per-scene design.
+[buffer contract recovered from the original executable](scrantic-re-findings.md#part-c--buffer-contract-issue-53-phase-0).
 
 The browser has background and foreground canvases. TTM opcodes address neither directly —
 they emit frame operations that the surface-frame presenter (`src/dgds/scripting/surface-frame-presenter.mjs`)
@@ -148,10 +148,10 @@ and injects it into each per-event `DgdsRuntime` created for that sequence, so i
 across ADS runtimes within the sequence exactly as the original engine's once-allocated
 buffer did. A new raster is created only at a sequence boundary.
 
-The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, a shared presentation identity, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. A title-owned selection presenter keeps the island layer alive across otherwise independent ADS runtimes and walking interludes. Debug preview directives are created by that same controller, while anchored debug runs replace its queue and continue through the normal host path. One host-attempt cancellation token spans the captured selection's walk, ADS runtime, audio, and sequence-end wipe, so a new debug run atomically invalidates every part of the old selection rather than only stopping DGDS. The coordinator also overlays the browser's active one-scene preview on the paused story-controller status; the debug UI follows that host status by default while leaving nested TTM stage reporting to the runtime diagnostics. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, transition, and debug process and the one known route-selection approximation.
+The title host selects the ADS resource and tag to run. This mirrors the original split: ADS bytecode coordinates one selected scene, while executable-level policy chooses among ambient scene files. Johnny's controller also supplies immutable story/island state, walk endpoints, a shared presentation identity, and a sequence-end wipe; the browser renderer consumes those directives without moving their policy into DGDS. A title-owned selection presenter keeps the island layer alive across otherwise independent ADS runtimes and walking interludes. Debug preview directives are created by that same controller, while anchored debug runs replace its queue and continue through the normal host path. One host-attempt cancellation token spans the captured selection's walk, ADS runtime, audio, and sequence-end wipe, so a new debug run atomically invalidates every part of the old selection rather than only stopping DGDS. The coordinator also overlays the browser's active one-scene preview on the paused story-controller status; the debug UI follows that host status by default while leaving nested TTM stage reporting to the runtime diagnostics. Optional title-owned background decorators run after background composition; Johnny uses this hook to decode and stamp `HOLIDAY.BMP` without shipping converted image assets. [Johnny's host-behavior notes](johnny-host-behavior.md) document the recovered sequence, tide, walking, transition, and debug behavior.
 
 **Immediate mode: redraw every active scene each tick.** Reproducing the original engine's
-render loop (`docs/scrantic-re-findings.md` Part A; frame-cadence findings), every composed
+render loop (`docs/scrantic-re-findings.md` Part C), every composed
 frame is rebuilt from scratch: `composeTtmFrame()` (`src/dgds/scripting/composition.mjs`)
 **clears the shared raster to transparent, then redraws every _active_ scene's current frame
 in z-order** by replaying the draw ops each scene recorded that frame (`scene.state.frameOps`,
@@ -174,25 +174,28 @@ list is mutated by `MOVE_SEQUENCE_TO_BACK` (`moveSequenceToBack`), which removes
 re-appends a scene's key, so that opcode actually re-layers the scene instead of only
 recording a paint-order hint.
 
-**Sprite save-under (GET/PUT) has no pixel effect.** In immediate mode the per-tick
-clear+redraw *is* the erase, so `SAVE_IMAGE_REGION` (DGDS GET) is a no-op on the raster: the
-opcode is still emitted for conformance/trace, but the presenter does nothing with it, and
-`BEGIN_SCENE_FRAME` only resets the scene's recorded frame — it neither clears nor restores
-the raster. There is no save-under registry; the earlier `save-under.mjs` module and its
-per-region snapshot/restore machinery were removed once the shared raster became
-immediate-mode. (`STORE_AREA`, below, is a separate persistent mechanism and does still copy
-pixels.)
+**Script save-under has no pixel effect, except GET/PUT.** In immediate mode the per-tick
+clear and redraw *is* the erase. `SAVE_IMAGE_REGION` and `DRAW_GETPUT` are still emitted for
+conformance and traces, but do nothing to the raster; the binary ignores them too
+([findings C.3](scrantic-re-findings.md#c3-op-table)). `BEGIN_SCENE_FRAME` only resets the
+scene's recorded frame. The exception is the real GET/PUT pair (`0xa054`/`0xa064`, only in
+`GJGULIVR.TTM` for BUILDING #4/#6), which saves a rect of the world raster and writes it back
+so the anchored ship can sail away.
 
-**Frame cadence is gated to the original's effective ~55 ms `WM_TIMER`.** The engine runs two clocks
-(`docs/scrantic-re-findings.md` frame-cadence findings): a fine ~20 ms tick that only counts
-down delays and ADS time-limits, and a ~55 ms present cadence that advances animation frames —
-at most one TTM frame per sequence per timer sample, as the original's `WM_TIMER`-driven render did.
-`runtime.tick()` accumulates elapsed time into a present gate; countdowns run every fine tick,
-but the frame ADVANCE (running a scene's script to emit its next frame) only fires on a present
-tick. The authored `SET_DELAY` operand (in the original's ~16 ms game-tick unit) is rescaled to
-fine ticks by the injected `timing-compatibility` hook (`wm-timer-frame-cadence`), and the ~55 ms
-gate supplies the minimum on-screen time — so a zero-delay animation plays at ~18 fps, not the
-fine tick's 50 fps.
+**The plate is restored before the scripts run.** `restoreWorldRaster`
+(`composition.mjs`) puts the stored-background plate back under every rect drawn since the
+last restore, before each tick's scripts. A `STORE_AREA` or GET later in the tick therefore
+reads the plate plus this tick's draws so far, as in the binary. Each `STORE_AREA` adds to
+the plate rather than replacing it.
+
+**Frame cadence follows the original's two clocks.** The engine steps a fine 20 ms tick
+that counts down ADS time limits, and a ~55 ms present cadence (the original's effective
+`WM_TIMER`) that advances animation frames: at most one TTM frame per sequence per present.
+`runtime.tick()` accumulates elapsed time into the present gate. A frame's hold is a
+deadline on the original's 16 ms game clock, read once per present
+(`timingCompatibility.gameClockAtPresent`, patch `game-clock-frame-hold`), so a zero-delay
+animation plays at about 18 fps. The rule and its measurements are in the
+[methodology, "Frame holds"](../tools/faithfulness-oracle/METHODOLOGY.md#frame-holds).
 
 **Backgrounds are re-baked at the ADS-tag boundary, not per frame.** `clearAdsSceneBatch`
 (`src/dgds/scripting/script-runner.mjs`) clears the shared raster and prunes every TTM
@@ -201,35 +204,20 @@ re-emits `STORE_AREA` on its next frame to re-bake it onto the freshly cleared r
 `jumpToScene` prunes the same way on the old environment map before discarding it, so a
 persistent background cannot survive a debug jump onto the raster.
 
-The campfire branch-rearm (re-adding a completed zero-run-count TTM tag from the same ADS
-branch to keep an ambient layer animating) remains ordinary ADS scheduling, unchanged by
-this refactor — see the branch-commit discussion above.
-
 Across host-managed event boundaries, the browser presenter retains the previous
 foreground — or the final walking frame — until the next runtime produces a non-empty
 frame. Initializer-only transparent frames therefore cannot expose the bare background,
-while an explicit wipe, cancellation, or return to the title still clears immediately. This
-cross-event retention and fade behavior in the presenter is unchanged by this refactor.
+while an explicit wipe, cancellation, or return to the title still clears immediately.
 
-`frame-renderer.mjs` draws the configured background separately. Optional cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. Cloud drift and its origin are owned by the persistent title presentation key, so starting a new ADS runtime cannot introduce a random offset jump. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
+`frame-renderer.mjs` draws the configured background separately. Cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. The cloud layout (and Enhanced drift) belongs to the persistent visit presentation, so starting a new ADS runtime cannot move the clouds. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
 
-### Historical note: superseded per-scene-surface design
+### Earlier designs
 
-The rendering model was reached in two steps. The original port gave each scene its own
-transparent software surface with private GET/PUT slots, recomposited every tick, plus a
-"retained-final-layer" rule and a `BEGIN_SCENE_FRAME` full-surface clear-or-restore.
-Reverse-engineering the 16-bit executable (`docs/scrantic-re-findings.md` Part A) showed the
-original uses exactly one shared raster with no per-scene isolation, so that design was
-replaced with a single host-owned raster. An interim version of that shared-raster model was
-*retained* ("overwrite is the clear": stopping a scene left its last pixels until a neighbor
-overwrote them, with a global rect-keyed save-under registry doing the per-sprite erase). A
-further reverse-engineering pass (the frame-cadence findings) established that the original is
-**immediate-mode** — it redraws every active actor and re-erases every drawn region on each
-~55 ms effective `WM_TIMER` — so the retained model, the save-under registry, and the footprint machinery
-were all removed in favor of the clear+redraw-every-tick model described above (a finished
-scene simply stops being redrawn, so it ages out rather than persisting). `sequencePaintIndex`
-is retained as a name, but it now indexes into the mutable `ttmSequenceOrder` execution-order
-list rather than a static declaration order.
+The port first gave each scene its own transparent surface with private GET/PUT slots, then
+a retained shared raster with a save-under registry. Reverse-engineering showed the original
+uses one shared raster that is restored from a background plate every tick, so both were
+replaced by the model above ([findings Part C](scrantic-re-findings.md#part-c--buffer-contract-issue-53-phase-0)).
+`sequencePaintIndex` keeps its old name but now indexes the mutable `ttmSequenceOrder`.
 
 ## Host boundaries
 
@@ -257,6 +245,7 @@ Diagnostics can start at page load or change at runtime from Settings (`S`):
 | ------- | -------------------------------------------------------------------- |
 | Off     | No diagnostics                                                       |
 | On      | Concise console events plus structured events and pixel fingerprints |
+| Verbose | The same, plus per-sprite console logs                               |
 
 Enabling diagnostics starts a bounded 50,000-event flight-recorder session at the current engine tick. Its first JSONL record contains application and build, engine, timing profile, page, browser-reported capability, and display metadata. The recorder spans successive ADS runtimes so host selections, walking interludes, transitions, and relevant settings/debug actions can be correlated with engine events. It deliberately records named controls and values rather than arbitrary pointer movement, typing, or page content. `frame-timing-map` events record authored and mapped delays with applied patch names; `browser-presentation` events record foreground clear/upload/reuse decisions, retained-composition identity, pixel fingerprints, fades, and cloud count; `audio-sample` events distinguish sample requests from actual playback starts. If the bound is reached, the oldest events are discarded and the dropped count is reported.
 

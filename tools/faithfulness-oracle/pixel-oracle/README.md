@@ -1,8 +1,8 @@
 # Pixel oracle
 
 Compares what the browser draws with what the original program draws, one keyframe
-at a time, for every isolable gag (#53 Phase 1). The sequencing oracle
-(`npm run test:faithful`) already checks which scenes run and when. This one checks
+at a time, for every isolable gag (#53). The sequencing oracle
+(`pnpm run test:faithful`) already checks which scenes run and when. This one checks
 pixels. Scores and tooling are committed; captures and frames are not.
 
 ```sh
@@ -62,7 +62,8 @@ sets, not by clock time:
    fraction.
 3. Keyframes come from matched spans: the first sample (the transition), one to
    three mid-span samples, and the tick after each of our LOAD_SCREEN / STORE_AREA
-   bakes (the samples Phase 0 says are most likely to show plate differences).
+   bakes (the samples most likely to show plate differences; see
+   [findings Part C](../../../docs/scrantic-re-findings.md#part-c--buffer-contract-issue-53-phase-0)).
    They are capped at 48 per gag. The transition into the gag's first span is its
    own kind, `first-frame`, when both sides' first spans are the matched pair
    (54 of 64 gags; the STAND gags and ACTIVITY:8/11 start on a span our seed does
@@ -94,8 +95,8 @@ sets, not by clock time:
 - **Not scored**: host drawing in the original's first live frame that our first
   frame does not explain (`hostRemnant`). The host's animated shoreline-wave
   rectangles, where our gag drew nothing. Stale screen below row 350 that only the
-  original changed (`stale`, counted separately). Phase 0 found these are leftovers
-  of dirty-rectangle presentation.
+  original changed (`stale`, counted separately). These are leftovers of
+  dirty-rectangle presentation (findings C.5).
 - **Palette**: under Windows 3.1 some palette entries come out as static system
   colours. For example, our `#d4d4d4` grey shows as `#c3dfc3` "money green" in the
   SUZY city. A colour that maps one-to-one (at least 80% of at least 32 pixels) is
@@ -103,7 +104,7 @@ sets, not by clock time:
 - **Black plate (top)**: the percentage of the backdrop's non-black top-350 rows
   where the original shows black and ours draws nothing. This is the original
   restoring its black plate over leftovers: the actor-shaped "holes" in island
-  gags, and MEANWHIL's 640x350 area. Phase 0 says off-island plates are black, so
+  gags, and MEANWHIL's 640x350 area. Off-island plates are black (findings C.4), so
   this is diagnostic and not a divergence. `diffOnBackdrop` is the same keyframe
   scored with ours over the original's backdrop instead of black.
 - **Offset**: `foregroundShift` finds the `(dx, dy)` within ±2 that best aligns our
@@ -114,7 +115,7 @@ Verdicts use the aligned median and max (`report.mjs` `THRESHOLDS`): median
 <= 2% is faithful, marked "outlier keyframe" when one keyframe is above 8%; median
 <= 5% is close; anything else is divergent.
 
-## Findings (2026-10-22 sweep)
+## Findings
 
 - **SUZY:1 is faithful**: aligned median 1.0%, max 2.6%, coverage 100%. SUZY:2,
   JOHNNY:1 and JOHNNY:6 (which also open on the MEANWHIL card) are between 0% and
@@ -124,76 +125,31 @@ Verdicts use the aligned median and max (`report.mjs` `THRESHOLDS`): median
   `30c6 + 0x111` for LEFT_ISLAND scenes. A forced capture never runs the island
   bake, so `30c6` is 0, and the planner never sets `30b4 = 2`, so off-island scenes
   (the MEANWHIL clock) get the `+1` too. The forced host therefore offsets every
-  scene by 1, or 273 for LEFT_ISLAND (FISHING:4/7/8, MARY:5, VISITOR:5). With the
-  old 0 / 272, every gag needed a (1,0) shift: the STAND poses were 11-39% raw.
-  Normal play is set by the story controller (#58), not by this host.
-- **Palette substitution** of static colours shows up wherever those entries are
-  used (SUZY's city). This is a deviation in what the browser shows. Decide whether
-  to accept it or emulate it.
-- **Double ship in BUILDING:4/6 (`2:64` to `2:68`)**: at the handoff, ours draws the
-  finished scene's last frame for one more tick (`agedOut === false`) while the
-  successor draws the ship further along, so two ships overlap. The original shows
-  one ship. This is a real compositor divergence for Phase 2.
-- **Palm trunk drawn by the original** in FISHING:4 and WALKSTUF:1 forced captures
-  (orig-only pixels) is missing from our foreground. Check whether a TTM redraws the
-  trunk over passing actors, or whether it is a plate/host artefact of forced mode.
+  scene by 1, or 273 for LEFT_ISLAND (FISHING:4/7/8, MARY:5, VISITOR:5). Normal play
+  is set by the story controller (#58), not by this host.
+- **Palette substitution** of Windows static colours (SUZY's city) is an
+  [accepted difference](../../../docs/accepted-deviations.md).
+- **Fixed since the first sweep:** the double ship in BUILDING:4/6 `2:64`–`2:68`
+  (#57), the palm trunk over passing actors in FISHING:4 and WALKSTUF:1 (#58), and
+  delay-7 frames lasting about 147 ms instead of about 120 ms (#63). The last one
+  took BUILDING:2 `1:35` from 26% to 3.1%, WALKSTUF:1 `1:4` from 30.5% to 0.3%, and
+  BUILDING:8's fire cycle from 8.1% to 0.13%, and moved in-band lifespans from
+  195/651 to 331/651.
 
-The 2026-10-22 sweep had three gags with a keyframe above 8%, all from one timing
-difference: a `SET_DELAY 7` frame lasted about 147 ms in ours against about 120 ms
-in the original (2.13 samples a frame in WALKSTUF:1 `1:2`), because ours rounded
-112 ms up to six 20 ms ticks and then waited for a present. Frame holds are now the
-binary's deadline on the 16 ms game clock, read once per present (see the
-[methodology](../METHODOLOGY.md#frame-holds-53)). The re-run sweep:
+### The first frame: an accepted difference
 
-- BUILDING:2 `1:35`/`1:40`/`1:41`: 26% to 3.1% (the ship, delay 7, no longer lags
-  `1:40`'s delays 30/15/8); live-set coverage 66% to 80%, so the median moved from
-  0.03% to 1.24% over more keyframes.
-- WALKSTUF:1 `1:4`: 30.5% to 0.3%.
-- BUILDING:8 `3:78`: the delay-7 fire cycle keyframes went from up to 8.1% to at
-  most 0.13%, but a `3:44 3:48` transition keyframe is at 8.4% (it was 6.0% before,
-  with fewer keyframes matched). That one is the load-time clock jump, below.
-- Lifespan oracle: in-band actor spans went from 195/651 to 331/651, with no new
-  review beyond 3x.
-- ACTIVITY:8 (7.5% to 1.5%), MARY:1 (5.1% to 0.9%) and MARY:4 (6.1% to 1.1%) lost
-  their worst keyframes.
-- Two gags gained a keyframe above 8% at the gag's first frame: FISHING:5 `5:19`
-  (0.2% to 13.4%) and VISITOR:5 `5:1 5:8` (0.7% to 12.0%). The first frame of those
-  threads loads the screen and bitmaps, and in the original the game clock jumps
-  at a sample that loads, so that frame passes at the next sample whatever its
-  delay. Ours has no load cost, so the frame holds its full delay (four presents,
-  since a changed SET_DELAY also redraws the frame at the present its hold
-  elapses). The ±6 window used to hide this. (JOHNNY:5 `2:9` 2.3% and MARY:2 1.5%
-  were listed with them at the time; their first-frame keyframes score 0% and
-  those figures are mid-span pacing on `2:9` and `2:105 2:106`.)
-
-### The first frame: an accepted deviation (2026-10-23)
-
-The jump is not an engine rule. Eight `DBX_DELAY` captures (BUILDING:7 and MARY:4
-run alone for #40; FISHING:5, VISITOR:5, JOHNNY:5, MARY:2, SUZY:1 and BUILDING:2
-run six at a time) show that `now` advances by the load's emulated wall time: the
-`emu=` and `host=` deltas agree within a few percent at every jump, and the
-thread's deadline is always the pre-load clock plus its delay (`deadline - now`
-after the jump is exactly `delay - jump`). The size depends on the host: the first
-sample of a gag jumped 18 units (190 ms) in the lone runs and 28 to 113 units
-(316 to 1,804 ms) in the six-way runs, and the same FISHING:5 first sample ranged
-31 to 59 units across one capture's episodes. Mid-gag TTM adds jumped 7 to 55,
-samples with an image load inside a running thread 6 to 10, and the director's
-reload between episodes 20 to 230. So there is no per-load constant to calibrate,
-and in wall time the original shows the previous picture for the load and then the
-first frame for one sample (245 ms to 1.9 s in all), while ours shows the first
-frame for its hold (about 220 ms): advancing our clock without stalling would make
-every gag start and end a load earlier than the original, and stalling would be
-emulating hardware speed. The deviation is accepted and the oracle scores it as
-its own keyframe kind (`first-frame`, "Tick alignment" step 4) instead of hiding
-it in the ±6 window or reporting it as an outlier. With that, FISHING:5 goes from
-13.4% to 0.2% max and VISITOR:5 from 12.0% to 0.7%; MARY:1's max drops from 0.9%
-to 0.3% (its first frame); no other gag moved.
+The original's game clock jumps while a gag loads, so a loading first frame passes
+at the next sample; ours has no load cost and holds the frame for its delay. The
+evidence and the reasons for not modelling it are in the
+[methodology, "Load-time clock jumps"](../METHODOLOGY.md#load-time-clock-jumps).
+The oracle scores that frame as its own keyframe kind (`first-frame`, "Tick
+alignment" step 4) instead of hiding it in the ±6 window or reporting an outlier.
+With that, FISHING:5 went from 13.4% to 0.2% max and VISITOR:5 from 12.0% to 0.7%.
 Our first frame's best pair lags the mapped tick by 8 to 10 ticks (the whole
 hold) in 24 gags and by none in 25, where the first frame is a loader or a long
 hold on both sides.
-The methodology's "Frame holds" section has the clock evidence.
 
-### BUILDING:8 `3:44 3:48`: the same jump, mid-gag (2026-10-23)
+### BUILDING:8 `3:44 3:48`: the same jump, mid-gag
 
 The gag's one outlier keyframe (8.4%, original sample 708) is a mid-gag case of
 that jump. It is not a render difference and not the black plate: the plate
@@ -229,10 +185,9 @@ settle it.
 ## Limitations
 
 - Captures are forced. There is no island, the plate is black, and a gag starts on
-  title-screen leftovers. So nothing under our host canvas (island, ocean, night,
-  clouds, waves) is checked, and plate-restore differences show as black instead
-  of island. A normal-play capture would need the planner's bake. Phase 0 explains
-  how it builds the plate.
+  title-screen leftovers. So nothing under our host canvas is checked here, and
+  plate-restore differences show as black instead of island. The host canvas is
+  checked separately in [normal play](#normal-play).
 - One episode per gag is used, so branches the capture did not take are not scored.
   Low coverage (below 80%) means our best seed took a different branch for part of
   the gag.
@@ -317,14 +272,9 @@ the captures are present (`JOHNNY_NORMAL_PLAY_RUNS` overrides the runs directory
 | d6-st700 | 6 / 5 | 25137 | (as d1-st900-a) | identical (17/17) |
 | d9-st330-night | 9 / 12 | 25137 | (as d5-st300-night) | identical (13/13) |
 
-Before the #68 planner fix the intermediates already matched (positions 2-10 of
-d1-a, 2-14 of d1-b, 2-10 of d5/d9) but the **ending** and the **first slot** did
-not, and the day 2, 6 and 10 runs did not replay at any nearby offset because
-day-locked records sat in our ordinary pools. With the planner re-derived from
-`FUN_1018_08b9`/`FUN_1018_0d76` (a separate first-slot roulette over the flagsB-bit-1
-class, the ending re-drawn rather than pooled out when it equals the previous one,
-day-locked records only through the 10 % keyframe gate) all eight first batches,
-their island layout words and origins replay exactly. The 160-161 draws of the first
+Since the planner was re-derived from `FUN_1018_08b9`/`FUN_1018_0d76` (#77), all
+eight first batches, their island layout words and origins replay exactly. Before
+that only the intermediates matched. The 160-161 draws of the first
 planner call plus bake are: 1 gate, 15 roulette picks (`140F:0E67`), 103 bucket draws
 (`140F:1F33`: pose repeat counts and 15 cloud slots), 1 ocean (`1417:01FA`), and 13
 cloud positions, speeds and phases.
@@ -359,7 +309,7 @@ the wave samples match a frame (`normal-play.mjs` `HOST_THRESHOLDS`). Scores are
 in `normal-play-scores.json` and the "Normal play" section of
 [docs/oracle-coverage.md](../../../docs/oracle-coverage.md).
 
-### Findings (2026-10-23)
+### Findings
 
 Captured: 8 timing-faithful runs of 30 minutes (45 batches; StartTime 0900, 0500,
 0700 for day phases 1-9 and 0230/0300/0330 for night phases 12-14; story days 1,
@@ -378,7 +328,7 @@ mix: 150 planned batches, 132 played to their ending. The tables are in the
   record of a batch (`FUN_1018_0d76(1, ...)`, the first-slot class).
 - **Day-locked intermediates**: JOHNNY#2 in 1 of 30 day-2 batches and JOHNNY#3 in
   1 of 9 day-6 batches, both in the first slot (2/39, about 5%; the binary's
-  10%-gate model predicts about 10%, ours plays them in about 40%).
+  10%-gate model predicts about 10%; ours, since #77, about 8%).
 - **Key scenes outside their tide window**: JOHNNY#6 (window 12-16) ended two
   day-10 batches at phase 1; JOHNNY#1 ended two day-11 batches at phases 3 and 4;
   MARY#3 (window 8-16) ended a day-4 batch at phase 5; MARY#5 ended a day-8 batch
@@ -386,8 +336,8 @@ mix: 150 planned batches, 132 played to their ending. The tables are in the
   come up in the 7 day-5 batches. When the gate passes it also sets `2d9b = 2d9c`,
   so the logged day flips back to the calendar day for that batch.
 - **Anti-repeat**: 0/132 endings equal the previous batch's; 8/114 equal the one
-  two batches back. The binary excludes only the last ending (`30e8`); ours
-  excludes the last two.
+  two batches back. The binary excludes only the last ending (`30e8`), and so does
+  ours since #77.
 - Island layout over 150 batches: fixed layout 1 49%, fixed layout 2 6%, random
   41% (of which quadrant-limited 24%), off-island 4%. Still waves in 28 batches.
 - The first record of a multi-record batch is spread over 22 different gags
