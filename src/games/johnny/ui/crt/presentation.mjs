@@ -13,6 +13,7 @@ export function createCrtPresentation({ root, onStatus = () => {} }) {
     const stop = () => { cancelAnimationFrame(frame); frame = 0; reveal(); };
     const failure = message => { failed = true; stop(); onStatus(`${message}. Showing the normal picture. Switch CRT off and on to retry.`); };
     function build() {
+        output?.remove();
         output = document.createElement('canvas'); output.id = 'johnny-crt-output';
         output.setAttribute('aria-hidden', 'true');
         Object.assign(output.style, { position: 'fixed', pointerEvents: 'none', zIndex: '2' });
@@ -57,7 +58,7 @@ export function createCrtPresentation({ root, onStatus = () => {} }) {
     // pagehide also releases the context; pageshow recreates it for bfcache returns.
     const release = () => { stop(); renderer?.dispose(); renderer = null; output?.remove(); output = null; };
     const resume = () => {
-        if (!enabled || disposed) return;
+        if (!enabled || settings.bypass || disposed) return;
         try { if (!renderer) build(); lost = false; failed = false; schedule(); } catch (error) { failure(error.message); }
     };
     window.addEventListener('pagehide', release); window.addEventListener('pageshow', resume);
