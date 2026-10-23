@@ -1,8 +1,8 @@
 # Changelog
 
-This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR. These labels are separate from the original Johnny Castaway game data version.
+This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR; **v1.2** brings rendering, timing and story-clock fixes checked against the original. These labels are separate from the original Johnny Castaway game data version.
 
-## Unreleased
+## v1.2 — Closer to the original
 
 - Added a **Start Time** setting, the original's half-hour clock setting (default 09:00, −30/+30 and Reset). Night falls 6 hours after it, for 2 hours, every 8 hours, and it changes which gags can appear; a change applies from the next visit. The story timeline's "what time of day?" step now shows each band's local clock times from it, and **Restart story** no longer clears it. The setting is stored under a new key; the first-run date older versions saved under the old one was being read as a time and shifting night, so it is discarded and previously saved start dates reset to 09:00 (#53).
 - The island's waves now move the way the original's do. Each visit starts on the frames the original bakes into its background, the three wave patches take turns stepping one frame, and the fourth low-tide patch moves with the first. A step comes one or two ~55 ms timer ticks after the last, about every 86–90 ms as in captures of the original, instead of every 160 ms (#53).
