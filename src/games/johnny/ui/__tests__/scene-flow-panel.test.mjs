@@ -287,6 +287,40 @@ describe('scene-flow panel', () => {
         panel.destroy();
     });
 
+    it('labels each time-of-day band with its local clock times from the batch\'s Start Time', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        // Start Time 15:00, now phase 12: the night band is live.
+        sequenceTools.status = () => ({
+            active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 12, startTime: 1500,
+        });
+        Object.assign(sequenceTools, { getStoryDay: () => 2 });
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+        document.querySelectorAll('.story-steps-crumbs button')[1].click();
+
+        expect(document.querySelector('.story-steps-head p').textContent).toContain('Start Time (15:00)');
+        const tides = Array.from(document.querySelectorAll('.story-steps-tide'));
+        const times = (tile) => Array.from(tile.querySelectorAll('.story-steps-times li'), (li) => li.textContent);
+        expect(times(tides[0])).toEqual(['07:00–11:00', '15:00–19:00', '23:00–03:00']);
+        expect(times(tides[1])).toEqual(['03:00–05:00', '11:00–13:00', '19:00–21:00']);
+        expect(times(tides[2])).toEqual(['05:00–07:00', '13:00–15:00', '21:00–23:00']);
+        expect(tides[2].getAttribute('aria-label')).toMatch(/Night, 05:00–07:00, 13:00–15:00, 21:00–23:00: .*\(the time now\)/);
+        panel.destroy();
+    });
+
+    it('falls back to the stored Start Time, then 09:00, before a batch reports one', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
+        Object.assign(sequenceTools, { getStoryDay: () => 2, getStartTime: () => null });
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+        document.querySelectorAll('.story-steps-crumbs button')[1].click();
+        const night = document.querySelectorAll('.story-steps-tide')[2];
+        expect(Array.from(night.querySelectorAll('.story-steps-times li'), (li) => li.textContent))
+            .toEqual(['07:00–09:00', '15:00–17:00', '23:00–01:00']);
+        panel.destroy();
+    });
+
     it('shows the live visit on its own day and tide, and plays a day from the tide step', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });

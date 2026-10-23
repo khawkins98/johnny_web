@@ -10,6 +10,7 @@ import {
     TIDE_BANDS, bandById, describeTideWindow, gagCountsByBand, gagsFor, keySceneFor,
 } from '../story-steps.mjs';
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
+import { DEFAULT_START_TIME, bandClockRanges, formatStartTime } from '../start-time.mjs';
 
 const pad = (value) => String(value).padStart(2, '0');
 // Where a pick was clicked, so the next step can fly the card from there.
@@ -50,6 +51,8 @@ export const STEPPER_STYLE = `
 .story-steps-tide .story-steps-sea.is-night {
   background: radial-gradient(circle at 78% 30%, #fffbe2 0 6px, transparent 7px), linear-gradient(#071998, #071998) bottom / 100% 40% no-repeat, #06146c; }
 .story-steps-tide .story-steps-count { color: #a4e5de; }
+.story-steps-tide .story-steps-times { display: flex; flex-wrap: wrap; gap: 2px 10px; margin: 0; padding: 0; list-style: none;
+  color: #fffbdc; font-size: 17px; font-variant-numeric: tabular-nums; }
 .story-steps-tide .story-steps-badge { position: absolute; top: -10px; right: -6px; padding: 2px 6px; background: #ffe02d; color: #302816;
   border: 2px solid #704a1e; font-size: 16px; }
 .story-steps-visit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; padding: 8px 10px;
@@ -133,7 +136,8 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  * @param {HTMLElement} host
  * @param {object} options
  * @param {{level:'day'|'tide'|'gag'|'detail', day:number, band:string, gag:object|null}} options.step
- * @param {{day:number, band:string|null, gag:object|null}} options.live  where Johnny is now
+ * @param {{day:number, band:string|null, gag:object|null, startTime?:number}} options.live  where Johnny is now,
+ *        and the Start Time (HHMM) the story clock counts from
  * @param {Array} options.visit       the live visit (visitSequence), for the gag step
  * @param {(gag)=>string} options.gagName
  * @param {object} options.faces      card face queue
@@ -242,8 +246,9 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
 
     if (step.level === 'tide') {
         const key = keySceneFor(step.day);
+        const startTime = live.startTime ?? DEFAULT_START_TIME;
         head(`Day ${pad(step.day)} · what time of day?`,
-            `The story clock decides which gags can appear. It runs in half-hour steps from the Start Time and repeats every 8 hours; the last 2 hours of each cycle are night.${key ? ` Day ${step.day}'s key scene is ${gagName(key)}.` : ''}`,
+            `The story clock decides which gags can appear. It runs in half-hour steps from the Start Time (${formatStartTime(startTime)}) and repeats every 8 hours; the last 2 hours of each cycle are night.${key ? ` Day ${step.day}'s key scene is ${gagName(key)}.` : ''}`,
             onPlayDay ? playButton(`▶ Play day ${pad(step.day)}`, 'Save this story day and start a visit from its key scene',
                 () => onPlayDay(step.day)) : null);
         const counts = gagCountsByBand(step.day);
@@ -259,17 +264,27 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
             // Sky over the sea: the original bakes the night sky for phases 12+.
             sea.className = option.id === 'night' ? 'story-steps-sea is-night' : 'story-steps-sea';
             sea.setAttribute('aria-hidden', 'true');
+            // The band's local clock times, one range per 8-hour cycle.
+            const ranges = bandClockRanges(startTime, option.min, option.max);
+            const times = document.createElement('ul');
+            times.className = 'story-steps-times';
+            times.setAttribute('aria-hidden', 'true');
+            for (const range of ranges) {
+                const item = document.createElement('li');
+                item.textContent = range;
+                times.appendChild(item);
+            }
             const count = document.createElement('span');
             count.className = 'story-steps-count';
             count.textContent = `${counts[option.id]} gags can appear`;
-            tile.append(name, sea, count);
+            tile.append(name, sea, times, count);
             if (option.id === live.band) {
                 const badge = document.createElement('span');
                 badge.className = 'story-steps-badge';
                 badge.textContent = 'NOW';
                 tile.appendChild(badge);
             }
-            tile.setAttribute('aria-label', `${option.label}: ${counts[option.id]} gags can appear${option.id === live.band ? ' (the time now)' : ''}`);
+            tile.setAttribute('aria-label', `${option.label}, ${ranges.join(', ')}: ${counts[option.id]} gags can appear${option.id === live.band ? ' (the time now)' : ''}`);
             tile.addEventListener('click', (event) => onStep({ level: 'gag', band: option.id }, originOf(event)));
             tides.appendChild(tile);
         }

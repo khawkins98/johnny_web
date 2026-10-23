@@ -1,5 +1,13 @@
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
+import {
+    DEFAULT_START_TIME,
+    dropLegacyStartTime,
+    formatStartTime,
+    readStartTime,
+    stepStartTime,
+    writeStartTime,
+} from '../start-time.mjs';
 
 export const SOUND_SETTING_KEY = 'jc-sound';
 export const EXPERIENCE_SETTING_KEY = 'jc-experience';
@@ -119,6 +127,44 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
 
         .settings-inline > * {
             min-width: 0;
+        }
+
+        .settings-start-time {
+            display: grid;
+            grid-template-columns: 44px minmax(64px, 1fr) 44px minmax(64px, auto);
+            gap: 6px;
+            align-items: center;
+        }
+
+        .settings-start-time output {
+            font-family: 'VT323', monospace;
+            font-size: 26px;
+            font-variant-numeric: tabular-nums;
+            text-align: center;
+            color: #4a3520;
+            background: rgba(244, 228, 200, 0.55);
+            border: 2px dashed rgba(139, 90, 43, 0.6);
+            border-radius: 4px;
+            line-height: 34px;
+        }
+
+        .settings-row .settings-start-time button {
+            padding: 5px 4px;
+        }
+
+        .settings-row .settings-start-time button:disabled {
+            opacity: 0.5;
+            cursor: default;
+            background: #f4e4c8;
+        }
+
+        .settings-help {
+            margin: -7px 0 15px;
+            font-family: 'VT323', monospace;
+            font-size: 16px;
+            line-height: 1.15;
+            color: #6b4a2a;
+            text-wrap: pretty;
         }
 
         #diagnostics-status {
@@ -587,6 +633,65 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     timeRow.appendChild(timeSelect);
     modal.appendChild(timeRow);
 
+    // Start Time: the original settings dialog's HHMM "Start Time" (FUN_1008_12f7),
+    // half-hour steps, default 09:00. The story clock counts half hours from it, so
+    // it sets when the night sky falls and which gags can appear. The controller
+    // reads it when it plans the next batch, as the original does per New Scene.
+    const startRow = document.createElement('div');
+    startRow.className = 'settings-row';
+    const startLabel = document.createElement('span');
+    startLabel.id = 'settings-start-time-label';
+    startLabel.innerText = 'Start Time:';
+    const startControls = document.createElement('span');
+    startControls.className = 'settings-start-time';
+    startControls.setAttribute('role', 'group');
+    startControls.setAttribute('aria-labelledby', 'settings-start-time-label');
+    const startValue = document.createElement('output');
+    startValue.dataset.setting = 'start-time';
+    startValue.setAttribute('aria-live', 'polite');
+    const startButton = (setting, text, label) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.setting = setting;
+        button.textContent = text;
+        button.setAttribute('aria-label', label);
+        button.setAttribute('aria-describedby', 'settings-start-time-help');
+        return button;
+    };
+    const earlierBtn = startButton('start-time-earlier', '−30', 'Start time 30 minutes earlier');
+    const laterBtn = startButton('start-time-later', '+30', 'Start time 30 minutes later');
+    const resetStartBtn = startButton('start-time-reset', 'Reset', 'Reset start time to 09:00');
+    dropLegacyStartTime(localStorage);
+    let startTime = readStartTime(localStorage);
+    const renderStartTime = () => {
+        startValue.textContent = formatStartTime(startTime);
+        resetStartBtn.disabled = startTime === DEFAULT_START_TIME;
+    };
+    const setStartTime = (value) => {
+        startTime = writeStartTime(localStorage, value);
+        renderStartTime();
+        recordSetting('start-time', formatStartTime(startTime));
+    };
+    earlierBtn.onclick = () => setStartTime(stepStartTime(startTime, -1));
+    laterBtn.onclick = () => setStartTime(stepStartTime(startTime, 1));
+    resetStartBtn.onclick = () => {
+        setStartTime(DEFAULT_START_TIME);
+        // The disabled Reset button would drop focus to the page; keep it in the row.
+        laterBtn.focus();
+    };
+    renderStartTime();
+    startControls.append(earlierBtn, startValue, laterBtn, resetStartBtn);
+    startRow.appendChild(startLabel);
+    startRow.appendChild(startControls);
+    modal.appendChild(startRow);
+    const startHelp = document.createElement('p');
+    startHelp.id = 'settings-start-time-help';
+    startHelp.className = 'settings-help';
+    startHelp.textContent =
+        'Night falls 6 hours after this time, for 2 hours, every 8 hours. Also changes which gags can appear. ' +
+        'Applies from the next visit; Live Local Clock overrides the sky.';
+    modal.appendChild(startHelp);
+
     const debugRow = document.createElement('div');
     debugRow.className = 'settings-row';
     const debugLabel = document.createElement('span');
@@ -646,16 +751,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Story: the 11-day keyframe arc (see story-controller.mjs) unfolds across real
     // screensaver runs over real days, not within one sitting. Let a player see where
     // they are in it and start it over if they'd like.
-    const MONTH_NAMES = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    const formatStartTime = (startTime) => {
-        if (startTime == null) return null;
-        const month = Math.floor(startTime / 100);
-        const day = startTime % 100;
-        return MONTH_NAMES[month - 1] ? `${MONTH_NAMES[month - 1]} ${day}` : null;
-    };
-
     const storyRow = document.createElement('div');
     storyRow.className = 'settings-row';
     const storyLabel = document.createElement('span');
@@ -670,12 +765,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
             storyStatus.innerText = '';
             return;
         }
-        const day = storyController.getStoryDay();
-        const started =
-            typeof storyController.getStartTime === 'function'
-                ? formatStartTime(storyController.getStartTime())
-                : null;
-        storyStatus.innerText = started ? `Day ${day} of 11 · Started ${started}` : `Day ${day} of 11`;
+        storyStatus.innerText = `Day ${storyController.getStoryDay()} of 11`;
     };
     renderStoryStatus();
     const restartStoryBtn = document.createElement('button');

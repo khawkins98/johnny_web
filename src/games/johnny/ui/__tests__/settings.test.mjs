@@ -99,21 +99,83 @@ describe('settings UI', () => {
         expect(onRestart).toHaveBeenCalledTimes(2);
     });
 
-    it('shows the story day and start date, and restarts the story on request', () => {
+    it('shows the story day and restarts the story on request', () => {
         const storyController = {
             getStoryDay: vi.fn(() => 4),
-            getStartTime: vi.fn(() => 721),
+            getStartTime: vi.fn(() => 1030),
             resetStory: vi.fn(() => 1),
         };
         setupSettingsUI({ storyController });
 
         const status = document.getElementById('settings-story-status');
-        expect(status.innerText).toBe('Day 4 of 11 · Started Jul 21');
+        expect(status.innerText).toBe('Day 4 of 11');
 
         storyController.getStoryDay.mockReturnValue(1);
         document.querySelector('[data-setting="restart-story"]').click();
         expect(storyController.resetStory).toHaveBeenCalledOnce();
-        expect(status.innerText).toBe('Day 1 of 11 · Started Jul 21');
+        expect(status.innerText).toBe('Day 1 of 11');
+    });
+
+    describe('Start Time', () => {
+        const control = (name) => document.querySelector(`[data-setting="${name}"]`);
+
+        it('shows 09:00 by default with one line of help', () => {
+            setupSettingsUI();
+            expect(control('start-time').textContent).toBe('09:00');
+            const help = document.getElementById('settings-start-time-help');
+            expect(help.textContent).toContain('Night falls 6 hours after this time, for 2 hours, every 8 hours.');
+            expect(help.textContent).toContain('Live Local Clock');
+            expect(control('start-time-earlier').getAttribute('aria-describedby')).toBe('settings-start-time-help');
+        });
+
+        it('steps by half an hour, wraps at midnight and persists HHMM', () => {
+            setupSettingsUI();
+            control('start-time-later').click();
+            expect(control('start-time').textContent).toBe('09:30');
+            expect(localStorage.getItem('jc-start-time-hhmm')).toBe('930');
+
+            for (let i = 0; i < 3; i++) control('start-time-earlier').click();
+            expect(control('start-time').textContent).toBe('08:00');
+            expect(localStorage.getItem('jc-start-time-hhmm')).toBe('800');
+
+            localStorage.setItem('jc-start-time-hhmm', '2330');
+            document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+            setupSettingsUI();
+            expect(control('start-time').textContent).toBe('23:30');
+            control('start-time-later').click();
+            expect(control('start-time').textContent).toBe('00:00');
+            expect(localStorage.getItem('jc-start-time-hhmm')).toBe('0');
+            control('start-time-earlier').click();
+            expect(control('start-time').textContent).toBe('23:30');
+        });
+
+        it('drops a legacy first-run date and shows 09:00', () => {
+            localStorage.setItem('jc-start-time', '1022');
+            setupSettingsUI();
+            expect(control('start-time').textContent).toBe('09:00');
+            expect(localStorage.getItem('jc-start-time')).toBeNull();
+        });
+
+        it('resets to 09:00 and clears the override', () => {
+            localStorage.setItem('jc-start-time-hhmm', '1500');
+            setupSettingsUI();
+            expect(control('start-time').textContent).toBe('15:00');
+            expect(control('start-time-reset').disabled).toBe(false);
+            control('start-time-reset').click();
+            expect(control('start-time').textContent).toBe('09:00');
+            expect(localStorage.getItem('jc-start-time-hhmm')).toBeNull();
+            expect(control('start-time-reset').disabled).toBe(true);
+        });
+
+        it('is reachable from the keyboard and announces the new time', () => {
+            setupSettingsUI();
+            const value = control('start-time');
+            expect(value.getAttribute('aria-live')).toBe('polite');
+            for (const name of ['start-time-earlier', 'start-time-later', 'start-time-reset']) {
+                expect(control(name).tagName).toBe('BUTTON');
+                expect(control(name).getAttribute('aria-label')).toMatch(/start time/i);
+            }
+        });
     });
 
     it('omits the story section entirely without a story controller', () => {

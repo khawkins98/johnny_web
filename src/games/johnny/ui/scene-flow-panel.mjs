@@ -21,6 +21,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
+import { DEFAULT_START_TIME } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
@@ -307,6 +308,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         day: status?.storyDay || sequenceTools?.getStoryDay?.() || 1,
         band: bandForPhase(status?.tidePhase)?.id ?? null,
         gag: status?.active ? gagFacts({ ...status.active, index: status.current }) : null,
+        // The Start Time the live batch counted its phase from (so the NOW band and
+        // the bands' clock times agree), else the stored setting, else 09:00.
+        startTime: status?.startTime ?? sequenceTools?.getStartTime?.() ?? DEFAULT_START_TIME,
     });
     const followLive = (status) => {
         const live = liveSpot(status);
