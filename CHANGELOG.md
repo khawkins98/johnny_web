@@ -1,6 +1,6 @@
 # Changelog
 
-This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR; **v1.2** brings rendering, timing and story-clock fixes checked against the original; **v1.3** checks normal play against the original: the day ocean, clouds and which gags each visit picks. These labels are separate from the original Johnny Castaway game data version.
+This changelog tracks the browser project. Its version numbers are separate from the version of the original Johnny Castaway game data. A number such as (#53) is a GitHub issue or pull request.
 
 ## v1.3 — Normal play, checked
 

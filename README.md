@@ -23,7 +23,7 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
 
-Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). Night falls 6 hours after it, for 2 hours, every 8 hours, and it changes which gags can appear; a change applies from the next visit. **Time of Day → Live Local Clock** draws night from the local hour instead.
+Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
 Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
 
@@ -41,7 +41,7 @@ pnpm run preview  # Serve the production build locally
 
 Start with [Contributing](CONTRIBUTING.md) for the source layout, local data setup, and checks to run before a PR. The [architecture guide](docs/architecture.md) explains how the engine fits together.
 
-See the [changelog](CHANGELOG.md) for the v1 baseline and v1.1 scene flow explorer.
+See the [changelog](CHANGELOG.md) for what each release changed.
 
 For a specific task:
 
@@ -50,8 +50,9 @@ For a specific task:
 - [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.
 - [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
 - [Read the resource format](docs/resindex.md) — archive layout and decoding notes.
-- [Compare with the original](tools/faithfulness-oracle/README.md) — recording tools and [current coverage](docs/oracle-coverage.md).
+- [Compare with the original](tools/faithfulness-oracle/README.md) — capture and comparison tools, the [methodology](tools/faithfulness-oracle/METHODOLOGY.md), and [current coverage](docs/oracle-coverage.md).
 - [Accepted differences from the original](docs/accepted-deviations.md) — what we deliberately do differently, and why.
+- [Reverse-engineering notes](docs/scrantic-re-findings.md) — what the original executable does, cited by address.
 
 ## A personal note and acknowledgements
 
