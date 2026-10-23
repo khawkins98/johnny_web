@@ -1,0 +1,47 @@
+[
+  {
+    "name": "auto-dpr1",
+    "exactPixelBlocks": true,
+    "deviceMultiplier": 1,
+    "offsetFromDomDeviceOrigin": [
+      0,
+      0
+    ]
+  },
+  {
+    "name": "auto-dpr2",
+    "exactPixelBlocks": true,
+    "deviceMultiplier": 3,
+    "offsetFromDomDeviceOrigin": [
+      0,
+      0
+    ]
+  },
+  {
+    "name": "auto-dpr1.25",
+    "exactPixelBlocks": true,
+    "deviceMultiplier": 1,
+    "offsetFromDomDeviceOrigin": [
+      0,
+      0
+    ]
+  },
+  {
+    "name": "small-dpr2",
+    "exactPixelBlocks": true,
+    "deviceMultiplier": 1,
+    "offsetFromDomDeviceOrigin": [
+      1,
+      1
+    ]
+  },
+  {
+    "name": "small-raster-dpr2",
+    "exactPixelBlocks": true,
+    "deviceMultiplier": 1,
+    "offsetFromDomDeviceOrigin": [
+      1,
+      1
+    ]
+  }
+]
