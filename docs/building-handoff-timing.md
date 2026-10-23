@@ -115,8 +115,10 @@ against fresh per-thread deadline traces and the all-gag coverage report.
 
 The source evidence is `BUILDING.ADS` tag 7/8 and `MJFIRE.TTM` in the local
 archive, `scratchpad/lifespan-triage-raw/BUILDING_{7,8}/timeline.jsonl`, the
-new local `scratchpad/timing40-{b7,m4}/` timelines and corresponding
-`timing40-{b7,m4}-delay.log` clock traces, and the browser's `driveGag`
+local `scratchpad/maintainer/captures/timing40/timing40-{b7,m4}/` timelines
+and corresponding `timing40-{b7,m4}-delay.log` clock traces (maintainer-only, see
+[Maintainer assets](../tools/faithfulness-oracle/METHODOLOGY.md#maintainer-assets)),
+and the browser's `driveGag`
 helper with seed 1.
 The original sample duration and 16 ms `now` clock measurements are documented
 in [the faithfulness methodology](../tools/faithfulness-oracle/METHODOLOGY.md#trace-sample-cadence-26).
