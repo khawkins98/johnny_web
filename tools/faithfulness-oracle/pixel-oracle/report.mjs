@@ -90,13 +90,58 @@ export const replacePixelSection = (scores) => {
     writeFileSync(DOC_PATH, withPixelSection(doc, scores));
 };
 
-/** Text of `doc` with the pixel section replaced/appended (scores.json if omitted). */
+const replaceBlock = (doc, begin, end, section) => {
+    const start = doc.indexOf(begin);
+    const stop = doc.indexOf(end);
+    if (start !== -1 && stop !== -1) return doc.slice(0, start) + section + doc.slice(stop + end.length);
+    return `${doc.replace(/\s*$/, '')}\n\n${section}\n`;
+};
+
+/**
+ * Text of `doc` with the pixel section replaced/appended (scores.json if omitted),
+ * and the normal-play section likewise (normal-play-batches.json / -scores.json).
+ */
 export const withPixelSection = (doc, scores = null) => {
     const data = scores ?? (existsSync(SCORES_PATH) ? JSON.parse(readFileSync(SCORES_PATH, 'utf8')) : null);
-    if (!data) return doc;
-    const section = renderPixelSection(data);
-    const start = doc.indexOf(BEGIN);
-    const end = doc.indexOf(END);
-    if (start !== -1 && end !== -1) return doc.slice(0, start) + section + doc.slice(end + END.length);
-    return `${doc.replace(/\s*$/, '')}\n\n${section}\n`;
+    let out = data ? replaceBlock(doc, BEGIN, END, renderPixelSection(data)) : doc;
+    const normal = normalPlaySection();
+    if (normal) out = replaceBlock(out, NP_BEGIN, NP_END, normal);
+    return out;
+};
+
+// -- normal play (host canvas + story mix) --
+export const NP_BATCHES_PATH = path.join(here, 'normal-play-batches.json');
+export const NP_SCORES_PATH = path.join(here, 'normal-play-scores.json');
+const NP_BEGIN = '<!-- normal-play:begin -->';
+const NP_END = '<!-- normal-play:end -->';
+
+/** The "Normal play" section, or null when neither JSON exists. */
+export const normalPlaySection = () => {
+    const batches = existsSync(NP_BATCHES_PATH) ? JSON.parse(readFileSync(NP_BATCHES_PATH, 'utf8')) : null;
+    const scores = existsSync(NP_SCORES_PATH) ? JSON.parse(readFileSync(NP_SCORES_PATH, 'utf8')) : null;
+    if (!batches && !scores) return null;
+    const lines = [
+        NP_BEGIN,
+        '## Normal play',
+        '',
+        'Normal-play captures of the original (no forced gag: the planner, the island',
+        'bake and the walks run as shipped), from `capture-normal-play.mjs`. They check',
+        "what the forced oracle cannot: the host canvas, and which gags the original's",
+        'planner picks. Method and limits: [pixel-oracle/README.md](../tools/faithfulness-oracle/pixel-oracle/README.md)',
+        '"Normal play". Regenerate with (local only):',
+        '',
+        '```',
+        'node tools/faithfulness-oracle/capture-normal-play.mjs scratchpad/normal-play/<run> --secs 1800 [--start-time HHMM] [--story-day N]',
+        'node tools/faithfulness-oracle/pixel-oracle/normal-play-report.mjs scratchpad/normal-play',
+        '```',
+        '',
+    ];
+    if (batches) {
+        lines.push(`### Story mix (generated ${batches.generated})`, '', batches.storyMixMarkdown ?? '', '');
+    }
+    if (scores) {
+        lines.push(`### Host canvas (generated ${scores.generated})`, '', scores.markdown ?? '', '');
+    }
+    lines.push(NP_END);
+    return lines.join('\n');
 };

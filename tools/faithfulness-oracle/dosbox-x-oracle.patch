@@ -1,16 +1,17 @@
 diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 --- a/src/cpu/core_normal.cpp
 +++ b/src/cpu/core_normal.cpp
-@@ -16,6 +16,8 @@
+@@ -16,6 +16,9 @@
   *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
   */
  
 +#include <cstdlib> /* getenv - oracle trace */
 +#include <chrono> /* steady_clock - oracle DBX_DELAY cadence */
++#include <cstring> /* strcmp/strncpy - oracle DBX_HOST */
  #include "cpu.h"
  #include "lazyflags.h"
  #include "callback.h"
-@@ -157,6 +159,20 @@
+@@ -157,6 +160,20 @@
  
  #define EALookupTable (core.ea_table)
  
@@ -31,7 +32,7 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
  Bits CPU_Core_Normal_Run(void) {
  	if (CPU_Cycles <= 0)
  		return CBRET_NONE;
-@@ -171,6 +187,351 @@
+@@ -171,6 +188,394 @@
  		BaseDS=SegBase(ds);
  		BaseSS=SegBase(ss);
  		core.base_val_ds=ds;
@@ -102,6 +103,11 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +			 * DBX_FB_EPISODES loads of the forced ADS; plus one L<n>_t<tick#> dump
 +			 * at each forced-ADS load (the pre-gag backdrop). */
 +			static bool dbx_fbt_on = false;
++			/* normal play (DBX_FB_NORMAL=1): no forced ADS, so tick dumps are armed from
++			 * the first tick on, and bursts also follow host-state changes (DBX_HOST). */
++			static bool dbx_fbt_normal = false;
++			static FILE *dbx_host_fp = NULL;  /* DBX_HOST: per-tick host globals, on change */
++			static char dbx_host_last[512] = "";
 +			static unsigned dbx_fbt_every = 4, dbx_fbt_after = 2, dbx_fbt_episodes = 1, dbx_fbt_left = 0;
 +			static unsigned long long dbx_fbt_lastsig = ~0ULL;
 +			static unsigned dbx_fbt_loads = 0;
@@ -126,6 +132,14 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +					if ((e = getenv("DBX_FB_TICK_EVERY")) && *e) dbx_fbt_every = (unsigned)strtoul(e, NULL, 10);
 +					if ((e = getenv("DBX_FB_TICK_AFTER")) && *e) dbx_fbt_after = (unsigned)strtoul(e, NULL, 10);
 +					if ((e = getenv("DBX_FB_EPISODES")) && *e) dbx_fbt_episodes = (unsigned)strtoul(e, NULL, 10);
++					if ((e = getenv("DBX_FB_NORMAL")) && *e && *e != '0') dbx_fbt_normal = true;
++				}
++				{
++					const char *hp = getenv("DBX_HOST");
++					if (hp && *hp) {
++						dbx_host_fp = fopen(hp, "w");
++						if (dbx_host_fp) { fprintf(dbx_host_fp, "#SCRANTIC host: HOST tick clk=2e72 day=2d9b,2d9c hol=30bc ph=30ba b4=30b4 b2=30b2 c0=30c0 c2=30c2 c4=30c4 c6=30c6 off=46e4,46e6 qi=30f2 q=adsId:tag,... (30f4 queue records; printed when changed)\n"); fflush(dbx_host_fp); }
++					}
 +				}
 +			}
 +			if (!dbx_init) {
@@ -292,8 +306,38 @@ diff --git a/src/cpu/core_normal.cpp b/src/cpu/core_normal.cpp
 +							}
 +							fprintf(dbx_thr_fp, "\n");
 +							fflush(dbx_thr_fp);
-+							if (dbx_fbt_on && dbx_fbt_loads >= 1 && dbx_fbt_loads <= dbx_fbt_episodes) {
-+								if (fbt_sig != dbx_fbt_lastsig) dbx_fbt_left = dbx_fbt_after + 1;
++							bool host_changed = false;
++							if (dbx_host_fp) {
++								/* host/planner globals (docs/scrantic-re-findings.md B.6): phase 30ba,
++								 * night/off-island 30b4, still waves 30b2, layout word 30c0, tide coin
++								 * 30c2, world origin 30c4/30c6 (rebased, signed), TTM offset 46e4/46e6,
++								 * queue index 30f2 and the planned queue 30f4[] of catalogue record
++								 * offsets (adsId @+0xf, tag @+0x10; 0 terminates). */
++								char hl[512]; int hn = 0;
++								hn += snprintf(hl + hn, sizeof(hl) - hn, "day=%u,%u hol=%u ph=%u b4=%u b2=%u c0=%u c2=%d c4=%d c6=%d off=%d,%d qi=%d q=",
++									(unsigned)mem_readb(dsb + 0x2d9bu), (unsigned)mem_readb(dsb + 0x2d9cu), (unsigned)mem_readw(dsb + 0x30bcu),
++									(unsigned)mem_readw(dsb + 0x30bau), (unsigned)mem_readw(dsb + 0x30b4u),
++									(unsigned)mem_readw(dsb + 0x30b2u), (unsigned)mem_readw(dsb + 0x30c0u),
++									(int)(int16_t)mem_readw(dsb + 0x30c2u), (int)(int16_t)mem_readw(dsb + 0x30c4u),
++									(int)(int16_t)mem_readw(dsb + 0x30c6u), (int)(int16_t)mem_readw(dsb + 0x46e4u),
++									(int)(int16_t)mem_readw(dsb + 0x46e6u), (int)(int16_t)mem_readw(dsb + 0x30f2u));
++								for (int q = 0; q < 40 && hn < (int)sizeof(hl) - 16; q++) {
++									uint16_t roff = mem_readw(dsb + (uint16_t)(0x30f4u + q * 2));
++									if (roff == 0) break;
++									hn += snprintf(hl + hn, sizeof(hl) - hn, "%s%u:%u", q ? "," : "",
++										(unsigned)mem_readb(dsb + (PhysPt)(uint16_t)(roff + 0x0f)),
++										(unsigned)mem_readb(dsb + (PhysPt)(uint16_t)(roff + 0x10)));
++								}
++								if (strcmp(hl, dbx_host_last) != 0) {
++									host_changed = true;
++									strncpy(dbx_host_last, hl, sizeof(dbx_host_last) - 1);
++									fprintf(dbx_host_fp, "HOST %llu clk=%u %s\n", dbx_tick_no,
++										(unsigned)mem_readw(dsb + 0x2e72u), hl);
++									fflush(dbx_host_fp);
++								}
++							}
++							if (dbx_fbt_on && (dbx_fbt_normal || (dbx_fbt_loads >= 1 && dbx_fbt_loads <= dbx_fbt_episodes))) {
++								if (fbt_sig != dbx_fbt_lastsig || (dbx_fbt_normal && host_changed)) dbx_fbt_left = dbx_fbt_after + 1;
 +								bool want = dbx_fbt_left > 0 || (dbx_fbt_every != 0 && (dbx_tick_no % dbx_fbt_every) == 0);
 +								if (dbx_fbt_left > 0) dbx_fbt_left--;
 +								if (want) {

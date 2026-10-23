@@ -121,6 +121,15 @@ The patch identifies Win16 functions by unique, relocation-safe entry bytes rath
 
 For RNG-consumer discovery, run the program normally rather than forcing a gag. Each RNG line includes `caller=CS:IP`; summarize it with `rng-consumer-report.mjs`. The trace cap is 100,000 draws so a timing-heavy intro does not hide the first story window. Raw logs remain local; commit only compact derived evidence such as `rng-consumer-evidence.json`.
 
+### Capturing normal play
+
+`capture-normal-play.mjs` runs the program without a forced gag, so the planner, the island bake and the walks run as shipped. It uses two more hooks in the same patch:
+
+- `DBX_HOST=/absolute/host.log` writes one `HOST <tick> clk=... day=... ph=... c0=... c2=... c4=... c6=... qi=... q=adsId:tag,...` line whenever a host or planner global changes: the planned queue `30f4[]` (the whole batch, ending last), the queue index `30f2` (which record is running), the folded layout word `30c0`, the tide coin `30c2`, the rebased island origin `30c6/30c4`, the phase `30ba`, the night and still-waves flags `30b4`/`30b2`, the story day `2d9b/2d9c`, the holiday code `30bc` and the game clock `2e72`. The day ocean is not logged: the bake draws `rand % 3` straight into the screen.
+- `DBX_FB_NORMAL=1` arms the tick-stamped framebuffer dumps (`DBX_FB_TICKS`) from the first tick without a forced ADS, every `DBX_FB_TICK_EVERY` ticks plus a burst after every live-set change and every HOST change (the ticks right after a bake show the bare island behind the wipe).
+
+Settings go through the run's own copy of the Windows directory: `--start-time HHMM` writes `SCRANTIC.INI` `[ScreenSaver.ScreenAntics] StartTime=` (the section is the string at DS `0x90`, not the "Screen Antics" window title at `0x82`), `--story-day N` writes `Introduction`/`NumDays` with the current date, and `--time`/`--date` set the DOS clock before Windows starts. Night is phase >= 12, i.e. 6 to 8 hours after StartTime, so `--start-time` = now minus 6.5 h gives a night run at any wall-clock time. Game time runs at wall speed; `--turbo` runs the game clock about 8x faster per present and is only for story-mix sampling, never for pacing or pixels. Analysis: `pixel-oracle/normal-play-report.mjs` (story mix, committable batch JSON) and `pixel-oracle/host-check.mjs` (host canvas); see the pixel-oracle README, "Normal play".
+
 For timing-opcode work, also set `DBX_DELAY=/absolute/delay.log`. This records each thread's delay and deadline at the tick hook. Correlate the RNG ordinal/caller in `DBX_TRACE` with the first changed thread field in `DBX_DELAY`; JOHNNY:2 is the compact `0x2020` probe used for the committed evidence. Each `DELAY` line also carries `emu=` (emulated milliseconds, the clock the guest timer runs on) and `host=` (host wall-clock milliseconds), which is how the sample cadence below was measured.
 
 ## From capture to CI

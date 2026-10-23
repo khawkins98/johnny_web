@@ -205,6 +205,144 @@ describe('forced host offsets', () => {
     });
 });
 
+describe('normal-play capture parsing (host log)', async () => {
+    const np = await import('../../../../tools/faithfulness-oracle/pixel-oracle/normal-play.mjs');
+    const hc = await import('../../../../tools/faithfulness-oracle/pixel-oracle/host-check.mjs');
+    const log = [
+        '#SCRANTIC host: header',
+        'HOST 0 clk=0 day=1,1 hol=0 ph=1 b4=0 b2=0 c0=0 c2=1 c4=92 c6=-214 off=92,-213 qi=0 q=105:5,255:1,101:6',
+        'HOST 238 clk=924 day=1,1 hol=0 ph=1 b4=0 b2=0 c0=0 c2=1 c4=92 c6=-214 off=92,-213 qi=1 q=105:5,255:1,101:6',
+        'HOST 300 clk=1200 day=1,1 hol=0 ph=1 b4=0 b2=0 c0=0 c2=1 c4=92 c6=-214 off=92,-213 qi=2 q=105:5,255:1,101:6',
+        'HOST 900 clk=4000 day=1,1 hol=0 ph=13 b4=0 b2=1 c0=2 c2=0 c4=20 c6=0 off=20,1 qi=0 q=110:1,102:2',
+        'HOST 1500 clk=7000 day=1,1 hol=0 ph=13 b4=0 b2=1 c0=2 c2=0 c4=20 c6=0 off=20,1 qi=1 q=110:1,102:2',
+    ].join('\n');
+
+    it('names catalogue records the way the binary numbers ADS ids', () => {
+        expect(np.gagName({ adsId: 105, tag: 5 })).toBe('JOHNNY#5');
+        expect(np.gagName({ adsId: 110, tag: 1 })).toBe('VISITOR#1');
+        expect(np.gagName({ adsId: 255, tag: 1 })).toBe('POSE');
+    });
+
+    it('parses HOST lines with signed origins and the planned queue', () => {
+        const states = np.parseHostLog(log);
+        expect(states).toHaveLength(5);
+        expect(states[0]).toMatchObject({ tick: 0, clk: 0, day: 1, dayCur: 1, phase: 1, tideCoin: 1, x: -214, y: 92, qi: 0 });
+        expect(states[0].offset).toEqual({ x: 92, y: -213 });
+        expect(states[0].queue).toEqual([
+            { adsId: 105, tag: 5 },
+            { adsId: 255, tag: 1 },
+            { adsId: 101, tag: 6 },
+        ]);
+    });
+
+    it('cuts batches at queue changes and times each record from the qi steps', () => {
+        const batches = np.batchesFromHost(np.parseHostLog(log), { endTick: 2000 });
+        expect(batches).toHaveLength(2);
+        const [a, b] = batches;
+        expect(a).toMatchObject({ startTick: 0, endTick: 900, lowTide: true, night: false, wavesOff: false, layout: 'random', ending: 'ACTIVITY#6', complete: true });
+        expect(a.queue).toEqual(['JOHNNY#5', 'POSE', 'ACTIVITY#6']);
+        expect(a.gags.map((g) => [g.key, g.startTick])).toEqual([
+            ['JOHNNY#5', 0],
+            ['POSE', 238],
+            ['ACTIVITY#6', 300],
+        ]);
+        // phase 13 is night; 0x1000 on BUILDING#2 stills the waves; 0x10 on VISITOR#1 pins layout 1
+        expect(b).toMatchObject({ startTick: 900, endTick: 2000, night: true, wavesOff: true, layout: 'fixed1', origin: { x: 0, y: 20 }, complete: false });
+    });
+
+    it('classifies the folded layout word and the raft frame', () => {
+        expect(np.layoutClass({ layoutBits: 2, offIsland: false })).toBe('fixed1');
+        expect(np.layoutClass({ layoutBits: 1, offIsland: false })).toBe('fixed2');
+        expect(np.layoutClass({ layoutBits: 0x28, offIsland: false })).toBe('random/q28');
+        expect(np.layoutClass({ layoutBits: 0, offIsland: true })).toBe('off-island');
+        expect([1, 2, 3, 6, 9].map((d) => np.raftFrameFor(d))).toEqual([1, 1, 2, 5, 5]);
+        expect(np.raftFrameFor(4, true)).toBe(0);
+    });
+
+    it("builds the bake's titleState from a batch", () => {
+        const [a] = np.batchesFromHost(np.parseHostLog(log));
+        const ts = np.batchTitleState(a, { oceanIndex: 2 });
+        expect(ts).toMatchObject({ island: true, islandLayoutId: 1, x: -214, y: 92, lowTide: true, night: false, raft: 1, waves: true, oceanIndex: 2, storyDay: 1 });
+        expect(ts.sceneOffset).toEqual({ x: 92, y: -213 });
+        expect(ts.clouds).toEqual([]);
+    });
+
+    it('summarises the story mix, including anti-repeat and the phase split of the tide coin', () => {
+        const mk = (ending, phase, lowTide, extra = []) => ({
+            queue: [...extra, ending],
+            ending,
+            phase,
+            lowTide,
+            night: phase >= 12,
+            forcedNight: false,
+            offIsland: false,
+            wavesOff: false,
+            layout: 'fixed1',
+            origin: { x: 0, y: 20 },
+            day: 1,
+            complete: true,
+        });
+        const run = {
+            name: 'r',
+            batches: [mk('A#1', 1, false, ['VISITOR#1']), mk('B#2', 2, true), mk('A#1', 13, true), mk('A#1', 13, false)],
+        };
+        const mix = np.storyMix([run]);
+        expect(mix.batches).toBe(4);
+        expect(mix.endings[0]).toEqual({ key: 'A#1', count: 3, pct: 75 });
+        expect(mix.antiRepeat).toEqual({ pairsChecked: 3, repeatPrev: 1, triplesChecked: 2, repeatTwoBack: 1 });
+        expect(mix.lowTide.dayPhase).toEqual({ n: 2, low: 1 });
+        expect(mix.lowTide.nightPhase).toEqual({ n: 2, low: 1 });
+        expect(mix.visitor1).toMatchObject({ batches: 1, pct: 25 });
+        expect(np.renderStoryMix(mix)).toContain('| A#1 | 3 | 75% |');
+    });
+
+    it('judges a host-canvas result on island, ocean and waves only', () => {
+        const ok = { neverIslandPct: 0.1, neverOceanPct: 0.2, neverSkyPct: 9, waves: { samples: 10, matchedPct: 100 } };
+        expect(np.hostVerdict(ok)).toBe('faithful');
+        expect(np.hostVerdict({ ...ok, neverOceanPct: 3 })).toBe('divergent: ocean');
+        expect(np.hostVerdict({ ...ok, neverIslandPct: 1, waves: { samples: 10, matchedPct: 50 } })).toBe('divergent: island, waves');
+        expect(np.hostVerdict({ skipped: 'off-island' })).toBe('skipped');
+    });
+
+    it('counts the RNG draws before and during the first planner call', async () => {
+        const { firstPlannerDraws } = await import('../../../../tools/faithfulness-oracle/pixel-oracle/align-planner.mjs');
+        const trace = [
+            '#SCRANTIC trace',
+            'RNG 1 entry_ic=1 caller=140F:1EF0 i=55 j=24 ti=DA2D tj=0FDE sum=EA0B ax=EA0B',
+            'RNG 2 entry_ic=2 caller=140F:1EF0 i=0 j=25 ti=DD23 tj=4D8E sum=2AB1 ax=2AB1',
+            '100 director 140F:06BF ret=141F:15E6 args=0001,1310,044A,0000 ax=13BF bx=1310',
+            'RNG 3 entry_ic=3 caller=140F:0DA3 i=1 j=26 ti=9533 tj=FC7D sum=91B0 ax=91B0',
+            'RNG 4 entry_ic=4 caller=140F:0E67 i=2 j=27 ti=F3CD tj=8D38 sum=8105 ax=8105',
+            'RNG 5 entry_ic=5 caller=140F:0E67 i=3 j=28 ti=4BC2 tj=5948 sum=A50A ax=A50A',
+            '200 ads-loader id=0068',
+            'RNG 6 entry_ic=6 caller=13DF:0D5C i=4 j=29 ti=F7E2 tj=E36F sum=DB51 ax=DB51',
+        ].join('\n');
+        expect(firstPlannerDraws(trace)).toEqual({
+            before: 2,
+            during: 3,
+            callers: [
+                ['140F:0E67', 2],
+                ['140F:0DA3', 1],
+            ],
+        });
+    });
+
+    it('samples the first two dumps of a batch and spreads the rest', () => {
+        const frames = new Map([0, 1, 2, 16, 32, 48, 64, 80, 96, 112, 128, 144].map((t) => [t, `t${t}`]));
+        const ticks = hc.sampleTicks(frames, { startTick: 0, endTick: 150 }, 6);
+        expect(ticks.slice(0, 2)).toEqual([0, 1]);
+        expect(ticks).toHaveLength(6);
+        expect(ticks.at(-1)).toBeGreaterThanOrEqual(112);
+        expect(hc.sampleTicks(frames, { startTick: 100, endTick: null }, 6)).toEqual([112, 128, 144]);
+        const black = new Uint8Array(640 * 480 * 3);
+        expect(hc.blackShare(black)).toBe(1);
+        black.fill(200, 0, 640 * 480 * 3 * 0.5);
+        expect(hc.blackShare(black)).toBeCloseTo(0.5, 3);
+        expect(hc.horizonRow(false)).toBe(150);
+        expect(hc.horizonRow(true)).toBe(205);
+    });
+});
+
 // Local-only gate: SUZY.ADS #1 is faithful once the background is composited.
 const here = path.dirname(fileURLToPath(import.meta.url));
 const suzyCapture = path.resolve(here, '../../../../scratchpad/pixel-oracle/captures/SUZY_1');

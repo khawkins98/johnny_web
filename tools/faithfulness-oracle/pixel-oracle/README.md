@@ -32,7 +32,10 @@ exits 0 with a message, and the local gate in
 | `align.mjs` | Live-set spans, span alignment, keyframe choice. Pure. |
 | `score.mjs` | Masked per-keyframe score, palette substitution, offset check, host masks. Pure. |
 | `compare.mjs` | Single-gag comparator. |
-| `sweep.mjs` / `report.mjs` | All gags in parallel; `scores.json`; the "Pixel oracle" section of `docs/oracle-coverage.md`. `coverage-report.mjs` keeps that section when it regenerates the file. |
+| `sweep.mjs` / `report.mjs` | All gags in parallel; `scores.json`; the "Pixel oracle" and "Normal play" sections of `docs/oracle-coverage.md`. `coverage-report.mjs` keeps both when it regenerates the file. |
+| `normal-play.mjs` | Normal-play captures: parse the `DBX_HOST` log into planned batches, the bake's titleState, the story mix, host verdicts. Pure. |
+| `host-check.mjs` | Host-canvas check of normal-play captures (island, ocean, sky, waves per batch). |
+| `normal-play-report.mjs` | Story mix + host check over a directory of runs; writes `normal-play-batches.json` and `normal-play-scores.json`, refreshes the doc section. |
 
 ## Tick alignment
 
@@ -240,3 +243,164 @@ settle it.
   (two ticks fell inside one frame). `±1` original tick absorbs both.
 - The `hostRemnant` and wave-area masks can hide real drawing by the original
   inside those areas when our side draws nothing there.
+
+## Normal play
+
+Everything above uses forced captures, which skip the original's planner and island
+bake. Normal-play captures (`../capture-normal-play.mjs`: the program runs as
+shipped, with `DBX_HOST` logging the planner's queue and the bake's globals, and
+`DBX_FB_NORMAL` arming tick-stamped dumps from the first tick; see the
+[methodology](../METHODOLOGY.md#capturing-normal-play)) cover the two things the
+forced oracle cannot see: the host canvas and the story mix.
+
+```sh
+# a 30-minute run; night = StartTime 6-8 h before now (phase >= 12); --story-day sets the INI day
+SP_DOSBOX=$PWD/scratchpad/dosbox DBX=$PWD/scratchpad/dosbox-x-src/src/dosbox-x \
+  node tools/faithfulness-oracle/capture-normal-play.mjs scratchpad/normal-play/d1 --secs 1800 --fb-every 16 --fb-after 1
+# story mix + host canvas over every run in the directory; refreshes docs/oracle-coverage.md
+node tools/faithfulness-oracle/pixel-oracle/normal-play-report.mjs scratchpad/normal-play --dump scratchpad/host-dump
+# one run, with orig | ours | category map PNGs per batch
+node tools/faithfulness-oracle/pixel-oracle/host-check.mjs scratchpad/normal-play/d1 --dump scratchpad/host-dump
+```
+
+### Batches
+
+A `HOST` line is written whenever a planner/host global changes. The queue `q=`
+(catalogue records as `adsId:tag`, `255:1` = a pure pose) is the whole planned batch
+with the ending last, and `qi=` is the record the director is on, so each batch's
+gag sequence and the tick each gag started are known without pixels.
+`normal-play.mjs` turns the log into batches with the bake's selection: the island
+world origin `30c6/30c4` (layer 0 at `+289/+279`), the folded layout word `30c0`
+(fixed layout 1/2, quadrants), the tide coin `30c2`, the phase `30ba` (night when
+`>= 12`, or `30b4 == 1`), still waves `30b2`, and the story day `2d9b`.
+`normal-play-batches.json` keeps every batch of every run as names, ticks and flags
+(no pixels or game data); it is the record the story-mix figures come from.
+
+### Story mix
+
+`storyMix` counts, over planned batches: endings, gags per batch, island layouts,
+the low-tide coin by phase class, night, still waves, VISITOR#1 and ACTIVITY#11,
+day-locked gags with their batch day and phase, and anti-repeat (an ending equal to
+the previous batch's, or to the one two back). The same figures for ours come from
+`tools/story-mix/simulate.mjs`. Timing-faithful runs cover about two batches per
+half hour (a batch is 10-20 records at roughly a minute each). `--turbo` runs the
+game clock about 8x faster per present, so gags run far faster than the original's
+pacing; the planner does not depend on pacing, so those runs count for the story
+mix only and are marked `turbo` in the JSON. The phase advances with the emulated
+clock, so a turbo run also sweeps through several phases.
+
+### Replaying the first batch (`align-planner.mjs`)
+
+A headless DOSBox-X boot is deterministic: in eight timing-faithful runs the RNG
+trace shows 25,136-25,137 draws before the first director call, and runs with the
+same day class and phase class planned the same first batch. `align-planner.mjs`
+skips that many words of the faithful RNG and runs our story controller with
+`storyRandom` for the captured day and phase, then compares the queues over a
+window of offsets. Where positions agree, both planners spent the same words on
+the same decisions; where they differ, the rule or the candidate pool differs.
+Only the first batch can be replayed: walks, poses and TTM delays draw from the
+same stream at a timing-dependent pace.
+
+| Run | Day / phase | Captured first batch | Ours at the same offset |
+|---|---|---|---|
+| d1-st900-a | 1 / 1 | FISHING#1 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 VISITOR#7 BUILDING#7 POSE **ACTIVITY#6** | **STAND#10** POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 FISHING#7 **BUILDING#4** (9/17 equal) |
+| d1-st900-b | 1 / 1 | FISHING#7 STAND#10 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 **ACTIVITY#5** | **BUILDING#3** STAND#10 POSE POSE VISITOR#4 VISITOR#4 ACTIVITY#4 JOHNNY#5 VISITOR#1 FISHING#1 VISITOR#1 POSE POSE BUILDING#3 **ACTIVITY#10** (13/15) |
+| d5-st300-night | 5 / 13 | BUILDING#3 FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 STAND#9 POSE **ACTIVITY#1** | **ACTIVITY#7** FISHING#8 ACTIVITY#7 STAND#7 BUILDING#1 BUILDING#1 FISHING#1 VISITOR#7 WALKSTUF#3 STAND#6 VISITOR#1 BUILDING#8 STAND#15 **MARY#1** (9/13) |
+| d9-st330-night | 9 / 12 | (same as d5) | ACTIVITY#7 ... STAND#6 VISITOR#1 BUILDING#9 FISHING#7 ACTIVITY#1 (9/13, ending matches) |
+
+So on days without day-locked intermediates the two planners consume the same
+words for the same picks: positions 2-10 (d1-a), 2-14 (d1-b) and 2-10 (d5/d9)
+are identical at the exact boot offset. Two decisions differ from the same word:
+the **ending** (the roulette's candidate set or order: ACTIVITY#6 vs BUILDING#4,
+ACTIVITY#5 vs ACTIVITY#10, ACTIVITY#1 vs MARY#1 at night on day 5) and the **first
+slot** (the binary's `FUN_1018_0d76(1, ...)` picks the first record from the
+flagsB-bit-1 class; ours has no separate first pick). The ending's width then moves
+the budget, so the tails differ. Day 2, 6 and 10 runs (JOHNNY#2/#3 and the day-10
+keyframe in play) do not replay at any nearby offset: our candidate pools differ
+there (the day-locked intermediates are ordinary candidates in ours). The
+160-161 draws of the first planner call plus bake are: 1 gate, 15 roulette picks
+(`140F:0E67`), 103 bucket draws (`140F:1F33`: pose repeat counts and 15 cloud
+slots), 1 ocean (`1417:01FA`), and 13 cloud positions, speeds and phases.
+
+### Host canvas
+
+For each island batch, `host-check.mjs` paints our host canvas for the batch's
+titleState with the browser's own `drawBackground` (`render-ours.mjs` `renderHost`,
+no gag, no clouds) and compares it with up to 12 dumps spread over the batch (the
+first two right after the bake; dumps taken during the wipe, mostly black, are
+dropped):
+
+- A pixel is **matched** when it equals ours (within the DAC tolerance, or through a
+  learnt palette substitution) in at least one sampled frame. The original's actors,
+  speech bubbles and clouds move, so a host pixel is uncovered in some frame. Pixels
+  that **never** match in any frame are the host divergence; pixels that differ in
+  every frame but match in some are also reported (`persistent`: mostly Johnny).
+- **Island layers** (sand, palm, raft, low-tide sand and rock) are the pixels where
+  our render differs from the bare ocean screen; the **ocean** is the rest below the
+  horizon (row 150 by day, 205 at night); the **sky** above it is reported but not
+  judged, because the original drifts clouds there (FUN_1010_0a38, up to 15 slots)
+  and this check draws none.
+- The **wave** rectangles are scored by matching each region, in each frame, against
+  its three BACKGRND frames (the wave phase is not logged).
+- The day **ocean index** is the OCEAN screen whose render differs least from the
+  frames (the bake draws `rand % 3` straight into the screen).
+
+A batch is faithful when island and ocean "never" are both <= 0.5% and >= 90% of
+the wave samples match a frame (`normal-play.mjs` `HOST_THRESHOLDS`). Scores are
+in `normal-play-scores.json` and the "Normal play" section of
+[docs/oracle-coverage.md](../../../docs/oracle-coverage.md).
+
+### Findings (2026-10-23)
+
+Captured: 8 timing-faithful runs of 30 minutes (45 batches; StartTime 0900, 0500,
+0700 for day phases 1-9 and 0230/0300/0330 for night phases 12-14; story days 1,
+2, 5, 6, 9, 10 through the INI) with 27,500 framebuffer dumps, plus 10 turbo
+runs of 20 minutes (105 batches, days 1-11, phases 0-5 and 9-15) for the story
+mix: 150 planned batches, 132 played to their ending. The tables are in the
+"Normal play" section of the coverage report. What the original does:
+
+- **VISITOR#1** is in 58/150 batches (38.7%), always with island layer 0 at
+  289/299 (its `+0xd` word pins fixed layout 1).
+- **Low tide** by the phase class of the batch: 0/106 in phases 0-11, 9/38 (24%)
+  in phases 12-15. The common daytime gags carry flagsB `0x200` (forced high
+  tide), so the coin only shows at night.
+- **ACTIVITY#11** plays: 4 times as a solo batch (it is `0x205`: an ending that
+  is also first-class, so the batch is just that record) and twice as the first
+  record of a batch (`FUN_1018_0d76(1, ...)`, the first-slot class).
+- **Day-locked intermediates**: JOHNNY#2 in 1 of 30 day-2 batches and JOHNNY#3 in
+  1 of 9 day-6 batches, both in the first slot (2/39, about 5%; the binary's
+  10%-gate model predicts about 10%, ours plays them in about 40%).
+- **Key scenes outside their tide window**: JOHNNY#6 (window 12-16) ended two
+  day-10 batches at phase 1; JOHNNY#1 ended two day-11 batches at phases 3 and 4;
+  MARY#3 (window 8-16) ended a day-4 batch at phase 5; MARY#5 ended a day-8 batch
+  at phase 11. The keyframe path (`0d76(0x80)`) ignores the window. MARY#1 did not
+  come up in the 7 day-5 batches. When the gate passes it also sets `2d9b = 2d9c`,
+  so the logged day flips back to the calendar day for that batch.
+- **Anti-repeat**: 0/132 endings equal the previous batch's; 8/114 equal the one
+  two batches back. The binary excludes only the last ending (`30e8`); ours
+  excludes the last two.
+- Island layout over 150 batches: fixed layout 1 49%, fixed layout 2 6%, random
+  41% (of which quadrant-limited 24%), off-island 4%. Still waves in 28 batches.
+- The first record of a multi-record batch is spread over 22 different gags
+  (FISHING#1 6, FISHING#7 5, BUILDING#3 3, ...), so the first-slot class
+  (flagsB bit 1) is broad, not a single "first" gag.
+
+The host canvas, in short:
+
+- **Island layers match**: layer 0 at exactly 289/299 (fixed layout 1), 17/309
+  (fixed layout 2) and the logged random origins, the raft at the day's frame, the
+  low-tide sand and rock, and the trunk, with "never matched" at 0.00-0.01% in every
+  batch. Wave regions match a BACKGRND frame in 100% of samples, high and low tide.
+- **Day ocean, palette index 0**: every day batch has about 3% of its ocean never
+  matching. The pixels are all one pair: ours `#000000`, the original `#c300c3`. The
+  three OCEAN screens use palette index 0 for the dark cloud-reflection blobs
+  (9,254-10,013 pixels each) and the original draws it as the screen's colour 0,
+  `(168, 0, 168)`, shown as `#c300c3` under its DAC. Our palette marks index 0
+  transparent (`src/dgds/palette.mjs`, `a: 0`), so the blobs show the black canvas.
+  NIGHT.SCR, SUZBEACH and JOFFICE use no index 0; ISLETEMP has 18 such pixels. A
+  full-screen SCR should be opaque. This is the one host divergence found.
+- **Clouds**: the original draws drifting clouds by day and by night (the sky's
+  "never"/"some" columns), from its own cloud model. Ours draws the story
+  controller's clouds; the models differ (rng-port.md). Not scored.
+- **Night** batches (phase >= 12 with StartTime moved, and the `--time` clock) match
+  NIGHT.SCR with 0% ocean divergence; both tides appear at night, as the coin says.

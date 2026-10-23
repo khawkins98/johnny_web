@@ -1,0 +1,3782 @@
+{
+ "generated": "2026-10-23",
+ "results": [
+  {
+   "run": "d1-st230-night",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4493,
+   "complete": true,
+   "day": 1,
+   "phase": 14,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 273,
+    "y": 327
+   },
+   "ending": "ACTIVITY#10",
+   "queue": 14,
+   "ticks": [
+    0,
+    2,
+    16,
+    397,
+    707,
+    1056,
+    1504,
+    1893,
+    2339,
+    2912,
+    3514,
+    3952
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15216,
+   "oceanPx": 156386,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 127302,
+   "neverSkyPct": 1.88,
+   "someSkyPct": 0,
+   "persistentIslandPct": 20.51,
+   "persistentOceanPct": 4.42,
+   "islandDiffMedianPct": 1.52,
+   "skyDiffMaxPct": 1.88,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      3,
+      3,
+      5
+     ],
+     [
+      2,
+      5,
+      4
+     ],
+     [
+      2,
+      4,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 7.79
+   }
+  },
+  {
+   "run": "d1-st230-night",
+   "batch": 1,
+   "startTick": 4493,
+   "endTick": 10976,
+   "complete": true,
+   "day": 1,
+   "phase": 14,
+   "night": true,
+   "lowTide": true,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "FISHING#6",
+   "queue": 21,
+   "ticks": [
+    4493,
+    4494,
+    4495,
+    5344,
+    5888,
+    6388,
+    6800,
+    7334,
+    8064,
+    8897,
+    9413,
+    10032
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 24962,
+   "oceanPx": 139039,
+   "neverIsland": 1,
+   "neverIslandPct": 0,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 16.78,
+   "someSkyPct": 0,
+   "persistentIslandPct": 18.22,
+   "persistentOceanPct": 3.55,
+   "islandDiffMedianPct": 3.74,
+   "skyDiffMaxPct": 16.78,
+   "waves": {
+    "regions": 4,
+    "samples": 44,
+    "matched": 44,
+    "worstPct": 0,
+    "frameHist": [
+     [
+      5,
+      5,
+      1
+     ],
+     [
+      7,
+      3,
+      1
+     ],
+     [
+      5,
+      3,
+      3
+     ],
+     [
+      5,
+      5,
+      1
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 6.02
+   }
+  },
+  {
+   "run": "d1-st230-night",
+   "batch": 2,
+   "startTick": 10976,
+   "endTick": 18799,
+   "complete": true,
+   "day": 1,
+   "phase": 14,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#6",
+   "queue": 16,
+   "ticks": [
+    10976,
+    10977,
+    10978,
+    12144,
+    12978,
+    13295,
+    14090,
+    14919,
+    15777,
+    16112,
+    17146,
+    18026
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15186,
+   "oceanPx": 158495,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 3.81,
+   "someSkyPct": 0,
+   "persistentIslandPct": 13.05,
+   "persistentOceanPct": 3.62,
+   "islandDiffMedianPct": 1.7,
+   "skyDiffMaxPct": 3.81,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      3,
+      5,
+      3
+     ],
+     [
+      5,
+      2,
+      4
+     ],
+     [
+      5,
+      2,
+      4
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 6.03
+   }
+  },
+  {
+   "run": "d1-st230-night",
+   "batch": 3,
+   "startTick": 18799,
+   "endTick": 24609,
+   "complete": false,
+   "day": 1,
+   "phase": 14,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "BUILDING#6",
+   "queue": 10,
+   "ticks": [
+    18799,
+    18800,
+    18801,
+    19479,
+    20064,
+    20896,
+    21920,
+    22501,
+    23005,
+    23248,
+    23840,
+    24107
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15186,
+   "oceanPx": 158495,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 8.97,
+   "someSkyPct": 0.42,
+   "persistentIslandPct": 24.19,
+   "persistentOceanPct": 3.39,
+   "islandDiffMedianPct": 1.8,
+   "skyDiffMaxPct": 9.25,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.04,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 9.94
+   }
+  },
+  {
+   "run": "d1-st900-a",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4277,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#6",
+   "queue": 17,
+   "ticks": [
+    0,
+    2,
+    16,
+    352,
+    880,
+    1360,
+    1783,
+    2357,
+    3024,
+    3451,
+    3615,
+    3856
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    358024,
+    100698,
+    354816
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5593,
+   "neverOceanPct": 2.97,
+   "skyPx": 95518,
+   "neverSkyPct": 2.5,
+   "someSkyPct": 0,
+   "persistentIslandPct": 14.16,
+   "persistentOceanPct": 3.84,
+   "islandDiffMedianPct": 1.12,
+   "skyDiffMaxPct": 2.5,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      4,
+      3,
+      4
+     ],
+     [
+      5,
+      4,
+      2
+     ],
+     [
+      3,
+      4,
+      4
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 9,
+    "islandDiffPct": 7.88
+   }
+  },
+  {
+   "run": "d1-st900-a",
+   "batch": 1,
+   "startTick": 4277,
+   "endTick": 9720,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "MISCGAG#1",
+   "queue": 18,
+   "ticks": [
+    4277,
+    4278,
+    4279,
+    4868,
+    5424,
+    5744,
+    6224,
+    6779,
+    7221,
+    7872,
+    8546,
+    9082
+   ],
+   "oceanIndex": 0,
+   "oceanScores": [
+    122113,
+    365487,
+    149996
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15447,
+   "oceanPx": 187939,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6197,
+   "neverOceanPct": 3.3,
+   "skyPx": 95518,
+   "neverSkyPct": 5.01,
+   "someSkyPct": 4.02,
+   "persistentIslandPct": 17.77,
+   "persistentOceanPct": 3.2,
+   "islandDiffMedianPct": 0.99,
+   "skyDiffMaxPct": 9.03,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 8.36,
+    "frameHist": [
+     [
+      5,
+      5,
+      1
+     ],
+     [
+      5,
+      2,
+      4
+     ],
+     [
+      3,
+      3,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 5.99
+   }
+  },
+  {
+   "run": "d1-st900-a",
+   "batch": 2,
+   "startTick": 9720,
+   "endTick": 17347,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#9",
+   "queue": 17,
+   "ticks": [
+    9720,
+    9722,
+    9728,
+    10402,
+    11130,
+    11780,
+    12166,
+    12971,
+    13744,
+    14592,
+    15541,
+    16432
+   ],
+   "oceanIndex": 0,
+   "oceanScores": [
+    108163,
+    351685,
+    136275
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15447,
+   "oceanPx": 187939,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6180,
+   "neverOceanPct": 3.29,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 24.57,
+   "persistentOceanPct": 3.44,
+   "islandDiffMedianPct": 2.39,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 8.23,
+    "frameHist": [
+     [
+      6,
+      3,
+      2
+     ],
+     [
+      6,
+      3,
+      2
+     ],
+     [
+      5,
+      4,
+      2
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 8.11
+   }
+  },
+  {
+   "run": "d1-st900-a",
+   "batch": 3,
+   "startTick": 17347,
+   "endTick": 23033,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 242,
+    "y": 337
+   },
+   "ending": "MISCGAG#1",
+   "queue": 23,
+   "ticks": [
+    17347,
+    17348,
+    17349,
+    17920,
+    18624,
+    19193,
+    19872,
+    20434,
+    21002,
+    21544,
+    21920,
+    22432
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    377017,
+    126871,
+    372926
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15080,
+   "oceanPx": 187824,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6389,
+   "neverOceanPct": 3.4,
+   "skyPx": 96000,
+   "neverSkyPct": 11.16,
+   "someSkyPct": 0,
+   "persistentIslandPct": 16.07,
+   "persistentOceanPct": 3.38,
+   "islandDiffMedianPct": 1.55,
+   "skyDiffMaxPct": 11.16,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.56,
+    "frameHist": [
+     [
+      7,
+      1,
+      3
+     ],
+     [
+      4,
+      2,
+      5
+     ],
+     [
+      2,
+      3,
+      6
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3"
+   ],
+   "worstFrame": {
+    "index": 5,
+    "islandDiffPct": 6.39
+   }
+  },
+  {
+   "run": "d1-st900-a",
+   "batch": 4,
+   "startTick": 23033,
+   "endTick": 23081,
+   "complete": false,
+   "day": 1,
+   "phase": 2,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#9",
+   "queue": 15,
+   "ticks": [
+    23033,
+    23034,
+    23035,
+    23040,
+    23049,
+    23050,
+    23051,
+    23054,
+    23055,
+    23056,
+    23072
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    319479,
+    85657,
+    316496
+   ],
+   "frames": 10,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5812,
+   "neverOceanPct": 3.09,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 13.71,
+   "persistentOceanPct": 2.31,
+   "islandDiffMedianPct": 2.74,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 30,
+    "matched": 30,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      5,
+      3,
+      2
+     ],
+     [
+      4,
+      4,
+      2
+     ],
+     [
+      3,
+      2,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 9,
+    "islandDiffPct": 7.59
+   }
+  },
+  {
+   "run": "d1-st900-b",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 5142,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#5",
+   "queue": 15,
+   "ticks": [
+    0,
+    1,
+    2,
+    458,
+    862,
+    1246,
+    1897,
+    2424,
+    2880,
+    3299,
+    3776,
+    4420
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    139270,
+    355241,
+    84528
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15346,
+   "oceanPx": 188040,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6669,
+   "neverOceanPct": 3.55,
+   "skyPx": 95518,
+   "neverSkyPct": 2.5,
+   "someSkyPct": 0,
+   "persistentIslandPct": 7.97,
+   "persistentOceanPct": 3.97,
+   "islandDiffMedianPct": 0.85,
+   "skyDiffMaxPct": 2.5,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.12,
+    "frameHist": [
+     [
+      5,
+      5,
+      1
+     ],
+     [
+      8,
+      1,
+      2
+     ],
+     [
+      8,
+      0,
+      3
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 10,
+    "islandDiffPct": 2.71
+   }
+  },
+  {
+   "run": "d1-st900-b",
+   "batch": 1,
+   "startTick": 5142,
+   "endTick": 13852,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 253,
+    "y": 262
+   },
+   "ending": "MISCGAG#2",
+   "queue": 14,
+   "ticks": [
+    5142,
+    5143,
+    5144,
+    5961,
+    6757,
+    7176,
+    8096,
+    8976,
+    9984,
+    11216,
+    12032,
+    12718
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    140194,
+    368642,
+    85515
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15475,
+   "oceanPx": 192550,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6191,
+   "neverOceanPct": 3.22,
+   "skyPx": 90879,
+   "neverSkyPct": 0,
+   "someSkyPct": 0.07,
+   "persistentIslandPct": 25.24,
+   "persistentOceanPct": 3.05,
+   "islandDiffMedianPct": 1.62,
+   "skyDiffMaxPct": 0.07,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 9.51,
+    "frameHist": [
+     [
+      3,
+      3,
+      5
+     ],
+     [
+      4,
+      4,
+      3
+     ],
+     [
+      5,
+      4,
+      2
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 7,
+    "islandDiffPct": 8.51
+   }
+  },
+  {
+   "run": "d1-st900-b",
+   "batch": 2,
+   "startTick": 13852,
+   "endTick": 19824,
+   "complete": true,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "WALKSTUF#1",
+   "queue": 12,
+   "ticks": [
+    13852,
+    13854,
+    13856,
+    14435,
+    15291,
+    15609,
+    16262,
+    16505,
+    16857,
+    17590,
+    18402,
+    19013
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    132507,
+    348615,
+    77825
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15346,
+   "oceanPx": 188040,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6579,
+   "neverOceanPct": 3.5,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 27.58,
+   "persistentOceanPct": 4.09,
+   "islandDiffMedianPct": 1.24,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.12,
+    "frameHist": [
+     [
+      5,
+      4,
+      2
+     ],
+     [
+      3,
+      4,
+      4
+     ],
+     [
+      4,
+      3,
+      4
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 2,
+    "islandDiffPct": 11.2
+   }
+  },
+  {
+   "run": "d1-st900-b",
+   "batch": 3,
+   "startTick": 19824,
+   "endTick": 25357,
+   "complete": false,
+   "day": 1,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#12",
+   "queue": 17,
+   "ticks": [
+    19824,
+    19825,
+    19826,
+    20476,
+    20944,
+    21430,
+    22208,
+    22766,
+    22981,
+    23648,
+    24156,
+    24800
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    132215,
+    347835,
+    77557
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15346,
+   "oceanPx": 188040,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6691,
+   "neverOceanPct": 3.56,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 11.91,
+   "persistentOceanPct": 3.12,
+   "islandDiffMedianPct": 1.73,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      8,
+      2,
+      1
+     ],
+     [
+      6,
+      2,
+      3
+     ],
+     [
+      3,
+      1,
+      7
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 7.92
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 3969,
+   "complete": true,
+   "day": 10,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#6",
+   "queue": 17,
+   "ticks": [
+    0,
+    1,
+    2,
+    368,
+    895,
+    1344,
+    1769,
+    2293,
+    2848,
+    3281,
+    3414,
+    3558
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    357514,
+    101335,
+    354497
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17234,
+   "oceanPx": 186152,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5464,
+   "neverOceanPct": 2.94,
+   "skyPx": 95518,
+   "neverSkyPct": 2.5,
+   "someSkyPct": 0,
+   "persistentIslandPct": 13.9,
+   "persistentOceanPct": 4.38,
+   "islandDiffMedianPct": 1.46,
+   "skyDiffMaxPct": 2.5,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.12,
+    "frameHist": [
+     [
+      5,
+      2,
+      4
+     ],
+     [
+      4,
+      4,
+      3
+     ],
+     [
+      2,
+      4,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 9,
+    "islandDiffPct": 7.22
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 1,
+   "startTick": 3969,
+   "endTick": 9730,
+   "complete": true,
+   "day": 10,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 275,
+    "y": 361
+   },
+   "ending": "MISCGAG#1",
+   "queue": 19,
+   "ticks": [
+    3969,
+    3970,
+    3971,
+    4652,
+    4893,
+    5382,
+    5839,
+    6466,
+    7097,
+    7624,
+    8048,
+    8944
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    347112,
+    107180,
+    343966
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17081,
+   "oceanPx": 185823,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 7500,
+   "neverOceanPct": 4.04,
+   "skyPx": 96000,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 18.21,
+   "persistentOceanPct": 3.15,
+   "islandDiffMedianPct": 1.07,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 4.21,
+    "frameHist": [
+     [
+      5,
+      5,
+      1
+     ],
+     [
+      5,
+      5,
+      1
+     ],
+     [
+      5,
+      3,
+      3
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 7.64
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 2,
+   "startTick": 9730,
+   "endTick": 10069,
+   "complete": true,
+   "day": 10,
+   "phase": 1,
+   "night": false,
+   "lowTide": true,
+   "wavesOff": false,
+   "layout": "off-island",
+   "layer0": {
+    "x": 189,
+    "y": 299
+   },
+   "ending": "JOHNNY#6",
+   "queue": 1,
+   "ticks": [
+    9730,
+    9732,
+    9744,
+    9779,
+    9792,
+    9840,
+    9863,
+    9904,
+    9917,
+    9968,
+    10016,
+    10039
+   ],
+   "skipped": "off-island batch (black plate, no host canvas)"
+  },
+  {
+   "run": "d10-st900",
+   "batch": 3,
+   "startTick": 10069,
+   "endTick": 10566,
+   "complete": true,
+   "day": 11,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random/q28",
+   "layer0": {
+    "x": 269,
+    "y": 361
+   },
+   "ending": "ACTIVITY#11",
+   "queue": 1,
+   "ticks": [
+    10069,
+    10070,
+    10071,
+    10112,
+    10128,
+    10142,
+    10167,
+    10203,
+    10288,
+    10312,
+    10384,
+    10480
+   ],
+   "oceanIndex": 0,
+   "oceanScores": [
+    116406,
+    346123,
+    146818
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17045,
+   "oceanPx": 185859,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 8560,
+   "neverOceanPct": 4.61,
+   "skyPx": 96000,
+   "neverSkyPct": 0,
+   "someSkyPct": 0.02,
+   "persistentIslandPct": 1.67,
+   "persistentOceanPct": 1.8,
+   "islandDiffMedianPct": 0.32,
+   "skyDiffMaxPct": 0.02,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 6.97,
+    "frameHist": [
+     [
+      2,
+      4,
+      5
+     ],
+     [
+      3,
+      3,
+      5
+     ],
+     [
+      4,
+      3,
+      4
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3"
+   ],
+   "worstFrame": {
+    "index": 9,
+    "islandDiffPct": 1.5
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 4,
+   "startTick": 10566,
+   "endTick": 10904,
+   "complete": true,
+   "day": 10,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "off-island",
+   "layer0": {
+    "x": 256,
+    "y": 308
+   },
+   "ending": "JOHNNY#6",
+   "queue": 1,
+   "ticks": [
+    10566,
+    10568,
+    10576,
+    10615,
+    10640,
+    10688,
+    10723,
+    10736,
+    10752,
+    10800,
+    10848,
+    10874
+   ],
+   "skipped": "off-island batch (black plate, no host canvas)"
+  },
+  {
+   "run": "d10-st900",
+   "batch": 5,
+   "startTick": 10904,
+   "endTick": 14614,
+   "complete": true,
+   "day": 11,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "VISITOR#3",
+   "queue": 14,
+   "ticks": [
+    10904,
+    10906,
+    10912,
+    11147,
+    11488,
+    11916,
+    12240,
+    12688,
+    12960,
+    13427,
+    13907,
+    14128
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    361372,
+    105737,
+    358597
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17234,
+   "oceanPx": 186152,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5386,
+   "neverOceanPct": 2.89,
+   "skyPx": 95518,
+   "neverSkyPct": 5.01,
+   "someSkyPct": 0,
+   "persistentIslandPct": 8.02,
+   "persistentOceanPct": 3.08,
+   "islandDiffMedianPct": 0.46,
+   "skyDiffMaxPct": 5.01,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 10,
+    "islandDiffPct": 5.36
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 6,
+   "startTick": 14614,
+   "endTick": 19871,
+   "complete": true,
+   "day": 11,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed2",
+   "layer0": {
+    "x": 17,
+    "y": 309
+   },
+   "ending": "FISHING#4",
+   "queue": 11,
+   "ticks": [
+    14614,
+    14616,
+    14624,
+    15104,
+    15488,
+    15982,
+    16496,
+    17181,
+    17885,
+    18291,
+    18722,
+    19150
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    176402,
+    391483,
+    124750
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17019,
+   "oceanPx": 185914,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 7750,
+   "neverOceanPct": 4.17,
+   "skyPx": 96000,
+   "neverSkyPct": 17.06,
+   "someSkyPct": 0,
+   "persistentIslandPct": 8.98,
+   "persistentOceanPct": 3.36,
+   "islandDiffMedianPct": 1.76,
+   "skyDiffMaxPct": 17.06,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      2,
+      3,
+      6
+     ],
+     [
+      1,
+      7,
+      3
+     ],
+     [
+      1,
+      7,
+      3
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 2.53
+   }
+  },
+  {
+   "run": "d10-st900",
+   "batch": 7,
+   "startTick": 19871,
+   "endTick": 23364,
+   "complete": false,
+   "day": 11,
+   "phase": 1,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "WALKSTUF#1",
+   "queue": 9,
+   "ticks": [
+    19871,
+    19872,
+    19873,
+    20208,
+    20419,
+    20720,
+    21070,
+    21360,
+    21856,
+    22464,
+    22912,
+    23088
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    146549,
+    380238,
+    87524
+   ],
+   "frames": 12,
+   "wipeFrames": 0,
+   "islandPx": 17152,
+   "oceanPx": 186234,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6414,
+   "neverOceanPct": 3.44,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 16.36,
+   "persistentOceanPct": 3.14,
+   "islandDiffMedianPct": 1,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 36,
+    "matched": 36,
+    "worstPct": 2,
+    "frameHist": [
+     [
+      2,
+      8,
+      2
+     ],
+     [
+      4,
+      7,
+      1
+     ],
+     [
+      5,
+      7,
+      0
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 5,
+    "islandDiffPct": 9.08
+   }
+  },
+  {
+   "run": "d2-st500",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4587,
+   "complete": true,
+   "day": 2,
+   "phase": 9,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "FISHING#6",
+   "queue": 19,
+   "ticks": [
+    0,
+    2,
+    16,
+    736,
+    1280,
+    1488,
+    1936,
+    2586,
+    3220,
+    3518,
+    3720,
+    4054
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    357226,
+    100223,
+    354103
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5598,
+   "neverOceanPct": 2.98,
+   "skyPx": 95518,
+   "neverSkyPct": 2.5,
+   "someSkyPct": 0,
+   "persistentIslandPct": 22.98,
+   "persistentOceanPct": 3.46,
+   "islandDiffMedianPct": 1.09,
+   "skyDiffMaxPct": 2.5,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.56,
+    "frameHist": [
+     [
+      6,
+      2,
+      3
+     ],
+     [
+      4,
+      2,
+      5
+     ],
+     [
+      2,
+      1,
+      8
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 9.3
+   }
+  },
+  {
+   "run": "d2-st500",
+   "batch": 1,
+   "startTick": 4587,
+   "endTick": 11313,
+   "complete": true,
+   "day": 2,
+   "phase": 9,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#5",
+   "queue": 17,
+   "ticks": [
+    4587,
+    4588,
+    4589,
+    5486,
+    5914,
+    6448,
+    7408,
+    8057,
+    8688,
+    9552,
+    9978,
+    10336
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    389182,
+    132132,
+    386160
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5531,
+   "neverOceanPct": 2.94,
+   "skyPx": 95518,
+   "neverSkyPct": 14.41,
+   "someSkyPct": 0,
+   "persistentIslandPct": 17.06,
+   "persistentOceanPct": 2.83,
+   "islandDiffMedianPct": 3,
+   "skyDiffMaxPct": 14.41,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      4,
+      4,
+      3
+     ],
+     [
+      6,
+      3,
+      2
+     ],
+     [
+      5,
+      3,
+      3
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 8.21
+   }
+  },
+  {
+   "run": "d2-st500",
+   "batch": 2,
+   "startTick": 11313,
+   "endTick": 16822,
+   "complete": true,
+   "day": 2,
+   "phase": 9,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "WALKSTUF#1",
+   "queue": 15,
+   "ticks": [
+    11313,
+    11315,
+    11327,
+    11732,
+    12176,
+    12673,
+    13363,
+    14160,
+    14675,
+    15120,
+    15712,
+    16162
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    352032,
+    94653,
+    348792
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5708,
+   "neverOceanPct": 3.04,
+   "skyPx": 95518,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 14.5,
+   "persistentOceanPct": 3.09,
+   "islandDiffMedianPct": 1.69,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      3,
+      2,
+      6
+     ],
+     [
+      3,
+      5,
+      3
+     ],
+     [
+      0,
+      5,
+      6
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 6.27
+   }
+  },
+  {
+   "run": "d2-st500",
+   "batch": 3,
+   "startTick": 16822,
+   "endTick": 22092,
+   "complete": true,
+   "day": 2,
+   "phase": 9,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "BUILDING#2",
+   "queue": 17,
+   "ticks": [
+    16822,
+    16823,
+    16824,
+    17505,
+    18192,
+    19003,
+    19790,
+    20512,
+    21215,
+    21552,
+    21925,
+    22006
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    371165,
+    115547,
+    368267
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5357,
+   "neverOceanPct": 2.85,
+   "skyPx": 95518,
+   "neverSkyPct": 6.21,
+   "someSkyPct": 3.7,
+   "persistentIslandPct": 15.43,
+   "persistentOceanPct": 9.57,
+   "islandDiffMedianPct": 1.81,
+   "skyDiffMaxPct": 8.76,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 31,
+    "worstPct": 46.15,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 93.94
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 8,
+    "islandDiffPct": 7.19
+   }
+  },
+  {
+   "run": "d2-st500",
+   "batch": 4,
+   "startTick": 22092,
+   "endTick": 23610,
+   "complete": false,
+   "day": 2,
+   "phase": 9,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "WALKSTUF#1",
+   "queue": 11,
+   "ticks": [
+    22092,
+    22093,
+    22094,
+    22240,
+    22416,
+    22557,
+    22691,
+    22843,
+    23088,
+    23274,
+    23392,
+    23506
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    378531,
+    121568,
+    375122
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 15384,
+   "oceanPx": 188002,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5717,
+   "neverOceanPct": 3.04,
+   "skyPx": 95518,
+   "neverSkyPct": 8.71,
+   "someSkyPct": 11.58,
+   "persistentIslandPct": 22.83,
+   "persistentOceanPct": 7.38,
+   "islandDiffMedianPct": 2.61,
+   "skyDiffMaxPct": 20.3,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 2,
+    "frameHist": [
+     [
+      3,
+      1,
+      7
+     ],
+     [
+      4,
+      2,
+      5
+     ],
+     [
+      2,
+      7,
+      2
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 7,
+    "islandDiffPct": 9.57
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4017,
+   "complete": true,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 275,
+    "y": 320
+   },
+   "ending": "ACTIVITY#1",
+   "queue": 13,
+   "ticks": [
+    0,
+    1,
+    2,
+    496,
+    687,
+    1056,
+    1388,
+    1760,
+    2158,
+    2650,
+    3146,
+    3547
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16395,
+   "oceanPx": 156075,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 126434,
+   "neverSkyPct": 1.89,
+   "someSkyPct": 0,
+   "persistentIslandPct": 16.31,
+   "persistentOceanPct": 3.5,
+   "islandDiffMedianPct": 1.73,
+   "skyDiffMaxPct": 1.89,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 9.67,
+    "frameHist": [
+     [
+      6,
+      4,
+      1
+     ],
+     [
+      7,
+      2,
+      2
+     ],
+     [
+      4,
+      2,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 4.68
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 1,
+   "startTick": 4017,
+   "endTick": 4533,
+   "complete": true,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random/q28",
+   "layer0": {
+    "x": 203,
+    "y": 275
+   },
+   "ending": "ACTIVITY#11",
+   "queue": 1,
+   "ticks": [
+    4017,
+    4019,
+    4032,
+    4061,
+    4080,
+    4095,
+    4120,
+    4170,
+    4255,
+    4280,
+    4368,
+    4464
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16575,
+   "oceanPx": 157417,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 288,
+   "neverOceanPct": 0.18,
+   "skyPx": 124912,
+   "neverSkyPct": 6.38,
+   "someSkyPct": 1.12,
+   "persistentIslandPct": 1.82,
+   "persistentOceanPct": 1.35,
+   "islandDiffMedianPct": 0.33,
+   "skyDiffMaxPct": 6.83,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 7.05,
+    "frameHist": [
+     [
+      7,
+      1,
+      3
+     ],
+     [
+      4,
+      3,
+      4
+     ],
+     [
+      2,
+      3,
+      6
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 10,
+    "islandDiffPct": 1.64
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 2,
+   "startTick": 4533,
+   "endTick": 11266,
+   "complete": true,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": true,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "MISCGAG#1",
+   "queue": 13,
+   "ticks": [
+    4533,
+    4534,
+    4535,
+    5093,
+    5488,
+    6112,
+    6567,
+    7456,
+    8416,
+    9330,
+    9930,
+    10576
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 26161,
+   "oceanPx": 137840,
+   "neverIsland": 1,
+   "neverIslandPct": 0,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 1.91,
+   "someSkyPct": 0.26,
+   "persistentIslandPct": 16.55,
+   "persistentOceanPct": 3.5,
+   "islandDiffMedianPct": 0.87,
+   "skyDiffMaxPct": 2.17,
+   "waves": {
+    "regions": 4,
+    "samples": 44,
+    "matched": 44,
+    "worstPct": 0,
+    "frameHist": [
+     [
+      4,
+      2,
+      5
+     ],
+     [
+      3,
+      3,
+      5
+     ],
+     [
+      0,
+      5,
+      6
+     ],
+     [
+      4,
+      2,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 7,
+    "islandDiffPct": 5.71
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 3,
+   "startTick": 11266,
+   "endTick": 14823,
+   "complete": true,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "VISITOR#3",
+   "queue": 10,
+   "ticks": [
+    11266,
+    11267,
+    11268,
+    11600,
+    11984,
+    12330,
+    12496,
+    12777,
+    13200,
+    13648,
+    13968,
+    14416
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16572,
+   "oceanPx": 157109,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 0,
+   "someSkyPct": 0,
+   "persistentIslandPct": 18.69,
+   "persistentOceanPct": 5.65,
+   "islandDiffMedianPct": 1.73,
+   "skyDiffMaxPct": 0,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.03,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 8.62
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 4,
+   "startTick": 14823,
+   "endTick": 20265,
+   "complete": true,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": true,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "FISHING#3",
+   "queue": 21,
+   "ticks": [
+    14823,
+    14825,
+    14832,
+    15426,
+    15918,
+    16240,
+    16874,
+    17584,
+    18059,
+    18544,
+    18890,
+    19584
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 26161,
+   "oceanPx": 137840,
+   "neverIsland": 1,
+   "neverIslandPct": 0,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 0,
+   "someSkyPct": 2.9,
+   "persistentIslandPct": 15.65,
+   "persistentOceanPct": 3.59,
+   "islandDiffMedianPct": 2.13,
+   "skyDiffMaxPct": 2.87,
+   "waves": {
+    "regions": 4,
+    "samples": 44,
+    "matched": 44,
+    "worstPct": 0,
+    "frameHist": [
+     [
+      3,
+      1,
+      7
+     ],
+     [
+      2,
+      4,
+      5
+     ],
+     [
+      0,
+      7,
+      4
+     ],
+     [
+      3,
+      1,
+      7
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 4.93
+   }
+  },
+  {
+   "run": "d5-st300-night",
+   "batch": 5,
+   "startTick": 20265,
+   "endTick": 22688,
+   "complete": false,
+   "day": 5,
+   "phase": 13,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random/q4",
+   "layer0": {
+    "x": 172,
+    "y": 282
+   },
+   "ending": "VISITOR#5",
+   "queue": 19,
+   "ticks": [
+    20265,
+    20266,
+    20267,
+    20624,
+    20797,
+    20879,
+    21051,
+    21309,
+    21705,
+    22033,
+    22206,
+    22448
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16572,
+   "oceanPx": 157338,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 124994,
+   "neverSkyPct": 5.73,
+   "someSkyPct": 0,
+   "persistentIslandPct": 19.15,
+   "persistentOceanPct": 3.22,
+   "islandDiffMedianPct": 1.73,
+   "skyDiffMaxPct": 5.73,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      6,
+      3,
+      2
+     ],
+     [
+      7,
+      2,
+      2
+     ],
+     [
+      3,
+      2,
+      6
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 7,
+    "islandDiffPct": 5.76
+   }
+  },
+  {
+   "run": "d6-st700",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4873,
+   "complete": true,
+   "day": 6,
+   "phase": 5,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#6",
+   "queue": 17,
+   "ticks": [
+    0,
+    1,
+    2,
+    435,
+    1014,
+    1464,
+    2000,
+    2800,
+    3472,
+    3989,
+    4211,
+    4399
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    357438,
+    101258,
+    354436
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17234,
+   "oceanPx": 186152,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5501,
+   "neverOceanPct": 2.96,
+   "skyPx": 95518,
+   "neverSkyPct": 2.5,
+   "someSkyPct": 0,
+   "persistentIslandPct": 20.33,
+   "persistentOceanPct": 3.3,
+   "islandDiffMedianPct": 2.69,
+   "skyDiffMaxPct": 2.5,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      5,
+      3,
+      3
+     ],
+     [
+      4,
+      5,
+      2
+     ],
+     [
+      1,
+      5,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 5,
+    "islandDiffPct": 8.92
+   }
+  },
+  {
+   "run": "d6-st700",
+   "batch": 1,
+   "startTick": 4873,
+   "endTick": 10831,
+   "complete": true,
+   "day": 6,
+   "phase": 5,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "random/q20",
+   "layer0": {
+    "x": 286,
+    "y": 349
+   },
+   "ending": "BUILDING#2",
+   "queue": 15,
+   "ticks": [
+    4873,
+    4875,
+    4880,
+    5602,
+    6291,
+    6612,
+    7126,
+    8304,
+    9222,
+    10047,
+    10613,
+    10721
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    380165,
+    139667,
+    377071
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17004,
+   "oceanPx": 185900,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 7011,
+   "neverOceanPct": 3.77,
+   "skyPx": 96000,
+   "neverSkyPct": 12.36,
+   "someSkyPct": 0.63,
+   "persistentIslandPct": 21.78,
+   "persistentOceanPct": 10.09,
+   "islandDiffMedianPct": 3.16,
+   "skyDiffMaxPct": 12.99,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 31,
+    "worstPct": 46.15,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 93.94
+   },
+   "remaps": [
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 9.14
+   }
+  },
+  {
+   "run": "d6-st700",
+   "batch": 2,
+   "startTick": 10831,
+   "endTick": 15334,
+   "complete": true,
+   "day": 6,
+   "phase": 5,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "BUILDING#4",
+   "queue": 8,
+   "ticks": [
+    10831,
+    10833,
+    10848,
+    11307,
+    11792,
+    12016,
+    12496,
+    12720,
+    13167,
+    13739,
+    14160,
+    14672
+   ],
+   "oceanIndex": 2,
+   "oceanScores": [
+    162877,
+    377206,
+    108631
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17152,
+   "oceanPx": 186234,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6805,
+   "neverOceanPct": 3.65,
+   "skyPx": 95518,
+   "neverSkyPct": 11.77,
+   "someSkyPct": 0,
+   "persistentIslandPct": 20.15,
+   "persistentOceanPct": 2.5,
+   "islandDiffMedianPct": 2.92,
+   "skyDiffMaxPct": 11.77,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.32,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 10,
+    "islandDiffPct": 8.82
+   }
+  },
+  {
+   "run": "d6-st700",
+   "batch": 3,
+   "startTick": 15334,
+   "endTick": 19686,
+   "complete": true,
+   "day": 6,
+   "phase": 5,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "FISHING#3",
+   "queue": 18,
+   "ticks": [
+    15334,
+    15336,
+    15344,
+    15922,
+    16400,
+    16893,
+    17255,
+    17408,
+    17648,
+    18272,
+    18640,
+    19093
+   ],
+   "oceanIndex": 0,
+   "oceanScores": [
+    129497,
+    370129,
+    157133
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17322,
+   "oceanPx": 186064,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 6057,
+   "neverOceanPct": 3.26,
+   "skyPx": 95518,
+   "neverSkyPct": 7.51,
+   "someSkyPct": 0,
+   "persistentIslandPct": 16.72,
+   "persistentOceanPct": 3.63,
+   "islandDiffMedianPct": 0.99,
+   "skyDiffMaxPct": 7.51,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 8.23,
+    "frameHist": [
+     [
+      5,
+      2,
+      4
+     ],
+     [
+      4,
+      5,
+      2
+     ],
+     [
+      3,
+      3,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 6,
+    "islandDiffPct": 7
+   }
+  },
+  {
+   "run": "d6-st700",
+   "batch": 4,
+   "startTick": 19686,
+   "endTick": 22977,
+   "complete": false,
+   "day": 6,
+   "phase": 5,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "ACTIVITY#10",
+   "queue": 17,
+   "ticks": [
+    19686,
+    19687,
+    19688,
+    19888,
+    20352,
+    20704,
+    21032,
+    21328,
+    21506,
+    21820,
+    22148,
+    22631
+   ],
+   "oceanIndex": 1,
+   "oceanScores": [
+    366669,
+    110546,
+    363614
+   ],
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 17234,
+   "oceanPx": 186152,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 5301,
+   "neverOceanPct": 2.85,
+   "skyPx": 95518,
+   "neverSkyPct": 6.21,
+   "someSkyPct": 0,
+   "persistentIslandPct": 12.48,
+   "persistentOceanPct": 4.08,
+   "islandDiffMedianPct": 0.93,
+   "skyDiffMaxPct": 6.21,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 2,
+    "frameHist": [
+     [
+      6,
+      3,
+      2
+     ],
+     [
+      6,
+      1,
+      4
+     ],
+     [
+      6,
+      2,
+      3
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300",
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3"
+   ],
+   "worstFrame": {
+    "index": 5,
+    "islandDiffPct": 5.71
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 0,
+   "startTick": 0,
+   "endTick": 4912,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 275,
+    "y": 320
+   },
+   "ending": "ACTIVITY#1",
+   "queue": 13,
+   "ticks": [
+    0,
+    1,
+    2,
+    528,
+    937,
+    1358,
+    1898,
+    2161,
+    2756,
+    3424,
+    3872,
+    4256
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16591,
+   "oceanPx": 155879,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 126434,
+   "neverSkyPct": 1.89,
+   "someSkyPct": 0,
+   "persistentIslandPct": 12.69,
+   "persistentOceanPct": 4.12,
+   "islandDiffMedianPct": 0.89,
+   "skyDiffMaxPct": 1.89,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      3,
+      3,
+      5
+     ],
+     [
+      3,
+      4,
+      4
+     ],
+     [
+      2,
+      5,
+      4
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 7.15
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 1,
+   "startTick": 4912,
+   "endTick": 9552,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "random/q20",
+   "layer0": {
+    "x": 291,
+    "y": 339
+   },
+   "ending": "BUILDING#6",
+   "queue": 16,
+   "ticks": [
+    4912,
+    4913,
+    4914,
+    5369,
+    5680,
+    6160,
+    6592,
+    7276,
+    7568,
+    7988,
+    8485,
+    8944
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16784,
+   "oceanPx": 153159,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 128961,
+   "neverSkyPct": 13.68,
+   "someSkyPct": 0,
+   "persistentIslandPct": 23.74,
+   "persistentOceanPct": 9.58,
+   "islandDiffMedianPct": 2.13,
+   "skyDiffMaxPct": 13.68,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.03,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 10,
+    "islandDiffPct": 9.01
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 2,
+   "startTick": 9552,
+   "endTick": 9993,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": false,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "off-island",
+   "layer0": {
+    "x": 241,
+    "y": 329
+   },
+   "ending": "SUZY#2",
+   "queue": 1,
+   "ticks": [
+    9552,
+    9554,
+    9555,
+    9600,
+    9632,
+    9680,
+    9744,
+    9808,
+    9841,
+    9861,
+    9872,
+    9936
+   ],
+   "skipped": "off-island batch (black plate, no host canvas)"
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 3,
+   "startTick": 9993,
+   "endTick": 13857,
+   "complete": true,
+   "day": 10,
+   "phase": 12,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "random/q20",
+   "layer0": {
+    "x": 235,
+    "y": 353
+   },
+   "ending": "BUILDING#2",
+   "queue": 10,
+   "ticks": [
+    9993,
+    9995,
+    10000,
+    10617,
+    10959,
+    11456,
+    12157,
+    12862,
+    13379,
+    13636,
+    13710,
+    13783
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16788,
+   "oceanPx": 151493,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 130623,
+   "neverSkyPct": 1.83,
+   "someSkyPct": 3.4,
+   "persistentIslandPct": 19.88,
+   "persistentOceanPct": 9.08,
+   "islandDiffMedianPct": 4.36,
+   "skyDiffMaxPct": 3.72,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 30,
+    "worstPct": 46.15,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 90.91
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 4,
+    "islandDiffPct": 9.24
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 4,
+   "startTick": 13857,
+   "endTick": 14301,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": false,
+   "lowTide": true,
+   "wavesOff": false,
+   "layout": "off-island",
+   "layer0": {
+    "x": 232,
+    "y": 294
+   },
+   "ending": "SUZY#2",
+   "queue": 1,
+   "ticks": [
+    13857,
+    13858,
+    13859,
+    13888,
+    13908,
+    13968,
+    14016,
+    14080,
+    14144,
+    14150,
+    14176,
+    14240
+   ],
+   "skipped": "off-island batch (black plate, no host canvas)"
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 5,
+   "startTick": 14301,
+   "endTick": 18622,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "random",
+   "layer0": {
+    "x": 202,
+    "y": 347
+   },
+   "ending": "ACTIVITY#5",
+   "queue": 10,
+   "ticks": [
+    14301,
+    14303,
+    14304,
+    14752,
+    15216,
+    15680,
+    16176,
+    16560,
+    17011,
+    17446,
+    17840,
+    18160
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16535,
+   "oceanPx": 152394,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 129975,
+   "neverSkyPct": 6.25,
+   "someSkyPct": 0,
+   "persistentIslandPct": 22.36,
+   "persistentOceanPct": 3.77,
+   "islandDiffMedianPct": 1.76,
+   "skyDiffMaxPct": 6.25,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 0.09,
+    "frameHist": [
+     [
+      6,
+      4,
+      1
+     ],
+     [
+      8,
+      2,
+      1
+     ],
+     [
+      4,
+      2,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 9.49
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 6,
+   "startTick": 18622,
+   "endTick": 22499,
+   "complete": true,
+   "day": 9,
+   "phase": 12,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": true,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "BUILDING#6",
+   "queue": 13,
+   "ticks": [
+    18622,
+    18623,
+    18624,
+    18976,
+    19269,
+    19588,
+    20016,
+    20464,
+    20689,
+    20976,
+    21484,
+    21968
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16760,
+   "oceanPx": 156921,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 0,
+   "someSkyPct": 7.1,
+   "persistentIslandPct": 17.74,
+   "persistentOceanPct": 6.68,
+   "islandDiffMedianPct": 1.03,
+   "skyDiffMaxPct": 3.18,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.04,
+    "frameHist": [
+     [
+      11,
+      0,
+      0
+     ],
+     [
+      0,
+      0,
+      11
+     ],
+     [
+      0,
+      0,
+      11
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 8,
+    "islandDiffPct": 8.87
+   }
+  },
+  {
+   "run": "d9-st330-night",
+   "batch": 7,
+   "startTick": 22499,
+   "endTick": 23465,
+   "complete": false,
+   "day": 9,
+   "phase": 13,
+   "night": true,
+   "lowTide": false,
+   "wavesOff": false,
+   "layout": "fixed1",
+   "layer0": {
+    "x": 289,
+    "y": 299
+   },
+   "ending": "WALKSTUF#1",
+   "queue": 16,
+   "ticks": [
+    22499,
+    22500,
+    22501,
+    22590,
+    22656,
+    22736,
+    22880,
+    23013,
+    23116,
+    23216,
+    23287,
+    23377
+   ],
+   "oceanIndex": null,
+   "oceanScores": null,
+   "frames": 11,
+   "wipeFrames": 1,
+   "islandPx": 16760,
+   "oceanPx": 156921,
+   "neverIsland": 1,
+   "neverIslandPct": 0.01,
+   "neverOcean": 0,
+   "neverOceanPct": 0,
+   "skyPx": 125223,
+   "neverSkyPct": 4.74,
+   "someSkyPct": 0,
+   "persistentIslandPct": 11.99,
+   "persistentOceanPct": 3.9,
+   "islandDiffMedianPct": 1.72,
+   "skyDiffMaxPct": 4.74,
+   "waves": {
+    "regions": 3,
+    "samples": 33,
+    "matched": 33,
+    "worstPct": 1.36,
+    "frameHist": [
+     [
+      6,
+      2,
+      3
+     ],
+     [
+      6,
+      1,
+      4
+     ],
+     [
+      3,
+      3,
+      5
+     ]
+    ],
+    "matchedPct": 100
+   },
+   "remaps": [
+    "#0000a8>#0000c3",
+    "#d4d4d4>#c3dfc3",
+    "#00a800>#00c300",
+    "#00a8a8>#00c3c3",
+    "#a80000>#c30000",
+    "#a8a800>#c3c300"
+   ],
+   "worstFrame": {
+    "index": 3,
+    "islandDiffPct": 3.91
+   }
+  }
+ ],
+ "markdown": "41 island batches checked (4 skipped: off-island or no dump). Verdicts (island and ocean \"never matched\" <= 0.5%, waves matched >= 90%): faithful 16 · divergent: ocean 25.\n\n| Run | Batch | Ending | Layout | Layer 0 | Sky | Tide | Frames | Island never | Island persistent | Ocean never | Sky never / some | Waves matched | Verdict |\n|---|---:|---|---|---|---|---|---:|---:|---:|---:|---|---:|---|\n| d1-st230-night | 0 | ACTIVITY#10 | random | 273/327 | night | high | 11 | 0.01% | 20.51% | 0% | 1.88% / 0% | 100% | faithful |\n| d1-st230-night | 1 | FISHING#6 | fixed1 | 289/299 | night | low | 11 | 0% | 18.22% | 0% | 16.78% / 0% | 100% | faithful |\n| d1-st230-night | 2 | ACTIVITY#6 | fixed1 | 289/299 | night | high | 11 | 0.01% | 13.05% | 0% | 3.81% / 0% | 100% | faithful |\n| d1-st230-night | 3 | BUILDING#6 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 24.19% | 0% | 8.97% / 0.42% | 100% | faithful |\n| d1-st900-a | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 14.16% | 2.97% | 2.5% / 0% | 100% | divergent: ocean |\n| d1-st900-a | 1 | MISCGAG#1 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 17.77% | 3.3% | 5.01% / 4.02% | 100% | divergent: ocean |\n| d1-st900-a | 2 | ACTIVITY#9 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 24.57% | 3.29% | 0% / 0% | 100% | divergent: ocean |\n| d1-st900-a | 3 | MISCGAG#1 | random | 242/337 | ocean 1 | high | 11 | 0.01% | 16.07% | 3.4% | 11.16% / 0% | 100% | divergent: ocean |\n| d1-st900-a | 4 | ACTIVITY#9 | fixed1 | 289/299 | ocean 1 | high | 10 | 0.01% | 13.71% | 3.09% | 0% / 0% | 100% | divergent: ocean |\n| d1-st900-b | 0 | ACTIVITY#5 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 7.97% | 3.55% | 2.5% / 0% | 100% | divergent: ocean |\n| d1-st900-b | 1 | MISCGAG#2 | random | 253/262 | ocean 2 | high | 11 | 0.01% | 25.24% | 3.22% | 0% / 0.07% | 100% | divergent: ocean |\n| d1-st900-b | 2 | WALKSTUF#1 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 27.58% | 3.5% | 0% / 0% | 100% | divergent: ocean |\n| d1-st900-b | 3 | ACTIVITY#12 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 11.91% | 3.56% | 0% / 0% | 100% | divergent: ocean |\n| d10-st900 | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 13.9% | 2.94% | 2.5% / 0% | 100% | divergent: ocean |\n| d10-st900 | 1 | MISCGAG#1 | random | 275/361 | ocean 1 | high | 11 | 0.01% | 18.21% | 4.04% | 0% / 0% | 100% | divergent: ocean |\n| d10-st900 | 3 | ACTIVITY#11 | random/q28 | 269/361 | ocean 0 | high | 11 | 0.01% | 1.67% | 4.61% | 0% / 0.02% | 100% | divergent: ocean |\n| d10-st900 | 5 | VISITOR#3 | fixed1 | 289/299 | ocean 1 | high (still) | 11 | 0.01% | 8.02% | 2.89% | 5.01% / 0% | 100% | divergent: ocean |\n| d10-st900 | 6 | FISHING#4 | fixed2 | 17/309 | ocean 2 | high | 11 | 0.01% | 8.98% | 4.17% | 17.06% / 0% | 100% | divergent: ocean |\n| d10-st900 | 7 | WALKSTUF#1 | fixed1 | 289/299 | ocean 2 | high | 12 | 0.01% | 16.36% | 3.44% | 0% / 0% | 100% | divergent: ocean |\n| d2-st500 | 0 | FISHING#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 22.98% | 2.98% | 2.5% / 0% | 100% | divergent: ocean |\n| d2-st500 | 1 | ACTIVITY#5 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 17.06% | 2.94% | 14.41% / 0% | 100% | divergent: ocean |\n| d2-st500 | 2 | WALKSTUF#1 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 14.5% | 3.04% | 0% / 0% | 100% | divergent: ocean |\n| d2-st500 | 3 | BUILDING#2 | fixed1 | 289/299 | ocean 1 | high (still) | 11 | 0.01% | 15.43% | 2.85% | 6.21% / 3.7% | 93.94% | divergent: ocean |\n| d2-st500 | 4 | WALKSTUF#1 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 22.83% | 3.04% | 8.71% / 11.58% | 100% | divergent: ocean |\n| d5-st300-night | 0 | ACTIVITY#1 | random | 275/320 | night | high | 11 | 0.01% | 16.31% | 0% | 1.89% / 0% | 100% | faithful |\n| d5-st300-night | 1 | ACTIVITY#11 | random/q28 | 203/275 | night | high | 11 | 0.01% | 1.82% | 0.18% | 6.38% / 1.12% | 100% | faithful |\n| d5-st300-night | 2 | MISCGAG#1 | fixed1 | 289/299 | night | low | 11 | 0% | 16.55% | 0% | 1.91% / 0.26% | 100% | faithful |\n| d5-st300-night | 3 | VISITOR#3 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 18.69% | 0% | 0% / 0% | 100% | faithful |\n| d5-st300-night | 4 | FISHING#3 | fixed1 | 289/299 | night | low | 11 | 0% | 15.65% | 0% | 0% / 2.9% | 100% | faithful |\n| d5-st300-night | 5 | VISITOR#5 | random/q4 | 172/282 | night | high | 11 | 0.01% | 19.15% | 0% | 5.73% / 0% | 100% | faithful |\n| d6-st700 | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 20.33% | 2.96% | 2.5% / 0% | 100% | divergent: ocean |\n| d6-st700 | 1 | BUILDING#2 | random/q20 | 286/349 | ocean 1 | high (still) | 11 | 0.01% | 21.78% | 3.77% | 12.36% / 0.63% | 93.94% | divergent: ocean |\n| d6-st700 | 2 | BUILDING#4 | fixed1 | 289/299 | ocean 2 | high (still) | 11 | 0.01% | 20.15% | 3.65% | 11.77% / 0% | 100% | divergent: ocean |\n| d6-st700 | 3 | FISHING#3 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 16.72% | 3.26% | 7.51% / 0% | 100% | divergent: ocean |\n| d6-st700 | 4 | ACTIVITY#10 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 12.48% | 2.85% | 6.21% / 0% | 100% | divergent: ocean |\n| d9-st330-night | 0 | ACTIVITY#1 | random | 275/320 | night | high | 11 | 0.01% | 12.69% | 0% | 1.89% / 0% | 100% | faithful |\n| d9-st330-night | 1 | BUILDING#6 | random/q20 | 291/339 | night | high (still) | 11 | 0.01% | 23.74% | 0% | 13.68% / 0% | 100% | faithful |\n| d9-st330-night | 3 | BUILDING#2 | random/q20 | 235/353 | night | high (still) | 11 | 0.01% | 19.88% | 0% | 1.83% / 3.4% | 90.91% | faithful |\n| d9-st330-night | 5 | ACTIVITY#5 | random | 202/347 | night | high | 11 | 0.01% | 22.36% | 0% | 6.25% / 0% | 100% | faithful |\n| d9-st330-night | 6 | BUILDING#6 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 17.74% | 0% | 0% / 7.1% | 100% | faithful |\n| d9-st330-night | 7 | WALKSTUF#1 | fixed1 | 289/299 | night | high | 11 | 0.01% | 11.99% | 0% | 4.74% / 0% | 100% | faithful |"
+}
