@@ -13,6 +13,14 @@ Open the Vite URL, then **Settings → CRT picture · optional → Enable CRT pi
 
 CRT is off for a fresh browser profile. Classic/Enhanced do not enable it; it is a separate picture preference. Its checkbox, effect settings and bypass are retained across reloads in `jc-crt-v1`. Turn it off to release the GPU canvas entirely. Bypass temporarily reveals the native canvases while retaining the GPU resources and controls.
 
+## Picture models
+
+Settings now offers **Creative CRT**, **VGA beam · experimental**, and **CRT-Lottes · Libretro**. Model selection does not enable CRT automatically. Each model remembers its own tuning, and changing models releases the old GPU context before creating the new renderer. Existing `jc-crt-v1` records without a model retain Creative and their old settings. VGA/Lottes use the same native-source boundary, fallback, visibility, fullscreen/resize handling and context restoration.
+
+VGA controls describe horizontal/vertical beam width, intensity widening, assumed CRT response, raster phase, exposure and a density-filtered stripe-mask approximation. They are assumptions rather than measured monitor calibration; see [methods and limits](../tools/presentation-lab/VGA.md). A too-small output temporarily uses the normal picture and recovers after resizing. CRT-Lottes is actual pinned public-domain upstream code, with adjustable mask/bloom and a reset to its arcade-style defaults. Its [source/provenance](../src/games/johnny/ui/crt/vendor/README.md) is retained.
+
+The advanced Guest HD pipeline is a separately licensed **lab-only** WebGL2 reference; it is not a game model. [Guest setup, GPL source and limits](../tools/presentation-lab/vendor/guest-hd/README.md).
+
 ## Presets and customization
 
 The **Balanced CRT** built-in reproduces the user's 2026-10-23 screenshot:
@@ -28,11 +36,11 @@ The **Balanced CRT** built-in reproduces the user's 2026-10-23 screenshot:
 
 All six are enabled. Subtle, Soft and All effects off remain available. Choosing a built-in clears bypass, but never checks the game-wide Enable CRT checkbox.
 
-Adjust any slider or checkbox, enter a name and choose **Save preset**. Saving the same exact name updates that entry. Choose a saved entry to load it, or **Delete preset** to remove it. Names are limited to 40 characters and the library to 20 entries. The shared `jc-crt-presets-v1` library is available to both the lab and the game on the same origin/browser profile. It stores effective effect amounts and bypass; disabled effects are stored as zero. There is no account sync or export/import in this implementation. Failed storage writes are reported and current controls still work. Storage input is validated and bounded; preset names are rendered as text.
+Adjust any slider or checkbox, enter a name and choose **Save preset**. Saving the same exact name updates that entry. Choose a saved entry to load it, or **Delete preset** to remove it. Names are limited to 40 characters and the library to 20 entries. The shared `jc-crt-presets-v1` library is available to both the lab and the game on the same origin/browser profile. Creative named presets store effective effect amounts and bypass; disabled effects are stored as zero. There is no account sync or export/import in this implementation. Failed storage writes are reported and current controls still work. Storage input is validated and bounded; preset names are rendered as text.
 
 ## Presentation boundary
 
-Shared code lives in `src/games/johnny/ui/crt/`; the lab imports it through small compatibility exports. The GLSL is original, with no new dependency or copied shader code.
+Shared code lives in `src/games/johnny/ui/crt/`; the lab imports it through small compatibility exports. Creative and VGA GLSL are original. CRT-Lottes is the explicitly credited public-domain upstream shader. No new package dependency is introduced.
 
 The browser compositor reads `mainCanvas` and `canvas` once per presentation rAF into a separate 640×480 source. This covers the intro, island presenter, walk/pose, fades and direct transition writers without invoking their renderers again. It changes no engine clock, game source pixels, faithful rasterizer or random state. Settings, timeline and HUD remain outside CRT. The original canvases are hidden only after a successful GPU draw and immediately revealed for bypass, off, failure, hidden document, zero-size stage or visible file-import panel.
 

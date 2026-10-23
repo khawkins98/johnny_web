@@ -1,6 +1,6 @@
 # VGA beam and Libretro comparison lab
 
-Follow-up to [Astra's advisory on issue #81](https://github.com/khawkins98/johnny_web/issues/81#issuecomment-6368179099). These are development-only experiments alongside the production CRT implementation in draft #85.
+Follow-up to [Astra's advisory on issue #81](https://github.com/khawkins98/johnny_web/issues/81#issuecomment-6368179099). VGA beam and CRT-Lottes now share their renderer/controls with optional game Settings in draft #85. This lab provides matched diagnostics; Guest HD is a separate lab-only pipeline.
 
 ```sh
 pnpm dev --host 127.0.0.1
@@ -46,7 +46,7 @@ Tuning is stored in `jc-lab-vga-v1`, separately from creative CRT presets, and i
 
 ## Actual upstream shader
 
-`vendor/crt-lottes.glsl` is unmodified. Git blob SHA1: `dc0647d62124721671df08d30300e9be34491982`, verified against the pinned upstream file. `lottes.mjs` supplies the fragment/parameter defines and upstream uniform defaults; `shader-renderer.mjs` supplies browser vertex/texture/output plumbing. See [source provenance and public-domain declaration](vendor/README.md).
+The [shared CRT-Lottes file](../../src/games/johnny/ui/crt/vendor/crt-lottes.glsl) is unmodified. Git blob SHA1: `dc0647d62124721671df08d30300e9be34491982`, verified against the pinned upstream file. The shared `src/games/johnny/ui/crt/lottes.mjs` supplies the fragment/parameter defines and upstream uniform defaults; its `shader-renderer.mjs` supplies browser vertex/texture/output plumbing. See [source provenance and public-domain declaration](vendor/README.md).
 
 The upstream mask and bloom can be changed in the reference controls or reset. The source retains its own gamma, beam, warp and mask algorithms. It does not receive our VGA footprint integration or unresolved-mask suppression. Thus low-density aliasing/brightness differences are part of the comparison, not proof that either is a measured monitor reproduction.
 
@@ -66,6 +66,10 @@ The real-GPU check exercises all four models, gray-field light means, sRGB inter
 On macOS Chromium 153 via agent-browser 0.37.1, initial checks pass. Example results: phase 0/0.25 mean radiances 0.19807/0.19709 with contrast 0/0.11386; bright-beam widening reduces contrast from 0.16675 to 0.02681. Quarter-size alternating columns produce radiance 0.22697 versus the CPU reference 0.22757 at exposure 0.5. These are numerical fixture checks, not CRT hardware validation or a GPU performance benchmark. Shared source hash in that synthetic run is `2ada5a4e`.
 
 CPU submission timings in the UI exclude GPU completion; source generation/acquisition is outside that span. Four high-DPI models can be expensive. Measure GPU timing, dropped frames and sustained behavior on actual target devices before adopting a model in the game. Firefox/Safari, physical zoom/monitor movement and mobile GPU validation remain follow-up work.
+
+## Guest HD comparison
+
+Select **Compare with Guest HD** or **Guest Advanced HD** under Presentation. The [12-pass WebGL2 port](vendor/guest-hd/README.md) retains its GPL source and shows formats, dimensions, history and cadence in metrics. Optional image LUTs are locked off pending provenance. Frozen comparison resets Guest history and renders frame 0, rather than holding the preceding moving effect.
 
 ## Further candidates
 

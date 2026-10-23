@@ -1,6 +1,6 @@
 # Further CRT shader comparisons
 
-Primary-source review by the GPT-6 Astra adviser, checked 2026-10-23. “Impressive” separates tube-image reproduction, physical surroundings and motion; none is a universally calibrated CRT. Our current local lab implements an original VGA beam approximation and an actual public-domain CRT-Lottes reference. The candidates below are further comparisons, not already-integrated options.
+Primary-source review by the GPT-6 Astra adviser, checked 2026-10-23. “Impressive” separates tube-image reproduction, physical surroundings and motion; none is a universally calibrated CRT. The game now offers the original VGA beam approximation and pinned public-domain CRT-Lottes alongside Creative CRT. The lab additionally runs the pinned Guest Advanced HD 12-pass pipeline through a WebGL2 adapter; see [setup, licensing and limitations](vendor/guest-hd/README.md). Other candidates below remain research references.
 
 | Candidate | Why compare it | Verified activity / age | Browser and Johnny fit |
 | --- | --- | --- | --- |
