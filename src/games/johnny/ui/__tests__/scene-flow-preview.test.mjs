@@ -19,7 +19,18 @@ describe('embedded scene preview clock context', () => {
 
     it('reuses the live island in the same day and phase band', () => {
         const options = setup();
-        expect(sceneFlowPreviewTitleState({ ...options, band: 'early' })).toBe(options.live.titleState);
+        const state = sceneFlowPreviewTitleState({ ...options, band: 'early' });
+        expect(state).toEqual({ ...options.live.titleState, band: 'early' });
+        expect(options.live.titleState.band).toBeNull();
+        expect(options.sequenceTools.preview).not.toHaveBeenCalled();
+    });
+
+    it('pins a reused Late day sky even when the configured local clock would show night', () => {
+        const options = setup();
+        options.live.titleState.tidePhase = 8; // 21:00 with the default 09:00 offset.
+        const state = sceneFlowPreviewTitleState({ ...options, band: 'late' });
+        expect(state).toMatchObject({ band: 'late', night: false, tidePhase: 8 });
+        expect(options.live.titleState.band).toBeNull();
         expect(options.sequenceTools.preview).not.toHaveBeenCalled();
     });
 

@@ -15,8 +15,13 @@ export const sceneFlowPreviewTitleState = ({ live, sequenceTools, script, gagTag
     const currentGag = live?.data?.name === script && live?.data?.scenes?.[live.currentScene]?.tagId?.id === gagTag;
     const sameContext = band == null || (bandForPhase(live?.titleState?.tidePhase)?.id === band &&
         live?.titleState?.storyDay === storyDay);
-    return currentGag && sameContext && live.titleState
-        ? live.titleState : sequenceTools?.preview?.(script, gagTag, { storyDay, band })?.titleState;
+    if (currentGag && sameContext && live.titleState) {
+        // Preserve the live island's placement, but pin an explicit browsing
+        // band so Live Local Clock cannot change the preview's selected sky.
+        return band == null || live.titleState.band === band
+            ? live.titleState : { ...live.titleState, band };
+    }
+    return sequenceTools?.preview?.(script, gagTag, { storyDay, band })?.titleState;
 };
 
 /** Run one child TTM animation in its own silent, offscreen DGDS runtime. */

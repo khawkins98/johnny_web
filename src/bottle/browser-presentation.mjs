@@ -167,8 +167,11 @@ export const runBrowserPresentation = async ({
     const settings = setupSettingsUI({
         getAudioManager: () => audioManager,
         onRestart: () => {
-            audioManager?.stopAll?.();
-            stopProcess('restart');
+            if (debugRuns) debugRuns.reset();
+            else {
+                audioManager?.stopAll?.();
+                stopProcess('restart');
+            }
         },
         storyController: debugSequence,
     });
@@ -246,7 +249,7 @@ export const runBrowserPresentation = async ({
             }
 
             if (attempt && debugRuns.interrupted(attempt)) {
-                outcome = { reason: 'script_override' };
+                outcome = { reason: debugRuns.interruptionReason(attempt) };
                 debugRuns.endAttempt(attempt);
                 continue;
             }
@@ -328,7 +331,7 @@ export const runBrowserPresentation = async ({
                 // whether or not a wipe transition actually ran above.
                 sharedRaster = createSoftwareSurface();
             }
-            if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: 'script_override' };
+            if (attempt && debugRuns.interrupted(attempt)) outcome = { reason: debugRuns.interruptionReason(attempt) };
             debugRuns?.endAttempt(attempt);
         } while (outcome?.reason === 'completed' || outcome?.reason === 'script_override');
 

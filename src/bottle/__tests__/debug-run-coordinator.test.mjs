@@ -6,6 +6,7 @@ describe('debug run coordinator', () => {
         const preview = vi.fn((script, tagId) => ({ script, tagId, preview: true }));
         const planFrom = vi.fn();
         const returnToLive = vi.fn();
+        const clearRun = vi.fn(() => status.mockReturnValue(null));
         const status = vi.fn(() => ({
             storyDay: 4,
             next: { script: 'ACTIVITY.ADS', tagId: 2 },
@@ -18,11 +19,11 @@ describe('debug run coordinator', () => {
         const stopRuntime = vi.fn();
         const stopAudio = vi.fn();
         const coordinator = createDebugRunCoordinator({
-            sequenceTools: { preview, planFrom, returnToLive, status, subscribeStatus },
+            sequenceTools: { preview, planFrom, returnToLive, clearRun, status, subscribeStatus },
             stopRuntime,
             stopAudio,
         });
-        return { coordinator, preview, planFrom, returnToLive, status, publishStatus, stopRuntime, stopAudio };
+        return { coordinator, preview, planFrom, returnToLive, clearRun, status, publishStatus, stopRuntime, stopAudio };
     };
 
     it('atomically interrupts the complete host attempt and queues a preview', () => {
@@ -113,5 +114,34 @@ describe('debug run coordinator', () => {
             storyDay: 4,
             next: { script: 'ACTIVITY.ADS', tagId: 2 },
         });
+    });
+
+    it('returning to title clears queued previews and visible context without resuming playback', () => {
+        const { coordinator, clearRun, stopRuntime } = create();
+        coordinator.request({ mode: 'preview', script: 'MISCGAG.ADS', tagId: 1, band: 'night' });
+        coordinator.activate({ preview: true, titleState: { band: 'night', night: true } });
+        const listener = vi.fn();
+        coordinator.subscribeStatus(listener);
+        const attempt = coordinator.beginAttempt();
+
+        coordinator.reset();
+
+        expect(clearRun).toHaveBeenCalledOnce();
+        expect(coordinator.status()).toBeNull();
+        expect(listener).toHaveBeenLastCalledWith(null);
+        expect(coordinator.takeOverride()).toBeNull();
+        expect(attempt.signal.aborted).toBe(true);
+        expect(coordinator.interruptionReason(attempt)).toBe('restart');
+        expect(stopRuntime).toHaveBeenLastCalledWith('restart');
+    });
+
+    it('honors return to title when it overtakes an already aborted preview request', () => {
+        const { coordinator } = create();
+        const attempt = coordinator.beginAttempt();
+        coordinator.request({ mode: 'preview', script: 'MISCGAG.ADS', tagId: 1, band: 'night' });
+        coordinator.reset();
+        expect(attempt.signal.reason).toBe('script_override');
+        expect(coordinator.interruptionReason(attempt)).toBe('restart');
+        expect(coordinator.takeOverride()).toBeNull();
     });
 });

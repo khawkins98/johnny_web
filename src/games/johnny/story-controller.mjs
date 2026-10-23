@@ -963,6 +963,11 @@ export const createJohnnyStoryController = ({
             queue = [];
             buildSequence();
         },
+        clearRun() {
+            queue = [];
+            sequenceStatus = null;
+            publishStatus();
+        },
         status: () => sequenceStatus,
         getStoryDay,
         getStartTime: getPersistedStartTime,

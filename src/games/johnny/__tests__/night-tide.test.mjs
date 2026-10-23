@@ -222,6 +222,23 @@ describe('explicit timeline clock context', () => {
         expect(storage.getItem('jc-start-time-hhmm')).toBe('2100');
     });
 
+    it('clears a selected visit on return to title without planning while idle', () => {
+        const storage = memoryStorage({ 'jc-start-time-hhmm': '2100', 'jc-story-day': '3' });
+        const { story, draws } = controller({ now: at(21), storage });
+        story.planFrom('MISCGAG.ADS', 1, { storyDay: 3, band: 'night' });
+        story.next();
+        const drawCount = draws.length;
+
+        story.clearRun();
+
+        expect(story.status()).toBeNull();
+        expect(story.snapshot()).toEqual([]);
+        expect(draws).toHaveLength(drawCount);
+        expect(storage.getItem('jc-start-time-hhmm')).toBe('2100');
+        expect(storage.getItem('jc-story-day')).toBe('3');
+        expect(story.next().titleState).toMatchObject({ band: null, tidePhase: 0 });
+    });
+
     it('retains scene-required night and high tide, and off-island scenes', () => {
         const { story } = controller({ now: at(12), rng: { bit: () => 1 } });
         expect(story.preview('MARY.ADS', 1, { storyDay: 5, band: 'early' }).titleState)

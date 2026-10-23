@@ -8,6 +8,7 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
     let activeAttempt = null;
     let activeSelection = null;
     let generation = 0;
+    let interruptionReason = 'script_override';
     const statusListeners = new Set();
 
     const status = () => {
@@ -51,6 +52,7 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
                 : (sequenceTools.planFrom(script, tagId, options), null);
 
         generation++;
+        interruptionReason = 'script_override';
         pendingOverride = override;
         stopAudio();
         activeAttempt?.controller.abort('script_override');
@@ -62,6 +64,17 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
 
     return Object.freeze({
         request,
+        reset() {
+            generation++;
+            interruptionReason = 'restart';
+            pendingOverride = null;
+            activeSelection = null;
+            activeAttempt?.controller.abort('restart');
+            stopAudio();
+            stopRuntime('restart');
+            sequenceTools.clearRun?.();
+            publishStatus();
+        },
         status,
         subscribeStatus(listener) {
             statusListeners.add(listener);
@@ -87,6 +100,10 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
             if (activeAttempt === attempt) activeAttempt = null;
         },
         interrupted: (attempt) => attempt.signal.aborted || attempt.generation !== generation,
+        // A second abort cannot replace AbortSignal.reason. Honor the latest
+        // request if a title reset overtakes an already queued preview.
+        interruptionReason: (attempt) => attempt.generation !== generation
+            ? interruptionReason : attempt.signal.reason,
         takeOverride() {
             const override = pendingOverride;
             pendingOverride = null;

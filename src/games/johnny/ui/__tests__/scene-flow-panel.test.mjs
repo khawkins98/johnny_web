@@ -395,6 +395,10 @@ describe('scene-flow panel', () => {
         expect(startRun).toHaveBeenCalledWith({ mode: 'live' });
         publish({ storyDay: 5, band: null });
         expect(notice.hidden).toBe(true);
+        publish({ storyDay: 5, band: 'night', night: true });
+        expect(notice.hidden).toBe(false);
+        publish(null); // Return to title clears playback without starting a visit.
+        expect(notice.hidden).toBe(true);
         panel.destroy();
         expect(document.getElementById('timeline-clock-notice')).toBeNull();
     });
