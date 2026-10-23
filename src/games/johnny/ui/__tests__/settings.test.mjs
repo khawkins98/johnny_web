@@ -37,6 +37,7 @@ describe('settings UI', () => {
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
 
         settings.applyExperience('enhanced');
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
         expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
         expect(setting('experience').value).toBe('enhanced');
         expect(setting('scale').value).toBe('freeform');
@@ -48,6 +49,18 @@ describe('settings UI', () => {
         expect(setting('scale').value).toBe('native');
         expect(setting('clouds').value).toBe('off');
         expect(setting('waves').value).toBe('on');
+    });
+
+    it('clears the Integer canvas filter when changing scaling modes', () => {
+        setupSettingsUI();
+        const scale = document.querySelector('[data-setting="scale"]');
+        const canvas = document.querySelector('#root canvas');
+        for (const mode of ['native', 'freeform', 'stretch']) {
+            scale.value = 'integer'; scale.dispatchEvent(new Event('change'));
+            expect(canvas.style.imageRendering).toBe('pixelated');
+            scale.value = mode; scale.dispatchEvent(new Event('change'));
+            expect(canvas.style.imageRendering).toBe('auto');
+        }
     });
 
     it('offers full screen and a footer close action', () => {

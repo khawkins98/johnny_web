@@ -1,5 +1,7 @@
 # Scaling and CRT presentation prototypes
 
+**Implementation follow-up:** [Optional CRT setup, presets and lifecycle](../../docs/optional-crt.md). The shader and controls now live in the game UI module and are shared by this lab. Balanced CRT matches the user-provided six-effect tuning; named custom presets are stored in this browser and shared with the game on the same origin. The observations below retain the original research capture settings and dates.
+
 Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; it does not change the production settings or Enhanced default.
 
 ## Run the lab

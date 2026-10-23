@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>CRT integration check fixture</title>
+<style>body{margin:0;background:black}#root{width:640px;height:480px;position:absolute;left:32px;top:32px}#root canvas{position:absolute;width:100%;height:100%}</style>
+<div id="root"><canvas id="mainCanvas" width="640" height="480"></canvas><canvas id="canvas" width="640" height="480"></canvas><div id="data-error"></div></div>
+<script type="module">
+import { createCrtPresentation } from '../../src/games/johnny/ui/crt/presentation.mjs';
+import { presets } from '../../src/games/johnny/ui/crt/presets.mjs';
+const base = document.querySelector('#mainCanvas').getContext('2d');
+base.fillStyle = '#245189'; base.fillRect(0, 0, 640, 480);
+base.fillStyle = '#f3e9a8'; base.fillRect(0, 0, 320, 240);
+const top = document.querySelector('#canvas').getContext('2d');
+top.fillStyle = '#dd4422'; top.fillRect(200, 160, 240, 160);
+window.crtCheck = { presets, status: '', controller: createCrtPresentation({ root: document.querySelector('#root'), onStatus: text => { crtCheck.status = text; } }) };
+</script></html>
