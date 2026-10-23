@@ -206,3 +206,164 @@ Verdicts (aligned median <= 2% = faithful, "outlier keyframe" when one keyframe 
 | WALKSTUF:3 | 100% | 1 | 36 | 0.14% | 0.14% | 0.34% | 0,0 (33/33) | 2.41% | 0 | 22.48% | faithful |
 
 <!-- pixel-oracle:end -->
+
+<!-- normal-play:begin -->
+## Normal play
+
+Normal-play captures of the original (no forced gag: the planner, the island
+bake and the walks run as shipped), from `capture-normal-play.mjs`. They check
+what the forced oracle cannot: the host canvas, and which gags the original's
+planner picks. Method and limits: [pixel-oracle/README.md](../tools/faithfulness-oracle/pixel-oracle/README.md)
+"Normal play". Regenerate with (local only):
+
+```
+node tools/faithfulness-oracle/capture-normal-play.mjs scratchpad/normal-play/<run> --secs 1800 [--start-time HHMM] [--story-day N]
+node tools/faithfulness-oracle/pixel-oracle/normal-play-report.mjs scratchpad/normal-play
+```
+
+### Story mix (generated 2026-10-23)
+
+All runs (18; 10 in turbo mode, story mix only):
+
+150 planned batches (132 played to their ending) over 18 runs; mean queue length 13.75.
+
+| Ending | Batches | Share |
+|---|---:|---:|
+| MISCGAG#1 | 12 | 8% |
+| ACTIVITY#5 | 11 | 7.3% |
+| BUILDING#2 | 11 | 7.3% |
+| ACTIVITY#9 | 10 | 6.7% |
+| FISHING#6 | 10 | 6.7% |
+| FISHING#4 | 9 | 6% |
+| ACTIVITY#1 | 8 | 5.3% |
+| VISITOR#3 | 8 | 5.3% |
+| VISITOR#5 | 8 | 5.3% |
+| WALKSTUF#1 | 8 | 5.3% |
+| FISHING#5 | 7 | 4.7% |
+| ACTIVITY#6 | 6 | 4% |
+| ACTIVITY#12 | 5 | 3.3% |
+| BUILDING#6 | 5 | 3.3% |
+| ACTIVITY#11 | 4 | 2.7% |
+| BUILDING#4 | 4 | 2.7% |
+| FISHING#3 | 4 | 2.7% |
+| MARY#2 | 4 | 2.7% |
+| MISCGAG#2 | 4 | 2.7% |
+| ACTIVITY#10 | 2 | 1.3% |
+| JOHNNY#1 | 2 | 1.3% |
+| JOHNNY#6 | 2 | 1.3% |
+| MARY#5 | 2 | 1.3% |
+| SUZY#2 | 2 | 1.3% |
+| MARY#3 | 1 | 0.7% |
+| MARY#4 | 1 | 0.7% |
+
+| Gag (any position) | Batches | Share |
+|---|---:|---:|
+| POSE | 96 | 64% |
+| VISITOR#6 | 66 | 44% |
+| VISITOR#4 | 64 | 42.7% |
+| ACTIVITY#7 | 61 | 40.7% |
+| FISHING#1 | 60 | 40% |
+| JOHNNY#5 | 60 | 40% |
+| FISHING#2 | 59 | 39.3% |
+| FISHING#7 | 59 | 39.3% |
+| BUILDING#3 | 58 | 38.7% |
+| VISITOR#1 | 58 | 38.7% |
+| BUILDING#1 | 57 | 38% |
+| STAND#15 | 56 | 37.3% |
+| STAND#16 | 56 | 37.3% |
+| ACTIVITY#4 | 53 | 35.3% |
+| VISITOR#7 | 53 | 35.3% |
+| JOHNNY#4 | 52 | 34.7% |
+| WALKSTUF#3 | 48 | 32% |
+| BUILDING#5 | 45 | 30% |
+| FISHING#8 | 42 | 28% |
+| WALKSTUF#2 | 38 | 25.3% |
+
+| Island layout | Batches | Share |
+|---|---:|---:|
+| fixed1 | 74 | 49.3% |
+| random | 25 | 16.7% |
+| random/q20 | 14 | 9.3% |
+| fixed2 | 9 | 6% |
+| random/q4 | 8 | 5.3% |
+| random/q14 | 7 | 4.7% |
+| off-island | 6 | 4% |
+| random/q28 | 5 | 3.3% |
+| random/qc | 2 | 1.3% |
+
+Low tide: 9/144 island batches (6.3%); phases 0-11: 0/106; phases 12-15: 9/38.
+Night sky: 38/150 batches (40 at phase >= 12, 0 forced by 0x800). Still waves: 28. Off-island: 6.
+VISITOR#1: 58/150 batches (38.7%), island layer 0 at fixed1 289/299 (58).
+ACTIVITY#11: 6 batches (4 as the ending, 4 of them solo; 2 as an intermediate).
+Anti-repeat: 0/132 endings equal to the previous batch's; 8/114 equal to the one two batches back (and not the previous).
+
+| Day-locked gag | Its day | Batch day | Phase | Position | Run |
+|---|---:|---:|---:|---|---|
+| JOHNNY#6 | 10 | 10 | 1 | ending | d10-st900 |
+| JOHNNY#6 | 10 | 10 | 1 | ending | d10-st900 |
+| SUZY#2 | 9 | 9 | 12 | ending | d9-st330-night |
+| SUZY#2 | 9 | 9 | 12 | ending | d9-st330-night |
+| MARY#2 | 1 | 1 | 2 | ending | t-d1-a |
+| MARY#2 | 1 | 1 | 12 | ending | t-d1-b |
+| MARY#2 | 1 | 1 | 11 | ending | t-d1-c |
+| MARY#2 | 1 | 1 | 12 | ending | t-d1-c |
+| JOHNNY#1 | 11 | 11 | 3 | ending | t-d11 |
+| JOHNNY#1 | 11 | 11 | 4 | ending | t-d11 |
+| JOHNNY#2 | 2 | 2 | 4 | #1 | t-d2 |
+| MARY#3 | 4 | 4 | 5 | ending | t-d4 |
+| JOHNNY#3 | 6 | 6 | 11 | #1 | t-d6 |
+| MARY#4 | 7 | 7 | 3 | ending | t-d7 |
+| MARY#5 | 8 | 8 | 11 | ending | t-d8 |
+| MARY#5 | 8 | 8 | 12 | ending | t-d8 |
+
+Timing-faithful runs only (8): 45 batches, endings WALKSTUF#1 5, ACTIVITY#6 4, MISCGAG#1 4, ACTIVITY#5 3, BUILDING#2 3, BUILDING#6 3, ACTIVITY#1 2, ACTIVITY#10 2.
+
+### Host canvas (generated 2026-10-23)
+
+41 island batches checked (4 skipped: off-island or no dump). Verdicts (island and ocean "never matched" <= 0.5%, waves matched >= 90%): faithful 16 · divergent: ocean 25.
+
+| Run | Batch | Ending | Layout | Layer 0 | Sky | Tide | Frames | Island never | Island persistent | Ocean never | Sky never / some | Waves matched | Verdict |
+|---|---:|---|---|---|---|---|---:|---:|---:|---:|---|---:|---|
+| d1-st230-night | 0 | ACTIVITY#10 | random | 273/327 | night | high | 11 | 0.01% | 20.51% | 0% | 1.88% / 0% | 100% | faithful |
+| d1-st230-night | 1 | FISHING#6 | fixed1 | 289/299 | night | low | 11 | 0% | 18.22% | 0% | 16.78% / 0% | 100% | faithful |
+| d1-st230-night | 2 | ACTIVITY#6 | fixed1 | 289/299 | night | high | 11 | 0.01% | 13.05% | 0% | 3.81% / 0% | 100% | faithful |
+| d1-st230-night | 3 | BUILDING#6 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 24.19% | 0% | 8.97% / 0.42% | 100% | faithful |
+| d1-st900-a | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 14.16% | 2.97% | 2.5% / 0% | 100% | divergent: ocean |
+| d1-st900-a | 1 | MISCGAG#1 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 17.77% | 3.3% | 5.01% / 4.02% | 100% | divergent: ocean |
+| d1-st900-a | 2 | ACTIVITY#9 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 24.57% | 3.29% | 0% / 0% | 100% | divergent: ocean |
+| d1-st900-a | 3 | MISCGAG#1 | random | 242/337 | ocean 1 | high | 11 | 0.01% | 16.07% | 3.4% | 11.16% / 0% | 100% | divergent: ocean |
+| d1-st900-a | 4 | ACTIVITY#9 | fixed1 | 289/299 | ocean 1 | high | 10 | 0.01% | 13.71% | 3.09% | 0% / 0% | 100% | divergent: ocean |
+| d1-st900-b | 0 | ACTIVITY#5 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 7.97% | 3.55% | 2.5% / 0% | 100% | divergent: ocean |
+| d1-st900-b | 1 | MISCGAG#2 | random | 253/262 | ocean 2 | high | 11 | 0.01% | 25.24% | 3.22% | 0% / 0.07% | 100% | divergent: ocean |
+| d1-st900-b | 2 | WALKSTUF#1 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 27.58% | 3.5% | 0% / 0% | 100% | divergent: ocean |
+| d1-st900-b | 3 | ACTIVITY#12 | fixed1 | 289/299 | ocean 2 | high | 11 | 0.01% | 11.91% | 3.56% | 0% / 0% | 100% | divergent: ocean |
+| d10-st900 | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 13.9% | 2.94% | 2.5% / 0% | 100% | divergent: ocean |
+| d10-st900 | 1 | MISCGAG#1 | random | 275/361 | ocean 1 | high | 11 | 0.01% | 18.21% | 4.04% | 0% / 0% | 100% | divergent: ocean |
+| d10-st900 | 3 | ACTIVITY#11 | random/q28 | 269/361 | ocean 0 | high | 11 | 0.01% | 1.67% | 4.61% | 0% / 0.02% | 100% | divergent: ocean |
+| d10-st900 | 5 | VISITOR#3 | fixed1 | 289/299 | ocean 1 | high (still) | 11 | 0.01% | 8.02% | 2.89% | 5.01% / 0% | 100% | divergent: ocean |
+| d10-st900 | 6 | FISHING#4 | fixed2 | 17/309 | ocean 2 | high | 11 | 0.01% | 8.98% | 4.17% | 17.06% / 0% | 100% | divergent: ocean |
+| d10-st900 | 7 | WALKSTUF#1 | fixed1 | 289/299 | ocean 2 | high | 12 | 0.01% | 16.36% | 3.44% | 0% / 0% | 100% | divergent: ocean |
+| d2-st500 | 0 | FISHING#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 22.98% | 2.98% | 2.5% / 0% | 100% | divergent: ocean |
+| d2-st500 | 1 | ACTIVITY#5 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 17.06% | 2.94% | 14.41% / 0% | 100% | divergent: ocean |
+| d2-st500 | 2 | WALKSTUF#1 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 14.5% | 3.04% | 0% / 0% | 100% | divergent: ocean |
+| d2-st500 | 3 | BUILDING#2 | fixed1 | 289/299 | ocean 1 | high (still) | 11 | 0.01% | 15.43% | 2.85% | 6.21% / 3.7% | 93.94% | divergent: ocean |
+| d2-st500 | 4 | WALKSTUF#1 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 22.83% | 3.04% | 8.71% / 11.58% | 100% | divergent: ocean |
+| d5-st300-night | 0 | ACTIVITY#1 | random | 275/320 | night | high | 11 | 0.01% | 16.31% | 0% | 1.89% / 0% | 100% | faithful |
+| d5-st300-night | 1 | ACTIVITY#11 | random/q28 | 203/275 | night | high | 11 | 0.01% | 1.82% | 0.18% | 6.38% / 1.12% | 100% | faithful |
+| d5-st300-night | 2 | MISCGAG#1 | fixed1 | 289/299 | night | low | 11 | 0% | 16.55% | 0% | 1.91% / 0.26% | 100% | faithful |
+| d5-st300-night | 3 | VISITOR#3 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 18.69% | 0% | 0% / 0% | 100% | faithful |
+| d5-st300-night | 4 | FISHING#3 | fixed1 | 289/299 | night | low | 11 | 0% | 15.65% | 0% | 0% / 2.9% | 100% | faithful |
+| d5-st300-night | 5 | VISITOR#5 | random/q4 | 172/282 | night | high | 11 | 0.01% | 19.15% | 0% | 5.73% / 0% | 100% | faithful |
+| d6-st700 | 0 | ACTIVITY#6 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 20.33% | 2.96% | 2.5% / 0% | 100% | divergent: ocean |
+| d6-st700 | 1 | BUILDING#2 | random/q20 | 286/349 | ocean 1 | high (still) | 11 | 0.01% | 21.78% | 3.77% | 12.36% / 0.63% | 93.94% | divergent: ocean |
+| d6-st700 | 2 | BUILDING#4 | fixed1 | 289/299 | ocean 2 | high (still) | 11 | 0.01% | 20.15% | 3.65% | 11.77% / 0% | 100% | divergent: ocean |
+| d6-st700 | 3 | FISHING#3 | fixed1 | 289/299 | ocean 0 | high | 11 | 0.01% | 16.72% | 3.26% | 7.51% / 0% | 100% | divergent: ocean |
+| d6-st700 | 4 | ACTIVITY#10 | fixed1 | 289/299 | ocean 1 | high | 11 | 0.01% | 12.48% | 2.85% | 6.21% / 0% | 100% | divergent: ocean |
+| d9-st330-night | 0 | ACTIVITY#1 | random | 275/320 | night | high | 11 | 0.01% | 12.69% | 0% | 1.89% / 0% | 100% | faithful |
+| d9-st330-night | 1 | BUILDING#6 | random/q20 | 291/339 | night | high (still) | 11 | 0.01% | 23.74% | 0% | 13.68% / 0% | 100% | faithful |
+| d9-st330-night | 3 | BUILDING#2 | random/q20 | 235/353 | night | high (still) | 11 | 0.01% | 19.88% | 0% | 1.83% / 3.4% | 90.91% | faithful |
+| d9-st330-night | 5 | ACTIVITY#5 | random | 202/347 | night | high | 11 | 0.01% | 22.36% | 0% | 6.25% / 0% | 100% | faithful |
+| d9-st330-night | 6 | BUILDING#6 | fixed1 | 289/299 | night | high (still) | 11 | 0.01% | 17.74% | 0% | 0% / 7.1% | 100% | faithful |
+| d9-st330-night | 7 | WALKSTUF#1 | fixed1 | 289/299 | night | high | 11 | 0.01% | 11.99% | 0% | 4.74% / 0% | 100% | faithful |
+
+<!-- normal-play:end -->
