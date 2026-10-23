@@ -10,7 +10,7 @@ export function createStage(viewport) {
         return canvas;
     };
     const baseline = makeCanvas(), raster = makeCanvas(), output = makeCanvas();
-    let crt = null, failure = '', geometry, effect = 'none', dpr = 1, available, sizing;
+    let crt = null, failure = '', geometry, effect = 'none', dpr = 1, available, sizing, lastCrtSettings;
     function fail(message) {
         failure = message; output.hidden = true; raster.hidden = true; baseline.hidden = false;
     }
@@ -34,7 +34,8 @@ export function createStage(viewport) {
             try { crt = createCrt(output, fail); } catch (error) { fail(error.message); }
         }
     }
-    function draw(source) {
+    function draw(source, settings) {
+        lastCrtSettings = settings;
         baseline.getContext('2d').drawImage(source, 0, 0);
         const width = Math.round(geometry.width * dpr), height = Math.round(geometry.height * dpr);
         if (effect === 'raster') {
@@ -43,14 +44,15 @@ export function createStage(viewport) {
             context.drawImage(source, 0, 0, width, height);
             raster.hidden = false; baseline.hidden = true;
         }
-        if (effect === 'crt' && crt && !failure) {
-            try { crt.draw(source, width, height); output.hidden = false; baseline.hidden = true; }
+        if (effect === 'crt' && settings.bypass) { output.hidden = true; raster.hidden = true; baseline.hidden = false; }
+        if (effect === 'crt' && !settings.bypass && crt && !failure) {
+            try { crt.draw(source, width, height, settings, geometry.sharp); output.hidden = false; baseline.hidden = true; }
             catch (error) { fail(error.message); }
         }
     }
     function metrics() {
         const rect = viewport.getBoundingClientRect();
-        return { available, mode: sizing, geometry, effect, failure,
+        return { available, mode: sizing, geometry, effect, failure, crt: effect === 'crt' ? lastCrtSettings : null,
             layoutDeviceOrigin: [(rect.left + geometry.x) * dpr, (rect.top + geometry.y) * dpr],
             glSize: [output.width, output.height], rasterSize: [raster.width, raster.height] };
     }

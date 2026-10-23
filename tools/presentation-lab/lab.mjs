@@ -1,4 +1,5 @@
 import { createStage } from './stage.mjs';
+import { setupCrtControls } from './crt-controls.mjs';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 for (const id of ['mode', 'effect', 'width', 'height', 'view', 'comparison-set']) {
@@ -13,6 +14,7 @@ let comparisonStages = [], comparisonKey = '';
 let frozen = params.get('frozen') === '1', live = false, frame = 0;
 let samples = [], intervals = [], previousTime = null, resolvedDpr = 0;
 const resetMetrics = () => { samples = []; intervals = []; previousTime = null; };
+const crtControls = setupCrtControls($('crt-controls'), () => { resetMetrics(); $('status').textContent = ''; updateCaptions(); });
 const comparing = () => $('view').value === 'compare';
 const activeStages = () => comparing() ? comparisonStages.map(panel => panel.stage) : [single];
 const ladders = {
@@ -23,6 +25,7 @@ const ladders = {
 function configure() {
     resolvedDpr = devicePixelRatio;
     const compare = comparing(), set = $('comparison-set').value;
+    $('crt-controls').hidden = $('effect').value !== 'crt';
     viewport.hidden = compare; $('comparisons').hidden = !compare;
     $('comparison-set-control').hidden = !compare; $('comparison-help').hidden = !compare;
     document.querySelectorAll('.single-control').forEach(control => { control.hidden = compare; });
@@ -48,15 +51,22 @@ function configure() {
         }
         for (const panel of comparisonStages) {
             panel.stage.configure(panel.width, panel.height, resolvedDpr, panel.mode || $('mode').value, $('effect').value);
-            const { geometry } = panel.stage.metrics();
-            panel.caption.textContent = `${geometry.width.toFixed(1)} × ${geometry.height.toFixed(1)} rendered · ${geometry.scale.toFixed(3)}× CSS\n${(geometry.scale*resolvedDpr).toFixed(3)} device px/source px · ${$('effect').value === 'crt' ? 'CRT blend' : geometry.sharp ? 'pixelated' : 'smooth'}`;
+
         }
     } else {
         const width = Math.max(160, Math.min(2400, Number($('width').value) || 1000));
         const height = Math.max(120, Math.min(1600, Number($('height').value) || 750));
         single.configure(width, height, resolvedDpr, $('mode').value, $('effect').value);
     }
-    $('status').textContent = ''; resetMetrics();
+    updateCaptions(); $('status').textContent = ''; resetMetrics();
+}
+function updateCaptions() {
+    for (const panel of comparisonStages) {
+        const { geometry } = panel.stage.metrics();
+        if (!geometry) continue;
+        const sampling = $('effect').value === 'crt' ? (crtControls.getSettings().bypass ? 'bypass · unfiltered' : 'CRT blend') : geometry.sharp ? 'pixelated' : 'smooth';
+        panel.caption.textContent = `${geometry.width.toFixed(1)} × ${geometry.height.toFixed(1)} rendered · ${geometry.scale.toFixed(3)}× CSS\n${(geometry.scale*resolvedDpr).toFixed(3)} device px/source px · ${sampling}`;
+    }
 }
 function pattern(tick) {
     ctx.fillStyle = '#102131'; ctx.fillRect(0, 0, 640, 480);
@@ -95,7 +105,7 @@ function metrics() {
     const stages = activeStages().map(stage => stage.metrics());
     return { userAgent: navigator.userAgent, dpr: devicePixelRatio, viewport: [innerWidth,innerHeight],
         requested: [$('width').value,$('height').value], mode: $('mode').value, effect: $('effect').value,
-        view: $('view').value, comparisonSet: comparing() ? $('comparison-set').value : null,
+        view: $('view').value, comparisonSet: comparing() ? $('comparison-set').value : null, crtSettings: crtControls.getSettings(),
         ...(comparing() ? { panels: stages.map((stage, index) => ({ label: comparisonStages[index].label, ...stage })) } : stages[0]),
         source: live?'Johnny canvases':'synthetic', frozen, frame, sourceHash: fingerprint(),
         sourceSize: [source.width,source.height], samples: samples.length,
@@ -108,7 +118,8 @@ function render(time) {
         if (previousTime !== null) intervals.push(time-previousTime); previousTime=time;
         if (!frozen) { if (live) copyLive(); else pattern(++frame); }
         const start = performance.now();
-        for (const stage of activeStages()) stage.draw(source);
+        const settings = crtControls.getSettings();
+        for (const stage of activeStages()) stage.draw(source, settings);
         samples.push(performance.now()-start);
         if (samples.length > 1200) samples.shift(); if (intervals.length > 1200) intervals.shift();
         if (Math.floor(time / 250) !== Math.floor((time - (intervals.at(-1) || 0)) / 250) || !$('status').textContent) {
@@ -118,12 +129,13 @@ function render(time) {
                 ? `${stages.length} panels at actual CSS size · ${$('comparison-set').selectedOptions[0].text}`
                 : `${geometry.width.toFixed(2)} × ${geometry.height.toFixed(2)} CSS px · ${geometry.scale.toFixed(4)}× · ${(geometry.scale*devicePixelRatio).toFixed(3)} device px/source px`;
             const failures = stages.filter(stage => stage.failure).length;
-            $('status').textContent = `${live?'JOHNNY':'SYNTHETIC'} ${frozen?'· frozen':'· moving'} | DPR ${devicePixelRatio} | ${failures ? `${failures} fallback(s): ${stages.find(stage => stage.failure).failure}` : $('effect').selectedOptions[0].text}\n${detail}\nCPU submission p95: ${(percentile(samples,.95) || 0).toFixed(2)} ms · ${samples.length} samples · ${comparing() ? 'all panels combined' : 'one panel'} (not GPU time)`;
+            $('status').textContent = `${live?'JOHNNY':'SYNTHETIC'} ${frozen?'· frozen':'· moving'} | DPR ${devicePixelRatio} | ${failures ? `${failures} fallback(s): ${stages.find(stage => stage.failure).failure}` : ($('effect').value === 'crt' && settings.bypass ? 'CRT bypassed · unfiltered' : $('effect').selectedOptions[0].text)}\n${detail}\nCPU submission p95: ${(percentile(samples,.95) || 0).toFixed(2)} ms · ${samples.length} samples · ${comparing() ? 'all panels combined' : 'one panel'} (not GPU time)`;
         }
     } else previousTime=null;
     requestAnimationFrame(render);
 }
 for (const id of ['mode','effect','width','height','view','comparison-set']) $(id).addEventListener('change', configure);
+$('crt-controls').addEventListener('toggle', configure);
 $('freeze').onclick = () => { frozen=!frozen; $('freeze').textContent=frozen?'Resume source':'Freeze source'; resetMetrics(); };
 $('pattern').onclick = () => { live=false; frame=0; pattern(0); resetMetrics(); };
 $('live').addEventListener('toggle', () => { const iframe=$('live').querySelector('iframe'); if ($('live').open && !iframe.getAttribute('src')) iframe.src=iframe.dataset.src; configure(); });

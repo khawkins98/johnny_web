@@ -57,9 +57,42 @@ At 1000×750 available CSS pixels, Auto gives 640×480 at DPR 1 and 960×720 at 
 
 The small-screen comparison did **not** demonstrate a detail improvement: both variants preserve the fixture pixels, but the screenshot content starts one device pixel right/down from its DOM-projected origin. An initial crop at the expected origin looked like detail loss; a ±2-pixel neighborhood search recovered an exact match. This is a placement discrepancy in this Chromium capture, not evidence that CSS downsampling discarded pixels. The capture does not establish its internal cause. Keep this result when evaluating physical alignment on other browsers.
 
+## Adjust the CRT effects
+
+Select **Presentation → CRT · adjustable WebGL** to reveal the shared CRT controls. Each effect has an independent checkbox and amount slider. Turning an effect off retains its slider value, and changing view, size or presentation retains the current controls. Values are session state, reset by a page reload; **Save metrics** records their effective values for reproducibility. Disabled effects export as zero.
+
+| Control | Amount | Behavior |
+| --- | --- | --- |
+| Beam blur | 0–2 source pixels | Horizontal three-tap softness; independent of colour bleed. |
+| Colour bleed | 0–4 source pixels | Spreads chroma horizontally while retaining local luminance before output clipping. |
+| Bloom | 0–100% gain | Adds a nine-tap glow from bright colour channels, threshold 0.65 and radius two source pixels. |
+| Scanlines | 0–50% | Source-row modulation, faded at low output density and conservatively attenuated with curvature. Even integer pitches align the beam peak to an output row so density 2 produces alternating rows rather than flat darkening. |
+| Curvature | 0–30% | A monotone radial UV warp bends the complete source into an inset curved picture with black surround, without an overscan zoom. |
+| Vignette | 0–60% | Gradual edge darkening in source-image coordinates. |
+
+**Reset · subtle** restores the initial restrained values. **Soft CRT preset** enables all six effects at modest strengths (blur 0.9px, bleed 1.5px, bloom 18%, scanlines 15%, curvature 8%, vignette 12%). **All effects off** leaves a neutral WebGL texture pass: sharp-policy layouts use nearest texel centres, while smooth layouts use linear sampling. Native-scale readback is checked against the exact source pixels.
+
+**Bypass CRT · retain settings** reveals the original CSS-canvas path and stops CRT drawing while preserving every knob. Turn bypass off for an immediate same-frame comparison. Controls apply to all size cards; exports include the common settings and each card's effective settings. Changing a knob resets presentation timing samples so measurements do not mix configurations.
+
+Curvature introduces nonuniform resampling even when the outer canvas is at an integer device scale. Scale labels describe that outer canvas, not a uniform pixel grid inside the curved image. Use bypass or the Subtle preset with curvature off when assessing the clean-step ladder. Bloom and bleed are additional texture work; their cost needs target-device GPU measurement, separately from CPU submission timing.
+
+For reproducible GPU checks against the synthetic fixture:
+
+```sh
+LAB_URL=http://127.0.0.1:5173 node tools/presentation-lab/check-crt.mjs
+```
+
+This requires agent-browser and working WebGL. It verifies an exact neutral native pass, independent effects changing output without changing the source, scanline density/phase, bypass retaining the prior output, shared settings across four cards, and context-loss fallback where the extension is available. It uses an isolated browser session and closes it afterward.
+
+| Before | After |
+| --- | --- |
+| Fixed blur and scanlines | Six independent toggles and sliders, with explicit source-pixel/percentage units |
+| One fixed CRT look | Subtle, Soft CRT and neutral presets, plus a baseline bypass retaining the settings |
+| No recorded CRT parameters | Effective settings in shared/per-card exports and reproducible GPU readback checks |
+
 ## CRT method and integration boundaries
 
-`crt.mjs` is an original WebGL 1 fullscreen-quad pass, without Three.js or vendored shader code. A linear-filtered texture plus horizontal center/neighbor weights of 0.76/0.12/0.12 supplies modest beam softness. A source-row-locked cosine darkens by up to 12%, attenuating to zero as output density drops from two device pixels per source row to one. Curvature, flicker, bloom, phosphor masks, temporal trails and color shifts are deliberately absent. This is a restrained style experiment, not a calibrated CRT simulation.
+`crt.mjs` is an original WebGL 1 fullscreen-quad pass, without Three.js or vendored shader code. Its default **Subtle** preset uses horizontal center/neighbor weights of 0.76/0.12/0.12, with a half-source-pixel radius, and scanlines at 12%. Bleed, bloom, curvature and vignette are off in this preset. The optional controls below extend the initial experiment; flicker, phosphor masks, RGB splitting and temporal trails remain absent. This is a style experiment, not a calibrated CRT simulation.
 
 The live adapter copies `mainCanvas` and `canvas` in order to a separate 640×480 staging canvas. This observes title, background, foreground, walking and wipe writers without calling them again. The shader uploads that finished image with `texSubImage2D`; it does not modify native canvases, renderer buffers, simulation state or timing settings. Controls remain ordinary DOM outside the pass. Frozen source hashes verify retained input identity; they do **not** establish canonical runtime-trace or scheduling equivalence.
 
@@ -121,7 +154,7 @@ Real-game integration was also checked locally using user-supplied data. One fro
 
 ## Decision and remaining work
 
-Keep production behavior unchanged while addressing the existing filtering/cropping bugs in a focused follow-up. Auto sharp fit is a promising option but its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Keep CRT experimental and optional; its blending can help patterned art, but the current pass needs mobile/GPU measurement, full motion/zoom coverage and automatic context restoration before adoption.
+Keep production behavior unchanged while addressing the existing filtering/cropping bugs in a focused follow-up. Auto sharp fit is a promising option but its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Keep CRT experimental and optional; its blending can help patterned art, but the adjustable pass needs mobile/GPU measurement, full motion/zoom coverage and automatic context restoration before adoption.
 
 ## Validation record
 
@@ -136,3 +169,5 @@ Keep production behavior unchanged while addressing the existing filtering/cropp
 After merging `main` with PR #83 (`538d281`), all 103 tests across the six affected suites, all four prototype geometry tests, and the production build pass. The game screenshots above retain their original pre-merge capture revision for reproducibility.
 
 Comparison-view validation: browser checks cover all three sets, shared source hashes across cards, DPR 1/2 readouts, four simultaneous CRT outputs, context loss across every active card, and returning to single view. The ten-case single-view capture regression still passes, including exact pixel-block comparisons and the previously recorded small-screen placement offset. The stage origin now uses translation to avoid 1/64 CSS-pixel layout quantization at fractional DPR; capture assertions allow less than 0.0001 device pixel for DOMRect floating-point readback. This does not replace screenshot-based placement checks.
+
+CRT-control validation: the GPU check passes for the six independently controlled effects, exact native neutral output, even-pitch scanline contrast, bypass restoring identical filtered output, shared settings across four cards and context-loss fallback on all cards. The native source hash remains unchanged throughout. Historical screenshots above show the initial Subtle configuration; new adjustable-effect captures on the issue record their selected preset and values.

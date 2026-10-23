@@ -12,6 +12,19 @@ button,select,input{font:inherit;color:#e2e7ed;background:#242d38;border:1px sol
 .comparison-card h2{font-size:16px;margin:0 0 6px;font-weight:600}
 .comparison-card output{display:block;height:44px;font:12px/1.6 monospace;color:#b7d4e8;white-space:pre;margin-bottom:8px}
 #comparison-help{font-size:13px;margin:8px 0 12px}
+.crt-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.crt-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.crt-control{padding:12px;border-radius:8px;background:#1a222b;box-shadow:0 2px 8px #0004}
+label.crt-toggle{display:flex;align-items:center;gap:8px;min-height:40px;color:#e2e7ed;font-size:14px;cursor:pointer}
+.crt-toggle input{width:18px;height:18px;min-height:0;margin:0;accent-color:#8ccdf4}
+.crt-control input[type=range]{width:100%;padding:0;accent-color:#8ccdf4}
+.crt-control input:disabled{opacity:.35}
+.crt-control output{font:14px monospace;color:#b7d4e8}
+.crt-control p{font-size:12px;margin:8px 0 0}
+.crt-slider-label{font-size:12px}
+@media(max-width:1300px){.crt-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.crt-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.crt-grid{grid-template-columns:1fr}}
 details{margin:16px 0}iframe{width:660px;height:540px;border:1px solid #526071}summary{cursor:pointer;min-height:40px}
 </style>
 <h1>Johnny · presentation lab</h1>
@@ -20,10 +33,11 @@ details{margin:16px 0}iframe{width:660px;height:540px;border:1px solid #526071}s
 <label>View<select id="view"><option value="single">Single size</option><option value="compare">Compare sizes</option></select></label>
 <label id="comparison-set-control" hidden>Size set<select id="comparison-set"><option value="stops">Half steps · 0.5× to 2×</option><option value="fractional">Fractional stress test · includes 0.585×</option><option value="areas">Available areas · small to desktop</option></select></label>
 <label>Sizing<select id="mode"><option value="fit">Continuous fit · smooth baseline</option><option value="legacy">Continuous fit · leaked pixelated filter</option><option value="auto">Auto · device-pixel steps</option><option value="native">Native · contain</option><option value="1.2">Explicit 1.2×</option><option value="1.5">Explicit 1.5×</option><option value="2">Explicit 2×</option></select></label>
-<label>Presentation<select id="effect"><option value="none">Unfiltered</option><option value="raster">Device raster · Canvas2D</option><option value="crt">Subtle CRT · WebGL</option><option value="unavailable">Force no-WebGL fallback</option></select></label>
+<label>Presentation<select id="effect"><option value="none">Unfiltered</option><option value="raster">Device raster · Canvas2D</option><option value="crt">CRT · adjustable WebGL</option><option value="unavailable">Force no-WebGL fallback</option></select></label>
 <label class="single-control">Width<input id="width" type="number" min="160" max="2400" step="1" value="1000"></label><label class="single-control">Height<input id="height" type="number" min="120" max="1600" step="1" value="750"></label>
 <button id="freeze">Freeze source</button><button id="pattern">Test pattern</button><button id="lose">Lose GL context</button><button id="export">Save metrics</button>
 </div>
+<details id="crt-controls" open hidden><summary>CRT controls · shared by every output</summary></details>
 <details id="live"><summary>Live Johnny integration · requires locally imported game data</summary><p>Start playback below, then connect. Both source canvases are copied; the lab never calls the engine presenter or changes its clock. Freeze retains one exact frame for comparisons.</p><button id="connect">Connect game canvases</button><iframe title="Unfiltered Johnny source" data-src="/?presentationLab=1"></iframe></details>
 <output id="status"></output>
 <p id="comparison-help" hidden>Every panel shows the same source frame at actual CSS size. Panels wrap or scroll; they are never reduced to fit. Freeze the source to compare fine detail. Half steps and Fractional stress test override Sizing; Available areas uses your Sizing choice. Half steps map cleanly at DPR 2; check the device-pixel readouts at other DPRs.</p>
