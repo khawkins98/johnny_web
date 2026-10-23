@@ -180,3 +180,81 @@ describe('still waves (flagsB 0x1000, 30b2)', () => {
         expect(controller({ now: at(12) }).story.preview('FISHING.ADS', 3).titleState.waves).toBe(true);
     });
 });
+
+describe('explicit timeline clock context', () => {
+    it.each([['early', 0, false], ['late', 8, false], ['night', 12, true]])(
+        'pins %s for a preview independently of wall time and offset', (band, tidePhase, night) => {
+            const storage = memoryStorage({ 'jc-start-time-hhmm': '2100' });
+            const { story } = controller({ now: at(12), storage });
+            const selection = story.preview('MISCGAG.ADS', 1, { storyDay: 3, band });
+            expect(selection.titleState).toMatchObject({ storyDay: 3, band, tidePhase, night, startTime: 2100 });
+            // A preview is isolated: neither the saved clock nor future visits change.
+            expect(storage.getItem('jc-start-time-hhmm')).toBe('2100');
+            expect(story.next().titleState.band).toBeNull();
+        },
+    );
+
+    it('plans a selected night visit using night eligibility and expires at its end', () => {
+        const { story } = controller({ now: at(12) });
+        story.planFrom('MISCGAG.ADS', 1, { storyDay: 3, band: 'night' });
+        expect(story.status()).toMatchObject({ band: 'night', night: true, tidePhase: 12, storyDay: 3 });
+        const visit = story.snapshot();
+        for (const selection of visit) {
+            expect(selection.titleState).toMatchObject({ band: 'night', night: true, tidePhase: 12 });
+            const record = JOHNNY_SCENES.find((s) => s.script === selection.script && s.tagId === selection.tagId);
+            // The explicit anchor is allowed; all automatically chosen common gags obey the band.
+            if (selection !== visit[0] && record.day === 0) {
+                expect(record.tideMin).toBeLessThanOrEqual(12);
+                expect(record.tideMax).toBeGreaterThan(12);
+            }
+            story.next();
+        }
+        expect(story.next().titleState).toMatchObject({ band: null, tidePhase: 6 });
+    });
+
+    it('returns immediately to the configured story clock and keeps its offset', () => {
+        const storage = memoryStorage({ 'jc-start-time-hhmm': '2100' });
+        const { story } = controller({ now: at(21), storage });
+        story.planFrom('MISCGAG.ADS', 1, { storyDay: 3, band: 'night' });
+        story.next();
+        story.returnToLive();
+        expect(story.next().titleState).toMatchObject({ band: null, tidePhase: 0 });
+        expect(storage.getItem('jc-start-time-hhmm')).toBe('2100');
+    });
+
+    it('clears a selected visit on return to title without planning while idle', () => {
+        const storage = memoryStorage({ 'jc-start-time-hhmm': '2100', 'jc-story-day': '3' });
+        const { story, draws } = controller({ now: at(21), storage });
+        story.planFrom('MISCGAG.ADS', 1, { storyDay: 3, band: 'night' });
+        story.next();
+        const drawCount = draws.length;
+
+        story.clearRun();
+
+        expect(story.status()).toBeNull();
+        expect(story.snapshot()).toEqual([]);
+        expect(draws).toHaveLength(drawCount);
+        expect(storage.getItem('jc-start-time-hhmm')).toBe('2100');
+        expect(storage.getItem('jc-story-day')).toBe('3');
+        expect(story.next().titleState).toMatchObject({ band: null, tidePhase: 0 });
+    });
+
+    it('retains scene-required night and high tide, and off-island scenes', () => {
+        const { story } = controller({ now: at(12), rng: { bit: () => 1 } });
+        expect(story.preview('MARY.ADS', 1, { storyDay: 5, band: 'early' }).titleState)
+            .toMatchObject({ band: 'early', forceNight: true, night: true });
+        const forced = JOHNNY_SCENES.find((s) => s.forceLayout0);
+        expect(story.preview(forced.script, forced.tagId, { band: 'night' }).titleState.lowTide).toBe(false);
+        expect(story.preview('SUZY.ADS', 1, { band: 'night' }).titleState.island).toBe(false);
+    });
+
+    it.each([
+        [900, 0, 59, true], [900, 1, 0, false], [900, 6, 59, false], [900, 7, 0, true],
+        [900, 8, 59, true], [900, 9, 0, false], [900, 14, 59, false], [900, 15, 0, true],
+        [900, 16, 59, true], [900, 17, 0, false], [900, 21, 0, false], [900, 22, 59, false],
+        [900, 23, 0, true], [2100, 21, 0, false], [1530, 21, 29, false], [1530, 21, 30, true],
+        [1530, 23, 29, true], [1530, 23, 30, false],
+    ])('keeps original night boundaries with offset %i at %i:%i', (offset, h, m, night) => {
+        expect(isNightPhase(tidePhaseFor(at(h, m)(), offset))).toBe(night);
+    });
+});

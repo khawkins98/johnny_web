@@ -34,6 +34,8 @@ export const runJohnnyCastaway = () => {
         debugSequence: {
             preview: (script, tagId, options) => story.preview(script, tagId, options),
             planFrom: (script, tagId, options) => story.planFrom(script, tagId, options),
+            returnToLive: () => story.returnToLive(),
+            clearRun: () => story.clearRun(),
             status: () => story.status(),
             snapshot: () => story.snapshot(),
             subscribeStatus: (listener) => story.subscribeStatus(listener),

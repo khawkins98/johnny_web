@@ -144,8 +144,8 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  * @param {(patch, from?:DOMRect|null)=>void} options.onStep  move to another step / pick something;
  *        `from` is where the picked card was, for the entrance animation
  * @param {()=>void} options.onLive   jump back to where Johnny is now
- * @param {((day)=>boolean)|null} options.onPlayDay
- * @param {((gag, day)=>boolean)|null} options.onPlayGag
+ * @param {((day, band)=>boolean)|null} options.onPlayDay
+ * @param {((gag, day, band)=>boolean)|null} options.onPlayGag
  * @returns {HTMLElement} the rendered step, for playStepEntrance
  */
 export function renderStoryStepper(host, { step, live, visit = [], gagName, faces, onStep, onLive, onPlayDay = null, onPlayGag = null }) {
@@ -249,8 +249,8 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
         const startTime = live.startTime ?? DEFAULT_START_TIME;
         head(`Day ${pad(step.day)} · what time of day?`,
             `The story clock decides which gags can appear. It runs in half-hour steps from the Start Time (${formatStartTime(startTime)}) and repeats every 8 hours; the last 2 hours of each cycle are night.${key ? ` Day ${step.day}'s key scene is ${gagName(key)}.` : ''}`,
-            onPlayDay ? playButton(`▶ Play day ${pad(step.day)}`, 'Save this story day and start a visit from its key scene',
-                () => onPlayDay(step.day)) : null);
+            onPlayDay ? playButton('▶ Play selected day/time', 'Save this day and play a visit in the selected time band',
+                () => onPlayDay(step.day, step.band)) : null);
         const counts = gagCountsByBand(step.day);
         const tides = document.createElement('div');
         tides.className = 'story-steps-tides';
@@ -295,7 +295,9 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
     if (step.level === 'gag') {
         const gags = gagsFor(step.day, band);
         head(`Day ${pad(step.day)} · ${band.label} · which gag?`,
-            `${gags.length} gags can appear. The game picks a visit's gags from these by weight.`);
+            `${gags.length} gags can appear. Browsing does not change playback.`,
+            onPlayDay ? playButton('▶ Play selected day/time', 'Start a visit in this day and time band',
+                () => onPlayDay(step.day, step.band)) : null);
         if (isLiveDay && isLiveBand && visit.length) {
             const strip = document.createElement('div');
             strip.className = 'story-steps-visit';
@@ -369,7 +371,7 @@ export function renderStoryStepper(host, { step, live, visit = [], gagName, face
     info.append(h, facts);
     if (onPlayGag) {
         info.appendChild(playButton(isLive ? '▶ Replay this gag' : '▶ Play this gag',
-            'Start a new visit from this gag; the story carries on from there', () => onPlayGag(gag, step.day)));
+            'Play this gag in the selected day/time, then resume the interrupted visit', () => onPlayGag(gag, step.day, step.band)));
     }
     hero.appendChild(info);
     root.appendChild(hero);

@@ -8,9 +8,24 @@ import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
 import { withHostBackground } from '../../../bottle/host-background.mjs';
 import { createJohnnyIslandPresentationState, createPreviewHostPainter } from '../island-presenter.mjs';
 import { johnnyCastaway } from '../manifest.mjs';
+import { bandForPhase } from '../story-steps.mjs';
+
+// Reuse the live island only when the preview represents the same day and band.
+export const sceneFlowPreviewTitleState = ({ live, sequenceTools, script, gagTag, storyDay, band = null }) => {
+    const currentGag = live?.data?.name === script && live?.data?.scenes?.[live.currentScene]?.tagId?.id === gagTag;
+    const sameContext = band == null || (bandForPhase(live?.titleState?.tidePhase)?.id === band &&
+        live?.titleState?.storyDay === storyDay);
+    if (currentGag && sameContext && live.titleState) {
+        // Preserve the live island's placement, but pin an explicit browsing
+        // band so Live Local Clock cannot change the preview's selected sky.
+        return band == null || live.titleState.band === band
+            ? live.titleState : { ...live.titleState, band };
+    }
+    return sequenceTools?.preview?.(script, gagTag, { storyDay, band })?.titleState;
+};
 
 /** Run one child TTM animation in its own silent, offscreen DGDS runtime. */
-export function mountSceneFlowPreview({ host, resolveEntry, sequenceTools, script, gagTag, slot, tag, route, storyDay, onError }) {
+export function mountSceneFlowPreview({ host, resolveEntry, sequenceTools, script, gagTag, slot, tag, route, storyDay, band = null, onError }) {
     const background = document.createElement('canvas');
     const heldFrame = document.createElement('canvas');
     const foreground = document.createElement('canvas');
@@ -23,9 +38,7 @@ export function mountSceneFlowPreview({ host, resolveEntry, sequenceTools, scrip
     const resourceProvider = { resolve: resolveEntry };
     const policy = createBrowserPresentationPolicy();
     const live = __DEBUG__.getState();
-    const currentGag = live?.data?.name === script && live?.data?.scenes?.[live.currentScene]?.tagId?.id === gagTag;
-    const titleState = currentGag && live.titleState
-        ? live.titleState : sequenceTools?.preview?.(script, gagTag, { storyDay })?.titleState;
+    const titleState = sceneFlowPreviewTitleState({ live, sequenceTools, script, gagTag, storyDay, band });
     const island = createJohnnyIslandPresentationState({ game: johnnyCastaway, resourceProvider });
     island.titleState = titleState;
     const mainContext = background.getContext('2d');
