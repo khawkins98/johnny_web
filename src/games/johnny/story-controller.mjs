@@ -1,3 +1,13 @@
+import {
+    DEFAULT_START_TIME,
+    START_TIME_KEY,
+    dropLegacyStartTime,
+    normalizeStartTime,
+    readStartTime,
+} from './start-time.mjs';
+
+export { DEFAULT_START_TIME };
+
 export const SceneFlags = Object.freeze({
     FINAL: 0x01,
     FIRST: 0x02,
@@ -317,7 +327,6 @@ const repeatCount = (random, storyRandom = null) => {
 // The catalogue calls the window a tide window, so the name stays.
 const TIDE_PHASES = 16;
 const NIGHT_PHASE = 12; // NIGHT.SCR when tidePhase >= 12 (0x0c)
-export const DEFAULT_START_TIME = 900;
 const hphase = (x) => (Math.floor(x / 50) + Math.floor((x % 100) / 30) + 14) % TIDE_PHASES;
 export const tidePhaseFor = (date, startTime = DEFAULT_START_TIME) => {
     const now = date.getHours() * 100 + (date.getMinutes() < 30 ? 0 : 30);
@@ -335,25 +344,11 @@ export { TIDE_PHASES };
  */
 export const isStoryEligible = (candidate, storyDay, tidePhase = null) =>
     (candidate.day === 0 || candidate.day === storyDay) && inTideWindow(candidate, tidePhase);
-// StartTime (HHMM): the original's default 0900 unless a stored override exists.
-// Earlier builds stored month*100 + day here, which shifted every phase by a
-// date-dependent amount; a stored value is still honoured so a settings control can
-// set it the way the original's dialog does.
-const getStartTime = (storage) => {
-    let stored;
-    try {
-        stored = storage?.getItem('jc-start-time');
-    } catch {
-        // Storage may be unavailable (privacy mode); use the default.
-    }
-    // Guard a corrupted stored value: a NaN StartTime would poison tidePhase (NaN),
-    // empty the eligible set, and crash the picker.
-    if (stored) {
-        const parsed = Number(stored);
-        if (Number.isFinite(parsed)) return parsed;
-    }
-    return DEFAULT_START_TIME;
-};
+// StartTime (HHMM): the original's default 0900 unless the Settings "Start Time"
+// control stored an override (start-time.mjs). Read once per planned batch, as the
+// original recomputes the phase per New Scene. A corrupted value falls back to the
+// default rather than poisoning tidePhase (NaN would empty the eligible set).
+const getStartTime = (storage) => readStartTime(storage);
 
 // Dual-counter day advance, recovered from FUN_1018_0ba5. Two persisted counters:
 // `target` = the unlocked/keyframe day, and `cur` = the calendar day that chases it
@@ -506,6 +501,9 @@ export const createJohnnyStoryController = ({
     now = () => new Date(),
 } = {}) => {
     let storyRandom = initialStoryRandom;
+    // Once per load: forget the pre-#61 first-run date, which read as HHMM would
+    // shift night. The Start Time setting lives under its own key.
+    dropLegacyStartTime(storage);
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
@@ -623,7 +621,7 @@ export const createJohnnyStoryController = ({
     });
 
     const createPlan = ({ storyDay, finalScene, anchorScene = null, date = now(), startTime }) => {
-        const resolvedStartTime = startTime ?? getStartTime(storage);
+        const resolvedStartTime = normalizeStartTime(startTime) ?? getStartTime(storage);
         const tidePhase = tidePhaseFor(date, resolvedStartTime);
         const planned = [];
         let previous = null;
@@ -693,10 +691,10 @@ export const createJohnnyStoryController = ({
             startTime: resolvedStartTime,
             ...batchOptions(batch),
         });
-        return { planned, islandState };
+        return { planned, islandState, startTime: resolvedStartTime };
     };
 
-    const installPlan = ({ planned, islandState }, anchor = null) => {
+    const installPlan = ({ planned, islandState, startTime }, anchor = null) => {
         const wipe = transition;
         queue = planned.map(({ scene: selected, walkFrom }, index) =>
             makeSelection({
@@ -719,6 +717,9 @@ export const createJohnnyStoryController = ({
             lowTide: islandState.lowTide,
             tidePhase: islandState.tidePhase,
             night: islandState.night,
+            // The Start Time this batch's phase was counted from (the story timeline
+            // shows the clock ranges of its bands from it).
+            startTime,
             next: Object.freeze({ script: planned[0].scene.script, tagId: planned[0].scene.tagId }),
         });
         publishStatus();
@@ -755,16 +756,18 @@ export const createJohnnyStoryController = ({
         return Math.max(1, Math.min(11, stored));
     };
 
+    // The stored Start Time override (normalized HHMM), or null when the 09:00
+    // default applies.
     const getPersistedStartTime = () => {
         let stored;
         try {
-            stored = storage?.getItem('jc-start-time');
+            stored = storage?.getItem(START_TIME_KEY);
         } catch {
             return null;
         }
         if (!stored) return null;
-        const parsed = Number(stored);
-        return Number.isFinite(parsed) ? parsed : null;
+        const startTime = normalizeStartTime(stored);
+        return startTime == null || startTime === DEFAULT_START_TIME ? null : startTime;
     };
 
     const dateKey = (date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
@@ -787,14 +790,9 @@ export const createJohnnyStoryController = ({
         return setStoryDay(next);
     };
 
-    const resetStory = () => {
-        try {
-            storage?.removeItem?.('jc-start-time');
-        } catch {
-            // Persistence is optional.
-        }
-        return setStoryDay(1);
-    };
+    // Restarting the story leaves the Start Time setting alone: it is a clock
+    // preference, not story progress.
+    const resetStory = () => setStoryDay(1);
 
     return {
         next() {

@@ -313,15 +313,15 @@ describe('Johnny host story controller', () => {
             expect(clamped.getStoryDay()).toBe(11);
         });
 
-        it('getStartTime reads back the persisted StartTime, or null when unset', () => {
+        it('getStartTime reads back the persisted StartTime (rounded to the half hour), or null when unset', () => {
             const unset = createJohnnyStoryController({ random: () => 0, storage: memoryStorage() });
             expect(unset.getStartTime()).toBeNull();
 
             const set = createJohnnyStoryController({
                 random: () => 0,
-                storage: memoryStorage({ 'jc-start-time': '721' }),
+                storage: memoryStorage({ 'jc-start-time-hhmm': '721' }),
             });
-            expect(set.getStartTime()).toBe(721);
+            expect(set.getStartTime()).toBe(700);
         });
 
         it('setStoryDay clamps to 1-11 and writes day, target, and date so the arc holds from there', () => {
@@ -351,11 +351,11 @@ describe('Johnny host story controller', () => {
             expect(storage.values.get('jc-story-day')).toBe('1');
         });
 
-        it('resetStory sets day 1 and drops any StartTime override', () => {
+        it('resetStory sets day 1 and keeps the Start Time setting', () => {
             const storage = memoryStorage({
                 'jc-story-day': '8',
                 'jc-story-target': '9',
-                'jc-start-time': '101',
+                'jc-start-time-hhmm': '1030',
             });
             const controller = createJohnnyStoryController({ random: () => 0, storage, now: clock });
 
@@ -363,9 +363,9 @@ describe('Johnny host story controller', () => {
             expect(storage.values.get('jc-story-day')).toBe('1');
             expect(storage.values.get('jc-story-target')).toBe('1');
             expect(storage.values.get('jc-story-date')).toBe('2026-6-21');
-            expect(storage.values.has('jc-start-time')).toBe(false);
+            expect(storage.values.get('jc-start-time-hhmm')).toBe('1030');
             expect(controller.getStoryDay()).toBe(1);
-            expect(controller.getStartTime()).toBeNull();
+            expect(controller.getStartTime()).toBe(1030);
         });
 
         it('after setStoryDay(N) a subsequent sequence status reflects day N', () => {
@@ -393,9 +393,9 @@ describe('Johnny host story controller', () => {
         expect(top.status.tidePhase).toBe(12);
         expect(zero.status.night).toBe(true);
         // Nothing is written: StartTime is the original's setting, not a first-run date.
-        expect(zero.storage.values.has('jc-start-time')).toBe(false);
+        expect(zero.storage.values.has('jc-start-time-hhmm')).toBe(false);
         // A stored HHMM override shifts the phase the way the original's dialog does.
-        expect(statusFor(() => 0, { 'jc-start-time': '1500' }).status.tidePhase).toBe(0);
+        expect(statusFor(() => 0, { 'jc-start-time-hhmm': '1500' }).status.tidePhase).toBe(0);
         // The rendered tide is the bake's coin flip, so it follows the rng.
         const controller = createJohnnyStoryController({ random: () => 0.999, storage: memoryStorage(), now: clock });
         expect(controller.preview('MISCGAG.ADS', 1).titleState.lowTide).toBe(true);

@@ -14,7 +14,7 @@ Johnny's story runs over 11 days. Each day card shows that day's **key scene**; 
 
 ## What time of day?
 
-The game's story clock decides which gags can appear. It counts half hours from the original's Start Time (9:00 by default) and repeats every 8 hours; its last 2 hours are night, when the original shows the night sky. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day**, and **night**. Each option says how many gags it allows, and the time right now is marked. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) **▶ Play day N** saves that story day and restarts playback from its key scene.
+The game's story clock decides which gags can appear. It counts half hours from the **Start Time** in Settings (9:00 by default, as in the original) and repeats every 8 hours; its last 2 hours are night, when the original shows the night sky. Each band lists the local clock times it covers, worked out from that Start Time: with 9:00, night is 07:00–09:00, 15:00–17:00 and 23:00–01:00. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day**, and **night**. Each option says how many gags it allows, and the time right now is marked. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) **▶ Play day N** saves that story day and restarts playback from its key scene.
 
 ## Which gag?
 
