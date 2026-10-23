@@ -89,7 +89,7 @@ Recorded 2026-10-23 in agent-browser 0.37.1, Chromium 153.0.8010.47 on macOS. Th
 
 The capture-run CPU values include baseline-canvas copy plus GL upload/draw **submission**, excluding source acquisition and GPU completion. Timings were collected during other validation workloads and are recorded for setup transparency, not a performance comparison. Frozen content is re-uploaded every rAF. Moving synthetic generation redraws dense patterns and is outside submission timing, so its cadence must not be treated as game performance. Frame intervals include all browser work; they are not game tick timings. Use longer isolated runs with warm-up and GPU timers on target hardware before making a shipping decision.
 
-Real-game integration was also checked locally using user-supplied data. One frozen gameplay composite (`85e2287f`, FNV-1a of RGBA bytes) remained unchanged across smooth Fit, Auto and CRT comparisons. Those PNGs are in ignored `scratchpad/issue81/`; they are intentionally absent from Git. Switching effects does not prove animation fidelity. A moving live-source check produced distinct hashes (`f36b37f4` then `7773e43b`) 1.2 seconds apart. Actual WebGL creation failure and context loss both revealed the baseline in Chromium. A broad matched-tick motion/zoom matrix remains pending.
+Real-game integration was also checked locally using user-supplied data. One frozen gameplay composite (`85e2287f`, FNV-1a of RGBA bytes) remained unchanged across smooth Fit, Auto and CRT comparisons. Those PNGs are in ignored `scratchpad/issue81/`; they are intentionally absent from Git. The [actual Johnny comparison screenshots are attached to issue 81](https://github.com/khawkins98/johnny_web/issues/81#issuecomment-6364428873), with capture revision, geometry and original-art credits. Switching effects does not prove animation fidelity. A moving live-source check produced distinct hashes (`f36b37f4` then `7773e43b`) 1.2 seconds apart. Actual WebGL creation failure and context loss both revealed the baseline in Chromium. A broad matched-tick motion/zoom matrix remains pending.
 
 ## Credits and reference provenance
 
@@ -114,3 +114,5 @@ Keep production behavior unchanged while addressing the existing filtering/cropp
 - `pnpm build`: passes; the lab remains a dev-only page and is not part of the production entry.
 - `pnpm test:golden`: passes with local game data, including dive/walk-out, gull landing, bathing and concurrent layers.
 - Full `pnpm test` with game data: 803 pass, 2 skip, one existing faithfulness case (`BUILDING:7`) exceeds its 30-second timeout during concurrent workloads. Running that case alone passes in 5.65 seconds. No engine code was changed to alter the result.
+
+After merging `main` with PR #83 (`538d281`), all 103 tests across the six affected suites, all four prototype geometry tests, and the production build pass. The game screenshots above retain their original pre-merge capture revision for reproducibility.
