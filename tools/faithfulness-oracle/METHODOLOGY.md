@@ -486,3 +486,15 @@ The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port m
 ## Pixel comparison
 
 An earlier tool captured VGA frames on a wall-clock cadence and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. The [pixel oracle](./pixel-oracle/README.md) brings pixels back without those problems. `capture-original-gag.mjs --fb` sets `DBX_FB_TICKS`, which labels every framebuffer dump with the THREADS tick number, so frames line up with `timeline.jsonl`. The comparator matches keyframes through the live-set spans, masks host-owned pixels, and treats Windows palette substitutions separately. Scores are in the "Pixel oracle" section of [the coverage report](../../docs/oracle-coverage.md). They are advisory; no CI gate uses them.
+
+## Maintainer assets
+
+Some fidelity evidence can't live in this repository because it is derived from the proprietary program or its data:
+
+- **Decompilation and listings.** Ghidra's C decompilation of `SCRANTIC.SCR` (`decompiled.c`), the analysed Ghidra project, and the Phase 0 listings (TTM jump tables and handler disassembly, the scene catalogue, data-segment values) that `docs/scrantic-re-findings.md` cites by address. Made with [`ghidra/`](./ghidra/).
+- **Captures of the original.** DOSBox-X framebuffer dumps (forced gags, normal play, the MEANWHIL/SUZY card), `DBX_DELAY` game-clock logs, thread and trace logs, and the copies of drive C stored with them.
+- **Extracted sprites and pixel triage.** Wave frames and walk sprites pulled out for the [`measure/`](./measure/) scripts, and the ours-vs-original keyframe dumps behind the pixel-oracle triage (BUILDING:4, BUILDING:8, and others).
+
+**Never commit any of these**, not even a cropped frame or a short excerpt of the decompilation. The scripts that make and read them are committed (`ghidra/`, `normal-play/`, `measure/`, `browser/`); their outputs are not.
+
+Locally they live in one place, `scratchpad/maintainer/` (ignored through the `scratchpad/` rule). Its `README.md` indexes each folder: what it holds, which issue or PR cites it, and how it was made. The Ghidra project and `decompiled.c` stay in `scratchpad/ghidra/`, and the lifespan-triage captures that this document cites stay in `scratchpad/lifespan-triage-raw/`. A private asset repository for maintainers is planned, so the evidence survives one machine; until then `scratchpad/maintainer/` is the only copy.
