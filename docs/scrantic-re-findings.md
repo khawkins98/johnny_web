@@ -7,6 +7,20 @@ and used to diagnose two long-standing visual glitches in this port:
 - **"Johnny left behind"** — a completed scene's sprite frozen on screen.
 - **Sprites / scenes not cleared** — stale pixels persisting after a scene ends.
 
+## Start here
+
+This is reference material, written in stages. Later parts correct earlier ones.
+
+| Section | What it covers | Status |
+| --- | --- | --- |
+| [Part A](#part-a--rendering-model-root-cause-of-the-glitches) | First reading of the rendering model | A.1, A.3–A.5 stand; A.2 and A.6 are superseded by Part C |
+| [Part B](#part-b--scene-director-accuracy-defects) | Scene catalogue, planner, story clock, island, walks | Current; every defect listed is fixed in the port |
+| [Empty frames](#empty-frames-are-background-reveals-not-blanks-to-fix-verified) | Why single blank frames are faithful | Current |
+| [Part C](#part-c--buffer-contract-issue-53-phase-0) | Buffer contract: what each TTM op draws and erases | Current; the port follows it since #54–#57 |
+| [Outcome](#outcome) | What the port took from these findings | Current |
+
+For how the port works today, read [architecture.md](architecture.md) and [johnny-host-behavior.md](johnny-host-behavior.md). For how claims here were checked against the running program, see the [oracle methodology](../tools/faithfulness-oracle/METHODOLOGY.md).
+
 ## Provenance
 
 - Binary: `public/data/SCRANTIC.SCR` — 16-bit NE (Windows 3.1), Borland C++ 1991,
@@ -15,9 +29,11 @@ and used to diagnose two long-standing visual glitches in this port:
   import/relocation tables (Wine `*.spec` ordinal maps) and jc_reborn's clean-room C.
 - **On any conflict, the binary wins.** jc_reborn is cited where it corroborates and
   flagged where it diverges — several defects below trace to inherited jc_reborn errors.
-- Addresses are Ghidra logical `segment:offset`. Full evidence, decompiled snippets, and
-  the recovered dispatch tables are archived in the investigation scratchpad; the
-  load-bearing facts are reproduced here.
+- Addresses are Ghidra logical `segment:offset`. The decompilation and listings are
+  derived from the proprietary binary, so they are kept privately and never committed
+  ([maintainer assets](../tools/faithfulness-oracle/METHODOLOGY.md#maintainer-assets));
+  the load-bearing facts are reproduced here. [`ghidra/`](../tools/faithfulness-oracle/ghidra/README.md)
+  regenerates them from your own copy of the game.
 
 ---
 
@@ -42,32 +58,26 @@ The TTM interpreter forces both draw handles to `eb2` on *every* opcode
 per-scene surfaces and no transparent layers.** Sprites are drawn with a two-pass
 masked blit (DSna AND-mask, then SRCPAINT OR-color).
 
-### A.2 Clearing is not an operation — overwrite is the clear
+### A.2 Clearing (superseded by Part C)
 
-**Superseded — see Part C.** The paragraph below was written before the seg-1058
-draw handlers were disassembled. It is wrong as a general rule: every draw op registers
-a same-tick restore of its own rect from the background plate `eb0`
-(`FUN_1050_0a85`), so a sprite that is not redrawn next tick is gone next tick.
-Persistence exists only for pixels that reach `eb0`. What the paragraph gets right is
-that stopping a TTM thread does nothing on its own, and that there is no per-scene clear.
+This section first claimed that "overwrite is the clear": that a scene's pixels stay in
+`eb2` until something draws over them. That is wrong. Every draw op registers a same-tick
+restore of its own rect from the background plate `eb0` (`FUN_1050_0a85`, C.1), so a
+sprite that is not redrawn is gone next tick. Pixels persist only if they reach `eb0`.
+What still holds: stopping a TTM thread clears nothing on its own, and there is no
+per-scene clear.
 
-> A scene's pixels sit in the shared `eb2` and are erased only by (a) a neighbor's
-> draw, (b) a save-under restore, or (c) the next background re-bake. **Stopping a TTM
-> clears nothing** — persistence is the intended default; overwrite is the clear.
+Facts from this pass that still stand:
 
 - **GET / save-under** (`FUN_1030_01c4`, sole caller the zone-save opcode `0xa054` →
   `FUN_1058_1747`): BitBlt a rect of `eb2` → temp → `GetBitmapBits` → freshly allocated
   RAM stored in **one fixed slot in the current TTM environment** (`DAT_1068_2638+0x3c`).
   No id, no shared array.
 - **PUT / restore** (`FUN_1030_0250`): `SetBitmapBits` → BitBlt back into `eb2`.
-- **Display list** (`FUN_1060_007e`, 20 buckets): a **content-addressed** registry keyed
-  by `(key1, key2, age)`, *not* by any scene identity. Overlapping restores unwind LIFO,
-  so nesting of overlapping save-unders is correct for free.
-- **Background re-bake** happens only at scene/environment transitions
-  (`FUN_1010_0136`), not per frame.
-
-**There is no shared slot-index model anywhere in the binary; save-slot collisions
-between concurrent scenes are structurally impossible.**
+- **Background re-bake** happens only at batch and screen-load boundaries
+  (`FUN_1010_0136`, C.4), not per frame.
+- There is no shared slot-index model, so save-slot collisions between concurrent
+  scenes cannot happen.
 
 ### A.3 Restore timing
 
@@ -89,37 +99,32 @@ records chained at `+0x3b`; each run by `FUN_1050_074a(rec[4]) → FUN_1058_040c
 ### A.5 Frame cadence
 
 50 ms Windows timer (`SETTIMER …,0x32`) with `GetCurrentTime` delta-accounting driving a
-finer logical tick. On missed ticks the original **bursts to catch up**
-(`FUN_1040_089a` fires `while(scheduled <= now)`).
+finer logical tick. Windows 3.1 delivers it on the 18.2 Hz PC timer, so the effective
+present is about 55 ms; the game clock behind frame holds counts 16 ms units (measured in
+the [methodology, "Trace sample cadence"](../tools/faithfulness-oracle/METHODOLOGY.md#trace-sample-cadence)).
+On missed ticks the original **bursts to catch up**
+(`FUN_1040_089a` fires `while(scheduled <= now)`); the port deliberately does not
+([accepted differences](accepted-deviations.md)).
 
-### A.6 How the current port diverges
+### A.6 How the port diverged (historical)
 
-The port replaced §A.1's single shared raster + global save-under with **per-scene
-private surfaces + per-scene private GET/PUT slots** (`docs/architecture.md` "Frame
-composition"; `composition.mjs`, `surface-frame-presenter.mjs`). Consequences:
-
-1. A retained/completed scene re-paints **its own private surface forever**
-   (`composition.mjs`), and **no other scene's restore can reach those pixels** → the
-   frozen "Johnny left behind" frame.
-2. To fake the shared-buffer self-clean across private surfaces, the port added three
-   heuristics — the **retained-final-layer rule**, the **`BEGIN_SCENE_FRAME` per-scene
-   clear + conditional restore**, and (partly) the **campfire branch-rearm**. The first
-   two are emulating a mechanism (§A.2) that only exists in a *shared* buffer.
-3. The port's justification for private slots ("concurrent scenes cannot overwrite one
-   another's saved regions") defends against a hazard the binary does not have (§A.2).
-4. Missed-tick policy is **inverted**: the port advances at most one tick and discards
-   the rest (a deliberate anti-burst valve); the original bursts (§A.5).
-
-**The campfire branch-rearm is the exception:** it is real ADS scheduling, not a render
-heuristic (§B.5) — it must be **kept**.
+When this was written, the port gave each scene a private surface and private GET/PUT
+slots, and faked the shared buffer's self-cleaning with a retained-final-layer rule and a
+per-scene clear in `BEGIN_SCENE_FRAME`. That design produced the frozen "Johnny left
+behind" frame. It has since been replaced by one shared raster restored from a plate
+(see [Outcome](#outcome)). The campfire branch-rearm was never a render heuristic; it is
+real ADS scheduling (§B.5) and is kept.
 
 ---
 
 ## Part B — Scene director (accuracy defects)
 
-The port's 63-entry `JOHNNY_SCENES` table is a **direct copy of jc_reborn's
-`story_data.h`** (`NUM_SCENES 63`) and inherits its reverse-engineering errors. The real
-executable catalogue at `1068:1756` has **79 records**. Ranked defects:
+The port's original 63-entry `JOHNNY_SCENES` table was a **direct copy of jc_reborn's
+`story_data.h`** (`NUM_SCENES 63`) and inherited its reverse-engineering errors. The real
+executable catalogue at `1068:1756` has **79 records**. **All seven defects below are
+fixed**; the port now uses the binary's catalogue and the algorithms in B.6. Row 1's
+"ground truth" was itself corrected later: the phase sets night and gag eligibility,
+while the low-tide render is a per-batch coin (B.6.1, B.6.3a). Ranked defects, as found:
 
 | # | Defect | Ground truth | Glitch-relevant |
 | --- | --- | --- | --- |
@@ -143,7 +148,7 @@ then `FUN_1048_1925`); `FUN_1048_1acb` auto-resets finished segments (state 3/4)
 running. This is exactly the "keep the zero-run-count fire animating while Johnny fetches
 the boot" behavior. **First-class scheduling — must be preserved.**
 
-### B.6 Recovered selection/movement algorithms (all implemented in Track B)
+### B.6 Recovered selection and movement algorithms (all implemented)
 
 Exact ground truth for defects #1/#5/#6/#7. The catalogue is 79 records at file `0x19556`, 17-byte
 stride, terminated by `word@0 == 0`; fields: `+2` weight, `+3/+4` start spot/heading, `+5/+6`
@@ -263,8 +268,8 @@ hardcoded static in `walking.mjs` (`WALK_ROUTES`/`WALK_SEGMENTS`).
 
 ### Open items (not yet ground-truthed)
 
-- The exact **day/night hour boundary** (binary entangles it with config + tide; both the
-  port's `<6 || >=18` and jc's `hour%8` are unverified).
+- Settled: the day/night boundary is phases 12–15 of the Start Time clock (B.6.1),
+  confirmed by normal-play captures (#61, #73).
 - Independent confirmation of the **five-wipe count/order** (the sequence-end `0x19` call
   is the wipe *sound*, not the renderer; the rotation is only cross-checked via jc_reborn).
 
@@ -482,9 +487,10 @@ The current compositor's "clear to transparent, host canvas shows through" equal
   them until the next full bake;
 - a scene draws directly to the screen (wipes) or relies on dirty-rect staleness.
 
-`DRAW_GETPUT` and `SAVE_GETPUT_REGION` play no part in any of this; the port's
-per-environment GETPUT slots and `SAVE_IMAGE_REGION` bookkeeping model an op that the
-binary ignores.
+`DRAW_GETPUT` and `SAVE_GETPUT_REGION` play no part in any of this. The port now treats
+them as no-ops too, implements the real GET/PUT pair (`0xa054`/`0xa064`), restores the
+world raster from the plate before each tick's scripts, and lets each `STORE_AREA` add to
+the plate (#56, #57). The divergences listed above are what the pixel oracle checks.
 
 ### C.7 Tracker questions
 
@@ -512,22 +518,16 @@ binary ignores.
 
 ---
 
-## Implications for the refactor
+## Outcome
 
-*Note (Part C): Track A below was written against §A.2 and is superseded. The faithful
-model is a background plate (`eb0`) plus a world raster (`eb2`) that is restored from the
-plate every tick; see C.6 for the cases where "clear + replay" differs from it.*
+These findings drove two pieces of work, both done:
 
-The findings split the work into two independent tracks:
+- **Rendering.** The per-scene surfaces, the retained-final-layer rule and the per-scene
+  clear are gone. All scenes draw into one shared raster, cleared and redrawn every
+  present, over a persistent background plate (C.6); paint order is execution order
+  (A.4); the campfire branch-rearm is kept (B.5). The pixel oracle checks the result
+  against the original (#54–#57).
+- **Catalogue and planner.** The 79-record catalogue, story clock, island placement,
+  tide coin, still waves and walk routes follow B.6 (#58–#61, #77).
 
-- **Track A — Rendering (architectural).** Replace per-scene surfaces + private GET/PUT
-  slots with **one persistent shared raster** (never cleared per frame; background
-  re-baked only at scene/env transitions) + a **global, content-addressed save-under
-  registry** with LIFO restore. **Delete** the retained-final-layer rule and the
-  `BEGIN_SCENE_FRAME` per-scene clear. **Replace** `sequencePaintIndex` with thread
-  *execution order* — only after verifying the JS thread iteration matches the original's
-  list order (§A.4). **Keep** the campfire branch-rearm (§B.5). Restore timing per §A.3.
-- **Track B — Catalogue accuracy (data correctness).** Re-derive the 79-record table
-  directly from the binary rather than inheriting jc_reborn's 63-entry copy; fix
-  defects #1–#7. Defects #3/#4 are a *second, independent* source of wrong Johnny
-  movement, separate from Track A's rendering glitch.
+[architecture.md](architecture.md#frame-composition) describes the current renderer.
