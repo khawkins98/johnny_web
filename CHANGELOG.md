@@ -2,6 +2,10 @@
 
 This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR; **v1.2** brings rendering, timing and story-clock fixes checked against the original. These labels are separate from the original Johnny Castaway game data version.
 
+## Unreleased
+
+- Fixed black patches in the daytime ocean. The three day ocean screens draw their dark cloud reflections in palette colour 0, which we treated as transparent on full screens as well as on sprites. Screens are now drawn opaque, so the reflections show in their magenta colour as in the original; sprites still treat colour 0 as transparent (#53).
+
 ## v1.2 — Closer to the original
 
 - Added a **Start Time** setting, the original's half-hour clock setting (default 09:00, −30/+30 and Reset). Night falls 6 hours after it, for 2 hours, every 8 hours, and it changes which gags can appear; a change applies from the next visit. The story timeline's "what time of day?" step now shows each band's local clock times from it, and **Restart story** no longer clears it. The setting is stored under a new key; the first-run date older versions saved under the old one was being read as a time and shifting night, so it is discarded and previously saved start dates reset to 09:00 (#53).

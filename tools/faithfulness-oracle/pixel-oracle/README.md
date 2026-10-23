@@ -391,14 +391,16 @@ The host canvas, in short:
   (fixed layout 2) and the logged random origins, the raft at the day's frame, the
   low-tide sand and rock, and the trunk, with "never matched" at 0.00-0.01% in every
   batch. Wave regions match a BACKGRND frame in 100% of samples, high and low tide.
-- **Day ocean, palette index 0**: every day batch has about 3% of its ocean never
-  matching. The pixels are all one pair: ours `#000000`, the original `#c300c3`. The
-  three OCEAN screens use palette index 0 for the dark cloud-reflection blobs
-  (9,254-10,013 pixels each) and the original draws it as the screen's colour 0,
-  `(168, 0, 168)`, shown as `#c300c3` under its DAC. Our palette marks index 0
-  transparent (`src/dgds/palette.mjs`, `a: 0`), so the blobs show the black canvas.
-  NIGHT.SCR, SUZBEACH and JOFFICE use no index 0; ISLETEMP has 18 such pixels. A
-  full-screen SCR should be opaque. This is the one host divergence found.
+- **Day ocean, palette index 0** (fixed): the three OCEAN screens use palette
+  index 0 for the dark cloud-reflection blobs (9,254-10,013 pixels each). The
+  original copies a screen opaque and draws them in colour 0, `(168, 0, 168)`,
+  shown as `#c300c3` under its DAC. We used to decode index 0 as transparent on
+  screens as well as sprites, so the blobs showed the black canvas and every day
+  batch had 2.85-4.61% of its ocean never matching. SCR screens are now opaque
+  (`src/dgds/resources/scr.mjs`; sprites keep index 0 as the colour key), we draw
+  `#a800a8`, and the oracle learns `#a800a8>#c300c3` as a palette remap. Day ocean
+  "never matched" is now 0% in 24 of 25 day batches and 0.22% in the other (a
+  standing actor).
 - **Clouds**: the original draws drifting clouds by day and by night (the sky's
   "never"/"some" columns), from its own cloud model. Ours draws the story
   controller's clouds; the models differ (rng-port.md). Not scored.

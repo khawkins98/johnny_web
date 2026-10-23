@@ -74,9 +74,13 @@ export const loadSCRResourceEntry = (entry) => {
             }
             const pal = PALETTE[c];
             image.buffer[w + image.width * h] = c;
+            // A screen is copied opaque. PALETTE[0].a = 0 is the sprite colour key
+            // (BMPs blit with a mask that drops index 0); the original copies a whole
+            // screen as is, so index 0 here is the colour (168,0,168). The day
+            // OCEAN0x.SCR cloud reflections are drawn in it.
             image.pixels[w + image.width * h] = {
                 index: c,
-                a: pal.a,
+                a: 255,
                 r: pal.r,
                 g: pal.g,
                 b: pal.b,
