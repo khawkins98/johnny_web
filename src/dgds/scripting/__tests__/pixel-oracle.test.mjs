@@ -355,3 +355,34 @@ describe.skipIf(!hasData || !existsSync(path.join(suzyCapture, 'timeline.jsonl')
         expect(result.alignedMax).toBeLessThanOrEqual(8);
     }, 180000);
 });
+
+describe.skipIf(!hasData)('cloud detection (host check)', () => {
+    it('finds the clouds our host canvas paints, by day and by night', async () => {
+        const { detectClouds } = await import('../../../../tools/faithfulness-oracle/pixel-oracle/cloud-detect.mjs');
+        const { renderHost } = await import('../../../../tools/faithfulness-oracle/pixel-oracle/render-ours.mjs');
+        const clouds = [
+            { frame: 17, x: 20, y: 10, flipX: true },
+            { frame: 16, x: 330, y: 70, flipX: true },
+            { frame: 15, x: 500, y: 1, flipX: true },
+        ];
+        for (const night of [false, true]) {
+            const titleState = {
+                island: true,
+                islandLayoutId: 1,
+                lowTide: false,
+                night,
+                raft: 1,
+                x: 0,
+                y: 20,
+                waves: true,
+                oceanIndex: 0,
+                presentationKey: {},
+                clouds,
+            };
+            const data = renderHost({ titleState });
+            const frame = new Uint8Array(N * 3);
+            for (let p = 0; p < N; p++) frame.set(data.subarray(p * 4, p * 4 + 3), p * 3);
+            expect(detectClouds(frame).map(({ frame: f, x, y, flipX }) => ({ frame: f, x, y, flipX }))).toEqual(clouds);
+        }
+    }, 60000);
+});

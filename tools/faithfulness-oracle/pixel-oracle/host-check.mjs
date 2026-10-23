@@ -9,7 +9,7 @@
 // batch:
 //
 //   - A host pixel counts as MATCHED when it matches ours in at least one of the
-//     batch's sampled frames (the original's actors, clouds and wipes move, so a
+//     batch's sampled frames (the original's actors and wipes move, so a
 //     static host pixel is uncovered in some frame). Pixels that never match in any
 //     frame are the host divergence. Pixels that differ in every frame are also
 //     reported ("persistent"), a stricter view that includes standing actors.
@@ -17,13 +17,16 @@
 //     scored separately. The shoreline wave rectangles are scored by matching each
 //     region against its three BACKGRND frames per sampled frame (the wave phase is
 //     not in the log), not pixel-for-pixel against one phase.
+//   - The original's clouds stand still for the batch (only the bake runs
+//     FUN_1010_0b67). They are found in the first clean frame (cloud-detect.mjs)
+//     and painted on ours before scoring; --no-clouds paints none.
 //   - The day ocean (`rand % 3` at the bake, not logged) is the OCEAN screen whose
 //     render matches the batch's first frame best; `oceanIndex` reports which.
 //   - Windows' static-colour palette substitutions (score.mjs learnRemap) count as
 //     matches, as in the forced oracle.
 //
 // Usage:
-//   node host-check.mjs <runsDir|runDir> [--frames 12] [--dump dir] [--json out.json]
+//   node host-check.mjs <runsDir|runDir> [--frames 12] [--dump dir] [--json out.json] [--no-clouds]
 // Library: checkRun({ dir, frames }) -> per-batch results.
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -32,6 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildSpriteCanvas } from '../../../src/dgds/graphics.mjs';
 import { resolveEntry } from '../../../src/dgds/scripting/__tests__/support/drive-gag.mjs';
 import { johnnyCastaway } from '../../../src/games/johnny/manifest.mjs';
+import { detectClouds } from './cloud-detect.mjs';
 import { readFrame, sideBySide, writePng } from './images.mjs';
 import { batchTitleState, batchesFromHost, parseHostLog } from './normal-play.mjs';
 import { hasData, renderHost } from './render-ours.mjs';
@@ -120,7 +124,7 @@ export const blackShare = (rgb, tol = DEFAULT_TOLERANCE) => {
     return black / (rgb.length / 3);
 };
 
-export const checkBatch = ({ batch, origFrames: given, tolerance = DEFAULT_TOLERANCE, map = null }) => {
+export const checkBatch = ({ batch, origFrames: given, tolerance = DEFAULT_TOLERANCE, map = null, clouds: withClouds = true }) => {
     if (batch.offIsland) return null;
     // A dump taken during the wipe into the batch is (mostly) black: not host canvas.
     const origFrames = given.filter((f) => blackShare(f, tolerance) < 0.8);
@@ -137,7 +141,10 @@ export const checkBatch = ({ batch, origFrames: given, tolerance = DEFAULT_TOLER
         });
         oceanIndex = oceanScores.indexOf(Math.min(...oceanScores));
     }
-    const titleState = batchTitleState(batch, { oceanIndex });
+    // The original's clouds stand still for the batch (FUN_1010_0b67 runs only at the
+    // bake), so the ones found in the first clean frame are painted on our side too.
+    const clouds = withClouds ? detectClouds(origFrames[0]).map(({ frame, x, y, flipX }) => ({ frame, x, y, flipX })) : [];
+    const titleState = batchTitleState(batch, { oceanIndex, clouds });
     const ours = renderHost({ titleState });
     if (!ours) return null;
     const ocean = oceanRgb(batch.night ? 3 : oceanIndex);
@@ -148,9 +155,10 @@ export const checkBatch = ({ batch, origFrames: given, tolerance = DEFAULT_TOLER
             for (let x = Math.max(0, r.x0); x < Math.min(W, r.x0 + r.w); x++) waveMask[y * W + x] = 1;
         }
     }
-    // island-layer mask: where our host render differs from the bare ocean screen
+    // island-layer mask: where our host render (without clouds) differs from the bare ocean screen
+    const bare = clouds.length ? renderHost({ titleState: batchTitleState(batch, { oceanIndex }) }) : ours;
     const islandMask = new Uint8Array(N);
-    for (let p = 0; p < N; p++) if (!waveMask[p] && !near(ours, p * 4, ocean, p * 4, 0)) islandMask[p] = 1;
+    for (let p = 0; p < N; p++) if (!waveMask[p] && !near(bare, p * 4, ocean, p * 4, 0)) islandMask[p] = 1;
 
     // palette substitutions, learnt on the first frame over the whole host canvas
     const pairs = new Map();
@@ -278,8 +286,9 @@ export const checkBatch = ({ batch, origFrames: given, tolerance = DEFAULT_TOLER
         neverIslandPct: pct(neverIsland, islandPx),
         neverOcean,
         neverOceanPct: pct(neverOcean, oceanPx),
-        // the sky above the horizon: the original's drifting clouds show up here as
-        // pixels matched in some frames (slow clouds: in none); ours draws no clouds
+        // the sky above the horizon, with the clouds found in the original painted on
+        // ours (clouds: false paints none, the earlier view)
+        clouds,
         skyPx,
         neverSkyPct: pct(neverSky, skyPx),
         someSkyPct: pct(someSky, skyPx),
@@ -314,7 +323,7 @@ const mapToRgb = (map) => {
 };
 
 /** Check every island batch of a run. */
-export const checkRun = ({ dir, frames = 12, dumpDir = null, tolerance = DEFAULT_TOLERANCE }) => {
+export const checkRun = ({ dir, frames = 12, dumpDir = null, tolerance = DEFAULT_TOLERANCE, clouds = true }) => {
     const run = loadRun(dir);
     const results = [];
     run.batches.forEach((batch, index) => {
@@ -346,11 +355,11 @@ export const checkRun = ({ dir, frames = 12, dumpDir = null, tolerance = DEFAULT
         }
         const origFrames = ticks.map((t) => readFrame(run.frames.get(t)).rgb);
         const map = dumpDir ? new Uint8Array(N) : null;
-        const r = checkBatch({ batch, origFrames, tolerance, map });
+        const r = checkBatch({ batch, origFrames, tolerance, map, clouds });
         const shown = origFrames.findIndex((f) => blackShare(f, tolerance) < 0.8);
         if (dumpDir && r) {
             mkdirSync(dumpDir, { recursive: true });
-            const ours = renderHost({ titleState: batchTitleState(batch, { oceanIndex: r.oceanIndex ?? 0 }) });
+            const ours = renderHost({ titleState: batchTitleState(batch, { oceanIndex: r.oceanIndex ?? 0, clouds: r.clouds }) });
             const oursRgb = new Uint8Array(N * 3);
             for (let p = 0; p < N; p++) oursRgb.set(ours.subarray(p * 4, p * 4 + 3), p * 3);
             writePng(
@@ -372,7 +381,7 @@ if (isMain) {
     };
     const target = argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--')));
     if (!target) {
-        console.error('usage: host-check.mjs <runsDir|runDir> [--frames 12] [--dump dir] [--json out.json]');
+        console.error('usage: host-check.mjs <runsDir|runDir> [--frames 12] [--dump dir] [--json out.json] [--no-clouds]');
         process.exit(2);
     }
     if (!hasData) {
@@ -389,7 +398,12 @@ if (isMain) {
     const all = [];
     for (const dir of runDirs) {
         const started = Date.now();
-        const results = checkRun({ dir, frames: Number(flag('--frames', '12')), dumpDir: flag('--dump', null) });
+        const results = checkRun({
+            dir,
+            frames: Number(flag('--frames', '12')),
+            dumpDir: flag('--dump', null),
+            clouds: !argv.includes('--no-clouds'),
+        });
         all.push(...results);
         for (const r of results) {
             if (r.skipped) {
@@ -397,7 +411,7 @@ if (isMain) {
                 continue;
             }
             console.log(
-                `${r.run} b${r.batch} ${String(r.ending).padEnd(12)} ${r.layout.padEnd(10)} layer0=${r.layer0.x}/${r.layer0.y} ${r.night ? 'night' : `ocean${r.oceanIndex}`} ${r.lowTide ? 'low ' : 'high'} frames=${r.frames} island never=${r.neverIslandPct}% persistent=${r.persistentIslandPct}% ocean never=${r.neverOceanPct}% sky never/some=${r.neverSkyPct}%/${r.someSkyPct}% waves=${r.waves.matchedPct}% (worst ${r.waves.worstPct}%)`,
+                `${r.run} b${r.batch} ${String(r.ending).padEnd(12)} ${r.layout.padEnd(10)} layer0=${r.layer0.x}/${r.layer0.y} ${r.night ? 'night' : `ocean${r.oceanIndex}`} ${r.lowTide ? 'low ' : 'high'} frames=${r.frames} island never=${r.neverIslandPct}% persistent=${r.persistentIslandPct}% ocean never=${r.neverOceanPct}% sky never/some=${r.neverSkyPct}%/${r.someSkyPct}% clouds=${r.clouds.length} waves=${r.waves.matchedPct}% (worst ${r.waves.worstPct}%)`,
             );
         }
         console.error(`[host-check] ${path.basename(dir)}: ${results.length} batches in ${((Date.now() - started) / 1000).toFixed(1)}s`);

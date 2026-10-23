@@ -234,6 +234,51 @@ describe('deterministic background compatibility', () => {
         expect(policy.backgroundState(presentationKey)).toMatchObject({ cloudOriginX: 0, cloudX: -1 });
     });
 
+    it('draws static clouds, a mirrored one a pixel right of its slot x', () => {
+        // FUN_1038_0ae4 mirrors with a negative-width StretchBlt, which lands the
+        // sprite on x + 1 .. x + w (the original's first bake: slot x 322, shown at 323).
+        const policy = createBrowserPresentationPolicy({ storage: { getItem: () => null }, now: () => 0, random: () => 0 });
+        const calls = [];
+        const context = {
+            save: () => calls.push(['save']),
+            restore: () => calls.push(['restore']),
+            translate: (x, y) => calls.push(['translate', x, y]),
+            scale: (x, y) => calls.push(['scale', x, y]),
+            drawImage: (canvas, ...args) => calls.push(['drawImage', canvas.id, ...args]),
+        };
+        const sprite = (id, width, height) => ({ width, height, _canvas: { id } });
+        const images = [];
+        images[15] = sprite('small', 128, 36);
+        images[16] = sprite('medium', 192, 57);
+        const state = {
+            game: johnnyCastaway,
+            backgroundId: 1,
+            bkgScreen: null,
+            bkgOcean: [],
+            bkgRes: { images },
+            titleState: {
+                presentationKey: {},
+                island: true,
+                islandLayoutId: 1,
+                clouds: [
+                    { frame: 15, x: 322, y: 55, flipX: true },
+                    { frame: 16, x: 10, y: 5, flipX: false },
+                ],
+            },
+        };
+
+        drawBackground(state, context, policy);
+
+        expect(calls.slice(0, 6)).toEqual([
+            ['save'],
+            ['translate', 322 + 1 + 128, 55],
+            ['scale', -1, 1],
+            ['drawImage', 'small', 0, 0],
+            ['restore'],
+            ['drawImage', 'medium', 0, 0, 192, 57, 10, 5, 192, 57],
+        ]);
+    });
+
     it('selects deterministic authored day and night oceans', () => {
         const oceans = ['day-0', 'day-1', 'day-2', 'night'];
         const state = {

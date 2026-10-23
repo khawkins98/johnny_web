@@ -326,20 +326,22 @@ slots), 1 ocean (`1417:01FA`), and 13 cloud positions, speeds and phases.
 
 For each island batch, `host-check.mjs` paints our host canvas for the batch's
 titleState with the browser's own `drawBackground` (`render-ours.mjs` `renderHost`,
-no gag, no clouds) and compares it with up to 12 dumps spread over the batch (the
+no gag, with the clouds found in the batch's first clean dump) and compares it with up to 12 dumps spread over the batch (the
 first two right after the bake; dumps taken during the wipe, mostly black, are
 dropped):
 
 - A pixel is **matched** when it equals ours (within the DAC tolerance, or through a
-  learnt palette substitution) in at least one sampled frame. The original's actors,
-  speech bubbles and clouds move, so a host pixel is uncovered in some frame. Pixels
+  learnt palette substitution) in at least one sampled frame. The original's actors
+  and speech bubbles move, so a host pixel is uncovered in some frame. Pixels
   that **never** match in any frame are the host divergence; pixels that differ in
   every frame but match in some are also reported (`persistent`: mostly Johnny).
 - **Island layers** (sand, palm, raft, low-tide sand and rock) are the pixels where
   our render differs from the bare ocean screen; the **ocean** is the rest below the
-  horizon (row 150 by day, 205 at night); the **sky** above it is reported but not
-  judged, because the original drifts clouds there (FUN_1010_0a38, up to 15 slots)
-  and this check draws none.
+  horizon (row 150 by day, 205 at night); the **sky** is everything above it.
+- **Clouds** (`cloud-detect.mjs`): the original lays its clouds out once per bake
+  and never moves them in the batch, so they are found in the first clean dump by
+  matching BACKGRND frames 15/16/17, plain and mirrored, and painted on ours at the
+  same slots before the sky is scored. `--no-clouds` paints none (the old view).
 - The **wave** rectangles are scored by matching each region, in each frame, against
   its three BACKGRND frames (the wave phase is not logged).
 - The day **ocean index** is the OCEAN screen whose render differs least from the
@@ -401,8 +403,13 @@ The host canvas, in short:
   `#a800a8`, and the oracle learns `#a800a8>#c300c3` as a palette remap. Day ocean
   "never matched" is now 0% in 24 of 25 day batches and 0.22% in the other (a
   standing actor).
-- **Clouds**: the original draws drifting clouds by day and by night (the sky's
-  "never"/"some" columns), from its own cloud model. Ours draws the story
-  controller's clouds; the models differ (rng-port.md). Not scored.
+- **Clouds** stand still for the whole batch, by day and by night, over the moon
+  too. `FUN_1010_0b67`, the only routine that moves them, has one caller,
+  `FUN_1010_040e(1)` (near call at `1010:043a`), which only the bake makes. The
+  layout is `FUN_1010_0a38`; `src/games/johnny/clouds.mjs` ports it. Replaying it
+  on each traced first bake gives the cloud the dumps show (small, slot x 322, y 55,
+  mirrored). A mirrored cloud shows one pixel right of its slot x (negative-width
+  `StretchBlt`). The earlier "drifting clouds" reading came from the sky columns of
+  a check that drew no clouds.
 - **Night** batches (phase >= 12 with StartTime moved, and the `--time` clock) match
   NIGHT.SCR with 0% ocean divergence; both tides appear at night, as the coin says.
