@@ -1,6 +1,10 @@
 # Scaling and CRT presentation prototypes
 
+**Implementation follow-up:** [Optional CRT setup, presets and lifecycle](../../docs/optional-crt.md). The shader and controls now live in the game UI module and are shared by this lab. Balanced CRT matches the user-provided six-effect tuning; named custom presets are stored in this browser and shared with the game on the same origin. The observations below retain the original research capture settings and dates.
+
 Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; it does not change the production settings or Enhanced default.
+
+**VGA/Libretro research:** [Model comparisons, diagnostics, setup and credits](VGA.md). VGA and pinned CRT-Lottes are now selectable in game Settings. The lab-only `?view=guest` comparison adds the full pinned Guest Advanced HD 12-pass pipeline. See its [adapter, source, GPL terms and limitations](vendor/guest-hd/README.md).
 
 ## Run the lab
 
@@ -154,7 +158,7 @@ Real-game integration was also checked locally using user-supplied data. One fro
 
 ## Decision and remaining work
 
-Keep production behavior unchanged while addressing the existing filtering/cropping bugs in a focused follow-up. Auto sharp fit is a promising option but its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Keep CRT experimental and optional; its blending can help patterned art, but the adjustable pass needs mobile/GPU measurement, full motion/zoom coverage and automatic context restoration before adoption.
+The original lab left production behavior unchanged. The [optional CRT follow-up](../../docs/optional-crt.md) now adds opt-in game controls, shared presets, context restoration and the filter-reset fix. Auto sharp fit remains a research option: its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Mobile/GPU measurement and full motion/zoom coverage remain open. The lab itself retains baseline fallback until reload after context loss; the game compositor automatically rebuilds on restoration.
 
 ## Validation record
 

@@ -23,6 +23,8 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
 
+**CRT picture** in Settings is optional and off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
+
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
 Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
