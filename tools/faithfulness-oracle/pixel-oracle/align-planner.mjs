@@ -126,7 +126,8 @@ export const replayRun = (dir, { archive = readFileSync(SCR) } = {}) => {
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (isMain) {
     const argv = process.argv.slice(2);
-    const dir = argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1].startsWith('--')));
+    // Only --window takes a value; boolean flags such as --all don't consume the next argument.
+    const dir = argv.find((a, i) => !a.startsWith('--') && !(i > 0 && argv[i - 1] === '--window'));
     const wi = argv.indexOf('--window');
     const window = wi === -1 ? 60 : Number(argv[wi + 1]);
     if (argv.includes('--all')) {
