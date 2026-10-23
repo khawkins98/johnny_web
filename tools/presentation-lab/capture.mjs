@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 const base = process.env.LAB_URL || 'http://127.0.0.1:5174';
 const session = execFileSync('agent-browser',['session','id','--scope','worktree','--prefix','presentation-captures'],{encoding:'utf8'}).trim();
 const run = (...args) => execFileSync('agent-browser',['--session',session,...args],{encoding:'utf8'}).trim();
-const destination = 'docs/images/presentation-lab'; mkdirSync(destination,{recursive:true});
+const destination = process.env.LAB_CAPTURE_DIR || 'docs/images/presentation-lab'; mkdirSync(destination,{recursive:true});
 const cases = [
     ['fit-dpr1','fit','none',1,1000,750],
     ['leaked-filter-dpr1','legacy','none',1,1000,750],
@@ -29,7 +29,8 @@ try {
         const metrics = JSON.parse(run('eval','JSON.stringify(window.presentationLab.metrics())'));
         const result = {name,...JSON.parse(metrics)};
         assert.equal(result.dpr,dpr);
-        assert.ok(result.layoutDeviceOrigin.every(value => Math.abs(value-Math.round(value)) < 1e-6));
+        // DOMRect translation coordinates have float precision; allow <0.0001 device px.
+        assert.ok(result.layoutDeviceOrigin.every(value => Math.abs(value-Math.round(value)) < 1e-4));
         assert.ok(result.geometry.width <= width && result.geometry.height <= height);
         if (results.length) assert.equal(result.sourceHash,results[0].sourceHash);
         assert.equal(Boolean(result.failure),effect === 'unavailable');

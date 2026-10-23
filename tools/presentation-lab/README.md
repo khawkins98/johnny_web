@@ -25,6 +25,24 @@ The synthetic fixture is original project code and requires no proprietary files
 | GPU failure could obscure an experiment | Force-no-WebGL control and context-loss button retain the normal output |
 | No research controls | Labeled controls with keyboard focus, 40px minimum targets and tabular numeric feedback |
 
+## Compare several sizes together
+
+Choose **View → Compare sizes**, or open `?view=compare`. Every card samples the same source once per display frame; **Freeze source** holds one identical input for all cards. The shared Presentation control applies CSS, Canvas2D or CRT to every card.
+
+- **Half steps** compares 0.5×, 1×, 1.5× and 2× CSS scale. At DPR 2 these correspond to whole device multipliers 1, 2, 3 and 4. Half CSS steps are not universally clean at other DPRs.
+- **Fractional stress test** compares 0.5×, 0.585×, 1× and 1.2×. At DPR 2, 0.585× spans 1.17 device pixels per source pixel, so neither CSS sampling nor CRT softness can reproduce a uniform integer pixel grid at that size. It remains a useful negative comparison, not a candidate Auto stop.
+- **Available areas** compares 375×281, 640×480, 800×600 and 1000×750 CSS areas using the shared Sizing choice. This shows Auto's viewport thresholds and letterboxing.
+
+Cards retain their actual CSS dimensions and wrap or scroll instead of being reduced to thumbnails. Each readout includes the effective dimensions, CSS scale and device-pixel ratio. The fixed ladders override Sizing; switch to Available areas to test Auto/Native/Fit policies. Open the live source near the top, start Johnny, then connect; the source panel collapses so the comparisons are visible.
+
+Exported metrics include every card's requested mode, geometry, failure and output buffers. CPU submission timing in comparison view is the combined cost of all cards, not a one-panel benchmark. Single-size view and its capture workflow remain available. The renderer is shared between single and comparison views in `stage.mjs`.
+
+| Before | After |
+| --- | --- |
+| One output size visible at a time | True-size comparison cards share one live or frozen frame across half steps, fractional stress cases or available areas |
+| Source controls below a large output | Live source controls appear above the outputs and collapse after connection |
+| Single-stage export and context-loss exercise | Per-card export and context-loss fallback, with combined timing labeled explicitly |
+
 ## Sizing methods
 
 `scaling.mjs` computes `floor(fit * DPR) / DPR`, where fit uses floored available device dimensions. Below one device pixel per source pixel, it falls back to smooth continuous fit. Both axes of the final stage origin are aligned to device pixels. Auto changes when both `640*n/DPR` width and `480*n/DPR` height fit the next integer device multiplier `n`.
@@ -58,7 +76,7 @@ node --test tools/presentation-lab/scaling.test.mjs
 LAB_URL=http://127.0.0.1:5173 node tools/presentation-lab/capture.mjs
 ```
 
-Use the actual port printed by Vite. The script uses an isolated browser session, a 1120×1150 CSS outer viewport, a frozen frame at tick 0 and ten sizing/effect cases. It waits for 180 presentation samples per case and closes its own session. It writes only synthetic PNGs and [metrics.json](../../docs/images/presentation-lab/metrics.json). Hashes refer to native source pixels before presentation. Browser font rasterization can change fixture hashes across machines; all captures within the recorded run must match.
+Use the actual port printed by Vite. The script uses an isolated browser session, a 1120×1150 CSS outer viewport, a frozen frame at tick 0 and ten sizing/effect cases. It waits for 180 presentation samples per case and closes its own session. Set `LAB_CAPTURE_DIR` to an ignored scratch directory to check a new UI revision without replacing the historical captures. The pixel checker also accepts that directory as its first argument. It writes only synthetic PNGs and [metrics.json](../../docs/images/presentation-lab/metrics.json). Hashes refer to native source pixels before presentation. Browser font rasterization can change fixture hashes across machines; all captures within the recorded run must match.
 
 For an exact source-to-screenshot pixel comparison, install Pillow in your Python environment and run:
 
@@ -116,3 +134,5 @@ Keep production behavior unchanged while addressing the existing filtering/cropp
 - Full `pnpm test` with game data: 803 pass, 2 skip, one existing faithfulness case (`BUILDING:7`) exceeds its 30-second timeout during concurrent workloads. Running that case alone passes in 5.65 seconds. No engine code was changed to alter the result.
 
 After merging `main` with PR #83 (`538d281`), all 103 tests across the six affected suites, all four prototype geometry tests, and the production build pass. The game screenshots above retain their original pre-merge capture revision for reproducibility.
+
+Comparison-view validation: browser checks cover all three sets, shared source hashes across cards, DPR 1/2 readouts, four simultaneous CRT outputs, context loss across every active card, and returning to single view. The ten-case single-view capture regression still passes, including exact pixel-block comparisons and the previously recorded small-screen placement offset. The stage origin now uses translation to avoid 1/64 CSS-pixel layout quantization at fractional DPR; capture assertions allow less than 0.0001 device pixel for DOMRect floating-point readback. This does not replace screenshot-based placement checks.

@@ -1,43 +1,62 @@
-import { resolveScale } from './scaling.mjs';
-import { createCrt } from './crt.mjs';
+import { createStage } from './stage.mjs';
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-for (const id of ['mode', 'effect', 'width', 'height']) if (params.has(id)) $(id).value = params.get(id);
+for (const id of ['mode', 'effect', 'width', 'height', 'view', 'comparison-set']) {
+    const control = $(id), value = params.get(id);
+    if (value !== null && (control.tagName !== 'SELECT' || [...control.options].some(option => option.value === value))) control.value = value;
+}
 const source = document.createElement('canvas'); source.width = 640; source.height = 480;
 const ctx = source.getContext('2d');
 const viewport = $('viewport');
-const baseline = document.createElement('canvas'); baseline.width = 640; baseline.height = 480; baseline.className = 'output'; viewport.append(baseline);
-const raster = document.createElement('canvas'); raster.className = 'output'; viewport.append(raster);
-const output = document.createElement('canvas'); output.className = 'output'; viewport.append(output);
-let crt = null, failure = '', frozen = params.get('frozen') === '1', live = false, frame = 0;
-let samples = [], intervals = [], previousTime = null, geometry, resolvedDpr=0;
+const single = createStage(viewport);
+let comparisonStages = [], comparisonKey = '';
+let frozen = params.get('frozen') === '1', live = false, frame = 0;
+let samples = [], intervals = [], previousTime = null, resolvedDpr = 0;
 const resetMetrics = () => { samples = []; intervals = []; previousTime = null; };
-function fail(message) { failure = message; output.hidden = true; raster.hidden = true; baseline.hidden = false; }
+const comparing = () => $('view').value === 'compare';
+const activeStages = () => comparing() ? comparisonStages.map(panel => panel.stage) : [single];
+const ladders = {
+    stops: [0.5, 1, 1.5, 2].map(scale => ({ label: `${scale}× requested`, width: 640*scale, height: 480*scale, mode: String(scale) })),
+    fractional: [0.5, 0.585, 1, 1.2].map(scale => ({ label: `${scale}× requested`, width: Math.ceil(640*scale), height: Math.ceil(480*scale), mode: String(scale) })),
+    areas: [[375,281],[640,480],[800,600],[1000,750]].map(([width,height]) => ({ label: `${width} × ${height} available`, width, height })),
+};
 function configure() {
-    resolvedDpr=devicePixelRatio;
-    const width = Math.max(160, Math.min(2400, Number($('width').value) || 1000));
-    const height = Math.max(120, Math.min(1600, Number($('height').value) || 750));
-    viewport.style.width = `${width}px`; viewport.style.height = `${height}px`;
-    // Align the viewport itself before snapping the stage within it.
-    viewport.style.marginLeft = '0px'; viewport.style.top = '0px';
-    const offset = viewport.getBoundingClientRect().left;
-    const top = viewport.getBoundingClientRect().top;
-    viewport.style.top = `${Math.round(top * devicePixelRatio) / devicePixelRatio - top}px`;
-    viewport.style.marginLeft = `${Math.round(offset * devicePixelRatio) / devicePixelRatio - offset}px`;
-    geometry = resolveScale(width, height, devicePixelRatio, $('mode').value);
-    for (const c of [baseline, raster, output]) Object.assign(c.style, {
-        width: `${geometry.width}px`, height: `${geometry.height}px`, left: `${geometry.x}px`, top: `${geometry.y}px`,
-        imageRendering: geometry.sharp ? 'pixelated' : 'auto',
-    });
-    // GL is drawn at final device resolution, and must not be pixelated again.
-    output.style.imageRendering = 'auto'; raster.style.imageRendering = 'auto';
-    failure = '';
-    output.hidden = true; raster.hidden = true; baseline.hidden = false;
-    if ($('effect').value === 'unavailable') fail('Forced WebGL unavailable · unfiltered fallback');
-    if ($('effect').value === 'crt' && !crt) {
-        try { crt = createCrt(output, fail); } catch (error) { fail(error.message); }
+    resolvedDpr = devicePixelRatio;
+    const compare = comparing(), set = $('comparison-set').value;
+    viewport.hidden = compare; $('comparisons').hidden = !compare;
+    $('comparison-set-control').hidden = !compare; $('comparison-help').hidden = !compare;
+    document.querySelectorAll('.single-control').forEach(control => { control.hidden = compare; });
+    $('mode').disabled = compare && set !== 'areas';
+    const key = compare ? set : '';
+    if (key !== comparisonKey) {
+        comparisonStages.forEach(panel => panel.stage.dispose());
+        comparisonStages = []; $('comparisons').replaceChildren(); comparisonKey = key;
+        if (compare) for (const preset of ladders[set]) {
+            const card = document.createElement('article'); card.className = 'comparison-card';
+            const heading = document.createElement('h2'); heading.textContent = preset.label;
+            const caption = document.createElement('output');
+            const area = document.createElement('div'); area.className = 'stage';
+            card.append(heading, caption, area); $('comparisons').append(card);
+            comparisonStages.push({ ...preset, caption, stage: createStage(area) });
+        }
     }
-    resetMetrics();
+    if (compare) {
+        // Establish all card sizes before measuring origins; wrapping changes earlier positions.
+        for (const panel of comparisonStages) {
+            const area = panel.caption.nextElementSibling;
+            area.style.width = `${panel.width}px`; area.style.height = `${panel.height}px`;
+        }
+        for (const panel of comparisonStages) {
+            panel.stage.configure(panel.width, panel.height, resolvedDpr, panel.mode || $('mode').value, $('effect').value);
+            const { geometry } = panel.stage.metrics();
+            panel.caption.textContent = `${geometry.width.toFixed(1)} × ${geometry.height.toFixed(1)} rendered · ${geometry.scale.toFixed(3)}× CSS\n${(geometry.scale*resolvedDpr).toFixed(3)} device px/source px · ${$('effect').value === 'crt' ? 'CRT blend' : geometry.sharp ? 'pixelated' : 'smooth'}`;
+        }
+    } else {
+        const width = Math.max(160, Math.min(2400, Number($('width').value) || 1000));
+        const height = Math.max(120, Math.min(1600, Number($('height').value) || 750));
+        single.configure(width, height, resolvedDpr, $('mode').value, $('effect').value);
+    }
+    $('status').textContent = ''; resetMetrics();
 }
 function pattern(tick) {
     ctx.fillStyle = '#102131'; ctx.fillRect(0, 0, 640, 480);
@@ -60,7 +79,7 @@ pattern(0);
 function copyLive() {
     const doc = $('live').querySelector('iframe').contentDocument;
     const layers = ['mainCanvas','canvas'].map(id => doc?.getElementById(id));
-    if (layers.some(c => !c)) { live = false; fail('Game canvases unavailable'); return; }
+    if (layers.some(c => !c)) { live = false; activeStages().forEach(stage => stage.fail('Game canvases unavailable')); return; }
     ctx.clearRect(0, 0, 640, 480);
     for (const c of layers) ctx.drawImage(c, 0, 0);
 }
@@ -73,13 +92,15 @@ function fingerprint() {
 }
 const percentile = (values, p) => values.length ? [...values].sort((a,b) => a-b)[Math.min(values.length-1, Math.floor(values.length*p))] : null;
 function metrics() {
-    return { userAgent:navigator.userAgent, dpr:devicePixelRatio, viewport:[innerWidth,innerHeight],
-        requested:[$('width').value,$('height').value],
-        layoutDeviceOrigin:[(viewport.getBoundingClientRect().left+geometry.x)*devicePixelRatio,(viewport.getBoundingClientRect().top+geometry.y)*devicePixelRatio], mode:$('mode').value, effect:$('effect').value,
-        source:live?'Johnny canvases':'synthetic', frozen, frame, geometry, failure, sourceHash:fingerprint(),
-        sourceSize:[source.width,source.height], glSize:[output.width,output.height], rasterSize:[raster.width,raster.height], samples:samples.length,
-        cpuSubmissionMs:{p50:percentile(samples,.5),p95:percentile(samples,.95),p99:percentile(samples,.99)},
-        frameIntervalMs:{p50:percentile(intervals,.5),p95:percentile(intervals,.95),p99:percentile(intervals,.99)} };
+    const stages = activeStages().map(stage => stage.metrics());
+    return { userAgent: navigator.userAgent, dpr: devicePixelRatio, viewport: [innerWidth,innerHeight],
+        requested: [$('width').value,$('height').value], mode: $('mode').value, effect: $('effect').value,
+        view: $('view').value, comparisonSet: comparing() ? $('comparison-set').value : null,
+        ...(comparing() ? { panels: stages.map((stage, index) => ({ label: comparisonStages[index].label, ...stage })) } : stages[0]),
+        source: live?'Johnny canvases':'synthetic', frozen, frame, sourceHash: fingerprint(),
+        sourceSize: [source.width,source.height], samples: samples.length,
+        cpuSubmissionMs: {p50:percentile(samples,.5),p95:percentile(samples,.95),p99:percentile(samples,.99)},
+        frameIntervalMs: {p50:percentile(intervals,.5),p95:percentile(intervals,.95),p99:percentile(intervals,.99)} };
 }
 function render(time) {
     if (resolvedDpr !== devicePixelRatio) configure();
@@ -87,34 +108,27 @@ function render(time) {
         if (previousTime !== null) intervals.push(time-previousTime); previousTime=time;
         if (!frozen) { if (live) copyLive(); else pattern(++frame); }
         const start = performance.now();
-        baseline.getContext('2d').drawImage(source, 0, 0);
-        if ($('effect').value === 'raster') {
-            const w=Math.round(geometry.width*devicePixelRatio), h=Math.round(geometry.height*devicePixelRatio);
-            if (raster.width!==w || raster.height!==h) { raster.width=w; raster.height=h; }
-            const rasterContext=raster.getContext('2d'); rasterContext.imageSmoothingEnabled=!geometry.sharp;
-            rasterContext.drawImage(source,0,0,w,h);
-            raster.hidden=false; baseline.hidden=true;
-        }
-        if ($('effect').value === 'crt' && crt && !failure) {
-            try {
-                crt.draw(source, Math.round(geometry.width * devicePixelRatio), Math.round(geometry.height * devicePixelRatio));
-                output.hidden=false; baseline.hidden=true;
-            } catch (error) { fail(error.message); }
-        }
+        for (const stage of activeStages()) stage.draw(source);
         samples.push(performance.now()-start);
         if (samples.length > 1200) samples.shift(); if (intervals.length > 1200) intervals.shift();
         if (Math.floor(time / 250) !== Math.floor((time - (intervals.at(-1) || 0)) / 250) || !$('status').textContent) {
-            $('status').textContent = `${live?'JOHNNY':'SYNTHETIC'} ${frozen?'· frozen':'· moving'} | ${$('mode').selectedOptions[0].text} | DPR ${devicePixelRatio}\n${geometry.width.toFixed(2)} × ${geometry.height.toFixed(2)} CSS px · ${geometry.scale.toFixed(4)}× · ${(geometry.scale*devicePixelRatio).toFixed(3)} device px/source px | ${failure || $('effect').selectedOptions[0].text}\nCPU copy/upload/draw submission p95: ${(percentile(samples,.95) || 0).toFixed(2)} ms · ${samples.length} samples (not GPU time)`;
+            const stages = activeStages().map(stage => stage.metrics());
+            const { geometry } = stages[0];
+            const detail = comparing()
+                ? `${stages.length} panels at actual CSS size · ${$('comparison-set').selectedOptions[0].text}`
+                : `${geometry.width.toFixed(2)} × ${geometry.height.toFixed(2)} CSS px · ${geometry.scale.toFixed(4)}× · ${(geometry.scale*devicePixelRatio).toFixed(3)} device px/source px`;
+            const failures = stages.filter(stage => stage.failure).length;
+            $('status').textContent = `${live?'JOHNNY':'SYNTHETIC'} ${frozen?'· frozen':'· moving'} | DPR ${devicePixelRatio} | ${failures ? `${failures} fallback(s): ${stages.find(stage => stage.failure).failure}` : $('effect').selectedOptions[0].text}\n${detail}\nCPU submission p95: ${(percentile(samples,.95) || 0).toFixed(2)} ms · ${samples.length} samples · ${comparing() ? 'all panels combined' : 'one panel'} (not GPU time)`;
         }
     } else previousTime=null;
     requestAnimationFrame(render);
 }
-for (const id of ['mode','effect','width','height']) $(id).addEventListener('change', configure);
+for (const id of ['mode','effect','width','height','view','comparison-set']) $(id).addEventListener('change', configure);
 $('freeze').onclick = () => { frozen=!frozen; $('freeze').textContent=frozen?'Resume source':'Freeze source'; resetMetrics(); };
 $('pattern').onclick = () => { live=false; frame=0; pattern(0); resetMetrics(); };
-$('live').addEventListener('toggle', () => { const iframe=$('live').querySelector('iframe'); if ($('live').open && !iframe.getAttribute('src')) iframe.src=iframe.dataset.src; });
-$('connect').onclick = () => { live=true; copyLive(); resetMetrics(); };
-$('lose').onclick = () => crt?.lose();
+$('live').addEventListener('toggle', () => { const iframe=$('live').querySelector('iframe'); if ($('live').open && !iframe.getAttribute('src')) iframe.src=iframe.dataset.src; configure(); });
+$('connect').onclick = () => { live=true; copyLive(); $('live').open=false; resetMetrics(); };
+$('lose').onclick = () => activeStages().forEach(stage => stage.lose());
 $('export').onclick = () => {
     const blob = new Blob([JSON.stringify(metrics(),null,2)], {type:'application/json'});
     const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='presentation-metrics.json'; link.click(); URL.revokeObjectURL(link.href);

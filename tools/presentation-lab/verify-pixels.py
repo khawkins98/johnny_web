@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Verify native pixel blocks and measure placement drift in synthetic captures (Pillow)."""
 import json
+import sys
 from pathlib import Path
 from PIL import Image, ImageChops
 
 root = Path(__file__).resolve().parents[2]
-images = root / 'docs/images/presentation-lab'
+images = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else root / 'docs/images/presentation-lab'
 source = Image.open(images / 'native-fixture.png').convert('RGB')
 results = []
 # Prefer the DOM-projected origin, then search a small neighborhood for compositor drift.
