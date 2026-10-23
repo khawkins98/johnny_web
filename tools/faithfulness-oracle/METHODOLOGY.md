@@ -506,4 +506,18 @@ Some fidelity evidence can't live in this repository because it is derived from 
 
 **Never commit any of these**, not even a cropped frame or a short excerpt of the decompilation. The scripts that make and read them are committed (`ghidra/`, `normal-play/`, `measure/`, `browser/`); their outputs are not.
 
-Locally they live in one place, `scratchpad/maintainer/` (ignored through the `scratchpad/` rule). Its `README.md` indexes each folder: what it holds, which issue or PR cites it, and how it was made. The Ghidra project and `decompiled.c` stay in `scratchpad/ghidra/`, and the lifespan-triage captures that this document cites stay in `scratchpad/lifespan-triage-raw/`. A private asset repository for maintainers is planned, so the evidence survives one machine; until then `scratchpad/maintainer/` is the only copy.
+Locally they live in one place, `scratchpad/maintainer/` (ignored through the `scratchpad/` rule). Its `README.md` indexes each folder: what it holds, which issue or PR cites it, and how it was made. The Ghidra project and `decompiled.c` stay in `scratchpad/ghidra/`, and the lifespan-triage captures that this document cites stay in `scratchpad/lifespan-triage-raw/`.
+
+A copy is kept in the private, maintainer-only repository `khawkins98/johnny-assets` on the maintainer's Forgejo server (`git-home.allaboutken.com`). It is not public and nothing in this repository or its CI depends on it. Each asset is a `.tar.gz` of the `scratchpad/...` paths above, stored as Git LFS parts of at most 90 MiB with SHA-256 hashes in `manifest.json`; each `parts/<name>/README.md` says what the asset is, why it is kept, how it was made and how to use it. The `driveC/` copies of the game files are left out of every archive, because they are identical to `public/data/`. Clone without downloading the parts, then pull only the asset you need:
+
+```sh
+GIT_LFS_SKIP_SMUDGE=1 git clone https://git-home.allaboutken.com/khawkins98/johnny-assets.git
+cd johnny-assets
+git lfs install --local
+python3 assets.py list
+git lfs pull --include="parts/<name>/**" --exclude=""
+python3 assets.py fetch <name> --out restore/<name>.tar.gz   # checks every part and the whole-file SHA-256
+tar -xzf restore/<name>.tar.gz -C /path/to/johnny_web
+```
+
+Access needs a maintainer account on that server. The server is not the only copy: its weekly dumps leave out LFS data, so don't delete `scratchpad/maintainer/`. When you add evidence, store it as a new dated asset with `assets.py store` (see that repository's README).
