@@ -156,7 +156,7 @@ Real-game integration was also checked locally using user-supplied data. One fro
 
 ## Decision and remaining work
 
-Keep production behavior unchanged while addressing the existing filtering/cropping bugs in a focused follow-up. Auto sharp fit is a promising option but its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Keep CRT experimental and optional; its blending can help patterned art, but the adjustable pass needs mobile/GPU measurement, full motion/zoom coverage and automatic context restoration before adoption.
+The original lab left production behavior unchanged. The [optional CRT follow-up](../../docs/optional-crt.md) now adds opt-in game controls, shared presets, context restoration and the filter-reset fix. Auto sharp fit remains a research option: its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Mobile/GPU measurement and full motion/zoom coverage remain open. The lab itself retains baseline fallback until reload after context loss; the game compositor automatically rebuilds on restoration.
 
 ## Validation record
 
