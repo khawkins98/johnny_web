@@ -27,6 +27,11 @@
 //   story  the story controller's preview selection for the gag (island layout,
 //          ocean, raft, tide, clouds), painted by the Johnny island presenter, as the
 //          story-timeline preview does. Deterministic (fixed date, seeded random).
+//   normal an explicit `titleState` (from a normal-play capture of the original:
+//          normal-play.mjs batchTitleState), painted by the same presenter. Nothing
+//          of ours chooses the island here; the capture's bake does.
+// renderHost({ titleState, waveCounters }) paints the host canvas alone (no gag),
+// with the waves on given counters, for the host-canvas check (host-check.mjs).
 //
 // CLI (for eyeballing; writes PNGs of the composited frame):
 //   node render-ours.mjs <ADS.NAME> <tag> [--seed 1] [--host forced|none|story]
@@ -105,7 +110,7 @@ const storySelection = (adsName, tag, seed) => {
  *   the arrays are live views, copy them to keep. Return true to stop early.
  * @returns {{completed:boolean, ticks:number}}
  */
-export const renderOurs = ({ adsName, tag, seed = 1, host = 'forced', maxTicks = 6000, onFrame }) => {
+export const renderOurs = ({ adsName, tag, seed = 1, host = 'forced', titleState: givenTitleState = null, maxTicks = 6000, onFrame }) => {
     const fgCanvas = new SoftCanvas(640, 480);
     const bgCanvas = new SoftCanvas(640, 480);
     let clock = 0;
@@ -119,8 +124,9 @@ export const renderOurs = ({ adsName, tag, seed = 1, host = 'forced', maxTicks =
     let titleState = null;
     let backgroundDecorator = null;
     let hostPainted = false;
-    if (host === 'story') {
-        const selection = storySelection(adsName, tag, seed);
+    if (host === 'story' || host === 'normal') {
+        if (host === 'normal' && !givenTitleState) throw new Error('host normal needs a titleState');
+        const selection = host === 'normal' ? { titleState: givenTitleState } : storySelection(adsName, tag, seed);
         titleState = selection.titleState;
         const presenter = createJohnnySelectionPresenter({
             game: johnnyCastaway,
@@ -171,6 +177,41 @@ export const renderOurs = ({ adsName, tag, seed = 1, host = 'forced', maxTicks =
         },
     });
     return { completed: result.completed, ticks: result.ticks };
+};
+
+/**
+ * Paint the host canvas alone (drawBackground through the Johnny island presenter)
+ * for an explicit titleState, with the waves on the given counters (A, B, C; the
+ * bake's 0,2,2 by default) and no cloud drift. Returns the RGBA canvas data, or
+ * null when the selection has no island (off-island batches start on black).
+ */
+export const renderHost = ({ titleState, waveCounters = [0, 2, 2], now = 0 }) => {
+    const canvas = new SoftCanvas(640, 480);
+    const policy = createBrowserPresentationPolicy({
+        storage: memoryStorage(),
+        now: () => now,
+        currentHour: () => 12,
+        random: seededRandom(1),
+    });
+    // Pre-seed the per-batch wave state so drawBackground draws these counters
+    // instead of resetting to the bake frames and stepping from `now`.
+    const tideName = titleState.lowTide ? 'low' : 'high';
+    const regions = johnnyCastaway.background.tides[tideName].waves.length;
+    const animation = policy.backgroundState(titleState.presentationKey || titleState);
+    Object.assign(animation, {
+        waveTide: tideName,
+        waveRegions: new Array(regions).fill(0),
+        waveCounters: [...waveCounters],
+        waveStart: now,
+        waveStepClock: Math.floor((Math.floor(0 / 55) * 55) / 16),
+    });
+    const presenter = createJohnnySelectionPresenter({
+        game: johnnyCastaway,
+        resourceProvider: { resolve: resolveEntry },
+        presentationPolicy: policy,
+    });
+    const painted = presenter({ titleState }, canvas.getContext('2d'));
+    return painted ? canvas.data : null;
 };
 
 /** fg-over-bg-over-black composite, as the stacked page canvases show it. */
