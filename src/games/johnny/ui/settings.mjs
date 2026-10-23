@@ -641,7 +641,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     startRow.className = 'settings-row';
     const startLabel = document.createElement('span');
     startLabel.id = 'settings-start-time-label';
-    startLabel.innerText = 'Start Time:';
+    startLabel.innerText = 'Story clock offset (Start Time):';
     const startControls = document.createElement('span');
     startControls.className = 'settings-start-time';
     startControls.setAttribute('role', 'group');
@@ -688,8 +688,10 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     startHelp.id = 'settings-start-time-help';
     startHelp.className = 'settings-help';
     startHelp.textContent =
+        'This offsets the repeating 8-hour story clock; it does not set the current hour. ' +
         'Night falls 6 hours after this time, for 2 hours, every 8 hours. Also changes which gags can appear. ' +
-        'Applies from the next visit; Live Local Clock overrides the sky.';
+        'Applies from the next visit. Live Local Clock changes only the sky immediately (night before 06:00 or from 18:00). ' +
+        'Explicit timeline playback temporarily overrides both clocks; scene requirements still apply.';
     modal.appendChild(startHelp);
 
     const debugRow = document.createElement('div');

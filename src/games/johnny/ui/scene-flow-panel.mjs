@@ -20,8 +20,8 @@ import {
     describeSceneFlowGuard,
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
-import { bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
-import { DEFAULT_START_TIME } from '../start-time.mjs';
+import { bandById, bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
+import { DEFAULT_START_TIME, formatStartTime } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
@@ -304,6 +304,29 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const stepperStyle = document.createElement('style');
     stepperStyle.textContent = STEPPER_STYLE;
     document.head.appendChild(stepperStyle);
+    const clockNotice = document.createElement('aside');
+    clockNotice.id = 'timeline-clock-notice';
+    clockNotice.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:1001;max-width:min(560px,calc(100vw - 32px));padding:10px;background:#102d8f;color:#fffbdc;border:2px solid #ffe02d;font:20px/1.2 VT323,monospace';
+    clockNotice.hidden = true;
+    const clockMessage = document.createElement('span');
+    clockMessage.setAttribute('role', 'status');
+    const returnLive = document.createElement('button');
+    returnLive.type = 'button';
+    returnLive.className = 'story-steps-play';
+    returnLive.textContent = 'Return to live clock';
+    returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
+    clockNotice.append(clockMessage, returnLive);
+    document.body.appendChild(clockNotice);
+    const clockDescription = (status) => {
+        const local = localStorage.getItem('jc-time') === 'local';
+        const night = (status?.forceNight || status?.band) ? status?.night
+            : local ? new Date().getHours() < 6 || new Date().getHours() >= 18 : status?.night;
+        const sky = status?.island === false ? 'off-island scene (no island sky)'
+            : `${night ? 'night' : 'day'} sky`;
+        const exception = (status?.forceNight && status?.band !== 'night' ? ' · Scene requires night' : '') +
+            (status?.forceHighTide ? ' · Scene requires high tide' : '');
+        return `Playing day ${status?.storyDay ?? 1} · ${sky}${exception} · Beach: ${status?.lowTide ? 'low' : 'high'} tide${status?.island === false ? ' (when on island)' : ''}`;
+    };
     const liveSpot = (status) => ({
         day: status?.storyDay || sequenceTools?.getStoryDay?.() || 1,
         band: bandForPhase(status?.tidePhase)?.id ?? null,
@@ -316,14 +339,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const live = liveSpot(status);
         step = { level: 'detail', day: live.day, band: live.band ?? 'early', gag: live.gag, followLive: true };
     };
-    const playGag = (gag, day) => {
+    const playGag = (gag, day, band) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
         try {
             // 'preview' plays exactly this gag now, then the story carries on.
             // ('sequence' would plan a whole visit around it: a gag that ends a
             // visit would then play last, after other gags.)
             sequenceTools.startRun({
-                mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day,
+                mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day, band,
             });
             close();
             return true;
@@ -341,7 +364,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
         try {
             sequenceTools.startRun({ mode: 'preview-child', script, tagId: gagTag,
-                storyDay: day, slot, childTag, route });
+                storyDay: day, band: step?.band, slot, childTag, route });
             close();
         } catch {
             onError?.();
@@ -446,13 +469,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
     const canJumpDay = () => typeof sequenceTools?.setStoryDay === 'function' &&
         typeof sequenceTools?.startRun === 'function';
-    const playDay = (day) => {
+    const playDay = (day, band) => {
         const keyScene = keySceneFor(day);
         if (!keyScene || !canJumpDay()) return false;
         const savedDay = sequenceTools.getStoryDay?.();
         try {
             sequenceTools.setStoryDay(day);
-            sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day });
+            sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day, band });
             close();
             return true;
         } catch {
@@ -465,7 +488,22 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const live = liveSpot(status);
         if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
-        subtitle.textContent = `STORY DAY ${live.day} OF 11 · PICK A DAY, A TIME, THEN A GAG`;
+        subtitle.textContent = clockDescription(status);
+        const context = document.createElement('p');
+        context.className = 'scene-flow-clock-context';
+        context.style.cssText = 'margin:8px 0 12px;color:#4a351c;font:20px/1.2 VT323,monospace';
+        context.textContent = `Browsing day ${step.day} · ${bandById(step.band)?.label ?? 'Early day'}. Browsing does not change playback. ` +
+            `Visit story-clock offset: ${formatStartTime(live.startTime)}. Configured sky: ${localStorage.getItem('jc-time') === 'local' ? 'Live Local Clock (night before 06:00 / from 18:00)' : 'Sequence Clock (Original)'}. ` +
+            (status?.band ? `Temporary ${bandById(status.band)?.label} override: ${status.preview ? 'this gag/scene, then the interrupted visit resumes' : 'this visit, then the configured clock resumes'}. ` : '');
+        if (status?.band) {
+            const backToClock = document.createElement('button');
+            backToClock.type = 'button';
+            backToClock.className = 'story-steps-play';
+            backToClock.textContent = 'Return to live clock';
+            backToClock.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
+            context.appendChild(backToClock);
+        }
+        body.appendChild(context);
 
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
@@ -737,7 +775,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 if (previewRequest !== previewGeneration || !isOpen || !stage.isConnected) return;
                 mountedPreview = mountSceneFlowPreview({
                     host: stage, resolveEntry, sequenceTools, script: adsName,
-                    gagTag: flow.gag.tag, slot, tag: childTag, route: previewRoute, storyDay: storyDay || 1,
+                    gagTag: flow.gag.tag, slot, tag: childTag, route: previewRoute, storyDay: storyDay || 1, band: step?.band,
                     onError: () => { caption.textContent = 'Preview unavailable for this scene.'; },
                 });
                 caption.textContent = 'Silent preview from the original game';
@@ -841,6 +879,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // the unsubscribe handle (if the controller returns one) so destroy() can
     // detach it.
     const unsubscribeStatus = sequenceTools?.subscribeStatus?.((status) => {
+        clockNotice.hidden = !status?.band;
+        clockMessage.textContent = status?.band
+            ? `Temporary ${bandById(status.band)?.label} · ${clockDescription(status)}. ${status.preview ? 'Ends after this gag/scene; interrupted visit resumes.' : 'Ends after this visit.'} ` : '';
         if (status?.current === 0 && !status.active) seenGags = [];
         if (status?.active) {
             const previous = seenGags.at(-1);
@@ -872,6 +913,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         style.remove();
         overlay.remove();
         cog.remove();
+        clockNotice.remove();
     };
 
     return { open, close, destroy };

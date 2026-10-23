@@ -448,6 +448,13 @@ const resetKeyframeTarget = (storage) => {
     }
 };
 
+// Pin a representative phase for an explicit timeline run only.
+const timelinePhase = (band) => {
+    const phase = { early: 0, late: 8, night: 12 }[band];
+    if (phase == null) throw new RangeError('Unknown timeline band: ' + band);
+    return phase;
+};
+
 const createIslandState = (
     finalScene,
     storyDay,
@@ -456,13 +463,14 @@ const createIslandState = (
     storyRandom = null,
     {
         startTime = DEFAULT_START_TIME,
+        band = null,
         layoutBits = 0,
         forceHighTide = false,
         forceNight = false,
         wavesOff = false,
     } = {},
 ) => {
-    const tidePhase = tidePhaseFor(date, startTime);
+    const tidePhase = band == null ? tidePhaseFor(date, startTime) : timelinePhase(band);
     const island = hasAll(finalScene.flags, F.ISLAND);
     // The bake (FUN_1010_0136) in the binary's order. Sky first: solid black for an
     // off-island batch (30b4 == 2, catalogue 0x2000), NIGHT.SCR when the phase is
@@ -499,6 +507,10 @@ const createIslandState = (
         islandLayoutId: 1,
         lowTide,
         tidePhase,
+        startTime,
+        band,
+        forceNight,
+        forceHighTide,
         night,
         raft,
         x,
@@ -681,12 +693,13 @@ export const createJohnnyStoryController = ({
     };
 
     // A debug-run ending for an anchored ordinary scene: a common, non-solo ending
-    // (any phase) whose layout word accepts the anchor's.
-    const chooseDebugFinal = (anchor) => {
+    // whose layout accepts the anchor; explicit timeline runs also filter its phase.
+    const chooseDebugFinal = (anchor, phase = null) => {
         const candidates = JOHNNY_SCENES.filter(
             (candidate) =>
                 (candidate.classBits & (PickClass.ENDING | PickClass.FIRST)) === PickClass.ENDING &&
                 candidate.day === 0 &&
+                (phase == null || (candidate.tideMin <= phase && phase < candidate.tideMax)) &&
                 isLayoutCompatible(anchor.flagsD, accumulateIslandLayout([candidate])) &&
                 (hasAll(anchor.flags, F.VARPOS_OK) ||
                     !hasAll(candidate.flags, F.LEFT_ISLAND) ||
@@ -730,9 +743,9 @@ export const createJohnnyStoryController = ({
      * never inserted is simply dropped. A debug `anchorScene` takes the opening
      * slot instead of the FIRST pick.
      */
-    const createPlan = ({ storyDay, finalScene, keyframe = null, anchorScene = null, date = now(), startTime }) => {
+    const createPlan = ({ storyDay, finalScene, keyframe = null, anchorScene = null, date = now(), startTime, band = null }) => {
         const resolvedStartTime = normalizeStartTime(startTime) ?? getStartTime(storage);
-        const tidePhase = tidePhaseFor(date, resolvedStartTime);
+        const tidePhase = band == null ? tidePhaseFor(date, resolvedStartTime) : timelinePhase(band);
         const planned = [];
         const folded = [finalScene];
         let previous = null;
@@ -790,6 +803,7 @@ export const createJohnnyStoryController = ({
         // before the bake (FUN_1018_08b9 -> FUN_1010_1c41), ending first.
         const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
             startTime: resolvedStartTime,
+            band,
             ...batchOptions(folded),
         });
         return { planned, islandState, startTime: resolvedStartTime };
@@ -818,6 +832,10 @@ export const createJohnnyStoryController = ({
             lowTide: islandState.lowTide,
             tidePhase: islandState.tidePhase,
             night: islandState.night,
+            band: islandState.band,
+            island: islandState.island,
+            forceNight: islandState.forceNight,
+            forceHighTide: islandState.forceHighTide,
             // The Start Time this batch's phase was counted from (the story timeline
             // shows the clock ranges of its bands from it).
             startTime,
@@ -912,15 +930,16 @@ export const createJohnnyStoryController = ({
             publishStatus();
             return selection;
         },
-        preview(script, tagId, { storyDay: requestedDay = 1 } = {}) {
+        preview(script, tagId, { storyDay: requestedDay = 1, band = null } = {}) {
             const selected = findScene(script, tagId);
             if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
             const storyDay = debugStoryDay(selected, requestedDay);
-            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, band == null ? null : timelinePhase(band));
             const date = now();
             const batch = finalScene === selected ? [selected] : [finalScene, selected];
             const islandState = createIslandState(finalScene, storyDay, date, random, storyRandom, {
                 startTime: getStartTime(storage),
+                band,
                 ...batchOptions(batch),
             });
             return Object.freeze({
@@ -930,15 +949,24 @@ export const createJohnnyStoryController = ({
                 preview: true,
             });
         },
-        planFrom(script, tagId, { storyDay: requestedDay = 1 } = {}) {
+        planFrom(script, tagId, { storyDay: requestedDay = 1, band = null } = {}) {
             const selected = findScene(script, tagId);
             if (!selected) throw new RangeError(`Unknown Johnny scene ${script}#${tagId}`);
             const storyDay = debugStoryDay(selected, requestedDay);
-            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected);
+            const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, band == null ? null : timelinePhase(band));
             const anchorScene = hasAll(selected.flags, F.FINAL) ? null : selected;
             const anchor = Object.freeze({ script: selected.script, tagId: selected.tagId });
-            installPlan(createPlan({ storyDay, finalScene, anchorScene }), anchor);
+            installPlan(createPlan({ storyDay, finalScene, anchorScene, band }), anchor);
             return sequenceStatus;
+        },
+        returnToLive() {
+            queue = [];
+            buildSequence();
+        },
+        clearRun() {
+            queue = [];
+            sequenceStatus = null;
+            publishStatus();
         },
         status: () => sequenceStatus,
         getStoryDay,

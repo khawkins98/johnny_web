@@ -54,6 +54,8 @@ export const drawBackground = (state, context, policy) => {
     // decoded SCR resources; Johnny owns whether this sequence is day/night.
     let backgroundScreen = state.bkgScreen;
     if (
+        !state.titleState?.band &&
+        !state.titleState?.forceNight &&
         profile?.settings?.time &&
         policy.setting(profile.settings.time, 'original') === 'local' &&
         state.bkgOcean.length > 0
