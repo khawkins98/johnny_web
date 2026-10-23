@@ -44,7 +44,7 @@ Shared code lives in `src/games/johnny/ui/crt/`; the lab imports it through smal
 
 The browser compositor reads `mainCanvas` and `canvas` once per presentation rAF into a separate 640×480 source. This covers the intro, island presenter, walk/pose, fades and direct transition writers without invoking their renderers again. It changes no engine clock, game source pixels, faithful rasterizer or random state. Settings, timeline and HUD remain outside CRT. The original canvases are hidden only after a successful GPU draw and immediately revealed for bypass, off, failure, hidden document, zero-size stage or visible file-import panel.
 
-The output follows the source canvas's actual CSS rectangle and current DPR each frame, including existing scaling modes, resize, scroll and fullscreen changes. GPU dimensions are capped at 4096 per side and the driver's viewport/renderbuffer limit; very large displays can therefore receive a lower-density output. Integer mode keeps a nearest-sampled base; other modes use linear sampling. This PR also resets per-canvas `imageRendering` when leaving Integer, fixing the previously documented filter leakage. It does not change the game's scale choices or introduce the lab's Auto policy.
+The output follows the source canvas's actual CSS rectangle and current DPR each frame, including existing scaling modes, resize, scroll and fullscreen changes. GPU dimensions are capped at 4096 per side and the driver's viewport/renderbuffer limit; very large displays can therefore receive a lower-density output. Creative CRT keeps a nearest-sampled base in Integer mode and uses linear base sampling in other modes. VGA reconstructs the source signal independently of that filter choice; Lottes retains its upstream reconstruction math. This PR also resets per-canvas `imageRendering` when leaving Integer, fixing the previously documented filter leakage. It does not change the game's scale choices or introduce the lab's Auto policy.
 
 Blur and bleed radii are measured in source pixels. Bleed spreads chroma while preserving local luminance; bloom uses a thresholded nine-tap source neighborhood. Curvature insets the entire picture into a black surround. Scanline strength fades at low output density and is conservatively reduced with curvature to limit aliasing. Curvature and CRT cannot make arbitrary fractional scaling reproduce equal pixel blocks; 0.585× remains a useful stress case, not a recommended size.
 
@@ -68,16 +68,17 @@ Screenshots of actual Johnny and selected settings are attached to issue #81 rat
 
 ## Validation record · 2026-10-23
 
-- Focused settings/preset suite: **20 passed**. Geometry: **4 passed**.
+- Focused settings/preset suite: **22 passed**. Lab geometry/VGA/Guest translation and cadence: **12 passed**.
 - Both actual WebGL scripts pass; lifecycle checks pass at emulated DPR 1 and 2, including forced compile failure cleanup and retry.
 - Production build and all four game-data rendering goldens pass.
 - Actual Johnny: Balanced values, native canvas dimensions, enabled/current-setting persistence and named-preset reload checked. At 375×812 CSS/DPR 2, controls use one column with no modal horizontal overflow. Chromium fullscreen preserves matching source/output rectangles.
-- `pnpm exec vitest run --maxWorkers=1` with local game data: **856 passed, 2 skipped, 1 failed** in 554.92s. The failure is the existing `timed-handoff-cadence.test.mjs` BUILDING:7 case exceeding its 5000ms timeout. The same case passes alone in 310ms of test execution using `--testNamePattern 'keeps BUILDING:7'`. All 29 tests in the five suites that failed during an earlier parallel run also pass together with one worker. The parallel run was interrupted after those timing failures during concurrent capture work. Engine code and test timeout limits are unchanged; the full-suite run is not reported as green.
+- Full serial suite with local game data before red-team fixes: **858 passed, 2 skipped**, 85 suites passed and 1 skipped, in 420.07s. The preceding parallel run was interrupted after engine timeouts under heavy load. Serial execution passed without changing engine code or test timeouts. The save-warning regression added during review passes in the focused suite.
+
 
 ## Credit and references
 
 - The Balanced tuning comes from the user's screenshot; the earlier lab and GPT-6 Astra's independent rendering review informed the presentation boundary and lifecycle checks.
 - Matt Sephton / gingerbeardman's [Serenity WebGL CRT shader](https://github.com/gingerbeardman/webgl-crt-shader/tree/3b4b3447a19b8819716dfca7e0286b396fbe587f) inspired a small configurable browser pass. [Upstream MIT license](https://github.com/gingerbeardman/webgl-crt-shader/blob/3b4b3447a19b8819716dfca7e0286b396fbe587f/LICENSE). No upstream code is included.
-- [Libretro CRT overview](https://docs.libretro.com/shader/crt/) informed effect vocabulary and scanline aliasing considerations; no Libretro shader is included.
+- [Libretro CRT overview](https://docs.libretro.com/shader/crt/) informed effect vocabulary and scanline aliasing considerations. The original Creative pass copies no upstream shader code; the separately imported public-domain Lottes and GPL Guest sources are identified in [NOTICE](../NOTICE) and their vendor READMEs.
 - MDN's [devicePixelRatio](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio), [imageSmoothingEnabled](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/imageSmoothingEnabled), [canvas optimization](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas), and [WEBGL_lose_context](https://developer.mozilla.org/en-US/docs/Web/API/WEBGL_lose_context) informed sizing, sampling, resource management and failure exercises.
 - Johnny Castaway art remains credited to its original Dynamix/Sierra creators and the port's existing [NOTICE](../NOTICE).
