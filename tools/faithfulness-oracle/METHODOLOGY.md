@@ -310,6 +310,10 @@ BUILDING:2 run six at a time with `--secs 75`, 6,372 samples), each line carryin
   by one thread passes or shortens the holds of all the others at that sample
   (BUILDING:2 tick 531: a 10-unit jump leaves `1:46`, delay 4, and `1:74`, delay
   3, 6 and 7 units past their deadlines).
+- **A mid-gag load leaves a lasting lead.** BUILDING:8 `3:48` loads FIRE2.BMP in
+  its first frame. In the original, its second frame never shows, and the walk then
+  stays two frames (about 280 ms) ahead of ours to its end. This is the pixel
+  oracle's one outlier keyframe (see its README).
 
 Why it is not modelled:
 
