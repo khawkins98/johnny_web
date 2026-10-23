@@ -148,8 +148,7 @@ binary's deadline on the 16 ms game clock, read once per present (see the
 - WALKSTUF:1 `1:4`: 30.5% to 0.3%.
 - BUILDING:8 `3:78`: the delay-7 fire cycle keyframes went from up to 8.1% to at
   most 0.13%, but a `3:44 3:48` transition keyframe is at 8.4% (it was 6.0% before,
-  with fewer keyframes matched); the fire phase and the forced capture's black-plate
-  holes over the palm are what differ there.
+  with fewer keyframes matched). That one is the load-time clock jump, below.
 - Lifespan oracle: in-band actor spans went from 195/651 to 331/651, with no new
   review beyond 3x.
 - ACTIVITY:8 (7.5% to 1.5%), MARY:1 (5.1% to 0.9%) and MARY:4 (6.1% to 1.1%) lost
@@ -190,6 +189,31 @@ Our first frame's best pair lags the mapped tick by 8 to 10 ticks (the whole
 hold) in 24 gags and by none in 25, where the first frame is a loader or a long
 hold on both sides.
 The methodology's "Frame holds" section has the clock evidence.
+
+### BUILDING:8 `3:44 3:48`: the same jump, mid-gag (2026-10-23)
+
+The gag's one outlier keyframe (8.4%, original sample 708) is a mid-gag case of
+that jump. It is not a render difference and not the black plate: the plate
+holes over the palm are `eb0` and are not scored. The score is all Johnny and the
+squid (orange and red in the category map). MJFIRE `3:48` ("J brings squid")
+starts with `LOAD_IMAGE FIRE2.BMP` and `SET_DELAY 9`. The original shows that
+first frame at sample 659 only. By sample 660 it shows the third frame (x 427);
+the second (x 438) never appears in a dump. Ours holds the first frame for 10
+ticks and the second for 8 (ticks 1610-1627). From then on the original runs two
+frames, about 280 ms, ahead of ours, and the gap stays the same to the end of
+the walk.
+The live set changes every fire cycle (`3:44` drops out for one sample about
+every 9 samples), so the walk is cut into seven short `3:44 3:48` spans. They are
+all transition keyframes with the ±6 window, and Johnny's matching pose lies up to
+25 of our ticks past the mapped tick.
+Searching our ticks 1590-1800 for every original sample from 655 to 720 finds an
+exact (0%) match for samples 673, 676, 682, 684, 690, 691 and 693, and nothing
+worse than 2.6% for any sample. The remaining 1.5-2.6% is the fire frame paired
+with each Johnny frame: the jump also cut short `3:44`'s hold, so the two threads
+are out of phase with each other by a different amount than ours.
+No harness change was made. Reaching 25 ticks forward from every transition after
+a thread load would hide pacing differences elsewhere. The keyframe stays listed
+as an outlier and is explained here.
 
 BUILDING:4/6 keep about 4-6% at `2:64 2:68` after the wider window. The original
 shows coloured noise in the 175x142 rectangle at (194, 123) from tick 621, where
