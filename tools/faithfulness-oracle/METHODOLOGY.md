@@ -2,7 +2,7 @@
 
 The faithfulness oracle checks whether the browser engine makes the same scene and timing decisions as the original 1993 *Johnny Castaway* program. It compares behavior, not source code.
 
-The quick, repeatable check is `npm run test:faithful`. It runs only the browser engine against reference fingerprints previously captured from the original program, so CI does not need Windows 3.1, DOSBox-X, or the proprietary game files.
+The quick, repeatable check is `pnpm run test:faithful`. It runs only the browser engine against reference fingerprints previously captured from the original program, so it needs the extracted game data but not Windows 3.1 or DOSBox-X. CI has no game data and skips it.
 
 ## What is compared
 
@@ -121,7 +121,7 @@ The patch identifies Win16 functions by unique, relocation-safe entry bytes rath
 
 For RNG-consumer discovery, run the program normally rather than forcing a gag. Each RNG line includes `caller=CS:IP`; summarize it with `rng-consumer-report.mjs`. The trace cap is 100,000 draws so a timing-heavy intro does not hide the first story window. Raw logs remain local; commit only compact derived evidence such as `rng-consumer-evidence.json`.
 
-### Capturing normal play
+## Capturing normal play
 
 `capture-normal-play.mjs` runs the program without a forced gag, so the planner, the island bake and the walks run as shipped. It uses two more hooks in the same patch:
 
@@ -144,7 +144,7 @@ original program in DOSBox-X
 
 browser engine
   → our-thread-timeline.mjs
-  → npm run test:faithful
+  → pnpm run test:faithful
 ```
 
 A reference contains the union of several captures. It is a practical coverage sample, not a frame-perfect recording. The original program's intro and ambient animation consume random numbers according to wall-clock timing, so two otherwise identical captures can enter a gag at different points in the random stream.
@@ -166,7 +166,7 @@ The all-slot catalogue was captured with 8 runs per gag. BUILDING:7, FISHING:1, 
 Run the committed references:
 
 ```sh
-npm run test:faithful
+pnpm run test:faithful
 ```
 
 Capture or refresh selected gags:
@@ -193,29 +193,11 @@ Two catalogue entries cannot be isolated: `STAND:14` is a shared setup macro, an
 
 One known scheduler issue remains: removing duplicates before staging a random branch needs a wider concurrency/completion change.
 
-## Former test-harness filter: establishing shots
+## Former filter: establishing shots
 
-19 gags used to gate at `OVER+1`. Many open with a one-time
-`IF_NOT_PLAYED[S,X] -> ADD_SCENE(S,X) + ADD_SCENE(S,Y)`. The explanation was that the
-references were captured mid-session, after `X` had already played, so
-`test/faithfulness-refs/establishing-shot-seeds.mjs` dropped `X` from our fingerprint
-(fingerprint only; the engine was never seeded). That explanation was wrong. Every filtered `X` outside SUZY is a one-frame, zero-delay PURGE loader, and
-the original ends those in the tick they are added (see "PURGE ends the sequence"
-above). With that engine fix, the filter changes no fingerprint in any of the 64 gags
-(vocab, peak concurrency and per-actor ticks are all identical), so those entries were
-removed. The same bug produced the two gags that had been left at `OVER+1`, `JOHNNY:6`
-(`3:9`) and `ACTIVITY:11` (`5:20`, `5:42`).
+`test/faithfulness-refs/establishing-shot-seeds.mjs` once dropped a gag's opening actor from our fingerprint, on the theory that the references were captured after that actor had already played. The theory was wrong: those actors were zero-delay PURGE loaders (see "PURGE ends the sequence" above) or were missing only because references covered one slot. The map is now empty; the file's header records the history.
 
-The last entries were `SUZY:1`/`SUZY:2`'s `3:1` (MEANWHIL, a 49-frame drawing
-animation), kept only because references used to be sliced to one TTM slot and `3:1` is
-on slot 3. The all-slot references (#25) contain `3:1` at peak concurrency 2, so the map
-is now empty. The mid-session explanation was wrong for SUZY too. A forced capture
-reloads the ADS, which resets its nodes, so the `IF_NOT_PLAYED` guard is open on every
-loop. The same slicing produced the review-only extras on `ACTIVITY:1` (`2:2`),
-`ACTIVITY:9`, `FISHING:3`, `FISHING:5`, `JOHNNY:1` and `JOHNNY:6` (`4:1`); all of them
-now match.
-
-## Trace sample cadence (#26)
+## Trace sample cadence
 
 One `THREADS`/`DELAY` sample is one call of the ADS tick function `FUN_1048_1acb`. It was
 measured on two forced FISHING:1 captures with `DBX_DELAY`, using the `emu=`/`host=` fields
@@ -233,7 +215,7 @@ other ran alongside eight other captures, the load of a catalogue regeneration (
   `delay=8` lasts 3 samples (164 ms); `delay=12` lasts 4; `delay=16` lasts 5; `delay=209`
   lasts 209 units (3347 ms) over 61 samples.
 
-### Frame holds (#53)
+### Frame holds
 
 The hold rule, from `FUN_1048_196e` and its caller `FUN_1048_1acb` (the node pass):
 
@@ -288,9 +270,9 @@ The browser's clock has no load cost, so a gag's first frame holds its full dela
 four presents in ours). This is an accepted deviation; the next section has the
 evidence.
 
-### Load-time clock jumps (#53, accepted deviation)
+### Load-time clock jumps
 
-What the jump is, from eight `DBX_DELAY` captures (BUILDING:7 and MARY:4 run alone
+This difference is accepted ([accepted differences](../../docs/accepted-deviations.md)). What the jump is, from eight `DBX_DELAY` captures (BUILDING:7 and MARY:4 run alone
 for #40, 2,732 samples; FISHING:5, VISITOR:5, JOHNNY:5, MARY:2, SUZY:1 and
 BUILDING:2 run six at a time with `--secs 75`, 6,372 samples), each line carrying
 `now`, `emu=` and `host=`:
@@ -350,143 +332,25 @@ as an outlier nor hides behind the ±6 window (pixel-oracle README, "Tick
 alignment"). The lifespan oracle already sees it as the one-sample phase
 allowance for loaders.
 
-So a reference span of N samples is about N x 57 ms, and our actor spans count 20 ms
-engine ticks. For the same duration, ours reads about 2.85x the reference value. Both
-side counts are live-thread observations, rather than rendered frames: the binary samples
-at tick entry and our engine samples after each tick. The one-sample phase difference is
-small for long actors but matters for short-lived loaders. The earlier "about 16 ms per
-sample" estimate was the `now` unit, not the sample. The "about 50 ms" estimate was close.
+## Actor lifespans
 
-The lifespan comparator scales the reference range by 2.85. The 2026-09-26 report
-showed 136 >=3x differences in 35 gags, but these were based on incompatible units:
-the original director repeats the forced gag throughout each capture, and the old
-`gen-refs.mjs` summed an actor's samples over every repeat. Our side drives one gag.
-For example, a fresh 90-second ACTIVITY:4 capture contained 1,292 timeline samples.
-Its ADS reloads began at sample indices 0, 314, 627, 940 and 1,252. Actor `2:1`
-lasted 213–215 samples in each completed gag, while it totaled 895 samples across
-the capture including a 39-sample unfinished tail. The old committed range was
-1,070–1,075 samples from longer captures. Our engine counted 554 ticks for `2:1`;
-214 original samples × 2.85 = 610 engine ticks, much closer than the old aggregate
-comparison suggested.
+A reference span of N samples is about N × 57 ms (the mean sample interval in "Trace sample cadence"), and our actor spans count 20 ms engine ticks. So for the same duration ours reads about 2.85 times the reference value. Both sides count live threads, not rendered frames: the binary samples at tick entry and our engine after each tick. That one-sample phase difference is small for long actors but matters for short-lived loaders.
 
-New `completed-gag-v2` references use ADS reload markers in the original trace to
-split full gag episodes and exclude the final episode when capture timeout
-right-censors it. Within each complete episode they record three separate
-observations: `lifespans` is the min/max length of each contiguous actor-live span;
-`occupancy` is the total samples the actor was live in the episode; and
-`occurrences` is how many spans that actor had in the episode. A gap in one
-actor's presence closes its span, but never ends the gag episode. These are
-observable live-key spans, so two distinct instances of the same key without
-an intervening absent sample would count as one span.
-The old full-capture totals have no `lifespanBasis` label and are excluded from
-duration comparison until recaptured. Peak concurrency remains the hard gate; the
-new span-duration metric remains advisory while its coverage and residuals are
-reviewed. The browser fingerprint compares its longest contiguous span over
-`ref.runs` deterministic seeds with the original span range. Occupancy and
-occurrence counts remain diagnostic for branch and retry frequency. Original
-episode counts can be much smaller than browser seed counts; the coverage report
-shows both counts alongside each duration result.
+**Completed-gag references.** The original director repeats a forced gag for the whole capture, so the old references, which summed an actor's samples over every repeat, could not be compared with our single run. For example, ACTIVITY:4's `2:1` lasts 213–215 samples in each episode but totalled 895 over one capture. `completed-gag-v2` references split the trace into complete episodes at ADS reload markers and drop the last episode if the capture cut it short. Per episode they record:
 
-The binary observes a live actor only at periodic sample instants. A span seen
-at N consecutive samples can begin just after an earlier sample and end just
-before a later one, so its actual duration can be roughly N−1 to N+1 sample
-intervals. V2 review comparisons expand the observed min/max by one original
-sample at each end (clamping the lower bound to zero), then apply the measured
-2.85 conversion. This is an uncertainty allowance for the coarse observation,
-not a change to the measured sample cadence or to the raw stored ranges. It
-prevents a one-sample loader from being called >3× long solely because the
-browser retained it for 9–12 short ticks. Skipped or uneven original samples
-still limit the precision of this advisory comparison.
+- `lifespans`: the min/max length of each contiguous live span;
+- `occupancy`: the total samples the actor was live;
+- `occurrences`: how many spans the actor had.
 
-After recapturing all 64 drivable gags, 199 complete original episodes yield
-contiguous-span data for 651 of 680 reference vocabulary keys. The earlier
-full-capture comparison flagged 136 spans beyond 3× (130 short, 6 long) and
-three vocabulary extras. Completed-gag spans, the one-sample phase allowance,
-the original fish-branch observation, and the TTM continuation fix reduced
-those to three long-span reviews and zero vocabulary extras. FISHING:7/8
-`4:44` now continues through the following TTM frames as the original binary
-does; its browser span increased from 2 to 54 ticks versus 15–18 original
-samples.
+A gap closes a span but does not end the episode. Two instances of the same key with no absent sample between them count as one span. References without a `lifespanBasis` label are legacy totals and get no duration verdict.
 
-Clock-instrumented BUILDING:7 and MARY:4 captures then resolved the three
-remaining reviews. Negative ADS ADD counts are 16 ms game-clock deadlines, as
-are TTM frame delays. The requested 50 ms Windows timer presents on the
-~55 ms PC timer sample. The browser rounds timed-ADD deadlines up to 20 ms fine
-ticks and uses a 55 ms present gate; frame delays were rounded up to fine ticks
-the same way until #53 replaced that with the binary's game-clock deadline (see
-"Frame holds" above). In a fresh BUILDING:7 episode,
-`3:82` held 115 samples (6.25 s) with delay-8 frames advancing about every
-160 ms; the browser holds it 313 ticks (6.26 s). `3:83` held 10 original
-samples and now lasts 19 browser ticks. In a fresh MARY:4 episode, `5:37`
-held 14 samples and now lasts 30 browser ticks; its ADD precedes the `5:33`
-STOP pulse. The calibrated browser seed-1 BUILDING:7 episode takes 62.7 s,
-within the 61.0–68.4 s range of two complete original episodes whose random
-branches differ. An isolated timed-ADD correction had shortened the gag too
-far. See the paired [BUILDING handoff analysis](../../docs/building-handoff-timing.md).
+**Comparison.** The browser compares its longest contiguous span over `ref.runs` deterministic seeds with the original's span range. A span seen at N samples can really last N−1 to N+1 intervals, so the comparator widens the range by one sample at each end (clamping the lower bound to zero) before applying the 2.85 conversion. This keeps a one-sample loader from being called more than 3× long just because the browser kept it for 9–12 short ticks. The stored raw ranges are unchanged.
 
-The regenerated coverage report has zero >3× lifespan reviews, zero
-vocabulary extras, and zero concurrency failures. The prior BUILDING:7/8
-`3:83` and MARY:4 `5:37` rows are resolved by the coordinated clock model.
+**Status.** All 64 drivable gags have completed-gag references: 199 complete episodes give span data for 651 of 680 vocabulary keys. The coverage report shows zero spans beyond 3×, zero vocabulary extras and zero concurrency failures. Getting there took the completed-gag spans, the one-sample allowance, the TTM continuation fix (FISHING:7/8 `4:44` now runs on through the following frames: 2 → 54 ticks, against 15–18 samples), the unsigned ADS choice fix ([rng-port.md](./rng-port.md)), and the coordinated clock model calibrated on BUILDING:7 and MARY:4 ([BUILDING handoff timing](../../docs/building-handoff-timing.md)). SUZY:1 `1:1` and SUZY:2 `2:6` appear in only one sample of their complete episodes; the allowance covers them, and one-sample captures alone don't justify a loader change.
 
-SUZY:1 `1:1` and SUZY:2 `2:6` each appeared in only one sample of the new
-complete episodes. The older eight-run reference fields recorded 3 and 3–4
-samples respectively, although those fields used the legacy full-capture
-aggregation and are only corroborating evidence. Both loaders have authored
-SET_DELAY (10 and 12) before PURGE. Their browser spans are 8 and 10 ticks;
-the one-sample phase allowance removes their >3× labels. No loader runtime
-change is supported by the one-sample captures alone.
+Duration and vocabulary stay advisory. 29 keys lack completed-episode evidence, many gags have only one or two complete original episodes, and the browser uses up to 33 seeds against a much smaller original sample. The BUILDING:8 fish branch (`3:49` → `3:74` → `3:70`) was missing from 24 original captures before a later capture found it, which is why an unobserved key can't yet fail the gate. That capture stopped during `3:70`, so those three keys have vocabulary and concurrency evidence but no completed-episode span. Peak concurrency stays the failing check. Open follow-up: triage the remaining span differences before making duration a failing gate.
 
-Duration and vocabulary remain advisory despite zero current >3× reviews.
-Only 651/680 vocabulary keys have completed-episode span evidence, many gags
-have just one or two complete original episodes, and the browser uses up to
-33 deterministic seeds while the original branch sample is much smaller.
-The fish branch was absent from 24 valid original runs before a later capture
-found it, demonstrating why an unobserved vocabulary key cannot yet be a
-hard failure. Peak concurrency retains its existing failing check.
-
-When supplementing a reference with new captures, generate the new batch into a separate
-directory and merge each JSON fingerprint with `merge-refs.mjs`. It unions vocabulary,
-compatible sample ranges, slots, and the concurrency maximum while adding successful
-run counts. A completed-gag-v2 batch replaces an incompatible legacy duration range;
-it still preserves the older capture's vocabulary and concurrency evidence.
-The `states` count becomes `null` because the old raw timelines are no longer available
-to calculate the exact number of distinct live sets across both batches; no gate uses it.
-
-For #29, two 60-second batches added 48 successful isolated captures, each validated by
-the forced-gag and single-ADS checks in `gen-refs.mjs`. The first added eight runs each
-for `BUILDING:7`, `BUILDING:8`, `FISHING:2`, and `FISHING:8`; the second added eight
-more for `BUILDING:8` and `FISHING:2`. Nine of the twelve vocabulary extras entered the
-reference union: `BUILDING:7` gained `3:72` and `3:75`; `BUILDING:8` gained `3:48`,
-`3:76`, and `3:78`; `FISHING:2` gained `1:28`, `1:30`, and `1:37`; and `FISHING:8`
-gained `4:62`. At that point, `BUILDING:8`'s `3:49`, `3:70`, and `3:74` remained
-unmatched after 24 total reference runs. Absence from that finite sample alone
-did not establish an engine bug.
-
-The three remaining keys are one authored branch, not three unrelated actors.
-`BUILDING.ADS` tag 8 has `IF_PLAYED 3:140` followed by a `RANDOM_START` with three
-equal-weight additions: fish `3:49`, boot `3:47`, or squid `3:48`. The fish path then
-has explicit `IF_PLAYED 3:49 -> ADD 3:74` and `IF_PLAYED 3:74 -> ADD 3:70`
-handoffs. The reference union contains the boot and squid paths and their successors,
-so the original captures reached this choice; none of the 24 sampled the fish path.
-Our engine reached the complete fish chain in 9 of seeds 1–24. Its control flow
-was plausible from the authored ADS, and the different observed frequency led
-to the RNG investigation described below.
-
-The follow-up investigation found an unsigned modulo bug in the browser ADS
-choice path. An additional isolated original BUILDING:8 capture reached the
-fish branch: trace `#FORCE ads=66 tag=8`, only ADS `0x66` loaded, and only
-tag 8 completed. The capture at `/tmp/building8-fish-probe18` observed
-`3:49` at sample 801, `3:74` at 868, and `3:70` at 952. Its raw trace and
-timeline were copied to ignored
-`scratchpad/lifespan-triage-raw/BUILDING_8_fish_censored/`. The vocabulary
-union gained `3:49`, `3:74`, and `3:70`, clearing the last three extras.
-This capture was stopped 18 samples into `3:70`; it contributes vocabulary
-and peak concurrency but no completed-gag span, occupancy, or occurrence
-range. Those three keys therefore still lack completed-episode duration data.
-
-Open follow-up: triage residual contiguous-span differences before promoting
-duration to a failing gate. The reference ranges are drawn from a small random
-sample, and sample phase matters most for short spans.
+**Merging references.** To add captures to a reference, generate the new batch into a separate directory and merge each fingerprint with `merge-refs.mjs`. It unions vocabulary, compatible sample ranges, slots and the concurrency maximum, and adds the run counts. A completed-gag-v2 batch replaces an incompatible legacy duration range but keeps the older capture's vocabulary and concurrency evidence. `states` becomes `null` because the old raw timelines are gone; no gate uses it.
 
 ## Random-number behavior
 
@@ -494,7 +358,7 @@ The original uses a fixed 56-word generator stored in `SCRANTIC.SCR`. Our port m
 
 ## Pixel comparison
 
-An earlier tool captured VGA frames on a wall-clock cadence and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. The [pixel oracle](./pixel-oracle/README.md) brings pixels back without those problems. `capture-original-gag.mjs --fb` sets `DBX_FB_TICKS`, which labels every framebuffer dump with the THREADS tick number, so frames line up with `timeline.jsonl`. The comparator matches keyframes through the live-set spans, masks host-owned pixels, and treats Windows palette substitutions separately. Scores are in the "Pixel oracle" section of [the coverage report](../../docs/oracle-coverage.md). They are advisory; no CI gate uses them.
+An earlier tool captured VGA frames on a wall-clock cadence and compared pixels. It was slow and sensitive to palette and capture timing, so the actor timeline replaced it as the automated gate. The [pixel oracle](./pixel-oracle/README.md) brings pixels back without those problems. `capture-original-gag.mjs --fb` sets `DBX_FB_TICKS`, which labels every framebuffer dump with the THREADS tick number, so frames line up with `timeline.jsonl`. The comparator matches keyframes through the live-set spans, masks host-owned pixels, and treats Windows palette substitutions separately. Scores are in the "Pixel oracle" section of [the coverage report](../../docs/oracle-coverage.md). They are advisory; no CI gate uses them. Normal-play captures extend the pixel check to the host canvas and the planner's gag mix; see the pixel-oracle README, "Normal play".
 
 ## Maintainer assets
 
@@ -506,7 +370,7 @@ Some fidelity evidence can't live in this repository because it is derived from 
 
 **Never commit any of these**, not even a cropped frame or a short excerpt of the decompilation. The scripts that make and read them are committed (`ghidra/`, `normal-play/`, `measure/`, `browser/`); their outputs are not.
 
-Locally they live in one place, `scratchpad/maintainer/` (ignored through the `scratchpad/` rule). Its `README.md` indexes each folder: what it holds, which issue or PR cites it, and how it was made. The Ghidra project and `decompiled.c` stay in `scratchpad/ghidra/`, and the lifespan-triage captures that this document cites stay in `scratchpad/lifespan-triage-raw/`.
+Locally they live in one place, `scratchpad/maintainer/` (ignored through the `scratchpad/` rule). Its `README.md` indexes each folder: what it holds, which issue or PR cites it, and how it was made. A few older items sit next to it: the Ghidra project in `scratchpad/ghidra/proj/` (with the first `decompiled.c` in `scratchpad/ghidra/out/`; new `run-ghidra.sh` output goes to `scratchpad/maintainer/ghidra/`), the patched DOSBox-X build in `scratchpad/dosbox-x-src/`, and the lifespan-triage captures this document cites in `scratchpad/lifespan-triage-raw/`.
 
 A copy is kept in the private, maintainer-only repository `khawkins98/johnny-assets` on the maintainer's Forgejo server (`git-home.allaboutken.com`). It is not public and nothing in this repository or its CI depends on it. Each asset is a `.tar.gz` of the `scratchpad/...` paths above, stored as Git LFS parts of at most 90 MiB with SHA-256 hashes in `manifest.json`; each `parts/<name>/README.md` says what the asset is, why it is kept, how it was made and how to use it. The `driveC/` copies of the game files are left out of every archive, because they are identical to `public/data/`. Clone without downloading the parts, then pull only the asset you need:
 

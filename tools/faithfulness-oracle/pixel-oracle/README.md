@@ -143,7 +143,7 @@ difference: a `SET_DELAY 7` frame lasted about 147 ms in ours against about 120 
 in the original (2.13 samples a frame in WALKSTUF:1 `1:2`), because ours rounded
 112 ms up to six 20 ms ticks and then waited for a present. Frame holds are now the
 binary's deadline on the 16 ms game clock, read once per present (see the
-[methodology](../METHODOLOGY.md#frame-holds-53)). The re-run sweep:
+[methodology](../METHODOLOGY.md#frame-holds)). The re-run sweep:
 
 - BUILDING:2 `1:35`/`1:40`/`1:41`: 26% to 3.1% (the ship, delay 7, no longer lags
   `1:40`'s delays 30/15/8); live-set coverage 66% to 80%, so the median moved from

@@ -5,7 +5,7 @@
 Frame delays are no longer rounded up to 20 ms fine ticks. A frame's deadline
 is `now + delay` on the original's 16 ms clock, read at each ~55 ms present,
 as `FUN_1048_196e` does (the rule is in the
-[methodology](../tools/faithfulness-oracle/METHODOLOGY.md#frame-holds-53)).
+[methodology](../tools/faithfulness-oracle/METHODOLOGY.md#frame-holds)).
 Delay-8 frames still hold three presents, so the calibration below stands.
 Seed-1 browser spans, before → after, against the original episode:
 
@@ -121,4 +121,4 @@ and corresponding `timing40-{b7,m4}-delay.log` clock traces (maintainer-only, se
 and the browser's `driveGag`
 helper with seed 1.
 The original sample duration and 16 ms `now` clock measurements are documented
-in [the faithfulness methodology](../tools/faithfulness-oracle/METHODOLOGY.md#trace-sample-cadence-26).
+in [the faithfulness methodology](../tools/faithfulness-oracle/METHODOLOGY.md#trace-sample-cadence).
