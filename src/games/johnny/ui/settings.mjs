@@ -36,10 +36,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         .johnny-crt output { display: block; font-variant-numeric: tabular-nums; }
         .johnny-crt input[type=text], .johnny-crt select { min-width: 0; max-width: 100%; }
         .johnny-crt button, .johnny-crt select, .johnny-crt input[type=text] {
-            min-height: 36px; padding: 5px 8px; font: inherit; color: #4a3520;
+            min-height: 40px; padding: 5px 8px; font: inherit; color: #4a3520;
             background: #f4e4c8; border: 2px solid #8b5a2b; border-radius: 4px; box-sizing: border-box;
         }
         .johnny-crt button { cursor: pointer; }
+        .johnny-crt .crt-toggle, .johnny-crt > label { min-height: 40px; display: flex; align-items: center; gap: 6px; }
+        .johnny-crt input[type=range] { min-height: 40px; }
         .johnny-crt button:hover { background: #fff4dc; }
         .johnny-crt button:active { transform: scale(0.96); }
         .johnny-crt :focus-visible { outline: 3px solid #8b5a2b; outline-offset: 2px; }
