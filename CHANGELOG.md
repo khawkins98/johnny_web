@@ -1,8 +1,8 @@
 # Changelog
 
-This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR; **v1.2** brings rendering, timing and story-clock fixes checked against the original. These labels are separate from the original Johnny Castaway game data version.
+This changelog tracks the browser project. **v1** is the project as it stood before the scene flow explorer PR; **v1.1** is the work introduced in that PR; **v1.2** brings rendering, timing and story-clock fixes checked against the original; **v1.3** checks normal play against the original: the day ocean, clouds and which gags each visit picks. These labels are separate from the original Johnny Castaway game data version.
 
-## Unreleased
+## v1.3 — Normal play, checked
 
 - Fixed black patches in the daytime ocean. The three day ocean screens draw their dark cloud reflections in palette colour 0, which we treated as transparent on full screens as well as on sprites. Screens are now drawn opaque, so the reflections show in their magenta colour as in the original; sprites still treat colour 0 as transparent (#53).
 - Clouds are now laid out the way the original does it. Each visit draws from 15 cloud slots, about one in eleven filled, with small clouds three times as likely as big ones (at most 8 small, 4 medium, 2 big). They sit in the top 139 rows, all face the same wind, and stay put for the whole visit, by day and at night. Before, every size was equally likely and the count followed a made-up rule. Mirrored clouds now land one pixel further right, as the original draws them. **Moving Clouds: Static (Original)** was already right that the original's clouds don't move (#53).
