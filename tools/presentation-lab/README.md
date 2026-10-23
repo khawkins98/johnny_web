@@ -4,7 +4,7 @@
 
 Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; it does not change the production settings or Enhanced default.
 
-**VGA/Libretro research:** [New four-renderer lab, diagnostics, setup and credits](VGA.md). This adds an original beam model and an actual pinned CRT-Lottes comparison; it does not replace the production game shader.
+**VGA/Libretro research:** [Model comparisons, diagnostics, setup and credits](VGA.md). VGA and pinned CRT-Lottes are now selectable in game Settings. The lab-only `?view=guest` comparison adds the full pinned Guest Advanced HD 12-pass pipeline. See its [adapter, source, GPL terms and limitations](vendor/guest-hd/README.md).
 
 ## Run the lab
 

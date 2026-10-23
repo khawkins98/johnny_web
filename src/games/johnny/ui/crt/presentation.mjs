@@ -1,7 +1,10 @@
+import { createVga } from './vga.mjs';
+import { createLottes } from './lottes.mjs';
 import { createCrt } from './renderer.mjs';
 
 /** Read completed native layers; never mutate or re-run the game renderer. */
 export function createCrtPresentation({ root, onStatus = () => {} }) {
+    const factory = () => ({ vga: createVga, lottes: createLottes }[settings?.model] || createCrt);
     const layers = ['mainCanvas', 'canvas'].map(id => root.querySelector(`#${id}`));
     const source = document.createElement('canvas'); source.width = 640; source.height = 480;
     let context;
@@ -21,10 +24,10 @@ export function createCrtPresentation({ root, onStatus = () => {} }) {
         const canvas = output;
         output.addEventListener('webglcontextrestored', () => {
             if (disposed || !enabled || output !== canvas) return;
-            try { renderer?.dispose(false); renderer = createCrt(output, contextLost); lost = false; failed = false; schedule(); }
+            try { renderer?.dispose(false); renderer = factory()(output, contextLost); lost = false; failed = false; schedule(); }
             catch (error) { failure(error.message); }
         });
-        renderer = createCrt(output, contextLost);
+        renderer = factory()(output, contextLost);
     }
     function contextLost(message) { lost = true; stop(); onStatus(`${message}. Showing the normal picture while the GPU recovers.`); }
     function tick() {
@@ -39,6 +42,7 @@ export function createCrtPresentation({ root, onStatus = () => {} }) {
             const ratio = Math.min(dpr, limit / rect.width, limit / rect.height);
             const width = Math.max(1, Math.round(rect.width * ratio));
             const height = Math.max(1, Math.round(rect.height * ratio));
+            if (settings.model === 'vga' && (width < 160 || height < 120)) { reveal(); onStatus('VGA needs at least 160×120 output pixels. Showing the normal picture.'); schedule(); return; }
             const sharp = getComputedStyle(layers[0]).imageRendering === 'pixelated';
             Object.assign(output.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
             context ||= source.getContext('2d');
@@ -64,7 +68,9 @@ export function createCrtPresentation({ root, onStatus = () => {} }) {
     window.addEventListener('pagehide', release); window.addEventListener('pageshow', resume);
     return {
         update(nextEnabled, nextSettings) {
+            const changedModel = settings?.model !== nextSettings.model;
             settings = nextSettings;
+            if (changedModel) { release(); failed = false; lost = false; }
             if (enabled !== nextEnabled) {
                 enabled = nextEnabled; failed = false; lost = false;
                 if (!enabled) release();

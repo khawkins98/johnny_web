@@ -1,3 +1,4 @@
+import { setupGuestControls } from './guest-controls.mjs';
 import { drawCalibration } from './fixtures.mjs';
 import { setupVgaControls, setupLottesControls } from './vga-controls.mjs';
 import { presets } from '../../src/games/johnny/ui/crt/presets.mjs';
@@ -14,6 +15,7 @@ const ctx = source.getContext('2d');
 const viewport = $('viewport');
 const single = createStage(viewport);
 let comparisonStages = [], comparisonKey = '';
+let sourceEpoch=0;
 let frozen = params.get('frozen') === '1', live = false, frame = 0;
 let samples = [], intervals = [], previousTime = null, resolvedDpr = 0;
 const resetMetrics = () => { samples = []; intervals = []; previousTime = null; };
@@ -21,9 +23,10 @@ const crtControls = setupCrtControls($('crt-controls'), () => { resetMetrics(); 
 const settingsChanged = () => { resetMetrics(); $('status').textContent = ''; updateCaptions(); };
 const vgaControls = setupVgaControls($('vga-controls'), settingsChanged);
 const lottesControls = setupLottesControls($('lottes-controls'), settingsChanged);
-const models = () => $('view').value === 'models';
+const guestControls=setupGuestControls($('guest-controls'),settingsChanged);
+const models = () => ['models','guest'].includes($('view').value);
 const comparing = () => $('view').value !== 'single';
-const settingsFor = effect => effect === 'vga' ? vgaControls.getSettings() : effect === 'lottes' ? lottesControls.getSettings() : crtControls.getSettings();
+const settingsFor = effect => effect === 'guest' ? {...guestControls.getSettings(),frozen,epoch:sourceEpoch} : effect === 'vga' ? vgaControls.getSettings() : effect === 'lottes' ? lottesControls.getSettings() : crtControls.getSettings();
 const sizeInputs = () => [Math.max(160, Math.min(2400, Number($('width').value) || 1000)), Math.max(120, Math.min(1600, Number($('height').value) || 750))];
 const activeStages = () => comparing() ? comparisonStages.map(panel => panel.stage) : [single];
 const ladders = {
@@ -38,19 +41,20 @@ function configure() {
     $('crt-controls').hidden = models() || $('effect').value !== 'crt';
     $('vga-controls').hidden = !models() && $('effect').value !== 'vga';
     $('lottes-controls').hidden = !models() && $('effect').value !== 'lottes';
+    $('guest-controls').hidden = $('view').value !== 'guest' && (models() || $('effect').value !== 'guest');
     $('effect').disabled = models();
     viewport.hidden = compare; $('comparisons').hidden = !compare;
     $('comparison-set-control').hidden = !compare || models(); $('comparison-help').hidden = !compare;
     document.querySelectorAll('.area-control').forEach(control => { control.hidden = compare && !models(); });
     $('mode').disabled = compare && !models() && set !== 'areas';
-    const key = compare ? models() ? `models-${areaWidth}-${areaHeight}` : set : '';
+    const key = compare ? models() ? `${$('view').value}-${areaWidth}-${areaHeight}` : set : '';
     if (key !== comparisonKey) {
         comparisonStages.forEach(panel => panel.stage.dispose());
         comparisonStages = []; $('comparisons').replaceChildren(); comparisonKey = key;
         const panels = models() ? [
             { label: 'Unfiltered', effect: 'none' }, { label: 'Balanced CRT · fixed preset', effect: 'crt', settings: { ...presets.balanced, bypass: false } },
             { label: 'VGA beam · experimental', effect: 'vga' }, { label: 'Libretro CRT-Lottes · upstream reference', effect: 'lottes' },
-        ].map(panel => ({ ...panel, width: areaWidth, height: areaHeight })) : ladders[set];
+        ...($('view').value==='guest'?[{label:'Guest Advanced HD · 12-pass WebGL2 port',effect:'guest'}]:[])].map(panel => ({ ...panel, width: areaWidth, height: areaHeight })) : ladders[set];
         if (compare) for (const preset of panels) {
             const card = document.createElement('article'); card.className = 'comparison-card';
             const heading = document.createElement('h2'); heading.textContent = preset.label;
@@ -81,7 +85,7 @@ function updateCaptions() {
         const { geometry } = panel.stage.metrics();
         if (!geometry) continue;
         const effect = panel.effect || $('effect').value;
-        const sampling = ['crt','vga','lottes'].includes(effect) ? (settingsFor(effect).bypass && !panel.settings ? 'bypass · unfiltered' : effect === 'vga' ? 'VGA beam' : effect === 'lottes' ? 'CRT-Lottes' : 'CRT blend') : geometry.sharp ? 'pixelated' : 'smooth';
+        const sampling = ['crt','vga','lottes','guest'].includes(effect) ? (settingsFor(effect).bypass && !panel.settings ? 'bypass · unfiltered' : effect === 'vga' ? 'VGA beam' : effect === 'lottes' ? 'CRT-Lottes' : effect==='guest'?(frozen?'Guest HD · reset capture, frame 0':'Guest HD · 60 Hz target'):'CRT blend') : geometry.sharp ? 'pixelated' : 'smooth';
         panel.caption.textContent = `${geometry.width.toFixed(1)} × ${geometry.height.toFixed(1)} rendered · ${geometry.scale.toFixed(3)}× CSS\n${(geometry.scale*resolvedDpr).toFixed(3)} device px/source px · ${sampling}`;
     }
 }
@@ -123,7 +127,7 @@ function metrics() {
     const stages = activeStages().map(stage => stage.metrics());
     return { userAgent: navigator.userAgent, dpr: devicePixelRatio, viewport: [innerWidth,innerHeight],
         requested: [$('width').value,$('height').value], mode: $('mode').value, effect: $('effect').value,
-        view: $('view').value, comparisonSet: comparing() ? models() ? 'models' : $('comparison-set').value : null, crtSettings: crtControls.getSettings(), vgaSettings: vgaControls.getSettings(), lottesSettings: lottesControls.getSettings(),
+        view: $('view').value, comparisonSet: comparing() ? models() ? 'models' : $('comparison-set').value : null, crtSettings: crtControls.getSettings(), vgaSettings: vgaControls.getSettings(), lottesSettings: lottesControls.getSettings(),guestSettings:guestControls.getSettings(),
         ...(comparing() ? { panels: stages.map((stage, index) => ({ label: comparisonStages[index].label, ...stage })) } : stages[0]),
         source: live?'Johnny canvases':'synthetic', fixture: live ? null : $('fixture').value, frozen, frame, sourceHash: fingerprint(),
         sourceSize: [source.width,source.height], samples: samples.length,
@@ -154,12 +158,12 @@ function render(time) {
     requestAnimationFrame(render);
 }
 for (const id of ['mode','effect','width','height','view','comparison-set']) $(id).addEventListener('change', configure);
-for (const id of ['crt-controls','vga-controls','lottes-controls']) $(id).addEventListener('toggle', configure);
-$('freeze').onclick = () => { frozen=!frozen; $('freeze').textContent=frozen?'Resume source':'Freeze source'; resetMetrics(); };
-$('fixture').onchange = () => { live=false; frame=0; pattern(0); resetMetrics(); };
-$('pattern').onclick = () => { live=false; frame=0; pattern(0); resetMetrics(); };
+for (const id of ['crt-controls','vga-controls','lottes-controls','guest-controls']) $(id).addEventListener('toggle', configure);
+$('freeze').onclick = () => { frozen=!frozen;sourceEpoch++; $('freeze').textContent=frozen?'Resume source':'Freeze source'; updateCaptions(); resetMetrics(); };
+$('fixture').onchange = () => { sourceEpoch++;live=false; frame=0; pattern(0); resetMetrics(); };
+$('pattern').onclick = () => { sourceEpoch++;live=false; frame=0; pattern(0); resetMetrics(); };
 $('live').addEventListener('toggle', () => { const iframe=$('live').querySelector('iframe'); if ($('live').open && !iframe.getAttribute('src')) iframe.src=iframe.dataset.src; configure(); });
-$('connect').onclick = () => { live=true; copyLive(); $('live').open=false; resetMetrics(); };
+$('connect').onclick = () => { sourceEpoch++;live=true; copyLive(); $('live').open=false; resetMetrics(); };
 $('lose').onclick = () => activeStages().forEach(stage => stage.lose());
 $('export').onclick = () => {
     const blob = new Blob([JSON.stringify(metrics(),null,2)], {type:'application/json'});
@@ -171,5 +175,5 @@ function watchDpr() { media?.removeEventListener('change', onDpr); media=matchMe
 function onDpr() { configure(); watchDpr(); }
 watchDpr(); configure();
 if (frozen) $('freeze').textContent='Resume source';
-window.presentationLab = { sampleCount: () => samples.length, metrics, source, configure, setFrozen: value => { frozen=value; }, captureLive: () => {live=true; copyLive(); frozen=true; $('freeze').textContent='Resume source'; resetMetrics();}, resetMetrics };
+window.presentationLab = { sampleCount: () => samples.length, metrics, source, configure, setFrozen: value => { if(frozen!==value)sourceEpoch++;frozen=value; }, captureLive: () => {sourceEpoch++;live=true; copyLive(); frozen=true; $('freeze').textContent='Resume source'; resetMetrics();}, resetMetrics };
 requestAnimationFrame(render);

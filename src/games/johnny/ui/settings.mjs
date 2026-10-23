@@ -25,6 +25,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
             -moz-osx-font-smoothing: grayscale;
         }
 
+        .johnny-crt [hidden] { display: none !important; }
         .johnny-crt { margin: 16px 0; font-family: 'VT323', monospace; font-size: 18px; }
         .johnny-crt summary { cursor: pointer; padding: 8px 0; }
         .johnny-crt p { font-size: 16px; line-height: 1.25; }
@@ -41,6 +42,9 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         }
         .johnny-crt button { cursor: pointer; }
         .johnny-crt .crt-toggle, .johnny-crt > label { min-height: 40px; display: flex; align-items: center; gap: 6px; }
+        .johnny-crt .crt-tools > label:not(.crt-toggle) { display: grid; gap: 6px; flex: 1 1 210px; }
+        .johnny-crt .crt-tools > .crt-toggle { flex: 0 0 100%; }
+        .johnny-crt > label:has(select) { display: grid; gap: 6px; margin: 8px 0; }
         .johnny-crt input[type=range] { min-height: 40px; }
         .johnny-crt button:hover { background: #fff4dc; }
         .johnny-crt button:active { transform: scale(0.96); }

@@ -72,7 +72,21 @@ try {
         HTMLCanvasElement.prototype.getContext=original;
         crtCheck.controller.update(false,crtCheck.presets.balanced);
         crtCheck.controller.update(true,crtCheck.presets.balanced); await frames(); assert(active(),'Compile failure retry failed');
+        const {vgaDefaults}=await import('../../src/games/johnny/ui/crt/vga-model.mjs');
+        const modelChecks=[];
+        for(const [model,settings]of [['vga',vgaDefaults],['lottes',{maskType:3,bloom:.15}]]){
+            crtCheck.controller.update(true,{...settings,model});await frames();assert(active(),model+' activation failed: '+crtCheck.status);
+            const output=document.querySelector('#johnny-crt-output'),gl=output.getContext('webgl'),extension=gl.getExtension('WEBGL_lose_context');
+            assert(output.width>0&&output.height>0,model+' dimensions invalid');
+            extension.loseContext();await waitFor(()=>!active());extension.restoreContext();await waitFor(active);
+            if(model==='vga'){
+                root.style.width=(80/devicePixelRatio)+'px';root.style.height=(60/devicePixelRatio)+'px';await frames();assert(!active(),'Small VGA should reveal baseline');
+                root.style.width='320px';root.style.height='240px';await frames();assert(active(),'Small VGA recovery failed');
+            }
+            assert(JSON.stringify(nativeHash())===JSON.stringify(before),model+' changed native pixels');
+            modelChecks.push(model);
+        }
         crtCheck.controller.dispose(); assert(!active()&&!document.querySelector('#johnny-crt-output'),'Dispose leaked output');
-        return {firstSize, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','compile failure cleanup/retry','dispose']};
+        return {firstSize,modelChecks, nativeHashes:before, restoredStatus, checks:['default off','resize','zero-size recovery','import UI','bypass','context loss/restoration','native pixels unchanged','pagehide/pageshow','off cleanup','no-WebGL fallback/retry','compile failure cleanup/retry','dispose']};
     })()`), null, 2));
 } finally { run('close'); }
