@@ -319,6 +319,30 @@ describe('deterministic background compatibility', () => {
         expect(state.bkgScreen).toBe(day);
     });
 
+    it.each([
+        ['original', 21, null, false, false],
+        ['local', 21, null, false, true],
+        ['local', 12, 'night', true, true],
+        ['local', 21, 'early', false, false],
+        ['local', 12, 'early', true, true],
+        ['local', 5, null, false, true],
+        ['local', 6, null, false, false],
+        ['local', 17, null, false, false],
+        ['local', 18, null, false, true],
+    ])('renders mode %s at %i with timeline band %s', (mode, hour, band, nightSky, expectedNight) => {
+        const day = { images: [{ _canvas: { name: 'day' } }] };
+        const night = { images: [{ _canvas: { name: 'night' } }] };
+        const context = { clearRect: vi.fn(), drawImage: vi.fn() };
+        const state = {
+            game: johnnyCastaway, bkgScreen: day, bkgOcean: [day, day, day, night],
+            backgroundId: 0, titleState: { band, night: nightSky, forceNight: band === 'early' && nightSky },
+        };
+        drawBackground(state, context, createBrowserPresentationPolicy({
+            storage: { getItem: () => mode }, currentHour: () => hour,
+        }));
+        expect(context.drawImage).toHaveBeenCalledWith((expectedNight ? night : day).images[0]._canvas, 0, 0);
+    });
+
     it('keeps host-owned island placement independent of a child TTM background id', () => {
         const island = { images: [{ _canvas: { name: 'island' }, width: 10, height: 10 }] };
         const context = { clearRect: vi.fn(), drawImage: vi.fn() };

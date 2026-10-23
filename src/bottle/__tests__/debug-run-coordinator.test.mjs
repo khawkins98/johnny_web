@@ -5,6 +5,7 @@ describe('debug run coordinator', () => {
     const create = () => {
         const preview = vi.fn((script, tagId) => ({ script, tagId, preview: true }));
         const planFrom = vi.fn();
+        const returnToLive = vi.fn();
         const status = vi.fn(() => ({
             storyDay: 4,
             next: { script: 'ACTIVITY.ADS', tagId: 2 },
@@ -17,11 +18,11 @@ describe('debug run coordinator', () => {
         const stopRuntime = vi.fn();
         const stopAudio = vi.fn();
         const coordinator = createDebugRunCoordinator({
-            sequenceTools: { preview, planFrom, status, subscribeStatus },
+            sequenceTools: { preview, planFrom, returnToLive, status, subscribeStatus },
             stopRuntime,
             stopAudio,
         });
-        return { coordinator, preview, planFrom, status, publishStatus, stopRuntime, stopAudio };
+        return { coordinator, preview, planFrom, returnToLive, status, publishStatus, stopRuntime, stopAudio };
     };
 
     it('atomically interrupts the complete host attempt and queues a preview', () => {
@@ -58,6 +59,28 @@ describe('debug run coordinator', () => {
 
         expect(planFrom).toHaveBeenCalledWith('FISHING.ADS', 3, { storyDay: 4 });
         expect(coordinator.takeOverride()).toBeNull();
+    });
+
+    it.each(['preview', 'preview-child', 'sequence'])('forwards selected band for %s', (mode) => {
+        const { coordinator, preview, planFrom } = create();
+        coordinator.request({ mode, script: 'MISCGAG.ADS', tagId: 1, storyDay: 3, band: 'night', slot: 1, childTag: 2 });
+        expect(mode === 'sequence' ? planFrom : preview)
+            .toHaveBeenCalledWith('MISCGAG.ADS', 1, { storyDay: 3, band: 'night' });
+    });
+
+    it('return to live cancels the complete preview attempt and drops pending overrides', () => {
+        const { coordinator, returnToLive, stopAudio, stopRuntime } = create();
+        coordinator.request({ mode: 'preview', script: 'MISCGAG.ADS', tagId: 1, band: 'night' });
+        coordinator.activate({ preview: true, titleState: { band: 'night', night: true, tidePhase: 12 } });
+        expect(coordinator.status()).toMatchObject({ band: 'night', night: true, tidePhase: 12 });
+        const attempt = coordinator.beginAttempt();
+        coordinator.request({ mode: 'live' });
+        expect(returnToLive).toHaveBeenCalledOnce();
+        expect(attempt.signal.aborted).toBe(true);
+        expect(coordinator.takeOverride()).toBeNull();
+        expect(coordinator.status().band).toBeUndefined();
+        expect(stopAudio).toHaveBeenCalledTimes(2);
+        expect(stopRuntime).toHaveBeenLastCalledWith('script_override');
     });
 
     it('reports an active preview instead of the paused story queue', () => {

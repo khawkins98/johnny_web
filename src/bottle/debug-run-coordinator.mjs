@@ -22,6 +22,9 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
             active: Object.freeze({ script: activeSelection.script, tagId: activeSelection.tagId }),
             next: null,
             final: Object.freeze({ script: activeSelection.script, tagId: activeSelection.tagId }),
+            ...Object.fromEntries(['band', 'night', 'tidePhase', 'startTime', 'island', 'forceNight', 'forceHighTide'].map(
+                (key) => [key, activeSelection.titleState?.[key]],
+            )),
             lowTide: activeSelection.titleState?.lowTide ?? false,
             preview: true,
             resume: resumedSequence,
@@ -34,10 +37,11 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
 
     sequenceTools.subscribeStatus?.(publishStatus);
 
-    const request = ({ mode, script, tagId, storyDay, slot, childTag, route }) => {
-        const options = { storyDay };
+    const request = ({ mode, script, tagId, storyDay, band, slot, childTag, route }) => {
+        const options = band == null ? { storyDay } : { storyDay, band };
+        if (mode === 'live') sequenceTools.returnToLive?.();
         const override =
-            mode === 'preview' || mode === 'preview-child'
+            mode === 'live' ? null : mode === 'preview' || mode === 'preview-child'
                 ? mode === 'preview-child'
                     ? Object.freeze({
                         ...sequenceTools.preview(script, tagId, options),
@@ -51,6 +55,8 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
         stopAudio();
         activeAttempt?.controller.abort('script_override');
         stopRuntime('script_override');
+        activeSelection = null;
+        publishStatus();
         return override;
     };
 

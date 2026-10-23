@@ -126,7 +126,7 @@ describe('scene-flow panel', () => {
 
         const modal = document.getElementById('scene-flow-modal');
         expect(document.getElementById('scene-flow-title').textContent).toBe('Story timeline');
-        expect(document.getElementById('scene-flow-subtitle').textContent).toMatch(/^STORY DAY \d+ OF 11/);
+        expect(document.getElementById('scene-flow-subtitle').textContent).toMatch(/^Playing day \d+/);
         expect(detailName()).toContain('Johnny fishes');
 
         const guards = Array.from(modal.querySelectorAll('.scene-flow-guard')).map((el) => el.textContent);
@@ -277,8 +277,8 @@ describe('scene-flow panel', () => {
         gags[0].click();
         expect(crumbs()[0]).toBe('Day 07');
         expect(crumbs().at(-1)).toBe('↖ Johnny now');
-        document.querySelector('.story-steps-play').click();
-        expect(startRun).toHaveBeenCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7 });
+        document.querySelector('.story-steps .story-steps-play').click();
+        expect(startRun).toHaveBeenCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7, band: 'early' });
         expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
 
         // Reopening returns to Johnny now.
@@ -340,10 +340,63 @@ describe('scene-flow panel', () => {
         expect(detailName()).toContain('Johnny naps · GAG 2 OF 2');
 
         crumbButtons()[1].click();
-        document.querySelector('.story-steps-play').click();
+        document.querySelector('.story-steps .story-steps-play').click();
         expect(setStoryDay).toHaveBeenCalledWith(2);
-        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'JOHNNY.ADS', tagId: 2, storyDay: 2 });
+        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'JOHNNY.ADS', tagId: 2, storyDay: 2, band: 'early' });
         panel.destroy();
+    });
+
+    it('browses Night without changing playback and passes it to day, gag and scene actions', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, storyDay: 2, tidePhase: 3 });
+        sequenceTools.startRun = vi.fn();
+        sequenceTools.setStoryDay = vi.fn();
+        const nightAds = { ...FISHY_ADS, scenes: [{ ...FISHY_ADS.scenes[0], tagId: { id: 1, description: 'Night example' } }] };
+        const panel = setupSceneFlowPanel({ resolveEntry: (name) => name === 'MISCGAG.ADS' ? nightAds : resolveEntry(name), sequenceTools });
+        const browseNight = () => {
+            panel.open();
+            document.querySelectorAll('.story-steps-crumbs button')[1].click();
+            document.querySelectorAll('.story-steps-tide')[2].click();
+        };
+        browseNight();
+        expect(sequenceTools.startRun).not.toHaveBeenCalled();
+        expect(sequenceTools.setStoryDay).not.toHaveBeenCalled();
+        document.querySelector('.story-steps .story-steps-play').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'sequence', storyDay: 2, band: 'night' }));
+        browseNight();
+        // Open a real ordinary gag that also has our synthetic outline.
+        const fish = Array.from(document.querySelectorAll('.story-steps-card'))
+            .find((el) => el.getAttribute('aria-label').includes('Night example'));
+        fish.click();
+        document.querySelector('.story-steps .story-steps-play').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', storyDay: 2, band: 'night' }));
+        browseNight();
+        Array.from(document.querySelectorAll('.story-steps-card'))
+            .find((el) => el.getAttribute('aria-label').includes('Night example')).click();
+        document.querySelector('.scene-flow-play-button').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview-child', storyDay: 2, band: 'night' }));
+        document.querySelector('#timeline-clock-notice button').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
+        panel.destroy();
+    });
+
+    it('shows temporary clock lifetime and scene exceptions, then hides it on live status', () => {
+        const startRun = vi.fn();
+        let publish;
+        const sequenceTools = { startRun, subscribeStatus: (listener) => { publish = listener; return () => {}; } };
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        publish({ storyDay: 5, band: 'early', night: true, forceNight: true, forceHighTide: true, lowTide: false, preview: true });
+        const notice = document.getElementById('timeline-clock-notice');
+        expect(notice.hidden).toBe(false);
+        expect(notice.textContent).toContain('Scene requires night');
+        expect(notice.textContent).toContain('Scene requires high tide');
+        expect(notice.textContent).toContain('Ends after this gag/scene');
+        notice.querySelector('button').click();
+        expect(startRun).toHaveBeenCalledWith({ mode: 'live' });
+        publish({ storyDay: 5, band: null });
+        expect(notice.hidden).toBe(true);
+        panel.destroy();
+        expect(document.getElementById('timeline-clock-notice')).toBeNull();
     });
 
     it('tidies the script outline: hides loaders and merges steps that wait on the same scene', () => {
