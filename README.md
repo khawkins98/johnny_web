@@ -21,13 +21,13 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 ## Playback
 
-Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling and moving clouds and waves. Both modes offer the playback toolbar and optional Captain’s log. You can adjust individual options in Settings.
+Press **Play** to start Johnny with the illustrated Island TV, fitted picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
 
-**CRT picture** in Settings is optional and off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
+**Picture look** in Options offers optional CRT presets, off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
 
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
-The bottom toolbar opens Settings, Picture controls and the story Timeline. **Log** toggles a right sidebar with session stats and day/gag navigation. **Hide** or `H` clears the toolbar; the corner button or `H` restores it. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` for full screen. [Toolbar and Captain’s log guide](docs/playback-toolbar.md).
+The bottom toolbar opens Options, Picture controls and the story Timeline. **Log** toggles day/gag navigation; session statistics and specific-gag selection expand on demand. **Toggle Island TV** or `H` hides/restores the cabinet and toolbar. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` to fill the page with the screensaver. [Toolbar and Captain’s log guide](docs/playback-toolbar.md).
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 

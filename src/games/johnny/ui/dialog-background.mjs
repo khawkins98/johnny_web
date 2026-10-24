@@ -8,7 +8,7 @@ export function isolateDialog(overlay) {
     }
     const trapFocus = (event) => {
         if (event.key !== 'Tab') return;
-        const controls = [...overlay.querySelectorAll('button,select,input,textarea,a[href],[tabindex]:not([tabindex="-1"])')]
+        const controls = [...overlay.querySelectorAll('button,select,input,textarea,summary,a[href],[tabindex]:not([tabindex="-1"])')]
             .filter(element => !element.disabled && element.getClientRects().length);
         if (!controls.length) return;
         const first = controls[0], last = controls.at(-1);

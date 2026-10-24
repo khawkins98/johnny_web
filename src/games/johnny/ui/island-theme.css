@@ -168,3 +168,25 @@ body .scene-flow-header{position:sticky;top:-12px;z-index:5;margin:-12px -14px 1
 body .scene-flow-header .scene-flow-close{top:12px;right:14px}
 @media(max-width:730px){body .scene-flow-header{top:-14px;margin:-14px -12px 10px;padding-inline:12px}}
 :root{--island-orange-ink:#9b5b12}
+
+/* Disclosure groups keep the everyday choices visible and deep controls reachable. */
+body #settings-modal .island-disclosure {
+    margin: 12px 0;
+    padding: 0 12px;
+    border: 1px solid #a9c9b7;
+    border-radius: 7px 4px;
+    background: var(--island-paper);
+}
+body #settings-modal .island-disclosure > summary {
+    padding: 12px 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    cursor: pointer;
+    font: 700 16px/1.25 var(--island-body-font);
+    color: var(--island-green);
+}
+body #settings-modal .island-disclosure[open] { padding-bottom: 12px; }
+body #settings-modal .island-disclosure .settings-shortcuts { margin: 0; }
+body #settings-modal .johnny-picture { margin-top: 12px; }
+
+body #settings-modal .johnny-picture p { font: 14px/1.4 var(--island-body-font); color: var(--island-ink); }

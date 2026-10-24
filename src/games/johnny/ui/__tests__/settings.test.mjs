@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EXPERIENCE_SETTING_KEY, setupSettingsUI, SOUND_SETTING_KEY } from '../settings.mjs';
+import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings.mjs';
 
 describe('settings UI', () => {
     beforeEach(() => {
@@ -32,23 +32,32 @@ describe('settings UI', () => {
         expect(overlay.getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('applies coherent classic and enhanced profiles', () => {
-        const settings = setupSettingsUI();
+    it('starts with one set of good defaults and exposes tuning only on request', () => {
+        setupSettingsUI();
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
-
-        settings.applyExperience('enhanced');
-        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
-        expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
-        expect(setting('experience').value).toBe('enhanced');
+        expect(setting('experience')).toBeNull();
         expect(setting('scale').value).toBe('freeform');
         expect(setting('clouds').value).toBe('on');
         expect(setting('waves').value).toBe('on');
+        expect(setting('time').value).toBe('original');
+        expect(document.querySelector('#jc-crt-look').value).toBe('original');
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
+        expect([...document.querySelectorAll('#settings-modal details')].every(d => !d.open)).toBe(true);
+        expect(setting('scale').closest('details').id).toBe('settings-fine-tuning');
+        expect(document.querySelector('#jc-crt-look').closest('details')).toBeNull();
+    });
 
-        settings.applyExperience('classic');
-        expect(setting('experience').value).toBe('classic');
-        expect(setting('scale').value).toBe('native');
-        expect(setting('clouds').value).toBe('off');
-        expect(setting('waves').value).toBe('on');
+    it('preserves individual preferences from an old profile across launches', () => {
+        localStorage.setItem('jc-experience', 'classic');
+        localStorage.setItem('jc-scale-mode', 'integer');
+        localStorage.setItem('jc-clouds', 'off');
+        localStorage.setItem('jc-time', 'local');
+        localStorage.setItem('jc-sound', 'off');
+        setupSettingsUI();
+        expect(localStorage.getItem('jc-experience')).toBeNull();
+        for (const [key, value] of [['scale', 'integer'], ['clouds', 'off'], ['time', 'local'], ['sound', 'off']]) {
+            expect(document.querySelector(`[data-setting="${key}"]`).value).toBe(value);
+        }
     });
 
     it('remembers picture models independently while keeping CRT off', () => {
@@ -231,7 +240,6 @@ it('fits the live picture into the cabinet and keeps its rectangle stable when L
     vi.spyOn(deck, 'getBoundingClientRect').mockReturnValue({ top: 600 });
     try {
         const settings = setupSettingsUI();
-        settings.applyExperience('enhanced');
         const root = document.getElementById('root');
         const rectStyles = [root.style.left,root.style.top,root.style.transform];
         expect(root.style.transform).toMatch(/^scale\(/);
@@ -250,7 +258,7 @@ it('fits the live picture into the cabinet and keeps its rectangle stable when L
 it('gives the core settings their visible associated labels and keeps the close button in the header', () => {
     document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
     setupSettingsUI();
-    for (const key of ['experience','scale','sound','clouds','waves','time','diagnostics']) {
+    for (const key of ['scale','sound','clouds','waves','time','diagnostics']) {
         const select = document.getElementById('jc-setting-'+key);
         expect(select.labels).toHaveLength(1);
         expect(select.labels[0].htmlFor).toBe(select.id);

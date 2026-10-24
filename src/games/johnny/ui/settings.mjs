@@ -17,11 +17,18 @@ import {
 } from '../start-time.mjs';
 
 export const SOUND_SETTING_KEY = 'jc-sound';
-export const EXPERIENCE_SETTING_KEY = 'jc-experience';
+// Seed only absent preferences: old profile choices and pre-launch edits survive Play.
+const DEFAULT_PREFERENCES = Object.freeze({
+    'jc-scale-mode': 'freeform', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
+});
 
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
 export function setupSettingsUI({ getAudioManager = () => null, onRestart = () => {}, storyController = null } = {}) {
+    for (const [key, value] of Object.entries(DEFAULT_PREFERENCES)) {
+        if (localStorage.getItem(key) == null) localStorage.setItem(key, value);
+    }
+    localStorage.removeItem('jc-experience'); // Retired profile marker; individual values are retained.
     const recordSetting = (setting, value) => diagnostics.record('user-control', { control: 'setting', setting, value });
     // Inject some whimsical CSS
     const style = document.createElement('style');
@@ -439,7 +446,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         startTime = readStartTime(localStorage);
         renderStartTime();
         timeSelect.value = localStorage.getItem('jc-time') || 'original';
-        experienceSelect.value = localStorage.getItem(EXPERIENCE_SETTING_KEY) || 'classic';
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
@@ -493,43 +499,20 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     title.innerText = 'Island Options';
     header.appendChild(title);
 
-    const experienceRow = document.createElement('div');
-    experienceRow.className = 'settings-row';
-    const experienceLabel = document.createElement('label');
-    experienceLabel.innerText = 'Experience:';
-    const experienceSelect = document.createElement('select');
-    experienceSelect.dataset.setting = 'experience';
-    experienceSelect.id = 'jc-setting-experience';
-    experienceLabel.htmlFor = experienceSelect.id;
-    [
-        { val: 'classic', text: 'Classic' },
-        { val: 'enhanced', text: 'Enhanced' },
-        { val: 'custom', text: 'Custom' },
-    ].forEach(({ val, text }) => {
-        const option = document.createElement('option');
-        option.value = val;
-        option.innerText = text;
-        experienceSelect.appendChild(option);
-    });
-    experienceSelect.value = localStorage.getItem(EXPERIENCE_SETTING_KEY) || 'classic';
-    experienceRow.appendChild(experienceLabel);
-    experienceRow.appendChild(experienceSelect);
-    modal.appendChild(experienceRow);
-
     // Scaling
     const scaleRow = document.createElement('div');
     scaleRow.className = 'settings-row';
     const scaleLabel = document.createElement('label');
-    scaleLabel.innerText = 'View Glass:';
+    scaleLabel.innerText = 'Picture size:';
     const scaleSelect = document.createElement('select');
     scaleSelect.dataset.setting = 'scale';
     scaleSelect.id = 'jc-setting-scale';
     scaleLabel.htmlFor = scaleSelect.id;
     const scaleOpts = [
-        { val: 'native', text: 'Spyglass (Native)' },
-        { val: 'integer', text: 'Porthole (Integer)' },
-        { val: 'freeform', text: 'Ocean View (Freeform)' },
-        { val: 'stretch', text: 'Horizon (Stretch)' },
+        { val: 'native', text: 'Native size (1×)' },
+        { val: 'integer', text: 'Whole-pixel steps' },
+        { val: 'freeform', text: 'Fit to TV' },
+        { val: 'stretch', text: 'Stretch to fill' },
     ];
     scaleOpts.forEach((o) => {
         const opt = document.createElement('option');
@@ -539,14 +522,13 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     });
 
     // Load saved scale
-    const savedScale = localStorage.getItem('jc-scale-mode') || 'native';
+    const savedScale = localStorage.getItem('jc-scale-mode') || 'freeform';
     scaleSelect.value = savedScale;
 
     scaleSelect.onchange = (e) => {
         const mode = e.target.value;
         localStorage.setItem('jc-scale-mode', mode);
         applyScaling(mode);
-        markCustomExperience();
         recordSetting('scale', mode);
     };
     scaleRow.appendChild(scaleLabel);
@@ -623,10 +605,9 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         opt.innerText = o.text;
         cloudsSelect.appendChild(opt);
     });
-    cloudsSelect.value = localStorage.getItem('jc-clouds') || 'off';
+    cloudsSelect.value = localStorage.getItem('jc-clouds') || 'on';
     cloudsSelect.onchange = (e) => {
         localStorage.setItem('jc-clouds', e.target.value);
-        markCustomExperience();
         recordSetting('clouds', e.target.value);
     };
     cloudsRow.appendChild(cloudsLabel);
@@ -654,7 +635,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     wavesSelect.value = localStorage.getItem('jc-waves') || 'on';
     wavesSelect.onchange = (e) => {
         localStorage.setItem('jc-waves', e.target.value);
-        markCustomExperience();
         recordSetting('waves', e.target.value);
     };
     wavesRow.appendChild(wavesLabel);
@@ -682,7 +662,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     timeSelect.value = localStorage.getItem('jc-time') || 'original';
     timeSelect.onchange = (e) => {
         localStorage.setItem('jc-time', e.target.value);
-        markCustomExperience();
         recordSetting('time', e.target.value);
     };
     timeRow.appendChild(timeLabel);
@@ -842,33 +821,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     storyRow.style.display = storyController ? '' : 'none';
     modal.appendChild(storyRow);
 
-    const markCustomExperience = () => {
-        experienceSelect.value = 'custom';
-        localStorage.setItem(EXPERIENCE_SETTING_KEY, 'custom');
-    };
-
-    const applyExperience = (mode) => {
-        const values =
-            mode === 'enhanced'
-                ? { scale: 'freeform', clouds: 'on', waves: 'on', time: 'original' }
-                : { scale: 'native', clouds: 'off', waves: 'on', time: 'original' };
-        experienceSelect.value = mode;
-        scaleSelect.value = values.scale;
-        cloudsSelect.value = values.clouds;
-        wavesSelect.value = values.waves;
-        timeSelect.value = values.time;
-        localStorage.setItem(EXPERIENCE_SETTING_KEY, mode);
-        localStorage.setItem('jc-scale-mode', values.scale);
-        localStorage.setItem('jc-clouds', values.clouds);
-        localStorage.setItem('jc-waves', values.waves);
-        localStorage.setItem('jc-time', values.time);
-        applyScaling(values.scale);
-    };
-    experienceSelect.onchange = (event) => {
-        if (event.target.value !== 'custom') applyExperience(event.target.value);
-        recordSetting('experience', event.target.value);
-    };
-
     const shortcuts = document.createElement('section');
     shortcuts.className = 'settings-shortcuts';
     shortcuts.setAttribute('aria-labelledby', 'settings-shortcuts-title');
@@ -939,6 +891,28 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     footer.appendChild(footerActions);
     modal.appendChild(footer);
 
+    const disclose = (id, title, ...children) => {
+        const section = document.createElement('details');
+        section.id = id;
+        section.className = 'island-disclosure';
+        const summary = document.createElement('summary');
+        summary.textContent = title;
+        section.append(summary, ...children);
+        modal.insertBefore(section, footer);
+        return section;
+    };
+    // Everyday choices first. Technical controls remain available without dominating.
+    const essentials = document.createElement('section');
+    essentials.setAttribute('aria-label', 'Everyday options');
+    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow);
+    modal.insertBefore(essentials, scaleRow);
+    disclose('settings-fine-tuning', 'Picture & clock fine tuning', scaleRow, cloudsRow, wavesRow, startRow, startHelp);
+    const crtDetails = modal.querySelector('.johnny-crt');
+    modal.insertBefore(crtDetails, footer);
+    if (storyController) disclose('settings-story-tools', 'Story tools', storyRow);
+    disclose('settings-diagnostics', 'Developer diagnostics', debugRow, debugStatus);
+    disclose('settings-shortcuts', 'Keyboard shortcuts', shortcuts);
+
     overlay.appendChild(modal);
     overlay.setAttribute('aria-hidden', 'true');
     document.body.appendChild(overlay);
@@ -951,21 +925,6 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     window.addEventListener('keydown', (e) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (isTyping(e.target) && e.key !== 'Escape') return;
-
-        if (e.key === 'Tab' && overlay.style.display === 'flex') {
-            const focusable = Array.from(modal.querySelectorAll('button, select, [href], input, textarea, [tabindex]:not([tabindex="-1"])'));
-            if (focusable.length > 0) {
-                const first = focusable[0];
-                const last = focusable[focusable.length - 1];
-                if (e.shiftKey && document.activeElement === first) {
-                    last.focus();
-                    e.preventDefault();
-                } else if (!e.shiftKey && document.activeElement === last) {
-                    first.focus();
-                    e.preventDefault();
-                }
-            }
-        }
 
         if (e.key === 's' || e.key === 'S') {
             e.preventDefault();
@@ -983,14 +942,14 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
 
     // Handle Resize
     window.addEventListener('resize', () => {
-        const mode = localStorage.getItem('jc-scale-mode') || 'native';
+        const mode = localStorage.getItem('jc-scale-mode') || 'freeform';
         applyScaling(mode);
     });
 
     // Apply initial
     applyScaling(savedScale);
 
-    return { open, close, applyExperience, restart, cyclePicturePreset: () => crt.cyclePreset(), refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'native') };
+    return { open, close, restart, cyclePicturePreset: () => crt.cyclePreset(), openPicture: () => { open(); crt.openPicture(); }, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'freeform') };
 }
 
 function applyScaling(mode) {

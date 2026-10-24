@@ -1,6 +1,6 @@
 # Maintaining the illustrated Island UI
 
-Start here when changing Johnny's **Beachcomber / Castaway CRT** interface. The live UI is `src/games/johnny/ui/enhanced.mjs`, despite that historical filename: both Classic and Enhanced use it. Run `pnpm dev`, start either experience at `/`, then use **Log**, **Picture**, **Options**, **Timeline** and **H**. This is the real engine, not the earlier frozen-frame mockup.
+Start here when changing Johnny's **Beachcomber / Castaway CRT** interface. The live UI is `src/games/johnny/ui/enhanced.mjs`, despite that historical filename: the single Play flow uses it. Run `pnpm dev`, press Play at `/`, then use **Log**, **Picture**, **Options**, **Timeline** and **H**. This is the real engine, not the earlier frozen-frame mockup.
 
 ## Direction and origins
 
@@ -89,13 +89,13 @@ The full serial suite passed with 869 tests and two skips. The UI suite passed a
 
 ## Splash screen and half-step title zoom
 
-The start screen uses the same original cabinet and shelf assets, with shell/monitor/ruler/notebook launch controls. `splash.css` is imported by Settings so it is present before playback begins; the live deck CSS mounts only after launching. No additional generated artwork was needed. Classic/Enhanced still apply their existing profiles and create audio in the user click handler. The About note is an anchored overlay and does not resize the title.
+The start screen uses the same original cabinet and shelf assets, with shell/monitor/ruler/notebook launch controls. `splash.css` is imported by Settings so it is present before playback begins; the live deck CSS mounts only after launching. No additional generated artwork was needed. Play retains saved individual preferences and creates audio in the user click handler. The About note is an anchored overlay and does not resize the title.
 
 The original decoded title includes a wide black surround. `titleArtworkBounds()` finds all visible nonblack pixels and retains a two-pixel safety border. An ephemeral `start-title-picture` canvas receives that original source rectangle at **1:1**, with no intermediate resize. Its CSS size uses the largest **0.5× increment** that fits the cabinet opening: 0.5, 1.0, 1.5, 2.0 and so on, via `titleScale()`. Pixelated display avoids an additional smoothing pass. Original lettering and Sierra credits remain intact. The normal 640×480 canvas buffers and renderer are untouched; they are simply hidden while the separate title is visible. CRT output is hidden on the title and resumes its saved independent behavior after launch.
 
 The splash cabinet allows enough opening for the minimum 0.5× title on narrow screens; transparent outer margins may extend beyond the viewport and are clipped by the fixed overlay. This minimum applies to the title only, not live-game scaling. Returning to title redraws the same source canvas and recomputes the half-step fit. Changing browser size recomputes zoom without persisting a different experience or scaling preference.
 
-Verified at 1680×1000 (1.5×) and 390×844 (0.5×), with no horizontal overflow. Local captures: `scratchpad/issue81/splash-desktop.png` and `splash-mobile.png`. The UI suite includes half-step thresholds, including .585 → .5, and the minimum mobile aperture. Recheck launch with both experiences, Settings/About, keyboard order and return-to-title when amending this layout.
+Verified at 1680×1000 (1.5×) and 390×844 (0.5×), with no horizontal overflow. Local captures: `scratchpad/issue81/splash-desktop.png` and `splash-mobile.png`. The UI suite includes half-step thresholds, including .585 → .5, and the minimum mobile aperture. Recheck launch with saved preferences, Settings/About, keyboard order and return-to-title when amending this layout.
 
 ## UX/UI coherence pass (2026-10-24)
 
@@ -134,6 +134,16 @@ Shelf status text uses 14px Georgia with cream-backed sound/speed readouts; avoi
 
 Pause is an in-picture VT323 on-screen display with a click/Space resume hint, without a paper dialog or a typographic pause symbol. Its placement follows the actual canvas, including Full view.
 
-The temporary-time notice offers “Use saved clock” and “Save as current time”. Saving maps the selected band's representative phase (0/8/12) to the current local half-hour via `startTimeForPhase()` in `start-time.mjs`, persists the existing Start Time setting, selects the sequence clock, marks the experience Custom and resumes live playback. The clock then advances normally; it does not freeze the band or save scene-specific night/high-tide requirements. Settings rereads these values when opened. Regression checks cover all 16 phases across midnight and half-hour boundaries, plus notice persistence and return to live playback.
+The temporary-time notice offers “Use saved clock” and “Save as current time”. Saving maps the selected band's representative phase (0/8/12) to the current local half-hour via `startTimeForPhase()` in `start-time.mjs`, persists the existing Start Time setting, selects the sequence clock, resumes live playback. The clock then advances normally; it does not freeze the band or save scene-specific night/high-tide requirements. Settings rereads these values when opened. Regression checks cover all 16 phases across midnight and half-hour boundaries, plus notice persistence and return to live playback.
 
 The splash and live shelf share `.island-art-control` and `.island-control-label` in `island-objects.css`. Put these classes on new painted buttons and their lettering; the shared rule highlights both the object alpha and text for hover, keyboard focus and expanded state. Avoid introducing per-screen hover plaques or copying the filter into `splash.css`/`playback-deck.css`.
+
+## One launch and progressive disclosure (2026-10-25)
+
+The landing shelf has Play, Options and About. Defaults are fit-to-TV scaling, drifting clouds, original waves and story clock, sound on and CRT off. Only missing preference keys are seeded; existing individual choices from the former Classic/Enhanced profiles are preserved. Play does not write a profile or overwrite pre-launch edits; the retired `jc-experience` marker is removed. Audio is still activated synchronously by the Play gesture.
+
+Options starts with Picture look, Sound, Time of Day and Full view. Picture presets and the physical dial share the same application logic. Picture/clock fine tuning, advanced CRT, story tools, diagnostics and shortcuts are closed disclosures, with keyboard-accessible summaries. Renderer/save warnings remain beside Picture look even when advanced tuning is closed. The shelf Picture action focuses the preset chooser, rather than opening shader controls.
+
+Log keeps the current gag, day/time visits and previous/next gag actions visible. Session statistics and specific-gag selection expand on demand. Timeline retains its day → time → gag → scene hierarchy. Preserve these layers when adding controls: everyday decisions first, details when requested.
+
+Validation for consolidation: full serial suite **895 passed, two skipped**; targeted UI/CRT checks **93 passed**; production build passed. Actual-game browser checks covered new and saved preferences through launch/return-to-title, Picture/dial preset synchronization, expanded mobile fine tuning and CRT controls, specific-gag playback, keyboard focus wrapping, and desktop/mobile layouts. The collapsed Options axe WCAG2A/AA audit reported zero violations (heading text-shadow contrast requires manual review). Captures remain local under `scratchpad/issue81/consolidated-*.png`.

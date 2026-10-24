@@ -834,3 +834,7 @@ body:has(#enhanced-hud.is-hidden) #timeline-clock-notice {
 .jc-tv-knob-picture{left:85.99%;top:39.55%;width:16.01144%;height:21.875%;background-size:685.714286% 457.142857%;background-position:93.597561% 36.625%}
 .jc-tv-knob-speed{left:86.7%;top:61.52%;width:15.153681%;height:20.703125%;background-size:724.528302% 483.018868%;background-position:93.957704% 64.53202%}
 @media(prefers-reduced-motion:reduce){.jc-tv-knob-paint{transition:none}}
+
+#jc-log .jc-log-details { margin: 12px 0; border-top: 1px solid #a9c9b7; }
+#jc-log .jc-log-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; box-sizing: border-box; font-weight: bold; }
+#jc-log .jc-log-details > summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }

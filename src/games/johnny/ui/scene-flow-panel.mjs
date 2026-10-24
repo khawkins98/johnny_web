@@ -344,7 +344,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (!band) return;
         writeStartTime(localStorage, startTimeForPhase(new Date(), band.min));
         localStorage.setItem('jc-time', 'original');
-        localStorage.setItem('jc-experience', 'custom');
         sequenceTools?.startRun?.({ mode: 'live' });
     };
     clockNotice.append(clockMessage, returnLive, saveClock);

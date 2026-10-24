@@ -413,7 +413,6 @@ describe('scene-flow panel', () => {
         publish({ storyDay: 3, band: 'night', night: true, forceHighTide: true, preview: true });
         document.querySelector('#timeline-save-clock').click();
         expect(localStorage.getItem('jc-time')).toBe('original');
-        expect(localStorage.getItem('jc-experience')).toBe('custom');
         expect(startRun).toHaveBeenLastCalledWith({ mode: 'live' });
         const offset = Number(localStorage.getItem('jc-start-time-hhmm') ?? 900);
         const now = new Date();

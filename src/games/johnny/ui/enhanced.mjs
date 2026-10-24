@@ -29,14 +29,16 @@ export function setupEnhancedUI({
     <aside id="jc-log" aria-label="Island Log" hidden>
         <header class="jc-log-title"><h2>Island Log</h2><button class="jc-log-close" aria-label="Close Island Log">×</button></header>
         <div class="jc-log-body"><section><span class="jc-eyebrow">Story position</span><h3 id="jc-log-day">Day 1 of 11</h3><div class="jc-day-track" aria-hidden="true">${Array.from({ length: 11 }, (_, i) => `<span data-day="${i + 1}"></span>`).join('')}</div><p class="jc-log-note" id="jc-log-weather">A little island. A long story.</p></section>
-        <dl class="jc-stat-grid"><div><dt>Gags visited</dt><dd id="jc-gags-seen">0 / ${catalogue.size}</dd></div><div><dt>Watching for</dt><dd id="jc-watch-time">00:00</dd></div><div><dt>Days visited</dt><dd id="jc-days-seen">0 / 11</dd></div><div><dt>Playback speed</dt><dd id="jc-live-speed">1×</dd></div></dl>
-        <p class="jc-log-note">Unique gags · this playback session</p>
         <section class="jc-current"><span class="jc-eyebrow">Now playing</span><h3 id="jc-current-gag">Johnny settles in</h3><div class="jc-visit-row"><span id="jc-visit-label">Current visit</span><span id="jc-visit-count">—</span></div><progress id="jc-visit-progress" aria-label="Position in current visit" max="1" value="0"></progress></section>
+        <details class="jc-log-details"><summary>Session statistics</summary>        <dl class="jc-stat-grid"><div><dt>Gags visited</dt><dd id="jc-gags-seen">0 / ${catalogue.size}</dd></div><div><dt>Watching for</dt><dd id="jc-watch-time">00:00</dd></div><div><dt>Days visited</dt><dd id="jc-days-seen">0 / 11</dd></div><div><dt>Playback speed</dt><dd id="jc-live-speed">1×</dd></div></dl>
+        <p class="jc-log-note">Unique gags · this playback session</p>
+</details>
         </div><section class="jc-log-navigation" aria-label="Day and gag navigation"><span class="jc-eyebrow">Take a look around</span>
         <label for="jc-jump-day">Story day</label><div class="jc-nav-row"><button id="jc-day-prev" aria-label="Play previous story day">‹</button><select id="jc-jump-day" aria-label="Story day">${Array.from({ length: 11 }, (_, i) => `<option value="${i + 1}">Day ${i + 1}</option>`).join('')}</select><button id="jc-day-next" aria-label="Play next story day">›</button></div>
         <label for="jc-jump-band">Time of day</label><select id="jc-jump-band">${TIDE_BANDS.map((b) => `<option value="${b.id}">${b.label}</option>`).join('')}</select>
         <button class="jc-full-width jc-play-day" id="jc-play-day">Visit this day →</button>
-        <label for="jc-jump-gag">Gag on this day</label><select id="jc-jump-gag"></select><div class="jc-nav-row" style="margin-top:8px"><button id="jc-gag-prev" aria-label="Play previous gag">‹</button><button id="jc-play-gag" class="jc-play-day">Play gag</button><button id="jc-gag-next" aria-label="Play next gag">›</button></div>
+        <div class="jc-nav-row"><button id="jc-gag-prev" aria-label="Play previous gag">‹ Previous gag</button><button id="jc-gag-next" aria-label="Play next gag">Next gag ›</button></div>
+        <details class="jc-log-details"><summary>Choose a specific gag</summary><label for="jc-jump-gag">Gag on this day</label><select id="jc-jump-gag"></select><button id="jc-play-gag" class="jc-full-width jc-play-day">Play gag</button></details>
         <button id="jc-return-live" class="jc-full-width">↶ Return to live story</button><p id="jc-log-error" class="jc-log-error" role="status"></p>
         </section>
     </aside>`;
@@ -141,14 +143,7 @@ export function setupEnhancedUI({
         renderStatus();
     });
     button('jc-deck-timeline', 'Timeline', 'book', () => sceneFlow?.open());
-    button('jc-deck-picture', 'Picture', 'picture', () => {
-        settings?.open();
-        const detail = document.querySelector('.johnny-crt');
-        if (detail) {
-            detail.open = true;
-            detail.scrollIntoView?.({ block: 'nearest' });
-        }
-    });
+    button('jc-deck-picture', 'Picture', 'picture', () => settings?.openPicture?.());
     button('jc-deck-options', 'Options', 'options', () => settings?.open());
     const fullView = () => setFullView(!document.body.classList.contains('jc-full-view'));
     button('jc-deck-fullscreen', 'Full view', 'full', fullView);

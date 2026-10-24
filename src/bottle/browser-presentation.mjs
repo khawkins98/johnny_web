@@ -384,8 +384,7 @@ const requireBrowserPresentationPackage = (game, soundSettingKey) => {
 function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey, archiveBuffer }) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
-        const classicBtn = document.getElementById('start-classic-btn');
-        const enhancedBtn = document.getElementById('start-enhanced-btn');
+        const playBtn = document.getElementById('start-play-btn');
         const helpBtn = document.getElementById('start-help-btn');
         const help = document.getElementById('start-help');
         const settingsBtn = document.getElementById('start-settings-btn');
@@ -400,13 +399,12 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
         };
         settingsBtn.addEventListener('click', openSettings);
         helpBtn.addEventListener('click', toggleHelp);
-        const start = (experience) => {
-            classicBtn.removeEventListener('click', startClassic);
-            enhancedBtn.removeEventListener('click', startEnhanced);
+        const start = () => {
+            playBtn.removeEventListener('click', start);
             settingsBtn.removeEventListener('click', openSettings);
             helpBtn.removeEventListener('click', toggleHelp);
             overlay.classList.remove('visible');
-            settings.applyExperience(experience);
+            settings.refreshLayout?.();
             const nextAudioManager =
                 existingAudioManager ||
                 createAudioManager({
@@ -417,14 +415,10 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
                 });
             nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
-                experience,
                 audioManager: nextAudioManager,
             });
         };
-        const startClassic = () => start('classic');
-        const startEnhanced = () => start('enhanced');
-        classicBtn.addEventListener('click', startClassic);
-        enhancedBtn.addEventListener('click', startEnhanced);
+        playBtn.addEventListener('click', start);
     });
 }
 

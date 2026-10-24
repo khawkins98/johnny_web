@@ -48,7 +48,7 @@ body:has(#start-overlay.visible) #start-matte {
     width: min(1100px, calc(100% - 48px));
     min-height: 182px;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     padding: 0 36px 30px;
     box-sizing: border-box;
@@ -154,9 +154,9 @@ body:has(#start-overlay.visible) #start-matte {
 }
 @media (max-width: 500px) {
     #start-actions {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         bottom: 16px;
-        min-height: 270px;
+        min-height: 170px;
         padding: 0 8px 15px;
         background: #f8e6bd;
         border: 2px solid #22553b;
@@ -167,7 +167,7 @@ body:has(#start-overlay.visible) #start-matte {
         min-height: 120px;
     }
     .start-action strong {
-        font-size: 22px;
+        font-size: 20px;
     }
     .start-action small {
         font-size: 11px;
