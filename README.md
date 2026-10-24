@@ -47,6 +47,7 @@ See the [changelog](CHANGELOG.md) for what each release changed.
 
 For a specific task:
 
+- [Modify the illustrated Island UI](docs/island-ui-art.md) — painted artwork, exact generation prompts, source coordinates, layout and verification for future contributors/agents.
 - [Experiment with scaling and CRT presentation](tools/presentation-lab/README.md) — development lab, reproducible screenshots, findings, and source credits for issue #81.
 - [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
 - [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.

@@ -94,5 +94,5 @@ export function setupCrtControls(container, onChange, { initial = null, storage 
     if (initial) load(initial);
     bypass.addEventListener('change', changed);
     container.append(tools, grid, saved); sync();
-    return { getSettings };
+    return { getSettings, applySettings: (settings) => { load(settings); changed(); } };
 }

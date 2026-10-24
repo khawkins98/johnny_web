@@ -1,3 +1,9 @@
+import './island-cabinet.css';
+import { isolateDialog } from './dialog-background.mjs';
+import './island-theme.css';
+import './island-objects.css';
+import './splash.css';
+import { islandLayout, titleScale, halfStepScale } from './island-layout.mjs';
 import { setupCrtSettings } from './crt/settings.mjs';
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
@@ -419,22 +425,33 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     closeBtn.innerText = '×';
     closeBtn.setAttribute('aria-label', 'Close settings');
     let previousFocus = null;
+    let releaseBackground = null;
     const close = () => {
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
-        document.getElementById('root').inert = false;
+        releaseBackground?.();
+        releaseBackground = null;
         previousFocus?.focus?.();
     };
     const open = () => {
+        if (overlay.getAttribute('aria-hidden') === 'false' || document.querySelector('#scene-flow-overlay[aria-hidden="false"]')) return;
+        renderFullscreen();
+        startTime = readStartTime(localStorage);
+        renderStartTime();
+        timeSelect.value = localStorage.getItem('jc-time') || 'original';
+        experienceSelect.value = localStorage.getItem(EXPERIENCE_SETTING_KEY) || 'classic';
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
-        document.getElementById('root').inert = true;
+        releaseBackground = isolateDialog(overlay);
         hideCog();
         closeBtn.focus();
     };
     closeBtn.onclick = close;
-    modal.appendChild(closeBtn);
+    const header = document.createElement('header');
+    header.className = 'settings-header';
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
 
     const cog = document.createElement('button');
     cog.id = 'settings-cog';
@@ -474,14 +491,16 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const title = document.createElement('h2');
     title.id = 'settings-title';
     title.innerText = 'Island Options';
-    modal.appendChild(title);
+    header.appendChild(title);
 
     const experienceRow = document.createElement('div');
     experienceRow.className = 'settings-row';
-    const experienceLabel = document.createElement('span');
+    const experienceLabel = document.createElement('label');
     experienceLabel.innerText = 'Experience:';
     const experienceSelect = document.createElement('select');
     experienceSelect.dataset.setting = 'experience';
+    experienceSelect.id = 'jc-setting-experience';
+    experienceLabel.htmlFor = experienceSelect.id;
     [
         { val: 'classic', text: 'Classic' },
         { val: 'enhanced', text: 'Enhanced' },
@@ -500,10 +519,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Scaling
     const scaleRow = document.createElement('div');
     scaleRow.className = 'settings-row';
-    const scaleLabel = document.createElement('span');
+    const scaleLabel = document.createElement('label');
     scaleLabel.innerText = 'View Glass:';
     const scaleSelect = document.createElement('select');
     scaleSelect.dataset.setting = 'scale';
+    scaleSelect.id = 'jc-setting-scale';
+    scaleLabel.htmlFor = scaleSelect.id;
     const scaleOpts = [
         { val: 'native', text: 'Spyglass (Native)' },
         { val: 'integer', text: 'Porthole (Integer)' },
@@ -532,24 +553,23 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     scaleRow.appendChild(scaleSelect);
     modal.appendChild(scaleRow);
 
-    setupCrtSettings(modal);
+    const crt = setupCrtSettings(modal);
 
     const fullscreenRow = document.createElement('div');
     fullscreenRow.className = 'settings-row';
     const fullscreenLabel = document.createElement('span');
-    fullscreenLabel.innerText = 'Full Screen:';
+    fullscreenLabel.innerText = 'Full view:';
     const fullscreenBtn = document.createElement('button');
     fullscreenBtn.dataset.setting = 'fullscreen';
     const renderFullscreen = () => {
-        fullscreenBtn.innerText = document.fullscreenElement ? 'Leave Full Screen' : 'Enter Full Screen';
+        fullscreenBtn.innerText = 'Fill page with screensaver';
+        fullscreenBtn.disabled = !document.getElementById('enhanced-hud');
     };
-    fullscreenBtn.onclick = async () => {
-        if (document.fullscreenElement) await document.exitFullscreen?.();
-        else await document.documentElement.requestFullscreen?.();
-        renderFullscreen();
-        recordSetting('fullscreen', Boolean(document.fullscreenElement));
+    fullscreenBtn.onclick = () => {
+        close();
+        window.dispatchEvent(new Event('johnny-full-view'));
+        recordSetting('full-view', true);
     };
-    document.addEventListener('fullscreenchange', renderFullscreen);
     renderFullscreen();
     fullscreenRow.appendChild(fullscreenLabel);
     fullscreenRow.appendChild(fullscreenBtn);
@@ -559,10 +579,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // yet when Settings opens on the intro screen.
     const audioRow = document.createElement('div');
     audioRow.className = 'settings-row';
-    const audioLabel = document.createElement('span');
+    const audioLabel = document.createElement('label');
     audioLabel.innerText = 'Sound:';
     const audioSelect = document.createElement('select');
     audioSelect.dataset.setting = 'sound';
+    audioSelect.id = 'jc-setting-sound';
+    audioLabel.htmlFor = audioSelect.id;
     [
         { val: 'on', text: 'On' },
         { val: 'off', text: 'Off' },
@@ -586,10 +608,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Moving Clouds Toggle
     const cloudsRow = document.createElement('div');
     cloudsRow.className = 'settings-row';
-    const cloudsLabel = document.createElement('span');
+    const cloudsLabel = document.createElement('label');
     cloudsLabel.innerText = 'Moving Clouds:';
     const cloudsSelect = document.createElement('select');
     cloudsSelect.dataset.setting = 'clouds';
+    cloudsSelect.id = 'jc-setting-clouds';
+    cloudsLabel.htmlFor = cloudsSelect.id;
     [
         { val: 'on', text: 'Drifting' },
         { val: 'off', text: 'Static (Original)' },
@@ -612,10 +636,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Animated Waves Toggle
     const wavesRow = document.createElement('div');
     wavesRow.className = 'settings-row';
-    const wavesLabel = document.createElement('span');
+    const wavesLabel = document.createElement('label');
     wavesLabel.innerText = 'Animated Waves:';
     const wavesSelect = document.createElement('select');
     wavesSelect.dataset.setting = 'waves';
+    wavesSelect.id = 'jc-setting-waves';
+    wavesLabel.htmlFor = wavesSelect.id;
     [
         { val: 'on', text: 'Rolling (Original)' },
         { val: 'off', text: 'Static' },
@@ -638,10 +664,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Time of Day
     const timeRow = document.createElement('div');
     timeRow.className = 'settings-row';
-    const timeLabel = document.createElement('span');
+    const timeLabel = document.createElement('label');
     timeLabel.innerText = 'Time of Day:';
     const timeSelect = document.createElement('select');
     timeSelect.dataset.setting = 'time';
+    timeSelect.id = 'jc-setting-time';
+    timeLabel.htmlFor = timeSelect.id;
     [
         { val: 'original', text: 'Sequence Clock (Original)' },
         { val: 'local', text: 'Live Local Clock' },
@@ -724,11 +752,13 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
 
     const debugRow = document.createElement('div');
     debugRow.className = 'settings-row';
-    const debugLabel = document.createElement('span');
+    const debugLabel = document.createElement('label');
     debugLabel.innerText = 'Diagnostics:';
     const debugControls = document.createElement('span');
     debugControls.className = 'settings-inline';
     const debugSelect = document.createElement('select');
+    debugSelect.id = 'jc-setting-diagnostics';
+    debugLabel.htmlFor = debugSelect.id;
     [
         { val: 'off', text: 'Off' },
         { val: 'on', text: 'On' },
@@ -848,13 +878,14 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     const shortcutGrid = document.createElement('div');
     shortcutGrid.className = 'settings-shortcut-grid';
     [
-        [['←', '→'], 'Enhanced · previous / next scene'],
-        [['↑', '↓'], 'Enhanced · slower / faster'],
-        [['H'], 'Enhanced · show / hide HUD'],
+        [['←', '→'], 'Previous / next scene'],
+        [['↑', '↓'], 'Slower / faster'],
+        [['H'], 'Show / hide Island UI'],
         [['S'], 'Island Options'],
         [['T'], 'Story timeline'],
         [['D'], 'Developer panel'],
-        [['F'], 'Enhanced · full screen'],
+        [['F'], 'Full view · screensaver only'],
+        [['Space'], 'Pause / resume screensaver'],
         [['R'], 'Return to title'],
         [['Esc'], 'Close this panel'],
     ].forEach(([keys, description]) => {
@@ -959,7 +990,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Apply initial
     applyScaling(savedScale);
 
-    return { open, close, applyExperience, restart, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'native') };
+    return { open, close, applyExperience, restart, cyclePicturePreset: () => crt.cyclePreset(), refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'native') };
 }
 
 function applyScaling(mode) {
@@ -968,20 +999,46 @@ function applyScaling(mode) {
 
     const width = 640;
     const height = 480;
-    const deck = document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
-    const rail = document.getElementById('jc-log');
-    // Keep the picture in its own available area; CRT follows these same bounds.
+    const fullView = document.body.classList.contains('jc-full-view');
+    if (document.getElementById('enhanced-hud')?.classList.contains('is-hidden')) mode = 'half-step';
+    if (fullView) mode = 'freeform';
+    const splash = document.getElementById('start-overlay')?.classList.contains('visible');
+    const deck = splash ? document.getElementById('start-actions') : document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
+    const cabinet = splash ? document.getElementById('start-cabinet') : deck ? document.getElementById('jc-cabinet') : null;
+    if (deck) document.body.style.setProperty('--jc-deck-top', `${deck.getBoundingClientRect().top}px`);
     const bottom = deck ? window.innerHeight - deck.getBoundingClientRect().top + 12 : 0;
-    const right = deck && rail && !rail.hidden && window.innerWidth > 900 ? rail.getBoundingClientRect().width + 24 : 0;
-    const vw = Math.max(1, window.innerWidth - right);
-    const vh = Math.max(1, window.innerHeight - bottom);
+    const titleCanvas = splash ? document.getElementById('start-title-picture') : null;
+    const minimumPicture = titleCanvas ? { width: titleCanvas.width * .5, height: titleCanvas.height * .5 } : null;
+    const layout = cabinet ? islandLayout(window.innerWidth, window.innerHeight, deck.getBoundingClientRect().top + (splash ? 12 : 0), minimumPicture) : null;
+    if (layout) {
+        const hud = splash ? document.body : document.getElementById('enhanced-hud');
+        for (const key of ['left', 'top', 'width', 'height']) hud.style.setProperty(`--cabinet-${key}`, `${layout[key]}px`);
+    }
+    const vw = Math.max(1, layout?.picture.width ?? window.innerWidth);
+    const vh = Math.max(1, layout?.picture.height ?? (window.innerHeight - bottom));
+    const centerX = layout ? layout.picture.left + vw / 2 : vw / 2;
+    const centerY = layout ? layout.picture.top + vh / 2 : vh / 2;
+
+    // A source-pixel title canvas avoids baking one fractional scale into another.
+    if (splash && layout) {
+        const title = document.getElementById('start-title-picture');
+        if (title?.width && title?.height) {
+            const chosen = titleScale(vw, vh, title.width, title.height);
+            title.style.width = `${title.width * chosen}px`;
+            title.style.height = `${title.height * chosen}px`;
+            title.style.left = `${centerX - title.width * chosen / 2}px`;
+            title.style.top = `${centerY - title.height * chosen / 2}px`;
+            title.dataset.scale = String(chosen);
+        }
+        mode = 'freeform';
+    }
 
     // Reset basics
     root.style.transform = 'none';
     root.style.width = '640px';
     root.style.height = '480px';
-    root.style.top = deck ? `${vh / 2}px` : '50%';
-    root.style.left = deck ? `${vw / 2}px` : '50%';
+    root.style.top = deck ? `${centerY}px` : '50%';
+    root.style.left = deck ? `${centerX}px` : '50%';
     root.style.marginTop = '-240px';
     root.style.marginLeft = '-320px';
     root.style.imageRendering = 'auto';
@@ -993,9 +1050,13 @@ function applyScaling(mode) {
     });
 
     if (mode === 'native') {
-        // defaults are fine
-    } else if (mode === 'integer') {
-        const scale = Math.max(1, Math.floor(Math.min(vw / width, vh / height)));
+        // Keep the native picture within the physical cabinet on small windows.
+        if (layout) root.style.transform = `scale(${Math.min(1, vw / width, vh / height)})`;
+    } else if (mode === 'integer' || mode === 'half-step') {
+        const fit = Math.min(vw / width, vh / height);
+        const scale = mode === 'half-step'
+            ? (fit < 0.5 ? fit : halfStepScale(vw, vh, width, height))
+            : (layout && fit < 1 ? fit : Math.max(1, Math.floor(fit)));
         root.style.transform = `scale(${scale})`;
         root.style.imageRendering = 'pixelated';
         Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
@@ -1007,8 +1068,8 @@ function applyScaling(mode) {
     } else if (mode === 'stretch') {
         root.style.width = deck ? `${vw}px` : '100vw';
         root.style.height = deck ? `${vh}px` : '100vh';
-        root.style.top = '0';
-        root.style.left = '0';
+        root.style.top = layout ? `${layout.picture.top}px` : '0';
+        root.style.left = layout ? `${layout.picture.left}px` : '0';
         root.style.marginTop = '0';
         root.style.marginLeft = '0';
         Array.from(root.getElementsByTagName('canvas')).forEach((c) => {

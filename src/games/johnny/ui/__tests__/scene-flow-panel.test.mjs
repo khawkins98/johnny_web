@@ -403,6 +403,27 @@ describe('scene-flow panel', () => {
         expect(document.getElementById('timeline-clock-notice')).toBeNull();
     });
 
+    it('saves the preview band as the current advancing clock and returns to live playback', () => {
+        let publish;
+        const startRun = vi.fn();
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools: {
+            startRun, subscribeStatus: (listener) => { publish = listener; return () => {}; },
+        } });
+        localStorage.setItem('jc-time', 'local');
+        publish({ storyDay: 3, band: 'night', night: true, forceHighTide: true, preview: true });
+        document.querySelector('#timeline-save-clock').click();
+        expect(localStorage.getItem('jc-time')).toBe('original');
+        expect(localStorage.getItem('jc-experience')).toBe('custom');
+        expect(startRun).toHaveBeenLastCalledWith({ mode: 'live' });
+        const offset = Number(localStorage.getItem('jc-start-time-hhmm') ?? 900);
+        const now = new Date();
+        const slot = (hhmm) => Math.floor(hhmm / 100) * 2 + (hhmm % 100 >= 30 ? 1 : 0);
+        expect((now.getHours() * 2 + Math.floor(now.getMinutes() / 30) - slot(offset) + 48) % 16).toBe(12);
+        publish({ band: null });
+        expect(document.querySelector('#timeline-clock-notice').hidden).toBe(true);
+        panel.destroy();
+    });
+
     it('tidies the script outline: hides loaders and merges steps that wait on the same scene', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 7 });
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });

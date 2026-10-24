@@ -1,0 +1,247 @@
+/* The original rendered title in the same island cabinet as live playback. */
+body:has(#start-overlay.visible) {
+    background: #a9d7d9;
+}
+body:has(#start-overlay.visible) #root {
+    z-index: 1;
+}
+#start-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+}
+#start-overlay.visible {
+    display: block;
+}
+#start-cabinet,
+#start-matte {
+    position: fixed;
+    left: var(--cabinet-left);
+    top: var(--cabinet-top);
+    width: var(--cabinet-width);
+    height: var(--cabinet-height);
+    pointer-events: none;
+}
+#start-matte {
+    display: none;
+    z-index: 0;
+}
+body:has(#start-overlay.visible) #start-matte {
+    display: block;
+}
+#start-matte div {
+    position: absolute;
+    left: 13.1%;
+    top: 22.1%;
+    width: 58.2%;
+    height: 59%;
+    border-radius: 7%;
+    background: #050808;
+}
+#start-actions {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1100px, calc(100% - 48px));
+    min-height: 182px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 36px 30px;
+    box-sizing: border-box;
+    pointer-events: auto;
+    isolation: isolate;
+    color: #234e52;
+}
+#start-actions::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -35px -18px -15px;
+    background: url('./island-art/shelf.png') center/100% 100% no-repeat;
+    pointer-events: none;
+}
+.start-action {
+    appearance: none;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1px;
+    background: transparent;
+    border: 0;
+    border-radius: 14px;
+    min-width: 0;
+    min-height: 136px;
+    padding: 0 5px;
+    color: #22553b;
+    cursor: pointer;
+    transition: transform 140ms;
+}
+.start-action strong {
+    font:
+        900 25px/1.1 Georgia,
+        serif;
+    letter-spacing: -1px;
+    text-shadow: 1px 1px #f5db89;
+}
+.start-action small {
+    font:
+        12px/1.4 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    color: #234e52;
+    margin-top: 4px;
+}
+.start-action:active {
+    transform: scale(0.96);
+}
+.start-action:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 3px;
+}
+#start-help-btn {
+    order: 4;
+}
+#start-settings-btn {
+    order: 3;
+}
+#start-help {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 12px);
+    right: 0;
+    width: min(440px, calc(100vw - 48px));
+    max-height: 45dvh;
+    overflow: auto;
+    padding: 18px 20px;
+    box-sizing: border-box;
+    background: #fff9dc;
+    border: 2px solid #22553b;
+    border-radius: 7px 14px 9px 6px;
+    box-shadow: 4px 6px #234e5244;
+    color: #234e52;
+    font:
+        15px/1.45 'Trebuchet MS',
+        Arial,
+        sans-serif;
+}
+#start-help.visible {
+    display: block;
+}
+#start-help strong {
+    font-weight: 700;
+    color: #22553b;
+}
+@media (max-width: 700px) {
+    #start-actions {
+        width: calc(100% - 28px);
+        padding-inline: 12px;
+    }
+    .start-action strong {
+        font-size: 19px;
+    }
+    .start-action small {
+        font-size: 10px;
+    }
+    .start-object {
+        transform: scale(0.85);
+    }
+}
+@media (max-width: 500px) {
+    #start-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        bottom: 16px;
+        min-height: 270px;
+        padding: 0 8px 15px;
+        background: #f8e6bd;
+        border: 2px solid #22553b;
+        border-radius: 12px 7px 24px 15px;
+        gap: 0 8px;
+    }
+    .start-action {
+        min-height: 120px;
+    }
+    .start-action strong {
+        font-size: 22px;
+    }
+    .start-action small {
+        font-size: 11px;
+    }
+    .start-object {
+        height: 68px;
+        margin-bottom: -6px;
+    }
+    #start-actions::before {
+        inset: auto -6px -32px;
+        height: 170px;
+    }
+    #start-help {
+        right: -2px;
+        width: calc(100vw - 28px);
+    }
+}
+@media (max-height: 600px) and (min-width: 501px) {
+    #start-actions {
+        min-height: 116px;
+        bottom: 10px;
+    }
+    .start-action {
+        min-height: 105px;
+    }
+    .start-object {
+        height: 54px;
+        transform: scale(0.8);
+        transform-origin: bottom;
+    }
+    .start-action strong {
+        font-size: 20px;
+    }
+    .start-action small {
+        font-size: 10px;
+    }
+    #start-actions::before {
+        top: -20px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .start-action {
+        transition: none;
+    }
+}
+/* Source pixels are presented once, at half-step zoom; live game buffers stay untouched. */
+#start-title-picture {
+    position: fixed;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+body:has(#start-overlay.visible) #root {
+    visibility: hidden;
+}
+body:has(#start-overlay.visible) #johnny-crt-output {
+    display: none !important;
+}
+#start-overlay {
+    overflow: hidden;
+}
+body:has(#start-overlay.visible) :is(#settings-cog, #scene-flow-cog, #timeline-clock-notice) {
+    display: none;
+}
+
+/* Leave cream paper under both labels and descriptions, before the foamy edge. */
+@media (min-width: 501px) and (min-height: 601px) {
+    #start-actions::before {
+        bottom: -5px;
+    }
+    .start-action {
+        padding-bottom: 24px;
+    }
+}
+.start-object {
+    flex: none;
+    transform-origin: center;
+}

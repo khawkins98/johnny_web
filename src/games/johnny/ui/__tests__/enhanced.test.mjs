@@ -9,6 +9,8 @@ vi.mock('../../../../dgds/scripting/process.mjs', () => ({
 }));
 
 import { setupEnhancedUI } from '../enhanced.mjs';
+import { browserPlayback } from '../../../../dgds/hosts/browser-playback.mjs';
+import { __DEBUG__ } from '../../../../dgds/scripting/process.mjs';
 
 describe('enhanced playback HUD', () => {
     beforeEach(() => {
@@ -84,6 +86,7 @@ describe('playback toolbar and captain’s log', () => {
             .getElementById('jc-deck-restore')
             .dispatchEvent(new KeyboardEvent('keydown', { key: 'h', bubbles: true }));
         expect(ui.hud.inert).toBe(false);
+        expect(document.activeElement.id).toBe('jc-deck-log');
         expect(settings.refreshLayout).toHaveBeenCalled();
         ui.destroy();
         expect(document.body.classList.contains('jc-deck-visible')).toBe(false);
@@ -171,4 +174,37 @@ it('excludes hidden-tab intervals from the session watch clock', () => {
         ui.destroy();
         hidden.mockRestore();
     }
+});
+
+it('Full view fills the page without requesting browser fullscreen, and restores the previous Log', () => {
+ document.body.replaceChildren();vi.stubGlobal('requestAnimationFrame',vi.fn());vi.stubGlobal('cancelAnimationFrame',vi.fn());
+ const request=vi.fn();document.documentElement.requestFullscreen=request;
+ const ui=setupEnhancedUI();ui.setRailOpen(true);document.getElementById('jc-deck-fullscreen').click();
+ expect(request).not.toHaveBeenCalled();expect(document.body.classList.contains('jc-full-view')).toBe(true);expect(ui.hud.inert).toBe(true);
+ window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}));
+ expect(document.body.classList.contains('jc-full-view')).toBe(false);expect(document.getElementById('jc-log').hidden).toBe(false);ui.destroy();
+});
+it('wires TV preset, speed and pause hardware with a resumable screen overlay', () => {
+ document.body.replaceChildren();vi.stubGlobal('requestAnimationFrame',vi.fn());vi.stubGlobal('cancelAnimationFrame',vi.fn());browserPlayback.reset();
+ const cyclePicturePreset=vi.fn(()=> 'Subtle CRT');const ui=setupEnhancedUI({settings:{cyclePicturePreset}});
+ document.getElementById('jc-tv-picture').click();expect(cyclePicturePreset).toHaveBeenCalledOnce();
+ document.getElementById('jc-tv-pause').click();expect(browserPlayback.paused).toBe(true);expect(document.getElementById('jc-pause-overlay').hidden).toBe(false);
+ document.querySelector('#jc-pause-overlay button').click();expect(browserPlayback.paused).toBe(false);ui.destroy();
+ expect(document.getElementById('jc-pause-overlay')).toBeNull();expect(browserPlayback.rate).toBe(1);
+});
+
+it('turns painted dial faces for picture changes and speed changes, including wraparound', () => {
+ document.body.replaceChildren();vi.stubGlobal('requestAnimationFrame',vi.fn());vi.stubGlobal('cancelAnimationFrame',vi.fn());browserPlayback.reset();
+ const previous=__DEBUG__.getPresentation.getMockImplementation();
+ __DEBUG__.getPresentation.mockImplementation(()=>({scene:11,name:'Test',playbackRate:browserPlayback.rate}));
+ const ui=setupEnhancedUI({settings:{cyclePicturePreset:()=> 'Balanced CRT'}});
+ try {
+  const picture=document.getElementById('jc-tv-picture-paint');const speed=document.getElementById('jc-tv-speed-paint');
+  document.getElementById('jc-tv-picture').click();expect(picture.style.getPropertyValue('--dial-angle')).toBe('45deg');
+  document.getElementById('jc-tv-picture').click();expect(picture.style.getPropertyValue('--dial-angle')).toBe('90deg');
+  browserPlayback.setRate(2);expect(speed.style.getPropertyValue('--dial-angle')).toBe('90deg');
+  browserPlayback.setRate(4);expect(speed.style.getPropertyValue('--dial-angle')).toBe('180deg');
+  browserPlayback.setRate(.5);expect(speed.style.getPropertyValue('--dial-angle')).toBe('270deg');
+  browserPlayback.setRate(4);expect(speed.style.getPropertyValue('--dial-angle')).toBe('180deg');
+ } finally {ui.destroy();__DEBUG__.getPresentation.mockImplementation(previous)}
 });

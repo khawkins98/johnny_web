@@ -16,6 +16,8 @@ Follow the [README setup](README.md#run-locally) to get the app running. You can
 
 Unit tests also live alongside the source in `__tests__/` directories. Read the [architecture guide](docs/architecture.md) when working on execution or rendering, and use the [diagnostics guide](docs/diagnostics.md) to investigate playback bugs.
 
+For UI/artwork changes, start with [Maintaining the illustrated Island UI](docs/island-ui-art.md). It maps the live controls, original art/prompt files and screen/sprite coordinates, and explains how to amend the style without changing game rendering.
+
 ## Local game data
 
 Browser imports stay in IndexedDB. To make the data available to tests and command-line tools, extract the downloaded floppy ZIP into `public/data/`:

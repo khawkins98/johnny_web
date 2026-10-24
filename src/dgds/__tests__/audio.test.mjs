@@ -13,6 +13,8 @@ describe('audio manager', () => {
         };
         const context = {
             currentTime: 12,
+            suspend: vi.fn(),
+            resume: vi.fn(),
             destination: { name: 'speakers' },
             createGain: vi.fn().mockReturnValueOnce(masterGain).mockReturnValueOnce(sourceGain),
             createBiquadFilter: () => ({ connect: vi.fn(), type: '' }),
@@ -34,6 +36,12 @@ describe('audio manager', () => {
 
         manager.setEnabled(true);
         expect(masterGain.gain.setValueAtTime).toHaveBeenLastCalledWith(1, 12);
+        expect(manager.enabled).toBe(true);
+
+        manager.setPaused(true);
+        expect(context.suspend).toHaveBeenCalledOnce();
+        manager.setPaused(false);
+        expect(context.resume).toHaveBeenCalledOnce();
         expect(manager.enabled).toBe(true);
 
         const sound = manager.getSoundFxSource();

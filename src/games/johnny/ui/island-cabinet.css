@@ -1,0 +1,39 @@
+/* Reuse original raster art, preserving round knobs while narrowing the wide glass. */
+.island-cabinet-art {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    clip-path: polygon(
+        evenodd,
+        0% 0%,
+        100% 0%,
+        100% 100%,
+        0% 100%,
+        0% 0%,
+        14.224446% 23.4375%,
+        14.224446% 80.2734375%,
+        69.692638% 80.2734375%,
+        69.692638% 23.4375%,
+        14.224446% 23.4375%
+    );
+}
+.island-cabinet-face,
+.island-cabinet-controls {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-image: url('./island-art/cabinet.png');
+    background-repeat: no-repeat;
+}
+.island-cabinet-face {
+    left: 0;
+    width: 73.12366%;
+    background-size: 132.413793% 100%;
+    background-position: left top;
+}
+.island-cabinet-controls {
+    right: 0;
+    width: 26.87634%;
+    background-size: 408.510638% 100%;
+    background-position: right top;
+}

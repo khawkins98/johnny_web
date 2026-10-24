@@ -118,6 +118,7 @@ describe('settings UI', () => {
             'T',
             'D',
             'F',
+            'Space',
             'R',
             'Esc',
         ]);
@@ -221,4 +222,94 @@ describe('settings UI', () => {
         const status = document.getElementById('settings-story-status');
         if (status) expect(status.innerText).toBe('');
     });
+});
+
+it('fits the live picture into the cabinet and keeps its rectangle stable when Log opens', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div><section id="enhanced-hud"><div id="jc-cabinet"></div><nav id="jc-deck"></nav><aside id="jc-log" hidden></aside></section>';
+    document.body.classList.add('jc-deck-visible');
+    const deck = document.getElementById('jc-deck');
+    vi.spyOn(deck, 'getBoundingClientRect').mockReturnValue({ top: 600 });
+    try {
+        const settings = setupSettingsUI();
+        settings.applyExperience('enhanced');
+        const root = document.getElementById('root');
+        const rectStyles = [root.style.left,root.style.top,root.style.transform];
+        expect(root.style.transform).toMatch(/^scale\(/);
+        document.getElementById('jc-log').hidden = false;
+        settings.refreshLayout();
+        expect([root.style.left,root.style.top,root.style.transform]).toEqual(rectStyles);
+        document.body.classList.remove('jc-deck-visible');
+        settings.refreshLayout();
+        expect(root.style.left).toBe('50%');
+        expect(root.style.top).toBe('50%');
+    } finally {
+        document.body.classList.remove('jc-deck-visible');
+    }
+});
+
+it('gives the core settings their visible associated labels and keeps the close button in the header', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    setupSettingsUI();
+    for (const key of ['experience','scale','sound','clouds','waves','time','diagnostics']) {
+        const select = document.getElementById('jc-setting-'+key);
+        expect(select.labels).toHaveLength(1);
+        expect(select.labels[0].htmlFor).toBe(select.id);
+    }
+    expect(document.querySelector('.settings-header .close-btn')).not.toBeNull();
+    expect(document.querySelector('.settings-header #settings-title')).not.toBeNull();
+});
+
+it('isolates Settings from launch/playback controls and preserves an already hidden HUD on close', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div><section id="enhanced-hud"></section><div id="start-overlay"><button>Launch</button></div>';
+    const hud = document.getElementById('enhanced-hud');
+    hud.inert = true;
+    const settings = setupSettingsUI();
+    settings.open();
+    expect(document.getElementById('start-overlay').inert).toBe(true);
+    expect(document.getElementById('root').inert).toBe(true);
+    settings.open(); // Repeated opening must not overwrite the saved background state.
+    settings.close();
+    expect(document.getElementById('root').inert).toBe(false);
+    expect(document.getElementById('start-overlay').inert).toBe(false);
+    expect(hud.inert).toBe(true);
+});
+
+it('cycles the physical picture dial through actual CRT presets and models', () => {
+ document.body.innerHTML='<div id="root"><canvas></canvas></div>';localStorage.clear();const settings=setupSettingsUI();
+ expect(settings.cyclePicturePreset()).toBe('Subtle CRT');expect(document.getElementById('jc-crt-enabled').checked).toBe(true);
+ expect(settings.cyclePicturePreset()).toBe('Balanced CRT');expect(settings.cyclePicturePreset()).toBe('Soft CRT');
+ expect(settings.cyclePicturePreset()).toBe('VGA beam');expect(document.getElementById('jc-crt-model').value).toBe('vga');
+ expect(settings.cyclePicturePreset()).toBe('CRT-Lottes');expect(document.getElementById('jc-crt-model').value).toBe('lottes');
+ expect(settings.cyclePicturePreset()).toBe('Original picture');expect(document.getElementById('jc-crt-enabled').checked).toBe(false);
+});
+
+// TV-off fits the page at half steps without changing the saved cabinet preference.
+it.each([
+    [1940, 1200, 2.5], [1440, 1000, 2], [1024, 768, 1.5], [390, 844, 0.5],
+])('fits TV-off playback at half steps in %i×%i', (width, height, scale) => {
+    document.body.innerHTML = '<div id="root"><canvas width="640" height="480"></canvas></div><section id="enhanced-hud" class="is-hidden"><div id="jc-cabinet"></div><nav id="jc-deck"></nav></section>';
+    document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+    localStorage.setItem('jc-scale-mode', 'native');
+    vi.stubGlobal('innerWidth', width);
+    vi.stubGlobal('innerHeight', height);
+    try {
+        const settings = setupSettingsUI();
+        const root = document.querySelector('#root');
+        expect(root.style.transform).toBe(`scale(${scale})`);
+        expect(root.style.imageRendering).toBe('pixelated');
+        expect(root.querySelector('canvas').width).toBe(640);
+        expect(root.querySelector('canvas').height).toBe(480);
+        expect(localStorage.getItem('jc-scale-mode')).toBe('native');
+        const hud = document.querySelector('#enhanced-hud');
+        hud.classList.remove('is-hidden');
+        document.body.classList.add('jc-deck-visible');
+        vi.spyOn(document.querySelector('#jc-deck'), 'getBoundingClientRect').mockReturnValue({ top: height - 170 });
+        settings.refreshLayout();
+        // Native preference returns in the cabinet, instead of the TV-off auto zoom.
+        expect(root.style.transform).not.toBe(`scale(${scale})`);
+        expect(localStorage.getItem('jc-scale-mode')).toBe('native');
+    } finally {
+        document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+        vi.unstubAllGlobals();
+    }
 });

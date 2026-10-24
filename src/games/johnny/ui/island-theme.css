@@ -1,0 +1,170 @@
+/* Shared paper/ink language, present on splash, in playback and with the cabinet hidden. */
+:root {
+    --island-paper: #fff9dc;
+    --island-sand: #f3d9a5;
+    --island-aqua: #a9d7d9;
+    --island-mint: #c7e4df;
+    --island-ink: #234e52;
+    --island-green: #22553b;
+    --island-muted: #4c6c62;
+    --island-orange: #e99a32;
+    --island-action: #326e59;
+    --island-body-font: 'Trebuchet MS', Arial, sans-serif;
+    --island-title-font: Georgia, serif;
+}
+body #settings-modal,
+body #scene-flow-modal {
+    background: var(--island-paper);
+    background-image: none;
+    color: var(--island-ink);
+    border: 3px solid var(--island-ink);
+    border-radius: 12px 6px 14px 9px;
+    box-shadow:
+        5px 7px #234e5255,
+        0 18px 44px #0005;
+    font-family: var(--island-body-font);
+    font-variant-numeric: tabular-nums;
+}
+body #settings-modal {
+    padding: 0 22px 22px;
+    scroll-padding-top: 88px;
+    overscroll-behavior: contain;
+}
+body #settings-modal::before {
+    display: none;
+}
+body .settings-header {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    margin: 0 -22px 20px;
+    padding: 20px 58px 16px;
+    background: var(--island-paper);
+    border-bottom: 2px solid #a9c9b7;
+    box-shadow: 0 3px 8px #234e5214;
+}
+body #settings-title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font: 900 30px/1.15 var(--island-title-font);
+    color: var(--island-green);
+}
+body #settings-modal .close-btn,
+body #scene-flow-modal .scene-flow-close {
+    min-height: 40px;
+    min-width: 40px;
+    color: var(--island-ink);
+    background: var(--island-sand);
+    border: 2px solid var(--island-green);
+    border-radius: 50%;
+    box-shadow: none;
+    font: 24px/1 var(--island-body-font);
+}
+body #settings-modal .close-btn {
+    top: 14px;
+    right: 12px;
+}
+body #scene-flow-title {
+    padding-inline: 50px;
+    font: 900 30px/1.2 var(--island-title-font);
+    color: var(--island-green);
+}
+body #settings-modal .settings-row {
+    font:
+        700 23px/1.2 'Caveat',
+        cursive;
+}
+body #settings-modal :is(select, button, input, output),
+body #settings-modal .settings-help,
+body #settings-modal .johnny-crt {
+    font-family: var(--island-body-font);
+}
+body #settings-modal :is(select, button, input, output) {
+    font-size: 14px;
+    color: var(--island-ink);
+    border-color: var(--island-green);
+    background-color: var(--island-paper);
+    accent-color: var(--island-action);
+}
+body #settings-modal :is(button, select, input[type='text']) {
+    min-height: 40px;
+}
+body #settings-modal :is(select, button):hover {
+    background-color: #f6e2ae;
+}
+body #settings-modal .settings-help,
+body #settings-modal .johnny-crt p {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--island-muted);
+}
+body #settings-modal .johnny-crt {
+    font-size: 14px;
+    line-height: 1.4;
+}
+body #settings-modal .johnny-crt summary {
+    min-height: 44px;
+    font-weight: bold;
+    cursor: pointer;
+}
+body #settings-modal .johnny-crt .crt-control {
+    background: var(--island-mint);
+    border-radius: 7px 3px 9px 5px;
+}
+body #settings-modal .settings-shortcuts {
+    color: var(--island-ink);
+    border-color: #a9c9b7;
+    background: var(--island-mint);
+}
+body #settings-modal .settings-link {
+    font: 14px/1.4 var(--island-body-font);
+    color: var(--island-green);
+}
+body #settings-modal :focus-visible,
+body #scene-flow-modal :focus-visible {
+    outline: 3px solid var(--island-orange);
+    outline-offset: 3px;
+}
+body #settings-modal .settings-done {
+    background: var(--island-action);
+    color: var(--island-paper);
+}
+body #settings-modal .settings-done:hover {
+    background: var(--island-green);
+}
+@media (max-width: 550px) {
+    body #settings-modal {
+        padding: 0 16px 16px;
+    }
+    body .settings-header {
+        margin-inline: -16px;
+        padding: 16px 55px 14px;
+    }
+    body #settings-title,
+    body #scene-flow-title {
+        font-size: 26px;
+    }
+    body #scene-flow-title {
+        padding-inline: 38px;
+    }
+}
+body #settings-modal .settings-shortcut-grid {
+    font: 14px/1.4 var(--island-body-font);
+}
+body #settings-modal .settings-shortcut kbd {
+    font: 700 12px/24px var(--island-body-font);
+    background: var(--island-paper);
+    color: var(--island-ink);
+    box-shadow:
+        0 0 0 1px #22553b66,
+        0 2px #22553b44;
+}
+body #settings-modal .settings-start-time output {
+    background: var(--island-mint);
+    border-color: #a9c9b7;
+}
+body .scene-flow-header{position:sticky;top:-12px;z-index:5;margin:-12px -14px 10px;padding:16px 14px 10px;background:var(--island-paper);border-bottom:2px solid #a9c9b7;box-shadow:0 3px 8px #234e5214}
+body .scene-flow-header .scene-flow-close{top:12px;right:14px}
+@media(max-width:730px){body .scene-flow-header{top:-14px;margin:-14px -12px 10px;padding-inline:12px}}
+:root{--island-orange-ink:#9b5b12}

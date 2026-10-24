@@ -1,7 +1,7 @@
 import { setupCrtControls } from './controls.mjs';
 import { setupVgaControls, setupLottesControls } from './vga-controls.mjs';
 import { createCrtPresentation } from './presentation.mjs';
-import { presets, sanitizeSettings, readStored, writeStored } from './presets.mjs';
+import { presets, sanitizeSettings, readStored, writeStored, readPresets } from './presets.mjs';
 
 export function setupCrtSettings(container) {
     let storage;
@@ -47,5 +47,30 @@ export function setupCrtSettings(container) {
     const lottes = setupLottesControls(lottesPanel, update, { initial: saved?.lottes ?? {} });
     details.append(status, saveStatus); enabled.addEventListener('change', update); model.addEventListener('change', update);
     show(); presentation.update(enabled.checked, settings());
+    let dialIndex = enabled.checked ? -1 : 0;
+    presentation.cyclePreset = () => {
+        const choices = [
+            { name: 'Original picture', off: true },
+            { name: 'Subtle CRT', settings: presets.subtle },
+            { name: 'Balanced CRT', settings: presets.balanced },
+            { name: 'Soft CRT', settings: presets.soft },
+            { name: 'VGA beam', model: 'vga' },
+            { name: 'CRT-Lottes', model: 'lottes' },
+            ...readPresets(storage).map(p => ({ name: p.name, settings: p.settings })),
+        ];
+        dialIndex = (dialIndex + 1) % choices.length;
+        const next = choices[dialIndex];
+        enabled.checked = !next.off;
+        if (!next.off) {
+            model.value = next.model || 'creative';
+            if (next.settings) creative.applySettings({ ...next.settings, bypass: false });
+            else {
+                const bypass = details.querySelector(next.model === 'vga' ? '#vga-bypass' : '#lottes-bypass');
+                if (bypass) { bypass.checked = false; bypass.dispatchEvent(new Event('change')); }
+            }
+        }
+        update();
+        return next.name;
+    };
     return presentation;
 }

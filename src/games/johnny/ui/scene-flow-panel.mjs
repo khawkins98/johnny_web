@@ -1,3 +1,4 @@
+import { isolateDialog } from './dialog-background.mjs';
 /**
  * scene-flow-panel.mjs — the in-app "How it works" panel.
  *
@@ -21,7 +22,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandById, bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
-import { DEFAULT_START_TIME, formatStartTime } from '../start-time.mjs';
+import { DEFAULT_START_TIME, formatStartTime, startTimeForPhase, writeStartTime } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
@@ -52,8 +53,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
 
         #scene-flow-modal {
-            background: #d4c4a8;
-            border: 3px solid #8b5a2b;
+            background: #fff9dc;
+            border: 3px solid #53736a;
             border-radius: 2px;
             box-shadow: 0 18px 44px rgba(0,0,0,0.52), 0 3px 8px rgba(0,0,0,0.32), inset 2px 2px 0 #f0dfbc;
             width: calc(100vw - 24px);
@@ -63,8 +64,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             overflow-y: auto;
             overflow-x: hidden;
             padding: 12px 14px 14px;
-            font-family: 'Caveat', cursive;
-            color: #4a3520;
+            font-family: 'Trebuchet MS', Arial, sans-serif;
+            color: #234e52;
             position: relative;
         }
 
@@ -78,28 +79,28 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
 
         #scene-flow-subtitle {
             text-align: center;
-            font-family: 'VT323', monospace;
-            font-size: 16px;
+            font-family: 'Trebuchet MS', Arial, sans-serif;
+            font-size: 13px;
             margin: 0 0 7px 0;
             padding-bottom: 3px;
         }
 
         .scene-flow-inspector h3 { margin: 10px 0 0; font: 26px/1 'Caveat', cursive; }
-        .scene-flow-inspector p { margin: 5px 0; line-height: 1.08; }
-        .scene-flow-inspector .scene-flow-inspector-kicker { color: #795023; text-transform: uppercase; font-size: 15px; }
-        .scene-flow-preview-stage { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 8px 0 4px; overflow: hidden; background: #071998; border: 2px solid #8b5a2b; box-sizing: border-box; }
+        .scene-flow-inspector p { margin: 5px 0; line-height: 1.45; }
+        .scene-flow-inspector .scene-flow-inspector-kicker { color: #53736a; text-transform: uppercase; font-size: 12px; }
+        .scene-flow-preview-stage { position: relative; width: 100%; aspect-ratio: 4 / 3; margin: 8px 0 4px; overflow: hidden; background: #071998; border: 2px solid #53736a; box-sizing: border-box; }
         /* Shown smaller than 640x480: smooth downscaling averages the game's dithering instead of breaking it into moire. */
         .scene-flow-preview-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-        .scene-flow-preview-caption { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
-        .scene-flow-play-button { width: 100%; min-height: 42px; margin-top: 8px; padding: 5px 8px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
-        .scene-flow-play-button:hover { background: #fff177; }
+        .scene-flow-preview-caption { display: block; color: #53736a; font-size: 12px; line-height: 1.4; }
+        .scene-flow-play-button { width: 100%; min-height: 42px; margin-top: 8px; padding: 5px 8px; border: 2px solid #22553b; background: #f2cc91; color: #234e52; font: 700 14px/1.35 'Trebuchet MS', Arial, sans-serif; cursor: pointer; }
+        .scene-flow-play-button:hover { background: #f6e2ae; }
         .scene-flow-play-button:active { scale: .96; }
-        .scene-flow-preview-note { display: block; color: #795023; font-size: 15px; line-height: 1.05; }
-        .scene-flow-story-shell { padding: 13px 15px; background: #071998; box-shadow: inset 0 0 0 2px #31b7e6; color: #fff9c5; font: 19px/1.1 'VT323', monospace; }
-        .scene-flow-possibility-note { margin: 0 0 10px; color: #c3e6ec; font-size: 17px; }
-        .scene-flow-matrix-detail { margin-top: 9px; border-top: 1px dashed #65c8e2; padding-top: 9px; }
-        .scene-flow-matrix-detail-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #b9eaf0; font-size: 17px; letter-spacing: .04em; }
-        .scene-flow-matrix-detail-heading strong { color: #fff6c7; font-weight: normal; font-size: 20px; }
+        .scene-flow-preview-note { display: block; color: #53736a; font-size: 12px; line-height: 1.4; }
+        .scene-flow-story-shell { padding: 16px; border-radius: 9px 5px; background: #c7e4df; box-shadow: inset 0 0 0 2px #a9c9b7; color: #234e52; font: 14px/1.45 'Trebuchet MS', Arial, sans-serif; }
+        .scene-flow-possibility-note { margin: 0 0 10px; color: #234e52; font-size: 13px; }
+        .scene-flow-matrix-detail { margin-top: 9px; border-top: 1px dashed #8bb9a8; padding-top: 9px; }
+        .scene-flow-matrix-detail-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: #53736a; font-size: 13px; letter-spacing: .04em; }
+        .scene-flow-matrix-detail-heading strong { color: #22553b; font-weight: normal; font-size: 20px; }
         .scene-flow-outline { margin-top: 8px; }
         @media (max-width: 730px) {
             #scene-flow-modal { padding: 14px 12px; }
@@ -111,15 +112,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             top: 12px;
             right: 14px;
             background: rgba(244, 228, 200, 0.72);
-            color: #4a3520;
-            border: 2px solid #8b5a2b;
+            color: #234e52;
+            border: 2px solid #53736a;
             border-radius: 50%;
             width: 40px;
             height: 40px;
             font-size: 20px;
             font-weight: bold;
             cursor: pointer;
-            font-family: 'VT323', monospace;
+            font-family: 'Trebuchet MS', Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -131,24 +132,24 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
 
         .scene-flow-empty {
-            font-family: 'VT323', monospace;
+            font-family: 'Trebuchet MS', Arial, sans-serif;
             font-size: 18px;
             text-align: center;
             padding: 18px 6px;
         }
 
         .scene-flow-outline { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: step; }
-        .scene-flow-step { display: grid; grid-template-columns: minmax(150px, 260px) 1fr; gap: 4px 14px; align-items: baseline;
-            padding: 8px 12px 8px 40px; position: relative; background: #f4e4c8; border: 2px solid #8b5a2b; counter-increment: step; }
-        .scene-flow-step::before { content: counter(step); position: absolute; left: 10px; top: 8px; font: 20px/1 'VT323', monospace; color: #8b5a2b; }
-        .scene-flow-guard { font: 18px/1.15 'VT323', monospace; color: #6b4a24; }
-        .scene-flow-guard strong { font-weight: normal; color: #302816; }
-        .scene-flow-targets { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 21px/1.15 'VT323', monospace; color: #302816; }
+        .scene-flow-step { border-radius: 6px 4px; display: grid; grid-template-columns: minmax(150px, 260px) 1fr; gap: 4px 14px; align-items: baseline;
+            padding: 8px 12px 8px 40px; position: relative; background: #fff9dc; border: 2px solid #53736a; counter-increment: step; }
+        .scene-flow-step::before { content: counter(step); position: absolute; left: 10px; top: 8px; font: 700 14px/1.35 'Trebuchet MS', Arial, sans-serif; color: #53736a; }
+        .scene-flow-guard { font: 13px/1.45 'Trebuchet MS', Arial, sans-serif; color: #53736a; }
+        .scene-flow-guard strong { font-weight: normal; color: #234e52; }
+        .scene-flow-targets { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 14px/1.4 'Trebuchet MS', Arial, sans-serif; color: #234e52; }
         .scene-flow-target strong, .scene-flow-pick strong { font-weight: normal; }
-        .scene-flow-target::before { content: '→ '; color: #8b5a2b; }
+        .scene-flow-target::before { content: '→ '; color: #53736a; }
         .scene-flow-target.is-stop { color: #9a3412; }
         .scene-flow-target.is-stop::before { content: '■ '; }
-        .scene-flow-pick-lead { flex-basis: 100%; color: #6b4a24; font-size: 18px; }
+        .scene-flow-pick-lead { flex-basis: 100%; color: #53736a; font-size: 18px; }
         .scene-flow-pick::before { content: '◆ '; color: #c2410c; }
         @media (max-width: 640px) { .scene-flow-step { grid-template-columns: 1fr; } }
 
@@ -162,14 +163,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
 
         .scene-flow-link {
-            font-size: 19px;
-            color: #2c5e8b;
+            font-size: 14px;
+            color: #22553b;
             text-decoration: underline;
             text-decoration-style: wavy;
         }
 
         .scene-flow-link:hover {
-            color: #1a3c5c;
+            color: #234e52;
         }
 
         #scene-flow-cog {
@@ -182,8 +183,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             padding: 0;
             border: 0;
             border-radius: 50%;
-            background: #d4c4a8;
-            color: #4a3520;
+            background: #fff9dc;
+            color: #234e52;
             box-shadow:
                 0 0 0 2px rgba(139, 90, 43, 0.72),
                 0 5px 14px rgba(0, 0, 0, 0.34),
@@ -209,44 +210,53 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
 
         #scene-flow-cog:hover {
-            background: #f4e4c8;
+            background: #fff9dc;
         }
         #scene-flow-cog.is-visible:active { scale: .96; }
         #scene-flow-cog:focus-visible { outline: 3px solid rgba(244, 228, 200, 0.86); outline-offset: 3px; }
         .scene-flow-day-strip { margin: 6px 0 4px; }
-        .scene-flow-day-buttons { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); border: 2px solid #65c8e2; }
-        .scene-flow-day-buttons button { min-height: 52px; padding: 5px 4px; border: 0; border-right: 1px solid #527bbb; background: #102d8f; color: #bde9e9; cursor: pointer; text-align: center; overflow: hidden; }
+        .scene-flow-day-buttons { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); border: 2px solid #8bb9a8; }
+        .scene-flow-day-buttons button { min-height: 52px; padding: 5px 4px; border: 0; border-right: 1px solid #8bb9a8; background: #c7e4df; color: #234e52; cursor: pointer; text-align: center; overflow: hidden; }
         .scene-flow-day-buttons button:last-child { border-right: 0; }
-        .scene-flow-day-buttons button strong { display: block; font: 22px/1 'VT323', monospace; font-variant-numeric: tabular-nums; }
-        .scene-flow-day-buttons button small { display: block; margin-top: 2px; font: 15px/1 'VT323', monospace; color: #a4e5de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .scene-flow-day-buttons button[aria-current="date"] { background: #ffe02d; color: #302816; }
-        .scene-flow-day-buttons button[aria-current="date"] small { color: #5b4a1c; }
+        .scene-flow-day-buttons button strong { display: block; font: 700 18px/1.2 Georgia, serif; font-variant-numeric: tabular-nums; }
+        .scene-flow-day-buttons button small { display: block; margin-top: 2px; font: 12px/1.3 'Trebuchet MS', Arial, sans-serif; color: #53736a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .scene-flow-day-buttons button[aria-current="date"] { background: #f2cc91; color: #234e52; }
+        .scene-flow-day-buttons button[aria-current="date"] small { color: #234e52; }
         .scene-flow-day-buttons button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px #fffbe2; }
-        .scene-flow-day-buttons button:hover { background: #1642b1; }
-        .scene-flow-day-buttons button[aria-current="date"]:hover { background: #ffe86a; }
-        .scene-flow-day-buttons button:focus-visible { outline: 3px solid #ffe02d; outline-offset: -3px; }
-        .scene-flow-day-pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 2px solid #65c8e2; border-top: 0; background: #0b2384; color: #fffbdc; }
+        .scene-flow-day-buttons button:hover { background: #b4d9ce; }
+        .scene-flow-day-buttons button[aria-current="date"]:hover { background: #f6e2ae; }
+        .scene-flow-day-buttons button:focus-visible { outline: 3px solid #f2cc91; outline-offset: -3px; }
+        .scene-flow-day-pick { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 2px solid #8bb9a8; border-top: 0; background: #c7e4df; color: #234e52; }
         .scene-flow-day-pick[hidden] { display: none; }
-        .scene-flow-day-pick button { min-height: 40px; padding: 4px 14px; border: 2px solid #704a1e; background: #ffe02d; color: #302816; font: 20px/1 'VT323', monospace; cursor: pointer; }
+        .scene-flow-day-pick button { min-height: 40px; padding: 4px 14px; border: 2px solid #22553b; background: #f2cc91; color: #234e52; font: 700 14px/1.35 'Trebuchet MS', Arial, sans-serif; cursor: pointer; }
         .scene-flow-day-pick button:disabled { opacity: .5; cursor: default; }
         @media (max-width: 720px) {
             .scene-flow-day-buttons { grid-template-columns: repeat(6, minmax(0, 1fr)); }
             .scene-flow-day-buttons button small { display: none; }
         }
         .scene-flow-gag { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; margin-top: 8px; }
-        .scene-flow-gag-aside { position: sticky; top: 0; padding: 10px 12px; color: #3b2c1c; background: #f4e4c8;
-            box-shadow: inset 0 0 0 2px #8b5a2b; font: 18px/1.1 'VT323', monospace; }
-        .scene-flow-targets button { padding: 2px 6px; border: 1px solid transparent; background: none; color: inherit;
-            font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted #8b5a2b; text-underline-offset: 3px; }
-        .scene-flow-targets button:hover { background: #fff1b8; border-color: #8b5a2b; }
-        .scene-flow-targets button:focus-visible { outline: 3px solid #071998; outline-offset: 1px; }
-        .scene-flow-targets button.is-route { background: #fff1b8; }
-        .scene-flow-targets button[aria-pressed="true"] { background: #ffe02d; border-color: #704a1e; text-decoration: none; }
-        .scene-flow-step.is-route { border-color: #c79a3a; }
-        .scene-flow-step.is-selected { border-color: #ffe02d; box-shadow: 0 0 0 2px #ffe02d; }
+        .scene-flow-gag-aside { border-radius: 7px 4px; position: sticky; top: 0; padding: 10px 12px; color: #234e52; background: #fff9dc;
+            box-shadow: inset 0 0 0 2px #53736a; font: 14px/1.45 'Trebuchet MS', Arial, sans-serif; }
+        .scene-flow-targets button { min-height: 40px; padding: 5px 8px; border-radius: 5px; border: 1px solid transparent; background: none; color: inherit;
+            font: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted #53736a; text-underline-offset: 3px; }
+        .scene-flow-targets button:hover { background: #f6e2ae; border-color: #53736a; }
+        .scene-flow-targets button:focus-visible { outline: 3px solid #e99a32; outline-offset: 1px; }
+        .scene-flow-targets button.is-route { background: #f6e2ae; }
+        .scene-flow-targets button[aria-pressed="true"] { background: #f2cc91; border-color: #22553b; text-decoration: none; }
+        .scene-flow-step.is-route { border-color: #8bb9a8; }
+        .scene-flow-step.is-selected { border-color: #22553b; box-shadow: 0 0 0 2px #e99a32; }
         @media (max-width: 760px) {
             .scene-flow-gag { grid-template-columns: 1fr; }
-            .scene-flow-gag-aside { position: static; }
+            .scene-flow-gag-aside { border-radius: 7px 4px; position: static; }
+        }
+        /* Paper actions retain a consistent ink outline and a distinct keyboard ring. */
+        #scene-flow-modal button:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
+        .scene-flow-play-button, .scene-flow-day-pick button { border-radius: 7px 4px; }
+        .scene-flow-matrix-detail-heading { flex-wrap: wrap; }
+        .scene-flow-matrix-detail-heading strong { font: 700 16px/1.4 Georgia, serif; color: #22553b; }
+        #scene-flow-modal .scene-flow-inspector-kicker { letter-spacing: .07em; }
+        @media (prefers-reduced-motion: reduce) {
+            #scene-flow-modal button { transition: none; }
         }
         ${iconTooltipCss}
     `;
@@ -266,6 +276,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     closeBtn.textContent = '×';
     closeBtn.setAttribute('aria-label', 'Close story timeline');
     let previousFocus = null;
+    let releaseBackground = null;
     let isOpen = false;
     const close = () => {
         isOpen = false;
@@ -275,14 +286,19 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         mountedPreview = null;
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
+        releaseBackground?.();
+        releaseBackground = null;
         previousFocus?.focus?.();
     };
     closeBtn.onclick = close;
-    modal.appendChild(closeBtn);
+    const header = document.createElement('header');
+    header.className = 'scene-flow-header';
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
 
     const title = document.createElement('h2');
     title.id = 'scene-flow-title';
-    modal.appendChild(title);
+    header.appendChild(title);
 
     const subtitle = document.createElement('div');
     subtitle.id = 'scene-flow-subtitle';
@@ -310,12 +326,28 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     clockNotice.hidden = true;
     const clockMessage = document.createElement('span');
     clockMessage.setAttribute('role', 'status');
+    clockMessage.style.display = 'block';
     const returnLive = document.createElement('button');
     returnLive.type = 'button';
     returnLive.className = 'story-steps-play';
-    returnLive.textContent = 'Return to live clock';
+    returnLive.textContent = 'Use saved clock';
     returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
-    clockNotice.append(clockMessage, returnLive);
+    let temporaryStatus = null;
+    const saveClock = document.createElement('button');
+    saveClock.type = 'button';
+    saveClock.id = 'timeline-save-clock';
+    saveClock.className = 'story-steps-play';
+    saveClock.textContent = 'Save as current time';
+    saveClock.title = 'Set the story clock to this time now; it will keep advancing. Scene-only sky and tide changes are not saved.';
+    saveClock.onclick = () => {
+        const band = bandById(temporaryStatus?.band);
+        if (!band) return;
+        writeStartTime(localStorage, startTimeForPhase(new Date(), band.min));
+        localStorage.setItem('jc-time', 'original');
+        localStorage.setItem('jc-experience', 'custom');
+        sequenceTools?.startRun?.({ mode: 'live' });
+    };
+    clockNotice.append(clockMessage, returnLive, saveClock);
     document.body.appendChild(clockNotice);
     const clockDescription = (status) => {
         const local = localStorage.getItem('jc-time') === 'local';
@@ -491,7 +523,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         subtitle.textContent = clockDescription(status);
         const context = document.createElement('p');
         context.className = 'scene-flow-clock-context';
-        context.style.cssText = 'margin:8px 0 12px;color:#4a351c;font:20px/1.2 VT323,monospace';
+        context.style.cssText = 'margin:8px 0 12px;color:#234e52;font:14px/1.45 Trebuchet MS,Arial,sans-serif';
         context.textContent = `Browsing day ${step.day} · ${bandById(step.band)?.label ?? 'Early day'}. Browsing does not change playback. ` +
             `Visit story-clock offset: ${formatStartTime(live.startTime)}. Configured sky: ${localStorage.getItem('jc-time') === 'local' ? 'Live Local Clock (night before 06:00 / from 18:00)' : 'Sequence Clock (Original)'}. ` +
             (status?.band ? `Temporary ${bandById(status.band)?.label} override: ${status.preview ? 'this gag/scene, then the interrupted visit resumes' : 'this visit, then the configured clock resumes'}. ` : '');
@@ -863,10 +895,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     };
 
     function open() {
+        if (isOpen || document.querySelector('#settings-overlay[aria-hidden="false"]')) return;
         isOpen = true;
         step = null;
         renderedGagId = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
+        releaseBackground = isolateDialog(overlay);
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
         renderCurrent();
@@ -879,9 +913,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // the unsubscribe handle (if the controller returns one) so destroy() can
     // detach it.
     const unsubscribeStatus = sequenceTools?.subscribeStatus?.((status) => {
+        temporaryStatus = status;
         clockNotice.hidden = !status?.band;
-        clockMessage.textContent = status?.band
-            ? `Temporary ${bandById(status.band)?.label} · ${clockDescription(status)}. ${status.preview ? 'Ends after this gag/scene; interrupted visit resumes.' : 'Ends after this visit.'} ` : '';
+        const band = bandById(status?.band);
+        const exceptions = [status?.forceNight && status?.band !== 'night' ? 'Scene requires night' : '',
+            status?.forceHighTide ? 'Scene requires high tide' : ''].filter(Boolean);
+        clockMessage.textContent = band
+            ? `Day ${status.storyDay ?? 1} · ${band.label} preview. ${status.preview ? 'Ends after this gag/scene.' : 'Ends after this visit.'} Your saved clock is unchanged.${exceptions.length ? ' ' + exceptions.join('. ') + '.' : ''}` : '';
         if (status?.current === 0 && !status.active) seenGags = [];
         if (status?.active) {
             const previous = seenGags.at(-1);
@@ -898,6 +936,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // this is hygiene — but it keeps the panel safe to re-create (e.g. in tests
     // or a future multi-instance host) without leaking listeners.
     const destroy = () => {
+        releaseBackground?.();
+        releaseBackground = null;
         faceQueue?.destroy();
         faceQueue = null;
         stepperStyle.remove();

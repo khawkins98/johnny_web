@@ -1,0 +1,48 @@
+/* Shared raster sampling for splash + live controls. Source: objects.png, 2172×724.
+   Each x/width window stays inside one silhouette; uniform source y=180..530
+   preserves the full lower edge. Values below are source pixels × 0.2. */
+.island-object {
+    display: block;
+    position: relative;
+    flex: none;
+    pointer-events: none;
+    height: 70px;
+    background-image: url('./island-art/objects.png');
+    background-size: 434.4px 144.8px;
+    background-repeat: no-repeat;
+    background-position: var(--object-x) -36px;
+    width: var(--object-width);
+}
+/* x=349,width=282; x=644,width=274; x=928,width=333 */
+.island-object--sound {
+    --object-x: -69.8px;
+    --object-width: 56.4px;
+}
+.island-object--speed {
+    --object-x: -128.8px;
+    --object-width: 54.8px;
+}
+.island-object--picture {
+    --object-x: -185.6px;
+    --object-width: 66.6px;
+}
+/* x=1285,width=243; x=1538,width=304; x=1850,width=319 */
+.island-object--options {
+    --object-x: -257px;
+    --object-width: 48.6px;
+}
+.island-object--full {
+    --object-x: -307.6px;
+    --object-width: 60.8px;
+}
+.island-object--rail,
+.island-object--book {
+    --object-x: -370px;
+    --object-width: 63.8px;
+}
+
+/* One alpha-aware highlight for painted controls on the splash and live shelf.
+   Focus outlines remain on the real buttons; the glow follows their artwork. */
+.island-art-control:is(:hover, :focus-visible, [aria-expanded='true']) > :is(.island-object, .island-control-label) {
+    filter: drop-shadow(1px 2px 1px #234e5266) drop-shadow(0 0 4px #ffe6a6);
+}
