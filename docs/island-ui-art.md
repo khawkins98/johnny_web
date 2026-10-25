@@ -8,7 +8,7 @@ The chosen direction is a large, hand-painted tropical object: a resourceful cas
 
 The primary visual inspiration was the original **Johnny Castaway 1992 retail box and splash screen**, supplied by the user; original creators and ownership are credited in [NOTICE](../NOTICE). User-supplied adventure/RPG interface screenshots inspired the inventory shelf, broad lettering and right-hand notebook, including Flight of the Amazon Queen. They were composition references, not asset sources. Do not copy their sprites, logos or screenshots into the production UI. The [issue #81 presentation study](https://github.com/khawkins98/johnny_web/issues/81) is the wider research context.
 
-The earlier Google Antigravity (`agy`) pixel-art pass remains documented in [deck-icons/README.md](../src/games/johnny/ui/deck-icons/README.md). Those SVGs are historical, not the active painted skin. The selected painted objects, title, labels, sand shelf and cabinet were generated with Codex's built-in `image_gen.imagegen` tool on 2026-10-24, then composed in HTML/CSS over an unchanged Johnny frame for local evaluation. After selection, those **original interface illustrations only** were promoted into the live app. No original-game screenshot or reference-game art is bundled in these assets.
+The earlier Google Antigravity (`agy`) pixel-art pass remains documented in [historical pixel-study notes](ui-early-pixel-study.md). Those unused SVGs were removed from the active source tree; the notes identify the original commit for recovery. The selected painted objects, title, labels, sand shelf and cabinet were generated with Codex's built-in `image_gen.imagegen` tool on 2026-10-24, then composed in HTML/CSS over an unchanged Johnny frame for local evaluation. After selection, those **original interface illustrations only** were promoted into the live app. No original-game screenshot or reference-game art is bundled in these assets.
 
 ## Find the right file
 
@@ -41,7 +41,7 @@ All five active images are original transparent RGBA PNGs and use the project's 
 | `cabinet.png` | Final 1536×1024 driftwood/bamboo/coconut cabinet, front view, transparent exterior and viewing opening |
 | `objects.png` | Seven illustrated objects in one source strip |
 | `labels.png` | Pause, Sound, Speed, Picture, Options, Full view, Log lettering strip |
-| `title.png` | Original “Island Time” wordmark, not a regenerated Johnny logo |
+| `title.png` | Original “Johnny Web” wordmark, not a regenerated Johnny Castaway logo |
 | `shelf.png` | Sand bank, foam edge, shell and palm ends; broad blank center |
 
 The prompt JSON preserves the historical reference filenames. In a current checkout, the cabinet's `initialStyleReference` means **`objects.png` in this directory**. Its edit reference means the initial cabinet generation; `cabinet.png` is the final edited result and can itself be supplied as the next edit reference. The historical initial cabinet is not a runtime dependency.
@@ -149,3 +149,9 @@ Log keeps the current gag, day/time visits and previous/next gag actions visible
 Validation for consolidation: full serial suite **895 passed, two skipped**; targeted UI/CRT checks **93 passed**; production build passed. Actual-game browser checks covered new and saved preferences through launch/return-to-title, Picture/dial preset synchronization, expanded mobile fine tuning and CRT controls, specific-gag playback, keyboard focus wrapping, and desktop/mobile layouts. The collapsed Options axe WCAG2A/AA audit reported zero violations (heading text-shadow contrast requires manual review). Captures remain local under `scratchpad/issue81/consolidated-*.png`.
 
 The original title canvas sits inside the native `start-picture-btn` button. Clicking/tapping the picture, or using Enter/Space while it has focus, invokes the same synchronous launch handler as Play. Keep that handler shared, including listener cleanup on return-to-title, so audio activation and preference behavior remain identical. The button receives the title's measured position; the canvas keeps its existing half-step size.
+
+## Wordmark and retired artwork (2026-10-25)
+
+`island-art/title.png` now reads **Johnny Web**, edited from the original Island Time illustration with the built-in image generator. Its exact edit prompt, reference commit and tool provenance are in `island-art/title-prompts.json`. Preserve the transparent orange/cream/palm-green lettering and update its accessible alt text with any future wording change. This changes the web interface wordmark, not the original Johnny Castaway splash/game artwork.
+
+The unused `deck-icons/` SVG study was removed after checking for runtime references. [Historical provider and design notes](ui-early-pixel-study.md) retain credit and a recovery commit; do not restore obsolete assets into production just to preserve research history.

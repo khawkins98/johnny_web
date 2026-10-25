@@ -1,8 +1,10 @@
-# Playback deck pixel artwork
+# Historical playback deck pixel study
 
 Original 24×24 pixel artwork generated with Google Antigravity (`agy --print`) at the user’s request, 2026-10-23. The brief was a nautical 1990s adventure toolbar; no game sprites, library icons, or reference images were supplied to the generator. The SVG output was inspected and integrated by Codex. These original project assets use the repository’s MIT license.
 
-Icons use integer rectangles, a transparent background, and `shape-rendering="crispEdges"`. Render at 24px or whole multiples for an even pixel grid. Edit the SVG rectangles directly; no generator or build step is required. Decorative SVGs are hidden from assistive technology by the toolbar; text labels remain on the buttons.
+The unused SVGs were removed from the active source tree on 2026-10-25 after the painted Island UI replaced them. Their original sources remain in git history at commit `927cee8`, under `src/games/johnny/ui/deck-icons/`. This document preserves the provider, brief and construction notes; they are not runtime dependencies.
+
+Icons used integer rectangles, a transparent background, and `shape-rendering="crispEdges"`. Render at 24px or whole multiples for an even pixel grid. Edit the SVG rectangles directly; no generator or build step is required. Decorative SVGs are hidden from assistive technology by the toolbar; text labels remain on the buttons.
 
 Palette: ink `#241e18`, wood `#805a32`, brass `#c59b50`, highlight `#f5df9b`, parchment `#e8d5a7`, sea teal `#57958c`, deep teal `#294f4b`.
 

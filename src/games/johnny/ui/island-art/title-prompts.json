@@ -1,0 +1,9 @@
+{
+  "tool": "Codex built-in image_gen.imagegen",
+  "model": "Not exposed by tool",
+  "date": "2026-10-25",
+  "transparent_background": true,
+  "edit_target": "title.png at commit 3e1980b (Island Time wordmark)",
+  "prompt": "Use case: text-localization. Edit target: the supplied transparent hand-painted Island Time wordmark. Replace its lettering with exact text \"Johnny Web\" (J-o-h-n-n-y, space, W-e-b). Keep the same wide single-line composition, bouncy irregular chunky wedge-serif forms, orange paint, cream brush highlights, deep palm-green ink contours and flat offset green shadow, hand-painted gouache/print texture and sunny 1992 illustrated adventure-box character. Make the letters substantial and readable at 200px wide. Transparent RGBA background, generous but small transparent safety margin, no ornaments, no other words, no existing Johnny Castaway logo. Preserve visual style rather than merely typesetting a font. Output a wide horizontal wordmark with the same approximate 3:1 proportions as the reference.",
+  "output": "title.png (Johnny Web wordmark)"
+}
