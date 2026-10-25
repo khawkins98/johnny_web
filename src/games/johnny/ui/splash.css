@@ -48,7 +48,7 @@ body:has(#start-overlay.visible) #start-matte {
     width: min(1100px, calc(100% - 48px));
     min-height: 182px;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(150px, 210px) repeat(3, minmax(0, 1fr));
     gap: 8px;
     padding: 0 36px 30px;
     box-sizing: border-box;
@@ -256,4 +256,25 @@ body:has(#start-overlay.visible) :is(#settings-cog, #scene-flow-cog, #timeline-c
 .start-object {
     flex: none;
     transform-origin: center;
+}
+
+/* Same wordmark asset as the live shelf; this link is separate from Play. */
+.start-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+    min-height: 64px;
+    padding: 4px;
+    color: #234e52;
+    text-decoration: none;
+    font: 14px/1.4 'Trebuchet MS', Arial, sans-serif;
+}
+.start-brand img { display: block; width: 100%; max-width: 210px; height: 70px; object-fit: contain; }
+.start-brand:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; border-radius: 5px; }
+@media (max-width: 800px) {
+    #start-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: 230px; }
+    .start-brand { grid-column: 1 / -1; flex-direction: row; gap: 8px; }
+    .start-brand img { width: 150px; height: 50px; }
 }
