@@ -24,10 +24,10 @@ For tests and command-line tools that need game data, follow the [local extracti
 ## Playback
 
 <p align="center">
-  <img src="docs/images/island-tv-ui.png" width="960" alt="Johnny Web with its painted driftwood TV, Balanced CRT picture, playback shelf and Island Log">
+  <img src="docs/images/island-tv-ui.png" width="960" alt="Johnny Web with its painted driftwood TV, coconut picture and speed dials, green pause button and playback shelf">
 </p>
 
-The current Island TV interface. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
+The Island TV interface, with the Log closed to show the TV controls. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
 
 Press **Play** to start Johnny with the illustrated Island TV, Balanced CRT, stretch-to-fill picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
 
