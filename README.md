@@ -6,6 +6,8 @@
   <img src="docs/images/gag-dives.webp" width="464" alt="Johnny's dive being scored by animals on the island">
 </p>
 
+For the story behind the project and its reconstruction, read [Rehabilitating Johnny Castaway for the browser](https://www.allaboutken.com/posts/20261019-johnny-castaway-browser/).
+
 ## Run locally
 
 You need **Node.js 24+** and **pnpm 10**.
@@ -21,9 +23,15 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 ## Playback
 
-Press **Play** to start Johnny with the illustrated Island TV, fitted picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
+<p align="center">
+  <img src="docs/images/island-tv-ui.png" width="960" alt="Johnny Web with its painted driftwood TV, Balanced CRT picture, playback shelf and Island Log">
+</p>
 
-**Picture look** in Options offers optional CRT presets, off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
+The current Island TV interface. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
+
+Press **Play** to start Johnny with the illustrated Island TV, Balanced CRT, stretch-to-fill picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
+
+**Picture look** in Options starts with Balanced CRT. Choose Original picture to turn CRT off; existing saved choices are preserved. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
 
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 

@@ -19,7 +19,7 @@ import {
 export const SOUND_SETTING_KEY = 'jc-sound';
 // Seed only absent preferences: old profile choices and pre-launch edits survive Play.
 const DEFAULT_PREFERENCES = Object.freeze({
-    'jc-scale-mode': 'freeform', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
+    'jc-scale-mode': 'stretch', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
 });
 
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
@@ -522,7 +522,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     });
 
     // Load saved scale
-    const savedScale = localStorage.getItem('jc-scale-mode') || 'freeform';
+    const savedScale = localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode'];
     scaleSelect.value = savedScale;
 
     scaleSelect.onchange = (e) => {
@@ -942,14 +942,14 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
 
     // Handle Resize
     window.addEventListener('resize', () => {
-        const mode = localStorage.getItem('jc-scale-mode') || 'freeform';
+        const mode = localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode'];
         applyScaling(mode);
     });
 
     // Apply initial
     applyScaling(savedScale);
 
-    return { open, close, restart, cyclePicturePreset: () => crt.cyclePreset(), openPicture: () => { open(); crt.openPicture(); }, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || 'freeform') };
+    return { open, close, restart, cyclePicturePreset: () => crt.cyclePreset(), openPicture: () => { open(); crt.openPicture(); }, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode']) };
 }
 
 function applyScaling(mode) {

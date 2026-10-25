@@ -36,7 +36,7 @@ it('offers presets before advanced controls and keeps the dial and custom tuning
     const look = document.querySelector('#jc-crt-look');
     expect(look.closest('details')).toBeNull();
     expect(document.querySelector('.johnny-crt').open).toBe(false);
-    expect(look.value).toBe('original');
+    expect(look.value).toBe('balanced');
     look.value = 'balanced'; look.dispatchEvent(new Event('change'));
     expect(JSON.parse(localStorage.getItem('jc-crt-v1'))).toMatchObject({ enabled: true, model: 'creative', settings: { blur: 1 } });
     expect(look.value).toBe('balanced');

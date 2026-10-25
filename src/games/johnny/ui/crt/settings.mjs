@@ -16,7 +16,7 @@ export function setupCrtSettings(container) {
     const summary = document.createElement('summary'); summary.textContent = 'Advanced CRT tuning';
     const label = document.createElement('label');
     const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.id = 'jc-crt-enabled';
-    enabled.checked = saved?.enabled === true; label.append(enabled, ' Enable CRT picture');
+    enabled.checked = typeof saved?.enabled === 'boolean' ? saved.enabled : true; label.append(enabled, ' Enable CRT picture');
     const modelLabel = document.createElement('label'); modelLabel.textContent = 'Picture model';
     const model = document.createElement('select'); model.id = 'jc-crt-model';
     model.append(new Option('Creative CRT · Balanced & custom', 'creative'), new Option('VGA beam · experimental', 'vga'), new Option('CRT-Lottes · Libretro', 'lottes'));

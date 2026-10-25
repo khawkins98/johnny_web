@@ -1,3 +1,5 @@
+> The live UI now defaults to Balanced CRT for new preferences. Select Original picture to turn it off. Saved preferences are preserved; the standalone integration fixture described below still explicitly tests the off state.
+
 # Optional CRT picture
 
 Implementation follow-up to [issue #81](https://github.com/khawkins98/johnny_web/issues/81) and the [presentation lab](../tools/presentation-lab/README.md). The implementation PR is stacked on research PR #84; review its diff against that branch until the research lands.

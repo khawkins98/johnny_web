@@ -36,12 +36,12 @@ describe('settings UI', () => {
         setupSettingsUI();
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
         expect(setting('experience')).toBeNull();
-        expect(setting('scale').value).toBe('freeform');
+        expect(setting('scale').value).toBe('stretch');
         expect(setting('clouds').value).toBe('on');
         expect(setting('waves').value).toBe('on');
         expect(setting('time').value).toBe('original');
-        expect(document.querySelector('#jc-crt-look').value).toBe('original');
-        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
+        expect(document.querySelector('#jc-crt-look').value).toBe('balanced');
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(true);
         expect([...document.querySelectorAll('#settings-modal details')].every(d => !d.open)).toBe(true);
         expect(setting('scale').closest('details').id).toBe('settings-fine-tuning');
         expect(document.querySelector('#jc-crt-look').closest('details')).toBeNull();
@@ -53,7 +53,9 @@ describe('settings UI', () => {
         localStorage.setItem('jc-clouds', 'off');
         localStorage.setItem('jc-time', 'local');
         localStorage.setItem('jc-sound', 'off');
+        localStorage.setItem('jc-crt-v1', JSON.stringify({ enabled: false }));
         setupSettingsUI();
+        expect(document.querySelector('#jc-crt-look').value).toBe('original');
         expect(localStorage.getItem('jc-experience')).toBeNull();
         for (const [key, value] of [['scale', 'integer'], ['clouds', 'off'], ['time', 'local'], ['sound', 'off']]) {
             expect(document.querySelector(`[data-setting="${key}"]`).value).toBe(value);
@@ -61,6 +63,7 @@ describe('settings UI', () => {
     });
 
     it('remembers picture models independently while keeping CRT off', () => {
+        localStorage.setItem('jc-crt-v1', JSON.stringify({ enabled: false }));
         setupSettingsUI();
         const model=document.querySelector('#jc-crt-model');
         model.value='vga';model.dispatchEvent(new Event('change'));
@@ -241,12 +244,13 @@ it('fits the live picture into the cabinet and keeps its rectangle stable when L
     try {
         const settings = setupSettingsUI();
         const root = document.getElementById('root');
-        const rectStyles = [root.style.left,root.style.top,root.style.transform];
-        expect(root.style.transform).toMatch(/^scale\(/);
+        const rectStyles = [root.style.left,root.style.top,root.style.width,root.style.height];
+        expect(parseFloat(root.style.width) / parseFloat(root.style.height)).toBeCloseTo(4 / 3, 8);
         document.getElementById('jc-log').hidden = false;
         settings.refreshLayout();
-        expect([root.style.left,root.style.top,root.style.transform]).toEqual(rectStyles);
+        expect([root.style.left,root.style.top,root.style.width,root.style.height]).toEqual(rectStyles);
         document.body.classList.remove('jc-deck-visible');
+        document.getElementById('enhanced-hud').classList.add('is-hidden');
         settings.refreshLayout();
         expect(root.style.left).toBe('50%');
         expect(root.style.top).toBe('50%');
@@ -284,8 +288,8 @@ it('isolates Settings from launch/playback controls and preserves an already hid
 
 it('cycles the physical picture dial through actual CRT presets and models', () => {
  document.body.innerHTML='<div id="root"><canvas></canvas></div>';localStorage.clear();const settings=setupSettingsUI();
- expect(settings.cyclePicturePreset()).toBe('Subtle CRT');expect(document.getElementById('jc-crt-enabled').checked).toBe(true);
- expect(settings.cyclePicturePreset()).toBe('Balanced CRT');expect(settings.cyclePicturePreset()).toBe('Soft CRT');
+ expect(document.getElementById('jc-crt-look').value).toBe('balanced');
+ expect(settings.cyclePicturePreset()).toBe('Soft CRT');expect(document.getElementById('jc-crt-enabled').checked).toBe(true);
  expect(settings.cyclePicturePreset()).toBe('VGA beam');expect(document.getElementById('jc-crt-model').value).toBe('vga');
  expect(settings.cyclePicturePreset()).toBe('CRT-Lottes');expect(document.getElementById('jc-crt-model').value).toBe('lottes');
  expect(settings.cyclePicturePreset()).toBe('Original picture');expect(document.getElementById('jc-crt-enabled').checked).toBe(false);

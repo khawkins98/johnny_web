@@ -140,7 +140,7 @@ The splash and live shelf share `.island-art-control` and `.island-control-label
 
 ## One launch and progressive disclosure (2026-10-25)
 
-The landing shelf has Play, Options and About. Defaults are fit-to-TV scaling, drifting clouds, original waves and story clock, sound on and CRT off. Only missing preference keys are seeded; existing individual choices from the former Classic/Enhanced profiles are preserved. Play does not write a profile or overwrite pre-launch edits; the retired `jc-experience` marker is removed. Audio is still activated synchronously by the Play gesture.
+The landing shelf has Play, Options and About. Defaults are stretch-to-fill scaling, Balanced CRT, drifting clouds, original waves and story clock, and sound on. Only missing preference keys are seeded; existing individual choices from the former Classic/Enhanced profiles are preserved. Play does not write a profile or overwrite pre-launch edits; the retired `jc-experience` marker is removed. Audio is still activated synchronously by the Play gesture.
 
 Options starts with Picture look, Sound, Time of Day and Full view. Picture presets and the physical dial share the same application logic. Picture/clock fine tuning, advanced CRT, story tools, diagnostics and shortcuts are closed disclosures, with keyboard-accessible summaries. Renderer/save warnings remain beside Picture look even when advanced tuning is closed. The shelf Picture action focuses the preset chooser, rather than opening shader controls.
 
@@ -156,4 +156,6 @@ The original title canvas sits inside the native `start-picture-btn` button. Cli
 
 The unused `deck-icons/` SVG study was removed after checking for runtime references. [Historical provider and design notes](ui-early-pixel-study.md) retain credit and a recovery commit; do not restore obsolete assets into production just to preserve research history.
 
-The splash shelf reuses `title.png` in `start-project-link`, a native anchor to the project's GitHub page with `target="_blank"` and `rel="noopener noreferrer"`. It sits before Play/Options/About on desktop and spans a separate row on narrow screens. Keep this project link separate from the title-picture Play button so opening project information never starts playback. The shared artwork highlight applies to its wordmark too.
+The splash shelf reuses `title.png` in `start-project-link`, a native anchor to the project-background article on AllAboutKen.com with `target="_blank"` and `rel="noopener noreferrer"`. It sits before Play/Options/About on desktop and spans a separate row on narrow screens. Keep this project link separate from the title-picture Play button so opening project information never starts playback. The shared artwork highlight applies to its wordmark too.
+
+Default update: absent scale/CRT preferences now use Stretch and Balanced CRT. An explicitly saved CRT-off state remains off, and other saved picture/scale choices are unchanged. The README screenshot uses a fresh browser session with these defaults. That documentation screenshot is intentionally committed at the user's request; incidental research captures remain in ignored scratchpad.
