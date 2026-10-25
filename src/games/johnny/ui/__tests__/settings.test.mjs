@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EXPERIENCE_SETTING_KEY, setupSettingsUI, SOUND_SETTING_KEY } from '../settings.mjs';
+import { setupSettingsUI, SOUND_SETTING_KEY } from '../settings.mjs';
 
 describe('settings UI', () => {
     beforeEach(() => {
@@ -32,26 +32,38 @@ describe('settings UI', () => {
         expect(overlay.getAttribute('aria-hidden')).toBe('true');
     });
 
-    it('applies coherent classic and enhanced profiles', () => {
-        const settings = setupSettingsUI();
+    it('starts with one set of good defaults and exposes tuning only on request', () => {
+        setupSettingsUI();
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
-
-        settings.applyExperience('enhanced');
-        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
-        expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
-        expect(setting('experience').value).toBe('enhanced');
-        expect(setting('scale').value).toBe('freeform');
+        expect(setting('experience')).toBeNull();
+        expect(setting('scale').value).toBe('stretch');
         expect(setting('clouds').value).toBe('on');
         expect(setting('waves').value).toBe('on');
+        expect(setting('time').value).toBe('original');
+        expect(document.querySelector('#jc-crt-look').value).toBe('balanced');
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(true);
+        expect([...document.querySelectorAll('#settings-modal details')].every(d => !d.open)).toBe(true);
+        expect(setting('scale').closest('details').id).toBe('settings-fine-tuning');
+        expect(document.querySelector('#jc-crt-look').closest('details')).toBeNull();
+    });
 
-        settings.applyExperience('classic');
-        expect(setting('experience').value).toBe('classic');
-        expect(setting('scale').value).toBe('native');
-        expect(setting('clouds').value).toBe('off');
-        expect(setting('waves').value).toBe('on');
+    it('preserves individual preferences from an old profile across launches', () => {
+        localStorage.setItem('jc-experience', 'classic');
+        localStorage.setItem('jc-scale-mode', 'integer');
+        localStorage.setItem('jc-clouds', 'off');
+        localStorage.setItem('jc-time', 'local');
+        localStorage.setItem('jc-sound', 'off');
+        localStorage.setItem('jc-crt-v1', JSON.stringify({ enabled: false }));
+        setupSettingsUI();
+        expect(document.querySelector('#jc-crt-look').value).toBe('original');
+        expect(localStorage.getItem('jc-experience')).toBeNull();
+        for (const [key, value] of [['scale', 'integer'], ['clouds', 'off'], ['time', 'local'], ['sound', 'off']]) {
+            expect(document.querySelector(`[data-setting="${key}"]`).value).toBe(value);
+        }
     });
 
     it('remembers picture models independently while keeping CRT off', () => {
+        localStorage.setItem('jc-crt-v1', JSON.stringify({ enabled: false }));
         setupSettingsUI();
         const model=document.querySelector('#jc-crt-model');
         model.value='vga';model.dispatchEvent(new Event('change'));
@@ -118,6 +130,7 @@ describe('settings UI', () => {
             'T',
             'D',
             'F',
+            'Space',
             'R',
             'Esc',
         ]);
@@ -221,4 +234,110 @@ describe('settings UI', () => {
         const status = document.getElementById('settings-story-status');
         if (status) expect(status.innerText).toBe('');
     });
+});
+
+it('fits the live picture into the cabinet and keeps its rectangle stable when Log opens', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div><section id="enhanced-hud"><div id="jc-cabinet"></div><nav id="jc-deck"></nav><aside id="jc-log" hidden></aside></section>';
+    document.body.classList.add('jc-deck-visible');
+    const deck = document.getElementById('jc-deck');
+    vi.spyOn(deck, 'getBoundingClientRect').mockReturnValue({ top: 600 });
+    try {
+        const settings = setupSettingsUI();
+        const root = document.getElementById('root');
+        const rectStyles = [root.style.left,root.style.top,root.style.width,root.style.height];
+        expect(parseFloat(root.style.width) / parseFloat(root.style.height)).toBeCloseTo(4 / 3, 8);
+        document.getElementById('jc-log').hidden = false;
+        settings.refreshLayout();
+        expect([root.style.left,root.style.top,root.style.width,root.style.height]).toEqual(rectStyles);
+        document.body.classList.remove('jc-deck-visible');
+        document.getElementById('enhanced-hud').classList.add('is-hidden');
+        settings.refreshLayout();
+        expect(root.style.left).toBe('50%');
+        expect(root.style.top).toBe('50%');
+    } finally {
+        document.body.classList.remove('jc-deck-visible');
+    }
+});
+
+it('gives the core settings their visible associated labels and keeps the close button in the header', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    setupSettingsUI();
+    for (const key of ['scale','sound','clouds','waves','time','diagnostics']) {
+        const select = document.getElementById('jc-setting-'+key);
+        expect(select.labels).toHaveLength(1);
+        expect(select.labels[0].htmlFor).toBe(select.id);
+    }
+    expect(document.querySelector('.settings-header .close-btn')).not.toBeNull();
+    expect(document.querySelector('.settings-header #settings-title')).not.toBeNull();
+});
+
+it('isolates Settings from launch/playback controls and preserves an already hidden HUD on close', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div><section id="enhanced-hud"></section><div id="start-overlay"><button>Launch</button></div>';
+    const hud = document.getElementById('enhanced-hud');
+    hud.inert = true;
+    const settings = setupSettingsUI();
+    settings.open();
+    expect(document.getElementById('start-overlay').inert).toBe(true);
+    expect(document.getElementById('root').inert).toBe(true);
+    settings.open(); // Repeated opening must not overwrite the saved background state.
+    settings.close();
+    expect(document.getElementById('root').inert).toBe(false);
+    expect(document.getElementById('start-overlay').inert).toBe(false);
+    expect(hud.inert).toBe(true);
+});
+
+it('cycles the physical picture dial through actual CRT presets and models', () => {
+ document.body.innerHTML='<div id="root"><canvas></canvas></div>';localStorage.clear();const settings=setupSettingsUI();
+ expect(document.getElementById('jc-crt-look').value).toBe('balanced');
+ expect(settings.cyclePicturePreset()).toBe('Soft CRT');expect(document.getElementById('jc-crt-enabled').checked).toBe(true);
+ expect(settings.cyclePicturePreset()).toBe('VGA beam');expect(document.getElementById('jc-crt-model').value).toBe('vga');
+ expect(settings.cyclePicturePreset()).toBe('CRT-Lottes');expect(document.getElementById('jc-crt-model').value).toBe('lottes');
+ expect(settings.cyclePicturePreset()).toBe('Original picture');expect(document.getElementById('jc-crt-enabled').checked).toBe(false);
+});
+
+// TV-off fits the page at half steps without changing the saved cabinet preference.
+it.each([
+    [1940, 1200, 2.5], [1440, 1000, 2], [1024, 768, 1.5], [390, 844, 0.5],
+])('fits TV-off playback at half steps in %i×%i', (width, height, scale) => {
+    document.body.innerHTML = '<div id="root"><canvas width="640" height="480"></canvas></div><section id="enhanced-hud" class="is-hidden"><div id="jc-cabinet"></div><nav id="jc-deck"></nav></section>';
+    document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+    localStorage.setItem('jc-scale-mode', 'native');
+    vi.stubGlobal('innerWidth', width);
+    vi.stubGlobal('innerHeight', height);
+    try {
+        const settings = setupSettingsUI();
+        const root = document.querySelector('#root');
+        expect(root.style.transform).toBe(`scale(${scale})`);
+        expect(root.style.imageRendering).toBe('pixelated');
+        expect(root.querySelector('canvas').width).toBe(640);
+        expect(root.querySelector('canvas').height).toBe(480);
+        expect(localStorage.getItem('jc-scale-mode')).toBe('native');
+        const hud = document.querySelector('#enhanced-hud');
+        hud.classList.remove('is-hidden');
+        document.body.classList.add('jc-deck-visible');
+        vi.spyOn(document.querySelector('#jc-deck'), 'getBoundingClientRect').mockReturnValue({ top: height - 170 });
+        settings.refreshLayout();
+        // Native preference returns in the cabinet, instead of the TV-off auto zoom.
+        expect(root.style.transform).not.toBe(`scale(${scale})`);
+        expect(localStorage.getItem('jc-scale-mode')).toBe('native');
+    } finally {
+        document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+        vi.unstubAllGlobals();
+    }
+});
+
+it('does not let the return-to-title shortcut escape the Timeline modal', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    const onRestart = vi.fn();
+    setupSettingsUI({ onRestart });
+    const timeline = document.createElement('div');
+    timeline.id = 'scene-flow-overlay';
+    timeline.setAttribute('aria-hidden', 'false');
+    timeline.innerHTML = '<details><summary>Details</summary></details>';
+    document.body.append(timeline);
+    timeline.querySelector('summary').dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true }));
+    expect(onRestart).not.toHaveBeenCalled();
+    timeline.setAttribute('aria-hidden', 'true');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+    expect(onRestart).toHaveBeenCalledOnce();
 });

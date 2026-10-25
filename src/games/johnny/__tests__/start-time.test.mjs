@@ -9,9 +9,10 @@ import {
     normalizeStartTime,
     readStartTime,
     stepStartTime,
+    startTimeForPhase,
     writeStartTime,
 } from '../start-time.mjs';
-import { createJohnnyStoryController } from '../story-controller.mjs';
+import { tidePhaseFor, createJohnnyStoryController } from '../story-controller.mjs';
 
 const memoryStorage = (initial = {}) => {
     const values = new Map(Object.entries(initial));
@@ -143,5 +144,20 @@ describe('the story controller uses the stored Start Time', () => {
         }
         story.next();
         expect(story.status()).toMatchObject({ tidePhase: 6, night: false, startTime: 1200 });
+    });
+});
+
+describe('saving a preview as the current clock', () => {
+    it('matches every phase across midnight and half-hour boundaries', () => {
+        for (const hour of [0, 5, 12, 23]) {
+            for (const minute of [0, 29, 30, 59]) {
+                const now = new Date(2026, 9, 24, hour, minute);
+                for (let phase = 0; phase < 16; phase++) {
+                    const offset = startTimeForPhase(now, phase);
+                    expect(tidePhaseFor(now, offset)).toBe(phase);
+                    expect(tidePhaseFor(new Date(+now + 30 * 60000), offset)).toBe((phase + 1) % 16);
+                }
+            }
+        }
     });
 });

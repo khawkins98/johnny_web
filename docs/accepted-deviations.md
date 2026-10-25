@@ -6,7 +6,7 @@ The rendering model behind these notes is the buffer contract in [scrantic-re-fi
 
 ## Drawing
 
-- **Island, clouds, waves and walks are drawn on the host canvas.** The original draws them into the same buffers as the scenes. We keep them on a separate canvas so that Enhanced mode and the local-time features (clouds, holidays, Live Local Clock) can work. Pixel results match where the oracle can check them.
+- **Island, clouds, waves and walks are drawn on the host canvas.** The original draws them into the same buffers as the scenes. We keep them on a separate canvas so that optional presentation features (drifting clouds, holidays, Live Local Clock) can work. Pixel results match where the oracle can check them.
 - **Stale screen pixels.** The original only redraws the screen where something changed. Areas nothing touches keep whatever was there before. One example is the title-screen leftovers below row 350 under the "meanwhile" clock in forced captures. We always present a clean frame.
 - **Wipes.** The original's wipe effects draw straight to the screen. Ours go through the normal frame.
 - **Palette.** On a 16-colour display, Windows 3.1 swaps some of the game's colours for its own system colours (for example `#ff0000` to `#ffffff`, `#0000a8` to `#0000ff`, `#d4d4d4` to `#c3dfc3`, and the day ocean's cloud reflections, palette colour 0, from `#a800a8` to `#c300c3`). We show the colours the artists drew. The pixel oracle counts these swaps as remaps, not differences.

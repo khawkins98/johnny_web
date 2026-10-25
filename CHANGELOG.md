@@ -2,6 +2,18 @@
 
 This changelog tracks the browser project. Its version numbers are separate from the version of the original Johnny Castaway game data. A number such as (#53) is a GitHub issue or pull request.
 
+## v1.4.0 — Island TV (2026-10-25)
+
+- Added an illustrated driftwood/bamboo TV, coconut controls and a painted playback shelf. The picture dial selects CRT presets, the speed dial changes playback rate, and the green button pauses/resumes the screensaver. The Johnny Web wordmark links to the project background (#86).
+- Replaced Classic/Enhanced launch choices with one **Play** button. Clicking the original splash picture also starts playback. Options puts picture looks, sound and clock first, with fine tuning, story tools, diagnostics and shortcuts revealed on demand. Existing individual preferences are retained (#86).
+- Added Creative CRT, experimental VGA beam and Libretro CRT-Lottes picture models, with independently remembered tuning and named Creative presets. New preferences default to **Balanced CRT** and **Stretch to fill**; **Original picture** turns CRT off. The game keeps its native buffers, and unavailable WebGL falls back to the normal picture (#85, #86).
+- Added the Island Log with day/gag navigation, current story position and expandable session statistics. Temporary time previews can be saved as the current advancing story clock, without saving scene-specific sky/tide requirements. Timeline playback respects the selected story day and time band (#83, #86).
+- **Toggle Island TV / H** hides/restores the cabinet and shelf; the unobstructed picture fits in 0.5× steps. **Full view / F** fills the page with the screensaver without changing browser fullscreen. **Space** pauses engine animation, walking, poses, transitions and audio together (#86).
+- Fixed keyboard focus on the TV restore button: Space activates the focused button rather than pausing. Return-to-title shortcuts no longer escape an open Timeline panel (#86).
+- Added a presentation/shader research lab, source credits, original interface-art prompts, and maintenance guidance for future contributors. Retired the unused early pixel-icon study while preserving its provenance in the docs (#84–#86).
+
+Release preparation and validation: [v1.4.0 record](docs/releases/v1.4.0-plan.md).
+
 ## v1.3 — Normal play, checked
 
 - Fixed black patches in the daytime ocean. The three day ocean screens draw their dark cloud reflections in palette colour 0, which we treated as transparent on full screens as well as on sprites. Screens are now drawn opaque, so the reflections show in their magenta colour as in the original; sprites still treat colour 0 as transparent (#53).

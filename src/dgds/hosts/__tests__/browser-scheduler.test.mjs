@@ -49,3 +49,13 @@ describe('browser scheduler host adapter', () => {
         expect(() => scheduler.start(() => {})).toThrow('already running');
     });
 });
+
+it('consumes paused host time without sending ticks or replaying a pause backlog', () => {
+    let callback, paused = false;
+    const onTicks = vi.fn();
+    const scheduler = createBrowserScheduler({ isPaused:()=>paused, requestFrame:fn=>(callback=fn,1), cancelFrame:vi.fn() });
+    scheduler.start(onTicks);callback(0);paused=true;callback(20);callback(10000);
+    expect(onTicks).toHaveBeenCalledTimes(1);
+    paused=false;callback(10020);
+    expect(onTicks).toHaveBeenLastCalledWith(1);expect(onTicks).toHaveBeenCalledTimes(2);scheduler.stop();
+});

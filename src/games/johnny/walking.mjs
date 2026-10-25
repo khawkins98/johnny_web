@@ -1,3 +1,4 @@
+import { browserPlayback } from '../../dgds/hosts/browser-playback.mjs';
 import { buildSpriteCanvas } from '../../dgds/graphics.mjs';
 import { DGDS_TICK_MS } from '../../dgds/scripting/timing.mjs';
 import { verboseLog } from '../../dgds/scripting/log.mjs';
@@ -229,19 +230,7 @@ export const planJohnnyWalkFrames = (walk, data, random = Math.random, storyRand
     return frames.filter(Boolean);
 };
 
-const delay = (milliseconds, { signal } = {}) =>
-    new Promise((resolve) => {
-        if (signal?.aborted) return resolve(false);
-        let timer;
-        const finish = (completed) => {
-            clearTimeout(timer);
-            signal?.removeEventListener('abort', onAbort);
-            resolve(completed);
-        };
-        const onAbort = () => finish(false);
-        timer = setTimeout(() => finish(true), milliseconds);
-        signal?.addEventListener('abort', onAbort, { once: true });
-    });
+const delay = (milliseconds, options) => browserPlayback.wait(milliseconds, options);
 
 /** Play the executable-owned walk between two ADS scenes. */
 export const runJohnnyWalk = async ({

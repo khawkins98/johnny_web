@@ -105,3 +105,10 @@ export const bandClockRanges = (startTime, min, max) => {
     }
     return ranges.sort((a, b) => a.at - b.at).map(({ text }) => text);
 };
+
+/** Offset that makes the selected story phase current now, then keeps ticking. */
+export const startTimeForPhase = (date, phase) => {
+    if (!Number.isInteger(phase) || phase < 0 || phase >= 16) throw new RangeError('Invalid story phase');
+    const minutes = date.getHours() * 60 + Math.floor(date.getMinutes() / 30) * 30;
+    return fromMinutes(minutes - phase * STEP_MINUTES);
+};

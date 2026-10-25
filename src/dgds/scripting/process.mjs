@@ -1,3 +1,4 @@
+import { browserPlayback } from '../hosts/browser-playback.mjs';
 /**
  * Browser host for an instance-owned DGDS runtime.
  *
@@ -135,6 +136,7 @@ export const startProcess = (initialState) => {
             if (runtime.tick(DGDS_TICK_MS).completed) break;
         }
     }
+    runtime.setPlaybackRate(browserPlayback.rate);
     activeRuntime = runtime;
     const framePresenter = createBrowserFramePresenter({
         context,
@@ -157,7 +159,7 @@ export const startProcess = (initialState) => {
         console.log('[DGDS] Diagnostics session', runtimeSessionInfo());
     }
 
-    const scheduler = createBrowserScheduler();
+    const scheduler = createBrowserScheduler({ isPaused: () => browserPlayback.paused });
     activeScheduler = scheduler;
     let finished = false;
     const finish = (reason) => {
@@ -227,13 +229,13 @@ export const __DEBUG__ = {
         if (activeRuntime) activeFramePresenter?.presentBackground(activeRuntime.state);
     },
     stepScene: (direction) => activeRuntime?.stepScene(direction),
-    setPlaybackRate: (rate) => activeRuntime?.setPlaybackRate(rate),
-    getPresentation: () =>
-        activeRuntime?.getPresentation() ?? {
-            scene: null,
-            name: '',
-            playbackRate: 1,
-        },
+    setPlaybackRate: (rate) => { browserPlayback.setRate(rate); activeRuntime?.setPlaybackRate(browserPlayback.rate); },
+    setPaused: (paused) => browserPlayback.setPaused(paused),
+    getPresentation: () => ({
+        ...(activeRuntime?.getPresentation() ?? { scene: null, name: '' }),
+        playbackRate: browserPlayback.rate,
+        paused: browserPlayback.paused,
+    }),
     getState: () => activeRuntime?.state ?? null,
     getTrace: () => diagnosticTrace?.snapshot() || [],
     saveTrace: () => {

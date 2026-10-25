@@ -1,22 +1,11 @@
+import { browserPlayback } from '../../../dgds/hosts/browser-playback.mjs';
 import { DGDS_TICK_MS } from '../../../dgds/scripting/timing.mjs';
 
 const WIDTH = 640;
 const HEIGHT = 480;
 const STEPS = 20;
 
-const nextFrame = ({ signal } = {}) =>
-    new Promise((resolve) => {
-        if (signal?.aborted) return resolve(false);
-        let timer;
-        const finish = (completed) => {
-            clearTimeout(timer);
-            signal?.removeEventListener('abort', onAbort);
-            resolve(completed);
-        };
-        const onAbort = () => finish(false);
-        timer = setTimeout(() => finish(true), DGDS_TICK_MS);
-        signal?.addEventListener('abort', onAbort, { once: true });
-    });
+const nextFrame = (options) => browserPlayback.wait(DGDS_TICK_MS, options);
 
 /**
  * Reproduce the five wipes owned by Johnny's original screensaver host.

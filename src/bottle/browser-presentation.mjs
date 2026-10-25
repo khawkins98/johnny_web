@@ -1,4 +1,5 @@
-import { drawScreen } from '../dgds/graphics.mjs';
+import { browserPlayback } from '../dgds/hosts/browser-playback.mjs';
+import { drawScreen, buildSpriteCanvas } from '../dgds/graphics.mjs';
 import { loadResources } from '../dgds/resource.mjs';
 import { loadFile } from './idb.mjs';
 import { extractArchiveToIndexedDB } from './extractor.mjs';
@@ -140,7 +141,14 @@ export const runBrowserPresentation = async ({
     const selectionPresenter =
         createSelectionPresenter?.({ resourceProvider, game, presentationPolicy }) || null;
     const introRes = resource.loadEntry(game.resources.intro);
+    const title = introRes.images[0];
+    // Title presentation only: remove unused black surround, preserving every
+    // visible source pixel and keeping native 640×480 buffers for live playback.
+    const titleBounds = titleArtworkBounds(title);
     let audioManager = null;
+    browserPlayback.subscribe(({ paused }) => {
+        audioManager?.setPaused?.(paused)?.catch?.(() => {});
+    });
     let enhancedUI = null;
     const debugRuns = createDebugRunCoordinator({
         sequenceTools: debugSequence,
@@ -160,7 +168,7 @@ export const runBrowserPresentation = async ({
     // Uses the same resourceProvider the runtime itself resolves ADS/TTM
     // entries through, and the same sequenceTools (story controller) the
     // debug panel tracks the running gag with.
-    setupSceneFlowUI({
+    const sceneFlow = setupSceneFlowUI({
         resolveEntry: (name) => resourceProvider.resolve(name),
         sequenceTools,
     });
@@ -181,6 +189,13 @@ export const runBrowserPresentation = async ({
         context.clearRect(0, 0, 640, 480);
         mainContext.clearRect(0, 0, 640, 480);
         drawScreen(introRes, mainContext);
+        const titlePicture = document.getElementById('start-title-picture');
+        if (titlePicture) {
+            const { x, y, width, height } = titleBounds || { x: 0, y: 0, width: title.width, height: title.height };
+            titlePicture.width = width;
+            titlePicture.height = height;
+            titlePicture.getContext('2d').drawImage(buildSpriteCanvas(title), x, y, width, height, 0, 0, width, height);
+        }
 
         // Gate first-time audio creation behind a user gesture. Returning to
         // the title reuses the existing AudioContext instead of leaking one.
@@ -193,7 +208,10 @@ export const runBrowserPresentation = async ({
         });
         audioManager = start.audioManager;
         enhancedUI?.destroy();
-        enhancedUI = start.experience === 'enhanced' ? setupEnhancedUI() : null;
+        enhancedUI = setupEnhancedUI({
+            settings, sequenceTools, sceneFlow,
+            resolveEntry: (name) => resourceProvider.resolve(name),
+        });
 
         // One host-owned raster per sequence (story day), persisting across
         // the per-event DgdsRuntime instances created below (faithful to the
@@ -366,12 +384,13 @@ const requireBrowserPresentationPackage = (game, soundSettingKey) => {
 function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey, archiveBuffer }) {
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
-        const classicBtn = document.getElementById('start-classic-btn');
-        const enhancedBtn = document.getElementById('start-enhanced-btn');
+        const playBtn = document.getElementById('start-play-btn');
+        const pictureBtn = document.getElementById('start-picture-btn');
         const helpBtn = document.getElementById('start-help-btn');
         const help = document.getElementById('start-help');
         const settingsBtn = document.getElementById('start-settings-btn');
         overlay.classList.add('visible');
+        settings.refreshLayout?.();
         help.classList.remove('visible');
         helpBtn.setAttribute('aria-expanded', 'false');
         const openSettings = () => settings.open();
@@ -381,13 +400,13 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
         };
         settingsBtn.addEventListener('click', openSettings);
         helpBtn.addEventListener('click', toggleHelp);
-        const start = (experience) => {
-            classicBtn.removeEventListener('click', startClassic);
-            enhancedBtn.removeEventListener('click', startEnhanced);
+        const start = () => {
+            playBtn.removeEventListener('click', start);
+            pictureBtn.removeEventListener('click', start);
             settingsBtn.removeEventListener('click', openSettings);
             helpBtn.removeEventListener('click', toggleHelp);
-            settings.applyExperience(experience);
             overlay.classList.remove('visible');
+            settings.refreshLayout?.();
             const nextAudioManager =
                 existingAudioManager ||
                 createAudioManager({
@@ -398,14 +417,11 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
                 });
             nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
-                experience,
                 audioManager: nextAudioManager,
             });
         };
-        const startClassic = () => start('classic');
-        const startEnhanced = () => start('enhanced');
-        classicBtn.addEventListener('click', startClassic);
-        enhancedBtn.addEventListener('click', startEnhanced);
+        playBtn.addEventListener('click', start);
+        pictureBtn.addEventListener('click', start);
     });
 }
 
@@ -513,4 +529,20 @@ function showDataError(game, missing, detail) {
             }
         });
     }
+}
+
+/** Black padding is not title artwork; include a two-pixel safety margin. */
+function titleArtworkBounds(image) {
+    let left = image.width, top = image.height, right = -1, bottom = -1;
+    for (let y = 0; y < image.height; y++) for (let x = 0; x < image.width; x++) {
+        const p = image.pixels[y * image.width + x];
+        if (p?.a && (p.r || p.g || p.b)) {
+            left = Math.min(left, x); top = Math.min(top, y);
+            right = Math.max(right, x); bottom = Math.max(bottom, y);
+        }
+    }
+    if (right < left) return null;
+    left = Math.max(0, left - 2); top = Math.max(0, top - 2);
+    right = Math.min(image.width - 1, right + 2); bottom = Math.min(image.height - 1, bottom + 2);
+    return { x: left, y: top, width: right - left + 1, height: bottom - top + 1 };
 }

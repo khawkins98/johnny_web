@@ -6,6 +6,8 @@
   <img src="docs/images/gag-dives.webp" width="464" alt="Johnny's dive being scored by animals on the island">
 </p>
 
+For the story behind the project and its reconstruction, read [Rehabilitating Johnny Castaway for the browser](https://www.allaboutken.com/posts/20261019-johnny-castaway-browser/).
+
 ## Run locally
 
 You need **Node.js 24+** and **pnpm 10**.
@@ -21,13 +23,19 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 ## Playback
 
-Choose **Classic** for native scale, static clouds, and original waves, or **Enhanced** for responsive scaling, moving clouds and waves, and a small status display. You can adjust individual options in Settings.
+<p align="center">
+  <img src="docs/images/island-tv-ui.png" width="960" alt="Johnny Web with its painted driftwood TV, coconut picture and speed dials, green pause button and playback shelf">
+</p>
 
-**CRT picture** in Settings is optional and off by default. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
+The Island TV interface, with the Log closed to show the TV controls. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
+
+Press **Play** to start Johnny with the illustrated Island TV, Balanced CRT, stretch-to-fill picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
+
+**Picture look** in Options starts with Balanced CRT. Choose Original picture to turn CRT off; existing saved choices are preserved. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
 
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
-Move the pointer to reveal the Settings cog (`S`) and story timeline compass (`T`). Both icons show their shortcuts on hover or keyboard focus. Press `R` to return to the title screen. In Enhanced mode, `←`/`→` change scenes, `↑`/`↓` change speed, `F` toggles full screen, and `H` toggles the status note.
+The bottom toolbar opens Options, Picture controls and the story Timeline. **Log** toggles day/gag navigation; session statistics and specific-gag selection expand on demand. **Toggle Island TV** or `H` hides/restores the cabinet and toolbar. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` to fill the page with the screensaver. [Toolbar and Captain’s log guide](docs/playback-toolbar.md).
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 
@@ -47,6 +55,7 @@ See the [changelog](CHANGELOG.md) for what each release changed.
 
 For a specific task:
 
+- [Modify the illustrated Island UI](docs/island-ui-art.md) — painted artwork, exact generation prompts, source coordinates, layout and verification for future contributors/agents.
 - [Experiment with scaling and CRT presentation](tools/presentation-lab/README.md) — development lab, reproducible screenshots, findings, and source credits for issue #81.
 - [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
 - [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.

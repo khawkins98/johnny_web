@@ -1,0 +1,840 @@
+/* Painted Beachcomber UI. Artwork/layout maintenance: docs/island-ui-art.md. */
+body.jc-deck-visible {
+    background: #a9d7d9;
+}
+body.jc-deck-visible #root {
+    z-index: 1;
+}
+#enhanced-hud {
+    --ink: #234e52;
+    --paper: #fff9dc;
+    --green: #22553b;
+    color: var(--ink);
+    font:
+        16px/1.25 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+#enhanced-hud *,
+#jc-deck-restore {
+    box-sizing: border-box;
+}
+#enhanced-hud [hidden],
+#jc-deck-restore[hidden] {
+    display: none !important;
+}
+#enhanced-hud.is-hidden {
+    visibility: hidden;
+    pointer-events: none;
+}
+#jc-cabinet,
+#jc-cabinet-matte {
+    position: fixed;
+    left: var(--cabinet-left);
+    top: var(--cabinet-top);
+    width: var(--cabinet-width);
+    height: var(--cabinet-height);
+    pointer-events: none;
+}
+#jc-cabinet {
+    z-index: 3;
+}
+#jc-cabinet-matte {
+    z-index: 0;
+}
+#jc-cabinet-matte div {
+    position: absolute;
+    left: 13.1%;
+    top: 22.1%;
+    width: 58.2%;
+    height: 59%;
+    border-radius: 7%;
+    background: #050808;
+}
+#jc-deck {
+    position: fixed;
+    z-index: 900;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1600px, calc(100% - 48px));
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    min-height: 140px;
+    padding: 4px 26px 12px;
+    isolation: isolate;
+}
+#jc-deck::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -24px -12px -12px;
+    background: url('./island-art/shelf.png') center/100% 100% no-repeat;
+    pointer-events: none;
+}
+.jc-deck-brand {
+    flex: 0 1 230px;
+    min-width: 145px;
+    text-align: center;
+}
+.jc-deck-brand strong img {
+    display: block;
+    width: 100%;
+    max-width: 238px;
+    height: 76px;
+    object-fit: contain;
+    margin: auto;
+}
+.jc-deck-brand small {
+    display: block;
+    font: 700 14px/1.35 Georgia, serif;
+    color: #234e52;
+}
+.jc-deck-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+#enhanced-hud button,
+#enhanced-hud select {
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+}
+#enhanced-hud button {
+    min-width: 40px;
+    min-height: 40px;
+}
+#jc-deck button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 76px;
+    min-height: 124px;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    transition: transform 120ms;
+}
+.jc-object-art,
+.jc-painted-word {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    pointer-events: none;
+    flex: none;
+}
+.jc-object-art {
+    height: 68px;
+}
+.jc-painted-word {
+    height: 46px;
+    max-width: 109px;
+    margin-top: -1px;
+}
+.jc-painted-word img {
+    position: absolute;
+    max-width: none;
+    width: 543px;
+    height: 181px;
+    top: -62px;
+}
+.jc-live-word {
+    font:
+        900 28px/40px Georgia,
+        serif;
+    color: #22553b;
+    letter-spacing: -1px;
+    text-shadow: 1px 1px #f5db89;
+}
+.jc-control-state {
+    display: block;
+    min-height: 22px;
+    margin-top: 2px;
+    padding: 2px 9px;
+    border-radius: 4px 7px;
+    background: #fff9dc;
+    color: #234e52;
+    font: 700 14px/18px Georgia, serif;
+    font-variant-numeric: tabular-nums;
+}
+.jc-control-state:empty,
+#jc-deck-timeline .jc-control-state,
+#jc-deck-log .jc-control-state {
+    visibility: hidden;
+}
+#enhanced-hud #enhanced-hud-dismiss {
+    position: fixed;
+    top: 16px;
+    bottom: auto;
+    right: 16px;
+    min-height: 44px;
+    min-width: 120px;
+    padding: 8px 12px;
+    border: 2px solid #22553b;
+    border-radius: 9px 5px;
+    background: #fff9dc;
+    font-size: 12px;
+    font-weight: bold;
+}
+#enhanced-hud #enhanced-hud-dismiss::before {
+    display: none;
+}
+#enhanced-hud button:active,
+#jc-deck-restore:active {
+    transform: scale(0.96);
+}
+#enhanced-hud :focus-visible,
+#jc-deck-restore:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 3px;
+}
+#jc-log {
+    position: fixed;
+    z-index: 910;
+    left: calc(var(--cabinet-left) + var(--cabinet-width) * 0.71);
+    top: calc(var(--cabinet-top) + var(--cabinet-height) * 0.08);
+    width: calc(var(--cabinet-width) * 0.28);
+    height: calc(var(--cabinet-height) * 0.9);
+    display: flex;
+    flex-direction: column;
+    min-width: 270px;
+    overflow: hidden;
+    background: #fff9dc;
+    border: 3px solid #234e52;
+    border-radius: 7px 14px 9px 6px;
+    box-shadow:
+        4px 7px #234e5233,
+        0 14px 28px #234e5226;
+}
+.jc-log-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 15px 16px 10px;
+    flex-shrink: 0;
+    border-bottom: 2px solid #f2cc91;
+}
+.jc-log-title h2 {
+    margin: 0;
+    font:
+        900 30px/1.1 Georgia,
+        serif;
+    color: #e99a32;
+    -webkit-text-stroke: 0.5px #22553b;
+    text-shadow: 1px 2px #22553b;
+    transform: rotate(-2deg);
+}
+#jc-log button {
+    border: 2px solid #22553b;
+    border-radius: 7px 4px 6px 5px;
+    padding: 6px 8px;
+    background: #fff9dc;
+    font-weight: bold;
+    font-size: 13px;
+    transition:
+        background-color 120ms,
+        transform 120ms;
+}
+#jc-log button:hover {
+    background: #f6e2ae;
+}
+#jc-log button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+#jc-log .jc-log-close {
+    border-radius: 50%;
+    background: #f2cc91;
+    font-size: 24px;
+    padding: 0;
+    flex: none;
+}
+.jc-log-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 16px;
+}
+.jc-eyebrow {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+#jc-log h3 {
+    font:
+        900 21px/1.1 Georgia,
+        serif;
+    margin: 7px 0 10px;
+    text-wrap: balance;
+}
+#jc-log #jc-log-day {
+    color: #e99a32;
+    font-size: 32px;
+    -webkit-text-stroke: 0.5px #22553b;
+}
+.jc-day-track {
+    display: flex;
+    gap: 4px;
+    margin: 10px 0;
+}
+.jc-day-track span {
+    flex: 1;
+    height: 12px;
+    background: #dfdec0;
+    border: 1px solid #6b8d71;
+    border-radius: 45%;
+}
+.jc-day-track .is-visited {
+    background: #a9d7d9;
+}
+.jc-day-track .is-current {
+    background: #e99a32;
+    border: 2px solid #22553b;
+}
+.jc-log-note {
+    font-size: 11px;
+    color: #53736a;
+    margin: 5px 0 12px;
+}
+.jc-stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    background: #c7e4df;
+    padding: 12px;
+    border: 1px solid #58877a;
+    border-radius: 7px 3px 9px 5px;
+    margin: 10px 0;
+}
+.jc-stat-grid dt {
+    font-size: 11px;
+}
+.jc-stat-grid dd {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 5px 0 0;
+}
+.jc-current {
+    margin: 12px 0;
+}
+.jc-visit-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+}
+#jc-log progress {
+    width: 100%;
+    height: 7px;
+    accent-color: #438b73;
+    margin-top: 7px;
+}
+.jc-log-navigation {
+    flex-shrink: 0;
+    padding: 12px 14px;
+    background: #f3d9a5;
+    border-top: 2px solid #22553b;
+    max-height: 57%;
+    overflow: auto;
+}
+.jc-log-navigation label {
+    display: block;
+    margin: 8px 0 4px;
+    font-size: 11px;
+    font-weight: bold;
+}
+.jc-nav-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+#jc-log select {
+    min-width: 0;
+    width: 100%;
+    min-height: 40px;
+    padding: 5px;
+    background: #fff9dc;
+    border: 2px solid #22553b;
+    border-radius: 4px;
+    font-size: 12px;
+}
+#jc-log .jc-play-day {
+    flex: 1;
+    background: var(--island-action);
+    color: #fff9dc;
+}
+#jc-log .jc-full-width {
+    width: 100%;
+    margin-top: 8px;
+}
+.jc-log-error {
+    color: #863b24;
+    font-size: 12px;
+}
+#jc-deck-announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+#jc-deck-restore {
+    position: fixed;
+    z-index: 900;
+    right: 16px;
+    top: 16px;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 2px solid #22553b;
+    border-radius: 9px 5px;
+    background: #fff9dc;
+    color: #234e52;
+    font:
+        700 12px 'Trebuchet MS',
+        sans-serif;
+    box-shadow: 3px 4px #678c83;
+    cursor: pointer;
+}
+body.jc-deck-visible #settings-cog,
+body.jc-deck-visible #scene-flow-cog {
+    display: none;
+}
+/* The notebook covers the cabinet's controls, not a second reserved column. */
+@media (max-height: 950px), (max-width: 1100px) {
+    #jc-log {
+        left: auto;
+        right: 20px;
+        top: 80px;
+        bottom: 180px;
+        width: 300px;
+        height: auto;
+        max-height: none;
+    }
+}
+@media (max-width: 1100px) {
+    #jc-deck {
+        gap: 10px;
+    }
+    .jc-deck-brand {
+        flex-basis: 165px;
+    }
+    .jc-deck-brand strong img {
+        height: 62px;
+    }
+    #jc-deck button {
+        min-width: 66px;
+    }
+    .jc-painted-word {
+        transform: scale(0.9);
+        margin-inline: -5px;
+    }
+}
+@media (max-width: 800px) {
+    #jc-deck {
+        padding-inline: 12px;
+        flex-wrap: wrap;
+        gap: 0;
+        min-height: 186px;
+    }
+    .jc-deck-brand {
+        flex: 0 0 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    .jc-deck-brand > div {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .jc-deck-brand strong img {
+        height: 50px;
+        width: 155px;
+    }
+    .jc-deck-brand small {
+        max-width: 140px;
+    }
+    .jc-deck-tools {
+        width: 100%;
+        flex-basis: 100%;
+    }
+    #jc-deck button {
+        min-width: 60px;
+    }
+    .jc-object-art {
+        transform: scale(0.85);
+        height: 62px;
+    }
+    .jc-painted-word {
+        transform: scale(0.8);
+        margin-inline: -9px;
+    }
+    #jc-log {
+        bottom: 220px;
+    }
+}
+@media (max-width: 550px) {
+    #jc-deck {
+        width: calc(100% - 20px);
+        bottom: 12px;
+        min-height: 262px;
+        padding: 0 5px 6px;
+    }
+    .jc-deck-tools {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+    }
+    .jc-deck-brand strong img {
+        height: 42px;
+        width: 130px;
+    }
+    .jc-deck-brand small {
+        font-size: 14px;
+    }
+    #jc-deck button {
+        min-height: 102px;
+        min-width: 0;
+    }
+    .jc-object-art {
+        transform: scale(0.7);
+        transform-origin: bottom;
+        height: 49px;
+    }
+    .jc-painted-word {
+        transform: scale(0.72);
+        height: 35px;
+        transform-origin: top;
+        margin-inline: -12px;
+    }
+    .jc-control-state {
+        margin-top: -3px;
+    }
+    #jc-log {
+        left: 10px;
+        right: 10px;
+        top: 68px;
+        bottom: 260px;
+        width: auto;
+        min-width: 0;
+    }
+    #enhanced-hud #enhanced-hud-dismiss {
+        top: 10px;
+        bottom: auto;
+        font-size: 11px;
+        min-width: 110px;
+    }
+    .jc-log-title {
+        padding: 8px 12px;
+    }
+    .jc-log-title h2 {
+        font-size: 25px;
+    }
+    .jc-log-navigation {
+        padding: 8px 10px;
+    }
+    .jc-log-body {
+        padding: 8px 12px;
+    }
+    #jc-log h3 {
+        font-size: 18px;
+    }
+    #jc-log #jc-log-day {
+        font-size: 25px;
+    }
+    .jc-stat-grid {
+        padding: 8px;
+        gap: 8px;
+    }
+    .jc-stat-grid dd {
+        font-size: 20px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #enhanced-hud button {
+        transition: none;
+    }
+}
+@media (max-width: 550px) {
+    #jc-deck {
+        min-height: 270px;
+        background: #f8e6bd;
+        border: 2px solid #22553b;
+        border-radius: 12px 7px 24px 15px;
+    }
+    #jc-deck::before {
+        inset: auto -5px -32px;
+        height: 170px;
+    }
+    #jc-deck button {
+        min-height: 104px;
+    }
+    .jc-object-art {
+        height: 68px;
+        margin-block: -10px -5px;
+        transform: scale(0.7);
+        transform-origin: center;
+    }
+    .jc-painted-word {
+        height: 46px;
+        margin-bottom: -12px;
+    }
+    #jc-log {
+        bottom: 300px;
+    }
+}
+/* Existing live-clock overrides stay reachable above, rather than over, the shelf. */
+body.jc-deck-visible #timeline-clock-notice {
+    box-sizing: border-box;
+    bottom: calc(100dvh - var(--jc-deck-top) + 12px) !important;
+    left: 16px !important;
+    max-width: min(460px, calc(100vw - 32px)) !important;
+    max-height: 30dvh;
+    overflow: auto;
+    background: #fff9dc !important;
+    color: #234e52 !important;
+    border: 2px solid #22553b !important;
+    border-radius: 9px 5px;
+    font:
+        15px/1.4 'Trebuchet MS',
+        Arial,
+        sans-serif !important;
+    box-shadow: 3px 4px #234e5244;
+}
+body.jc-deck-visible #timeline-clock-notice button {
+    display: inline-block;
+    min-height: 40px;
+    margin: 10px 8px 0 0;
+    padding: 6px 10px;
+    background: var(--island-action);
+    border: 2px solid #22553b;
+    border-radius: 5px;
+    color: #fff9dc;
+    font:
+        700 12px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    cursor: pointer;
+}
+body:has(#enhanced-hud.is-hidden) #timeline-clock-notice {
+    display: none;
+}
+
+/* One notebook scroll on narrow/short displays; summary and navigation stay in order. */
+@media (max-width: 700px), (max-height: 700px) {
+    #jc-log {
+        display: block;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scroll-padding-top: 72px;
+    }
+    .jc-log-title {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--island-paper);
+        box-shadow: 0 3px 8px #234e5214;
+    }
+    .jc-log-body {
+        overflow: visible;
+        min-height: auto;
+    }
+    .jc-log-navigation {
+        max-height: none;
+        overflow: visible;
+        margin-top: 0;
+    }
+}
+
+.jc-live-word {
+    -webkit-text-stroke: 0.3px var(--island-green);
+    text-shadow: 1px 1px #f5db89;
+    letter-spacing: -1.4px;
+}
+#jc-log .jc-play-day:hover {
+    background: var(--island-green);
+    color: var(--island-paper);
+}
+/* Live lettering needs a full text box before the mobile visual scale is applied. */
+.jc-live-word {
+    width: 124px;
+    max-width: none;
+    overflow: visible;
+    text-align: center;
+}
+/* Orange decoration stays bright; readable day text uses its darker ink companion. */
+#jc-log #jc-log-day {
+    color: var(--island-orange-ink);
+    -webkit-text-stroke: 0;
+}
+/* Actual cabinet hardware, registered to the recomposed 1399×1024 artwork. */
+#jc-cabinet button {
+    position: absolute;
+    pointer-events: auto;
+    z-index: 1;
+    transform: translate(-50%, -50%);
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    background: transparent;
+    min-width: 40px;
+    min-height: 40px;
+    cursor: pointer;
+}
+#jc-cabinet .jc-tv-dial {
+    width: 10.72%;
+    height: 14.65%;
+}
+#jc-tv-picture {
+    left: 85.99%;
+    top: 39.55%;
+}
+#jc-tv-speed {
+    left: 86.7%;
+    top: 61.52%;
+}
+#jc-cabinet #jc-tv-pause {
+    left: 86.49%;
+    top: 77.83%;
+    width: 4.6%;
+    height: 6.25%;
+    min-width: 44px;
+    min-height: 44px;
+}
+#jc-cabinet button:active {
+    transform: translate(-50%, -50%) scale(0.96);
+}
+#jc-cabinet button:focus-visible {
+    outline: 3px solid #22553b;
+    outline-offset: 7px;
+}
+#jc-cabinet #jc-tv-pause.is-paused {
+    box-shadow: 0 0 0 4px #e99a32;
+}
+.jc-tv-caption {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 12px);
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 6px 9px;
+    background: #fff9dc;
+    color: #234e52;
+    border: 2px solid #22553b;
+    border-radius: 5px;
+    font:
+        700 12px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    opacity: 0;
+    pointer-events: none;
+}
+#jc-cabinet button:hover .jc-tv-caption,
+#jc-cabinet button:focus-visible .jc-tv-caption {
+    opacity: 1;
+}
+#jc-pause-overlay,
+#jc-tv-osd {
+    position: fixed;
+    z-index: 5;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+#jc-pause-overlay[hidden] {
+    display: none;
+}
+#jc-pause-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0004;
+}
+/* A TV on-screen display, rather than a dialog floating over the picture. */
+#jc-pause-overlay button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: auto;
+    min-height: 64px;
+    max-width: 100%;
+    padding: 10px 16px;
+    background: transparent;
+    border: 0;
+    border-radius: 2px;
+    color: #fff9dc;
+    text-shadow: 2px 2px #050808, -1px -1px #050808;
+    cursor: pointer;
+}
+#jc-pause-overlay strong {
+    font: 400 40px/1 'VT323', monospace;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+#jc-pause-overlay small {
+    font: 400 20px/1.1 'VT323', monospace;
+}
+#jc-pause-overlay button:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 4px;
+}
+#jc-tv-osd {
+    z-index: 6;
+    opacity: 0;
+    padding: 14px 10px;
+    text-align: center;
+    color: #fff9dc;
+    text-shadow: 1px 2px #000;
+    background: linear-gradient(#0007, transparent 25%);
+    font:
+        700 16px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+}
+#jc-tv-osd.is-visible {
+    opacity: 1;
+}
+@media (max-width: 550px) {
+    #jc-pause-overlay button {
+        min-height: 64px;
+        padding: 8px 12px;
+        gap: 2px;
+    }
+    #jc-pause-overlay strong {
+        font-size: 32px;
+    }
+    #jc-pause-overlay small {
+        font-size: 18px;
+    }
+    #jc-tv-osd {
+        font-size: 12px;
+        padding-top: 8px;
+    }
+}
+@media (max-width: 360px) {
+    #jc-tv-speed {
+        top: 59.5%;
+    }
+    #jc-cabinet #jc-tv-pause {
+        top: 79.5%;
+    }
+}
+/* Live painted faces: circular source samples rotate independently of the stationary cabinet. */
+.jc-tv-knob-paint{position:absolute;pointer-events:none;border-radius:50%;background-image:url('./island-art/cabinet.png');background-repeat:no-repeat;transform:translate(-50%,-50%) rotate(var(--dial-angle,0deg));transform-origin:center;transition:transform 220ms cubic-bezier(.2,0,0,1)}
+.jc-tv-knob-picture{left:85.99%;top:39.55%;width:16.01144%;height:21.875%;background-size:685.714286% 457.142857%;background-position:93.597561% 36.625%}
+.jc-tv-knob-speed{left:86.7%;top:61.52%;width:15.153681%;height:20.703125%;background-size:724.528302% 483.018868%;background-position:93.957704% 64.53202%}
+@media(prefers-reduced-motion:reduce){.jc-tv-knob-paint{transition:none}}
+
+#jc-log .jc-log-details { margin: 12px 0; border-top: 1px solid #a9c9b7; }
+#jc-log .jc-log-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; box-sizing: border-box; font-weight: bold; }
+#jc-log .jc-log-details > summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }

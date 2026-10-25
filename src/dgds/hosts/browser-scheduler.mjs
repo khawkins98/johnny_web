@@ -15,6 +15,7 @@ export const createBrowserScheduler = ({
     clock = createFixedStepClock(),
     requestFrame = globalThis.requestAnimationFrame?.bind(globalThis) || fallbackRequestFrame,
     cancelFrame = globalThis.cancelAnimationFrame?.bind(globalThis) || fallbackCancelFrame,
+    isPaused = () => false,
 } = {}) => {
     let frameId = null;
     let running = false;
@@ -33,7 +34,8 @@ export const createBrowserScheduler = ({
         const frame = (timestamp) => {
             if (!running) return;
             frameId = requestFrame(frame);
-            onTicks(clock.consume(timestamp));
+            const ticks = clock.consume(timestamp);
+            if (!isPaused()) onTicks(ticks);
         };
 
         frameId = requestFrame(frame);

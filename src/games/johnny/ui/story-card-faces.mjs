@@ -21,22 +21,22 @@ import { johnnyCastaway } from '../manifest.mjs';
 export const CARD_WIDTH = 320;
 export const CARD_HEIGHT = 480;
 
-// The app's own palette (scene-flow-panel.mjs, settings.mjs): parchment and
-// brown for paper, island blue with cyan and yellow for the screen.
+// Beachcomber paper/ink for card furniture. Picture windows and the original
+// fallback pixel illustrations keep their own island colours.
 export const PALETTE = Object.freeze({
-    paper: '#d4c4a8',
-    paperShade: '#bfa982',
-    brown: '#8b5a2b',
-    ink: '#302816',
+    paper: '#fff9dc',
+    paperShade: '#a9c9b7',
+    brown: '#22553b',
+    ink: '#234e52',
     blue: '#071998',
     blueMid: '#12339c',
     blueDeep: '#06146c',
     cyan: '#66d8e8',
-    yellow: '#ffe02d',
+    yellow: '#e99a32',
     cream: '#fffbe2',
 });
 const P = PALETTE;
-export const CARD_FONT = "'VT323', monospace";
+export const CARD_FONT = "'Trebuchet MS', Arial, sans-serif";
 
 // How long (in game ticks) to search a gag for a good frame. 20 ms ticks, so
 // 750 ticks is 15 s of game time.
@@ -426,7 +426,7 @@ const wrap = (context, text, maxWidth, maxLines) => {
     return lines;
 };
 
-// Square, pixel-style frame like the panel's buttons and inspector.
+// Cream paper with palm-green ink; the live card gets an orange edge.
 const frame = (context, { fill, border, inner, width = 6 }) => {
     context.fillStyle = border;
     context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
@@ -441,7 +441,7 @@ const frame = (context, { fill, border, inner, width = 6 }) => {
 // in). Shown while a card's real frame renders, or when a gag has no usable
 // frame. Drawn at a whole-number scale so the pixels stay square.
 const ICON_COLOURS = {
-    Y: P.yellow, W: P.cream, C: P.cyan, B: P.brown, R: '#d8432c', O: '#f08a24', G: '#3fae4a', K: P.ink,
+    Y: '#ffe02d', W: P.cream, C: P.cyan, B: '#8b5a2b', R: '#d8432c', O: '#f08a24', G: '#3fae4a', K: P.ink,
 };
 const FAMILY_ICONS = {
     FISHING: [
@@ -543,16 +543,16 @@ export function paintCardFace(context, { name, kicker, image = null, script = nu
     context.textAlign = 'center';
     context.textBaseline = 'alphabetic';
     context.fillStyle = P.brown;
-    context.font = `30px ${CARD_FONT}`;
+    context.font = `700 24px ${CARD_FONT}`;
     context.fillText((kicker || '').toUpperCase(), CARD_WIDTH / 2, 44);
 
     context.fillStyle = P.ink;
-    context.font = `44px ${CARD_FONT}`;
+    context.font = `700 32px ${CARD_FONT}`;
     const lines = wrap(context, name.toUpperCase(), CARD_WIDTH - 48, 3);
     const top = windowY + windowH + 46;
     lines.forEach((line, index) => context.fillText(line, CARD_WIDTH / 2, top + index * 38));
 
-    context.font = `34px ${CARD_FONT}`;
+    context.font = `700 30px ${CARD_FONT}`;
     context.fillStyle = P.brown;
     if (final) {
         context.textAlign = 'left';
@@ -563,19 +563,19 @@ export function paintCardFace(context, { name, kicker, image = null, script = nu
         context.fillText(`✦${keyDay}`, CARD_WIDTH - 24, CARD_HEIGHT - 22);
     }
     if (sealed) {
-        context.fillStyle = 'rgba(6,20,108,.5)';
+        context.fillStyle = 'rgba(35,78,82,.4)';
         context.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
         // A stamp across the picture, so a sealed card reads as sealed at a glance.
         context.save();
         context.translate(CARD_WIDTH / 2, windowY + windowH / 2);
         context.rotate(-0.18);
-        context.fillStyle = 'rgba(212,196,168,.92)';
+        context.fillStyle = 'rgba(255,249,220,.95)';
         context.fillRect(-118, -30, 236, 60);
         context.strokeStyle = '#9a3412';
         context.lineWidth = 4;
         context.strokeRect(-112, -24, 224, 48);
         context.fillStyle = '#9a3412';
-        context.font = `44px ${CARD_FONT}`;
+        context.font = `700 32px ${CARD_FONT}`;
         context.textAlign = 'center';
         context.textBaseline = 'middle';
         context.fillText('SEALED', 0, 2);
