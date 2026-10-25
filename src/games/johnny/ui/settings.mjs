@@ -1,3 +1,4 @@
+import { setupCrtSettings } from './crt/settings.mjs';
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
 import {
@@ -24,13 +25,38 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
             -moz-osx-font-smoothing: grayscale;
         }
 
+        .johnny-crt [hidden] { display: none !important; }
+        .johnny-crt { margin: 16px 0; font-family: 'VT323', monospace; font-size: 18px; }
+        .johnny-crt summary { cursor: pointer; padding: 8px 0; }
+        .johnny-crt p { font-size: 16px; line-height: 1.25; }
+        .johnny-crt .crt-tools, .johnny-crt .crt-saved { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .johnny-crt .crt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .johnny-crt .crt-control { background: #ffffff30; padding: 10px; border-radius: 6px; }
+        .johnny-crt .crt-toggle, .johnny-crt .crt-slider-label { display: block; }
+        .johnny-crt input[type=range] { width: 100%; accent-color: #8b5a2b; }
+        .johnny-crt output { display: block; font-variant-numeric: tabular-nums; }
+        .johnny-crt input[type=text], .johnny-crt select { min-width: 0; max-width: 100%; }
+        .johnny-crt button, .johnny-crt select, .johnny-crt input[type=text] {
+            min-height: 40px; padding: 5px 8px; font: inherit; color: #4a3520;
+            background: #f4e4c8; border: 2px solid #8b5a2b; border-radius: 4px; box-sizing: border-box;
+        }
+        .johnny-crt button { cursor: pointer; }
+        .johnny-crt .crt-toggle, .johnny-crt > label { min-height: 40px; display: flex; align-items: center; gap: 6px; }
+        .johnny-crt .crt-tools > label:not(.crt-toggle) { display: grid; gap: 6px; flex: 1 1 210px; }
+        .johnny-crt .crt-tools > .crt-toggle { flex: 0 0 100%; }
+        .johnny-crt > label:has(select) { display: grid; gap: 6px; margin: 8px 0; }
+        .johnny-crt input[type=range] { min-height: 40px; }
+        .johnny-crt button:hover { background: #fff4dc; }
+        .johnny-crt button:active { transform: scale(0.96); }
+        .johnny-crt :focus-visible { outline: 3px solid #8b5a2b; outline-offset: 2px; }
+        .johnny-crt :disabled { opacity: 0.5; cursor: default; }
+        @media(max-width: 420px) { .johnny-crt .crt-grid { grid-template-columns: 1fr; } }
         #settings-overlay {
             display: none;
             position: fixed;
             inset: 0;
             z-index: 2000;
-            background: rgba(0, 6, 12, 0.48);
-            backdrop-filter: blur(1px);
+            background: transparent;
             justify-content: center;
             align-items: center;
         }
@@ -506,6 +532,8 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     scaleRow.appendChild(scaleSelect);
     modal.appendChild(scaleRow);
 
+    setupCrtSettings(modal);
+
     const fullscreenRow = document.createElement('div');
     fullscreenRow.className = 'settings-row';
     const fullscreenLabel = document.createElement('span');
@@ -956,6 +984,7 @@ function applyScaling(mode) {
     root.style.imageRendering = 'auto';
 
     Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
+        c.style.imageRendering = 'auto';
         c.style.width = '640px';
         c.style.height = '480px';
     });

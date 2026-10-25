@@ -52,3 +52,27 @@ that provenance and preserve all applicable license and copyright obligations.
   [Johnny-Castaway-Open-Source](https://github.com/nivs1978/Johnny-Castaway-Open-Source)
 - **Vasco Costa** (vcosta) and the **ScummVM DGDS contributors** — DGDS engine work in
   [ScummVM](https://github.com/scummvm/scummvm/tree/master/engines/dgds)
+
+## CRT-Lottes Research Reference
+
+The game and presentation lab share Timothy Lottes' **CRT-Lottes**
+shader, whose preserved source header declares it public domain. The file is
+unchanged from Libretro `glsl-shaders` revision
+`e808ca09c699db7a843154cf7dc4dfd766d18a8a`:
+https://github.com/libretro/glsl-shaders/blob/e808ca09c699db7a843154cf7dc4dfd766d18a8a/crt/shaders/crt-lottes.glsl
+
+See `src/games/johnny/ui/crt/vendor/README.md` for provenance and the browser
+adapter. The experimental VGA beam shader is original code. Creative, VGA beam and CRT-Lottes are selectable optional game models.
+
+
+## Guest Advanced HD Research Pipeline
+
+The development lab contains an experimental WebGL2 port of guest(r)'s
+GPL-2.0-or-later Guest Advanced HD pipeline, pinned to Libretro revision
+`77c52ce6b557bcb81ca298ae01ea955dd2792ba7`. Original headers, preset and shader
+sources are preserved under `tools/presentation-lab/vendor/guest-hd/`, with full
+license text in `COPYING` and corresponding browser adapter/source in the lab.
+The Guest adapter and combined Guest demo are GPL-2.0-or-later; original MIT
+components retain their compatible MIT terms. See the Guest README for scope,
+source/build instructions and validation limits. Optional image LUTs are not
+redistributed pending provenance. The production game does not import Guest.

@@ -37,6 +37,7 @@ describe('settings UI', () => {
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
 
         settings.applyExperience('enhanced');
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
         expect(localStorage.getItem(EXPERIENCE_SETTING_KEY)).toBe('enhanced');
         expect(setting('experience').value).toBe('enhanced');
         expect(setting('scale').value).toBe('freeform');
@@ -48,6 +49,35 @@ describe('settings UI', () => {
         expect(setting('scale').value).toBe('native');
         expect(setting('clouds').value).toBe('off');
         expect(setting('waves').value).toBe('on');
+    });
+
+    it('remembers picture models independently while keeping CRT off', () => {
+        setupSettingsUI();
+        const model=document.querySelector('#jc-crt-model');
+        model.value='vga';model.dispatchEvent(new Event('change'));
+        const beam=document.querySelector('#vga-beam');beam.value='0.45';beam.dispatchEvent(new Event('input'));
+        let saved=JSON.parse(localStorage.getItem('jc-crt-v1'));
+        expect(saved.model).toBe('vga');expect(saved.vga.beam).toBe(.45);expect(saved.settings.blur).toBe(1);
+        model.value='lottes';model.dispatchEvent(new Event('change'));
+        saved=JSON.parse(localStorage.getItem('jc-crt-v1'));
+        expect(saved.lottes.maskType).toBe(3);expect(saved.vga.beam).toBe(.45);
+        expect(document.querySelector('#jc-crt-enabled').checked).toBe(false);
+        expect(document.querySelector('#johnny-crt-output')).toBeNull();
+        document.body.innerHTML='<div id="root"><canvas></canvas></div>';
+        setupSettingsUI();expect(document.querySelector('#jc-crt-model').value).toBe('lottes');
+        expect(document.querySelector('[data-crt-panel="vga"]').hidden).toBe(true);
+    });
+
+    it('clears the Integer canvas filter when changing scaling modes', () => {
+        setupSettingsUI();
+        const scale = document.querySelector('[data-setting="scale"]');
+        const canvas = document.querySelector('#root canvas');
+        for (const mode of ['native', 'freeform', 'stretch']) {
+            scale.value = 'integer'; scale.dispatchEvent(new Event('change'));
+            expect(canvas.style.imageRendering).toBe('pixelated');
+            scale.value = mode; scale.dispatchEvent(new Event('change'));
+            expect(canvas.style.imageRendering).toBe('auto');
+        }
     });
 
     it('offers full screen and a footer close action', () => {
