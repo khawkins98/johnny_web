@@ -385,6 +385,7 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
     return new Promise((resolve) => {
         const overlay = document.getElementById('start-overlay');
         const playBtn = document.getElementById('start-play-btn');
+        const pictureBtn = document.getElementById('start-picture-btn');
         const helpBtn = document.getElementById('start-help-btn');
         const help = document.getElementById('start-help');
         const settingsBtn = document.getElementById('start-settings-btn');
@@ -401,6 +402,7 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
         helpBtn.addEventListener('click', toggleHelp);
         const start = () => {
             playBtn.removeEventListener('click', start);
+            pictureBtn.removeEventListener('click', start);
             settingsBtn.removeEventListener('click', openSettings);
             helpBtn.removeEventListener('click', toggleHelp);
             overlay.classList.remove('visible');
@@ -419,6 +421,7 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
             });
         };
         playBtn.addEventListener('click', start);
+        pictureBtn.addEventListener('click', start);
     });
 }
 

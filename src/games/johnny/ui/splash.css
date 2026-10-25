@@ -214,8 +214,20 @@ body:has(#start-overlay.visible) #start-matte {
     }
 }
 /* Source pixels are presented once, at half-step zoom; live game buffers stay untouched. */
-#start-title-picture {
+#start-picture-btn {
     position: fixed;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    pointer-events: auto;
+    cursor: pointer;
+}
+#start-picture-btn:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 4px;
+}
+#start-title-picture {
+    display: block;
     image-rendering: pixelated;
     pointer-events: none;
 }

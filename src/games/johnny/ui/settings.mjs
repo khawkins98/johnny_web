@@ -985,8 +985,9 @@ function applyScaling(mode) {
             const chosen = titleScale(vw, vh, title.width, title.height);
             title.style.width = `${title.width * chosen}px`;
             title.style.height = `${title.height * chosen}px`;
-            title.style.left = `${centerX - title.width * chosen / 2}px`;
-            title.style.top = `${centerY - title.height * chosen / 2}px`;
+            const titleTarget = title.closest('button') || title;
+            titleTarget.style.left = `${centerX - title.width * chosen / 2}px`;
+            titleTarget.style.top = `${centerY - title.height * chosen / 2}px`;
             title.dataset.scale = String(chosen);
         }
         mode = 'freeform';
