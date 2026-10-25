@@ -208,3 +208,23 @@ it('turns painted dial faces for picture changes and speed changes, including wr
   browserPlayback.setRate(4);expect(speed.style.getPropertyValue('--dial-angle')).toBe('180deg');
  } finally {ui.destroy();__DEBUG__.getPresentation.mockImplementation(previous)}
 });
+
+it('leaves Space on the TV restore button to native button activation', () => {
+    document.body.replaceChildren();
+    vi.stubGlobal('requestAnimationFrame', vi.fn());
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+    browserPlayback.reset();
+    const ui = setupEnhancedUI();
+    try {
+        document.getElementById('enhanced-hud-dismiss').focus();
+        document.getElementById('enhanced-hud-dismiss').click();
+        const restore = document.getElementById('jc-deck-restore');
+        expect(document.activeElement).toBe(restore);
+        const event = new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true });
+        restore.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(browserPlayback.paused).toBe(false);
+        restore.click(); // jsdom does not synthesize native clicks from keyboard events.
+        expect(ui.hud.classList.contains('is-hidden')).toBe(false);
+    } finally { ui.destroy(); }
+});

@@ -444,9 +444,6 @@ export function setupEnhancedUI({
             fullView();
             return;
         }
-        if ((event.code === 'Space' || event.key === ' ') && event.target === restore) {
-            event.preventDefault(); togglePause(); return;
-        }
         if (isTyping(event.target)) return;
         const p = __DEBUG__.getPresentation(),
             index = Math.max(0, PLAYBACK_RATES.indexOf(p.playbackRate));

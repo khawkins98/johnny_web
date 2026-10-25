@@ -923,6 +923,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
 
     // Keyboard shortcut 'S'
     window.addEventListener('keydown', (e) => {
+        if (document.querySelector('#scene-flow-overlay[aria-hidden="false"]')) return;
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (isTyping(e.target) && e.key !== 'Escape') return;
 

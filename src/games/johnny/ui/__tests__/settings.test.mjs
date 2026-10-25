@@ -325,3 +325,19 @@ it.each([
         vi.unstubAllGlobals();
     }
 });
+
+it('does not let the return-to-title shortcut escape the Timeline modal', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    const onRestart = vi.fn();
+    setupSettingsUI({ onRestart });
+    const timeline = document.createElement('div');
+    timeline.id = 'scene-flow-overlay';
+    timeline.setAttribute('aria-hidden', 'false');
+    timeline.innerHTML = '<details><summary>Details</summary></details>';
+    document.body.append(timeline);
+    timeline.querySelector('summary').dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true }));
+    expect(onRestart).not.toHaveBeenCalled();
+    timeline.setAttribute('aria-hidden', 'true');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
+    expect(onRestart).toHaveBeenCalledOnce();
+});
