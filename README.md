@@ -45,6 +45,7 @@ See the [changelog](CHANGELOG.md) for what each release changed.
 
 For a specific task:
 
+- [Experiment with scaling and CRT presentation](tools/presentation-lab/README.md) — development lab, reproducible screenshots, findings, and source credits for issue #81.
 - [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
 - [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.
 - [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.

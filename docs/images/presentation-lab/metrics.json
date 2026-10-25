@@ -1,0 +1,555 @@
+{
+  "note": "Frozen synthetic source; short headless runs; CPU submission only, not GPU/total engine cost. DPR emulation is not real browser zoom.",
+  "results": [
+    {
+      "name": "fit-dpr1",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 1,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        24,
+        324
+      ],
+      "mode": "fit",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.5625,
+        "sharp": false,
+        "width": 1000,
+        "height": 750,
+        "x": 0,
+        "y": 0
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 185,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.10000002384185791,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.800000000000068,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "leaked-filter-dpr1",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 1,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        24,
+        324
+      ],
+      "mode": "legacy",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.5625,
+        "sharp": true,
+        "width": 1000,
+        "height": 750,
+        "x": 0,
+        "y": 0
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 185,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.10000002384185791,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999727,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "auto-dpr1",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 1,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        204,
+        459
+      ],
+      "mode": "auto",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1,
+        "sharp": true,
+        "width": 640,
+        "height": 480,
+        "x": 180,
+        "y": 135
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 185,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.09999999403953552,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999727,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "explicit-1.2-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        280,
+        822
+      ],
+      "mode": "1.2",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.2,
+        "sharp": false,
+        "width": 768,
+        "height": 576,
+        "x": 116,
+        "y": 87
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 183,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.10000002384185791,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999727,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "auto-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        88,
+        678
+      ],
+      "mode": "auto",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.5,
+        "sharp": true,
+        "width": 960,
+        "height": 720,
+        "x": 20,
+        "y": 15
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 184,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.09999999403953552,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999955,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "crt-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        88,
+        678
+      ],
+      "mode": "auto",
+      "effect": "crt",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.5,
+        "sharp": true,
+        "width": 960,
+        "height": 720,
+        "x": 20,
+        "y": 15
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        1920,
+        1440
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 183,
+      "cpuSubmissionMs": {
+        "p50": 0.09999999403953552,
+        "p95": 0.10000002384185791,
+        "p99": 0.19999998807907104
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.700000000000273,
+        "p99": 16.800000000000182
+      }
+    },
+    {
+      "name": "fallback-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        88,
+        678
+      ],
+      "mode": "auto",
+      "effect": "unavailable",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 1.5,
+        "sharp": true,
+        "width": 960,
+        "height": 720,
+        "x": 20,
+        "y": 15
+      },
+      "failure": "Forced WebGL unavailable · unfiltered fallback",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 184,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.09999999403953552,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.700000000000273,
+        "p99": 16.799999999999955
+      }
+    },
+    {
+      "name": "auto-dpr1.25",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 1.25,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "1000",
+        "750"
+      ],
+      "layoutDeviceOrigin": [
+        335,
+        634
+      ],
+      "mode": "auto",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 0.8,
+        "sharp": true,
+        "width": 512,
+        "height": 384,
+        "x": 244,
+        "y": 183.2
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 184,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.09999999403953552,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.700000000000273,
+        "p99": 16.799999999999727
+      }
+    },
+    {
+      "name": "small-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "375",
+        "667"
+      ],
+      "layoutDeviceOrigin": [
+        103,
+        1075
+      ],
+      "mode": "auto",
+      "effect": "none",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 0.5,
+        "sharp": true,
+        "width": 320,
+        "height": 240,
+        "x": 27.5,
+        "y": 213.5
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        300,
+        150
+      ],
+      "samples": 184,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.09999999403953552,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.700000000000273,
+        "p99": 16.80000000000001
+      }
+    },
+    {
+      "name": "small-raster-dpr2",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36",
+      "dpr": 2,
+      "viewport": [
+        1120,
+        1150
+      ],
+      "requested": [
+        "375",
+        "667"
+      ],
+      "layoutDeviceOrigin": [
+        103,
+        1075
+      ],
+      "mode": "auto",
+      "effect": "raster",
+      "source": "synthetic",
+      "frozen": true,
+      "frame": 0,
+      "geometry": {
+        "scale": 0.5,
+        "sharp": true,
+        "width": 320,
+        "height": 240,
+        "x": 27.5,
+        "y": 213.5
+      },
+      "failure": "",
+      "sourceHash": "2ada5a4e",
+      "sourceSize": [
+        640,
+        480
+      ],
+      "glSize": [
+        300,
+        150
+      ],
+      "rasterSize": [
+        640,
+        480
+      ],
+      "samples": 185,
+      "cpuSubmissionMs": {
+        "p50": 0,
+        "p95": 0.10000002384185791,
+        "p99": 0.10000002384185791
+      },
+      "frameIntervalMs": {
+        "p50": 16.699999999999818,
+        "p95": 16.799999999999955,
+        "p99": 16.800000000000182
+      }
+    }
+  ]
+}
