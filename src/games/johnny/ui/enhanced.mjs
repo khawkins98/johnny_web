@@ -3,7 +3,7 @@ import { __DEBUG__ } from '../../../dgds/scripting/process.mjs';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
 import { TIDE_BANDS, bandForPhase, gagsFor, keySceneFor } from '../story-steps.mjs';
 import deckCss from './playback-deck.css?inline';
-import { islandArt, paintedControl, cabinetArtwork } from './island-art.mjs';
+import { islandTitle, paintedControl, cabinetArtwork } from './island-art.mjs';
 const PLAYBACK_RATES = [0.5, 1, 2, 4];
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 const keyOf = (gag) => `${gag.script}:${gag.tagId}`;
@@ -23,7 +23,7 @@ export function setupEnhancedUI({
     hud.id = 'enhanced-hud';
     hud.setAttribute('aria-label', 'Playback controls');
     hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><nav id="jc-deck" aria-label="Playback toolbar">
-        <div class="jc-deck-brand"><div><strong><img src="${islandArt.title}" alt="Johnny Web"></strong><small id="enhanced-hud-status"><span id="enhanced-hud-stage">Day 1</span> · <span id="enhanced-hud-name">On island time</span></small></div></div>
+        <div class="jc-deck-brand"><div><strong><img src="${islandTitle}" alt="Johnny Web"></strong><small id="enhanced-hud-status"><span id="enhanced-hud-stage">Day 1</span> · <span id="enhanced-hud-name">On island time</span></small></div></div>
         <div class="jc-deck-tools"></div><span id="jc-deck-announcement" role="status"></span>
     </nav>
     <aside id="jc-log" aria-label="Island Log" hidden>

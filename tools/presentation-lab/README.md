@@ -2,7 +2,7 @@
 
 **Implementation follow-up:** [Optional CRT setup, presets and lifecycle](../../docs/optional-crt.md). The shader and controls now live in the game UI module and are shared by this lab. Balanced CRT matches the user-provided six-effect tuning; named custom presets are stored in this browser and shared with the game on the same origin. The observations below retain the original research capture settings and dates.
 
-Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; it does not change the production settings or Enhanced default.
+Research for [Johnny Castaway issue 81](https://github.com/khawkins98/johnny_web/issues/81). The lab compares device-aware sizing and an optional CRT effect using the same native 640×480 input. It is a development tool served by Vite; its sizing policies are independent of the game defaults. The live UI shipped in v1.4.0 with one Play flow, Balanced CRT and Stretch to fill; saved preferences are preserved.
 
 **VGA/Libretro research:** [Model comparisons, diagnostics, setup and credits](VGA.md). VGA and pinned CRT-Lottes are now selectable in game Settings. The lab-only `?view=guest` comparison adds the full pinned Guest Advanced HD 12-pass pipeline. See its [adapter, source, GPL terms and limitations](vendor/guest-hd/README.md).
 
@@ -17,7 +17,7 @@ pnpm dev --host 127.0.0.1
 
 Open `/tools/presentation-lab/` on the printed Vite origin. For a repeatable frozen pattern, use `/tools/presentation-lab/?mode=auto&effect=crt&width=1000&height=750&frozen=1`.
 
-The synthetic fixture is original project code and requires no proprietary files. For real gameplay, follow [the existing local extraction instructions](../../CONTRIBUTING.md#local-game-data), or import your own files in the embedded game. Open **Live Johnny integration**, start Classic or Enhanced, then **Connect game canvases**. **Freeze source** retains one exact composite for switching modes; the original game continues running. **Test pattern** returns to synthetic input. Reload to reset the experiment. The game iframe loads only when opened, so default synthetic captures do not run the engine.
+The synthetic fixture is original project code and requires no proprietary files. For real gameplay, follow [the existing local extraction instructions](../../CONTRIBUTING.md#local-game-data), or import your own files in the embedded game. Open **Live Johnny integration**, press Play, then **Connect game canvases**. **Freeze source** retains one exact composite for switching modes; the original game continues running. **Test pattern** returns to synthetic input. Reload to reset the experiment. The game iframe loads only when opened, so default synthetic captures do not run the engine.
 
 **Width/Height** set a simulated available CSS viewport inside the lab. They are independent of the outer browser viewport and preserve controlled comparisons through browser resizing. Change these numbers to examine thresholds. Browser resize updates DPR/layout; it does not change the requested experiment dimensions. These experiments do not yet implement production fullscreen or persisted sizing.
 
@@ -53,7 +53,7 @@ Exported metrics include every card's requested mode, geometry, failure and outp
 
 Fit is smooth, matching direct entry to the current production Freeform mode. **Leaked pixelated filter** reproduces the scaling/filter combination reached by the existing Integer → Freeform bug; it is a visual reference rather than a production patch. Native and explicit 1.2×/1.5×/2× requests are capped to fit. Explicit stops use smooth filtering unless their effective device multiplier is integer. These compare combined sizing/filter policies, not size alone. The lab has no persistent preference and no migration of production storage.
 
-At 1000×750 available CSS pixels, Auto gives 640×480 at DPR 1 and 960×720 at DPR 2. At DPR 1.25 it gives 512×384: the large unused area is a real cost of prioritizing equal device-pixel blocks. At 375×667/DPR 2 it gives 320×240, about 15% narrower than continuous fit. Keep Fit accessible and choose the eventual Enhanced default after usability review.
+At 1000×750 available CSS pixels, Auto gives 640×480 at DPR 1 and 960×720 at DPR 2. At DPR 1.25 it gives 512×384: the large unused area is a real cost of prioritizing equal device-pixel blocks. At 375×667/DPR 2 it gives 320×240, about 15% narrower than continuous fit. This was a tradeoff in the original Auto proposal. The released game defaults to Stretch; Auto remains a lab option.
 
 ## Canvas2D device raster comparison
 
@@ -158,9 +158,9 @@ Real-game integration was also checked locally using user-supplied data. One fro
 
 ## Decision and remaining work
 
-The original lab left production behavior unchanged. The [optional CRT follow-up](../../docs/optional-crt.md) now adds opt-in game controls, shared presets, context restoration and the filter-reset fix. Auto sharp fit remains a research option: its DPR-dependent size tradeoff merits user testing before becoming the Enhanced default. Mobile/GPU measurement and full motion/zoom coverage remain open. The lab itself retains baseline fallback until reload after context loss; the game compositor automatically rebuilds on restoration.
+The original lab left production behavior unchanged. The [optional CRT follow-up](../../docs/optional-crt.md) now provides game controls (Balanced CRT is the default for fresh preferences), shared presets, context restoration and the filter-reset fix. Auto sharp fit remains a research option: its DPR-dependent size tradeoff merits user testing before any production adoption. Mobile/GPU measurement and full motion/zoom coverage remain open. The lab itself retains baseline fallback until reload after context loss; the game compositor automatically rebuilds on restoration.
 
-## Validation record
+## Historical prototype validation record
 
 - `node --test tools/presentation-lab/scaling.test.mjs`: 4 tests pass, covering thresholds, fractional stops, small-screen containment, aspect ratio and origin alignment across DPRs.
 - Pixel comparison: five unfiltered Auto captures reproduce exact native blocks; the two small-screen variants retain a `[1,1]` device-pixel offset from DOM projection.

@@ -35,7 +35,7 @@ Press **Play** to start Johnny with the illustrated Island TV, Balanced CRT, str
 
 Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
 
-The bottom toolbar opens Options, Picture controls and the story Timeline. **Log** toggles day/gag navigation; session statistics and specific-gag selection expand on demand. **Toggle Island TV** or `H` hides/restores the cabinet and toolbar. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` to fill the page with the screensaver. [Toolbar and Captain’s log guide](docs/playback-toolbar.md).
+The bottom toolbar opens Options, Picture controls and the story Timeline. **Log** toggles day/gag navigation; session statistics and specific-gag selection expand on demand. **Toggle Island TV** or `H` hides/restores the cabinet and toolbar. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` to fill the page with the screensaver. [Playback toolbar and Island Log guide](docs/playback-toolbar.md).
 
 Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
 

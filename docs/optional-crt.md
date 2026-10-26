@@ -1,8 +1,6 @@
-> The live UI now defaults to Balanced CRT for new preferences. Select Original picture to turn it off. Saved preferences are preserved; the standalone integration fixture described below still explicitly tests the off state.
-
 # Optional CRT picture
 
-Implementation follow-up to [issue #81](https://github.com/khawkins98/johnny_web/issues/81) and the [presentation lab](../tools/presentation-lab/README.md). The implementation PR is stacked on research PR #84; review its diff against that branch until the research lands.
+Implementation follow-up to [issue #81](https://github.com/khawkins98/johnny_web/issues/81) and the [presentation lab](../tools/presentation-lab/README.md). Research #84, CRT implementation #85 and Island TV #86 shipped in [v1.4.0](https://github.com/khawkins98/johnny_web/releases/tag/v1.4.0).
 
 ## Try it
 
@@ -11,13 +9,13 @@ pnpm install
 pnpm dev --host 127.0.0.1
 ```
 
-Open the Vite URL, then **Settings → CRT picture · optional → Enable CRT picture**. Original game files are required for Johnny; follow the repository README to supply them locally. The [lab](http://127.0.0.1:5173/tools/presentation-lab/?view=compare&effect=crt) provides a synthetic fixture without game files, or can connect to locally running Johnny. The lab is a development page, not included in the production entry.
+Open the Vite URL, then **Play → Picture**, or **Options → Picture look**. Original game files are required for Johnny; follow the repository README to supply them locally. The [lab](http://127.0.0.1:5173/tools/presentation-lab/?view=compare&effect=crt) provides a synthetic fixture without game files, or can connect to locally running Johnny. The lab is a development page, not included in the production entry.
 
-CRT is off for a fresh browser profile. Classic/Enhanced do not enable it; it is a separate picture preference. Its checkbox, effect settings and bypass are retained across reloads in `jc-crt-v1`. Turn it off to release the GPU canvas entirely. Bypass temporarily reveals the native canvases while retaining the GPU resources and controls.
+Fresh preferences use Balanced CRT and Stretch to fill. Choose **Original picture** to turn CRT off; explicitly saved preferences are retained. Its enable state, effect settings and bypass are retained across reloads in `jc-crt-v1`. Turn it off to release the GPU canvas entirely. Bypass temporarily reveals the native canvases while retaining the GPU resources and controls.
 
 ## Picture models
 
-Settings now offers **Creative CRT**, **VGA beam · experimental**, and **CRT-Lottes · Libretro**. Model selection does not enable CRT automatically. Each model remembers its own tuning, and changing models releases the old GPU context before creating the new renderer. Existing `jc-crt-v1` records without a model retain Creative and their old settings. VGA/Lottes use the same native-source boundary, fallback, visibility, fullscreen/resize handling and context restoration.
+**Picture look** offers Original, Subtle, Balanced, Soft, VGA beam, CRT-Lottes and saved Creative presets. Choosing a look enables that model and clears bypass; Original turns CRT off. **Advanced CRT tuning** exposes the model selector, enable checkbox and detailed controls. Changing the model inside advanced tuning retains the enable state. Each model remembers its own tuning, and changing models releases the old GPU context before creating the new renderer. Existing `jc-crt-v1` records without a model retain Creative and their old settings. VGA/Lottes use the same native-source boundary, fallback, visibility, fullscreen/resize handling and context restoration.
 
 VGA controls describe horizontal/vertical beam width, intensity widening, assumed CRT response, raster phase, exposure and a density-filtered stripe-mask approximation. They are assumptions rather than measured monitor calibration; see [methods and limits](../tools/presentation-lab/VGA.md). A too-small output temporarily uses the normal picture and recovers after resizing. CRT-Lottes is actual pinned public-domain upstream code, with adjustable mask/bloom and a reset to its arcade-style defaults. Its [source/provenance](../src/games/johnny/ui/crt/vendor/README.md) is retained.
 
@@ -36,7 +34,7 @@ The **Balanced CRT** built-in reproduces the user's 2026-10-23 screenshot:
 | Curvature | 1% |
 | Vignette | 5% |
 
-All six are enabled. Subtle, Soft and All effects off remain available. Choosing a built-in clears bypass, but never checks the game-wide Enable CRT checkbox.
+All six are enabled in Balanced. Subtle, Soft and Original picture are available in the main chooser. The advanced Creative buttons also include All effects off; those tuning buttons clear bypass without changing the game-wide enable checkbox.
 
 Adjust any slider or checkbox, enter a name and choose **Save preset**. Saving the same exact name updates that entry. Choose a saved entry to load it, or **Delete preset** to remove it. Names are limited to 40 characters and the library to 20 entries. The shared `jc-crt-presets-v1` library is available to both the lab and the game on the same origin/browser profile. Creative named presets store effective effect amounts and bypass; disabled effects are stored as zero. There is no account sync or export/import in this implementation. Failed storage writes are reported and current controls still work. Storage input is validated and bounded; preset names are rendered as text.
 
@@ -44,9 +42,9 @@ Adjust any slider or checkbox, enter a name and choose **Save preset**. Saving t
 
 Shared code lives in `src/games/johnny/ui/crt/`; the lab imports it through small compatibility exports. Creative and VGA GLSL are original. CRT-Lottes is the explicitly credited public-domain upstream shader. No new package dependency is introduced.
 
-The browser compositor reads `mainCanvas` and `canvas` once per presentation rAF into a separate 640×480 source. This covers the intro, island presenter, walk/pose, fades and direct transition writers without invoking their renderers again. It changes no engine clock, game source pixels, faithful rasterizer or random state. Settings, timeline and HUD remain outside CRT. The original canvases are hidden only after a successful GPU draw and immediately revealed for bypass, off, failure, hidden document, zero-size stage or visible file-import panel.
+The browser compositor reads `mainCanvas` and `canvas` once per presentation rAF into a separate 640×480 source, without invoking their renderers again. This includes live island presentation, walks/poses, fades and transitions. The splash uses a separate unfiltered title canvas. It changes no engine clock, game source pixels, faithful rasterizer or random state. Settings, timeline and HUD remain outside CRT. The original canvases are hidden only after a successful GPU draw and immediately revealed for bypass, off, failure, hidden document, zero-size stage or visible file-import panel.
 
-The output follows the source canvas's actual CSS rectangle and current DPR each frame, including existing scaling modes, resize, scroll and fullscreen changes. GPU dimensions are capped at 4096 per side and the driver's viewport/renderbuffer limit; very large displays can therefore receive a lower-density output. Creative CRT keeps a nearest-sampled base in Integer mode and uses linear base sampling in other modes. VGA reconstructs the source signal independently of that filter choice; Lottes retains its upstream reconstruction math. This PR also resets per-canvas `imageRendering` when leaving Integer, fixing the previously documented filter leakage. It does not change the game's scale choices or introduce the lab's Auto policy.
+The output follows the source canvas's actual CSS rectangle and current DPR each frame, including existing scaling modes, resize, scroll and fullscreen changes. GPU dimensions are capped at 4096 per side and the driver's viewport/renderbuffer limit; very large displays can therefore receive a lower-density output. Creative CRT keeps a nearest-sampled base in Integer and TV-off half-step modes, and uses linear base sampling in the other modes. VGA reconstructs the source signal independently of that filter choice; Lottes retains its upstream reconstruction math. Scaling resets per-canvas `imageRendering` when leaving Integer or half-step modes, avoiding filter leakage. Island TV uses the cabinet aperture, TV-off uses 0.5× steps, and Full view fits the page. The lab's device-aware Auto policy remains a separate research option.
 
 Blur and bleed radii are measured in source pixels. Bleed spreads chroma while preserving local luminance; bloom uses a thresholded nine-tap source neighborhood. Curvature insets the entire picture into a black surround. Scanline strength fades at low output density and is conservatively reduced with curvature to limit aliasing. Curvature and CRT cannot make arbitrary fractional scaling reproduce equal pixel blocks; 0.585× remains a useful stress case, not a recommended size.
 

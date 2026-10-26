@@ -1,8 +1,5 @@
-import cabinet from './island-art/cabinet.png';
-import objects from './island-art/objects.png';
 import labels from './island-art/labels.png';
-import title from './island-art/title.png';
-export const islandArt = { cabinet, objects, labels, title };
+export { default as islandTitle } from './island-art/title.png';
 // Label windows in the original sheet. Object crop windows are shared in island-objects.css.
 const words = {
     sound: [320, 290],

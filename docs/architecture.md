@@ -209,7 +209,7 @@ foreground — or the final walking frame — until the next runtime produces a 
 frame. Initializer-only transparent frames therefore cannot expose the bare background,
 while an explicit wipe, cancellation, or return to the title still clears immediately.
 
-`frame-renderer.mjs` draws the configured background separately. Cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. The cloud layout (and Enhanced drift) belongs to the persistent visit presentation, so starting a new ADS runtime cannot move the clouds. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
+`frame-renderer.mjs` draws the configured background separately. Cloud, wave, and local-time behavior uses the injected game metadata and browser presentation policy. The cloud layout (and optional cloud drift) belongs to the persistent visit presentation, so starting a new ADS runtime cannot move the clouds. Local-time selection overrides the presented ocean without mutating the faithful runtime's selected background.
 
 ### Earlier designs
 
@@ -230,7 +230,7 @@ replaced by the model above ([findings Part C](scrantic-re-findings.md#part-c--b
 | Randomness                                   | injected random function                                                               |
 | Optional wall time and enhancement animation | browser presentation policy                                                            |
 | Audio                                        | `play-sample` operation → game sample catalogue → Web Audio adapter                    |
-| Enhanced controls                            | runtime control API → scene navigation, playback rate, HUD, full screen                |
+| Playback controls                            | runtime control API → scene navigation, playback rate, HUD, screensaver-only Full view                |
 | Diagnostics export                           | JSONL recorder → browser download; optional Vite endpoint for automation               |
 | Title scene/story policy                     | game-owned selector or scheduler → ADS resource and tag                                |
 | Title background overlays                    | game-owned decorator → browser background presenter                                   |

@@ -1,8 +1,8 @@
 # Enhanced scaling and CRT assessment
 
-Investigation for [issue #81](https://github.com/khawkins98/johnny_web/issues/81), 2026-10-23. Includes an independent GPT-6 Astra retro game design/rendering review. This initial assessment preceded the prototype work. See [the presentation lab research](../tools/presentation-lab/README.md) for runnable integrations, public screenshots, follow-up observations and credits. Production behavior remains unchanged.
+Investigation for [issue #81](https://github.com/khawkins98/johnny_web/issues/81), 2026-10-23. Includes an independent GPT-6 Astra retro game design/rendering review. This initial assessment preceded the prototype work. See [the presentation lab research](../tools/presentation-lab/README.md) for runnable integrations, public screenshots, follow-up observations and credits. This is a historical assessment, not current setup guidance. The later implementation shipped in v1.4.0 with one Play flow, Balanced CRT and Stretch defaults; use [the current CRT guide](optional-crt.md) and [Island UI guide](island-ui-art.md) for released behavior.
 
-## Findings verified in the current app
+## Findings verified at the time of assessment
 
 `src/games/johnny/ui/settings.mjs` owns sizing, persistence (`jc-scale-mode`), and the Enhanced profile. Enhanced selects Freeform; the default without saved settings is Native. The existing settings tests assert the profile choice but do not exercise filtering or viewport geometry.
 
@@ -92,4 +92,4 @@ Capture the same source frame/seed and motion interval for baseline, Auto, 1.2×
 
 For CRT, record CPU presentation cost and frame interval p50/p95/p99 over identical runs after warm-up, with upload/draw counts and output resolution. Distinguish CPU submission time from GPU time; use disjoint timer queries where supported. Measure representative mobile/low-power hardware, and inspect hidden-tab behavior. Compare canonical frame hashes and game-tick traces with effect off/on, then run existing tests/build and rendering goldens with game data available.
 
-At the end of the initial assessment, before/after game captures, moving-scene comparisons, the real zoom/fullscreen matrix, CRT prototype, target-device timings and fallback tests were outstanding. The linked presentation lab records subsequent prototype work; real zoom/fullscreen coverage and target-device benchmarking remain outstanding. The current issue remains open work; the findings above are sufficient to begin a focused sizing fix.
+At the end of the initial assessment, before/after game captures, moving-scene comparisons, the real zoom/fullscreen matrix, CRT prototype, target-device timings and fallback tests were outstanding. The linked presentation lab records subsequent prototype work; real zoom/fullscreen coverage and target-device benchmarking remain outstanding. Those were the initial findings; the [v1.4.0 release record](releases/v1.4.0-plan.md) distinguishes completed implementation checks from the remaining cross-browser and physical-device validation.
