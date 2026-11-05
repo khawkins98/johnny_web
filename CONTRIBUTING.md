@@ -38,6 +38,12 @@ Use ES modules and prefer native Web APIs where practical. Keep script behavior 
 
 If you consult another implementation, record the upstream file and the behavior you checked in a test or document. ScummVM's DGDS engine is a GPL-3.0-or-later reference; see [NOTICE](NOTICE). Copying or adapting its source into this MIT-licensed project requires identifying its provenance and satisfying the applicable license and copyright requirements.
 
+## Maintaining documentation
+
+Keep the README focused on getting Johnny running and choosing a next task. Update the existing guide for detailed controls or behavior, and link to it instead of repeating its instructions in the README. Use the UI's current labels and check behavior against the relevant source.
+
+Keep dated research, release plans, provenance and validation records as records of what was known or checked then. Add a pointer to current guidance when needed. Scene-flow pages are generated; follow [their regeneration instructions](docs/scene-flows/README.md) rather than editing the output by hand. Check relative links and heading anchors when moving or renaming material.
+
 ## Checking your work
 
 Before opening a PR, run:

@@ -32,8 +32,14 @@ See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene f
 
 Cards and breadcrumbs only browse: they never change the running scene, saved day, or clock. The panel separately shows **Browsing day / band**, **Playing day / sky / beach tide**, and the configured sky clock. **Johnny now** navigates to the running gag; it does not change playback.
 
+### Configure the clock
+
 Settings labels **Story clock offset (Start Time)** as an offset of the original repeating eight-hour sequence clock, not an instruction to show that hour. Changes apply when the next visit is planned. At 21:00 with the default 09:00 offset, original playback is daytime (phase 8); setting the offset itself to 21:00 also gives daytime at 21:00 (phase 0). **Live Local Clock** changes only the rendered sky immediately: night before 06:00 and from 18:00, without changing eligibility. Thus at 21:00 it shows night under either offset, while gag choices still follow the story clock.
 
+### Play a selected day or preview
+
 Explicit **Play selected day/time**, **Play this gag**, and **Play this scene now** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. A visit pins this context through its final gag, then automatic playback uses the configured clock again. A single gag/scene preview pins it only for that preview and then resumes the interrupted visit (including any still-active visit override). Overrides are not saved and end on reload or return to the title screen. Returning to title cancels the visit; starting again uses the configured clock. A persistent **Temporary** notice shows the playing day, sky, beach tide and lifetime; **Return to live clock** interrupts the run and starts a fresh visit using the current configured clock and saved story day. It does not change clock settings.
+
+### Scene and tide exceptions
 
 Scene requirements still apply: Mary's scene can require night even when daytime is selected, and off-island scenes have no island sky. Both exceptions are shown in playback status. Beach high/low tide is independent of these bands and is randomly baked per visit; some scenes force high tide. The status reports the actual baked tide, and the bands' sea artwork only depicts sky. There is no high/low tide selector.

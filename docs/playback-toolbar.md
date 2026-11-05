@@ -1,23 +1,46 @@
 # Playback toolbar and Island Log
 
-Press Play to show the painted Beachcomber shelf and Castaway CRT cabinet. The original driftwood/bamboo/coconut cabinet, sand shelf, large object illustrations and lettering are documented in [the art maintenance guide](island-ui-art.md), including exact generation prompts and instructions for future agents. The original Johnny box/splash and user-supplied adventure interfaces informed the direction; their artwork is not bundled. The previous AGY pixel icons remain as a documented historical study, not the active skin.
+Press **Play** to show the painted Island TV cabinet and playback shelf. Play keeps your saved preferences. Open **Options** to change sound, picture or clock settings; open **Picture** to go directly to the picture presets. See [CRT setup and controls](optional-crt.md) for advanced tuning.
 
-The toolbar offers sound, playback speed (0.5×, 1×, 2×, 4×), Timeline, Picture, Options, Full view and Log; Toggle Island TV / H shows or hides the cabinet and shelf. Sound and Options use the existing settings; Picture focuses the picture-look preset chooser in Options; shader controls remain under Advanced CRT tuning. Timeline opens the full story browser and scene-flow view. Individual settings are saved directly; Play retains them rather than applying a profile.
+## Playback controls
+
+| Control | Action |
+| --- | --- |
+| Sound | Toggle audio without changing playback. |
+| Speed / lower coconut dial | Cycle 0.5×, 1×, 2× and 4× across gags, walks and transitions. |
+| Green cabinet button / `Space` | Pause or resume playback and audio. |
+| Upper coconut dial | Cycle picture looks, including saved Creative presets. |
+| Timeline / `T` | Open the [story browser and scene previews](story-timeline-guide.md). |
+| Options / `S` | Open settings. |
+| Full view / `F` | Fill the page with the screensaver. |
+| Toggle Island TV / `H` | Hide or restore the cabinet and toolbar. |
+| Log | Open day/gag navigation and session statistics. |
+| `R` | Return to the title. |
+| `←` / `→` | Step animation scenes. |
+| `↑` / `↓` | Change playback speed. |
+
+A corner button restores hidden controls by pointer or touch. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle, with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
+
+## Island Log
 
 **Log** opens a nonmodal sidebar on the right. Story position and the current gag/visit-position meter appear first. Unique gag counts, days visited and visible playback time expand under Session statistics. Statistics last for this playback session and reset when returning to the title. A visit is one planned batch; a gag preview is labeled separately. Visited gags count unique catalogue selections, including previews; idle POSE/STAND fillers do not count. These are not completion achievements or a claim that every animation in a gag was watched.
 
-The lower section browses story day, time-of-day band and eligible gags. **Visit this day** starts a visit anchored by that day’s key scene; arrows visit adjacent days. **Choose a specific gag** reveals the gag selector and **Play gag** action. The visible previous/next gag buttons play adjacent entries in that day/band’s eligible list. **Return to live story** leaves preview/browsing and resumes the normal controller. Browsing choices remain stable as the live story updates. Requirements such as forced night/high tide remain owned by the existing story controller.
+The lower section browses story day, time-of-day band and eligible gags. **Visit this day** starts a visit anchored by that day’s key scene; arrows visit adjacent days. **Choose a specific gag** reveals the gag selector and **Play gag** action. The visible previous/next gag buttons play adjacent entries in that day/band’s eligible list. **Return to live story** leaves preview/browsing and resumes the normal controller. Browsing choices remain stable as the live story updates. Hardware under an open Log is inert. Requirements such as forced night/high tide remain owned by the existing story controller.
+
+## Picture size and small screens
 
 The cabinet fits the viewport above the shelf. Log overlays its right-hand coconut control cheek on roomy windows; opening/closing it does not resize the game. On small/short windows it becomes a floating notebook with one continuous scroll and sticky title; roomy desktop sections scroll internally. The shelf wraps on mobile. Native caps at 1× and fits down when necessary; Integer uses whole multiples when they fit and fits down below 1×; Freeform and Stretch fill the cabinet's 4:3 opening. Turning off Island TV fits Johnny to the page in 0.5× steps; restoring it restores the saved cabinet scaling preference. The independent CRT compositor follows the real game rectangle; interface art stays outside the effect.
 
-`H` hides/restores the toolbar, and cabinet, including when a toolbar button has focus. A small corner button provides a pointer/touch route back. Hidden controls are inert. `Esc` closes the log and returns focus to its toggle; modal dialogs take precedence. Existing `S`, `T`, `R`, arrow-key animation stepping/speed and `F` shortcuts remain. Text/select controls keep their own keyboard behavior. Full view/F expands only the screensaver within the page; Escape/F/H restores the cabinet and the previous Log state. Space and the green cabinet button pause/resume real playback with a screen overlay.
+## Implementation and maintenance
+
+The [art maintenance guide](island-ui-art.md) records the cabinet and shelf artwork, generation prompts, source slices and geometry. The original Johnny box/splash and user-supplied adventure interfaces informed the direction; their artwork is not bundled. The previous AGY pixel icons remain a historical study.
 
 Implementation: [enhanced.mjs](../src/games/johnny/ui/enhanced.mjs) retains its existing setup hook name for compatibility; [playback-deck.css](../src/games/johnny/ui/playback-deck.css) provides the chrome. Bottle passes the existing settings, timeline and debug-run coordinator into the hook for playback. Navigation requests use that coordinator’s atomic runtime/walk/audio handoff; this UI does not create another playback loop. Settings owns the cabinet aperture scaling and the normal CRT presentation boundary.
 
 The UI’s rAF reads runtime speed and updates visible values at most four times per second. Gag/day state comes from the existing subscription, with cleanup on return to title. Visible playback time excludes hidden-tab intervals. No session stats are written to an account or browser storage.
 
-Validation and captures are recorded on issue #81, merged PR #86 and the v1.4.0 release. Synthetic/unit checks cover log visibility/inert cleanup, coordinator requests, selection stability, unique counts and modal/keyboard behavior. Actual Johnny browser checks exercise day jumps, exact gag previews, live return, sound/speed, desktop geometry, mobile overflow, and VGA output alignment when the log opens/closes. Incidental game captures remain ignored locally; the user-selected README screenshot is intentionally committed with original-art credit.
+## Recorded validation
 
-The top coconut dial cycles real CRT looks (including saved Creative presets); the lower dial cycles speed across the whole session, including walk/pose/transition interludes. The green button pauses all playback and audio without changing the sound preference. Hardware under an open Log is inert. The shared recomposed cabinet now closely frames the native 4:3 image; geometry and source slices are documented in the art guide.
+Validation and captures are recorded on issue #81, merged PR #86 and the v1.4.0 release. Synthetic/unit checks cover log visibility/inert cleanup, coordinator requests, selection stability, unique counts and modal/keyboard behavior. Actual Johnny browser checks exercise day jumps, exact gag previews, live return, sound/speed, desktop geometry, mobile overflow, and VGA output alignment when the log opens/closes. Incidental game captures remain ignored locally; the user-selected README screenshot is intentionally committed with original-art credit.
 
 The launch flow and disclosure hierarchy are described in [the art/UI maintenance guide](island-ui-art.md#one-launch-and-progressive-disclosure-2026-10-25). Play retains individual preferences; picture presets are available before advanced tuning, and Log statistics/specific-gag selection expand on demand.

@@ -25,7 +25,7 @@ So brief visits over several real days reveal the story, as in the original. Res
 
 Settings shows the current day and a **Restart story** button. Restarting returns to day 1 and leaves the Start Time alone.
 
-In the story timeline, picking a day only explores it. **▶ Play day** saves that day and starts a visit from its key scene. **▶ Play this scene now** plays one scene and then resumes the current visit without changing the saved day. See the [story timeline guide](story-timeline-guide.md) for the full controls.
+In the story timeline, picking a day only explores it. **▶ Play selected day/time** saves that day and starts a visit from its key scene in the selected time band. **▶ Play this scene now** plays one scene and then resumes the current visit without changing the saved day. See the [story timeline guide](story-timeline-guide.md) for the full controls.
 
 The developer panel (`D`) can set a day directly or advance one day. The change applies from the next gag, because the current visit is already planned. Its simulated-day control for a debug run does not change saved progress.
 
