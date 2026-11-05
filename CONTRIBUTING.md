@@ -4,6 +4,8 @@ Follow the [README setup](README.md#run-locally) to get the app running. You can
 
 ## Finding your way around
 
+Use the [documentation index](docs/README.md) to choose a guide, comparison tool or research record.
+
 | Path | What lives here |
 | --- | --- |
 | `src/games/johnny/` | Johnny's scene selection, story, settings, and UI |

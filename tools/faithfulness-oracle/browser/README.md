@@ -1,19 +1,13 @@
-# Browser helpers
+# Legacy browser capture helpers
 
-Playwright scripts that drive **our** build in Chromium to get pictures and state for comparison with captures of the original.
+These Playwright helpers were used during the #53 island-offset, night/tide and gag investigations. **Their launch steps predate the single Play UI and do not work against the current page without updating the scripts.** `browse-canvases.mjs` targets removed `#start-classic-btn` / `#start-enhanced-btn` controls and writes the retired `jc-start-time` key; `play-gag.mjs` looks for “Play Classic”. The current UI uses `#start-play-btn`, and its normalized clock offset uses `jc-start-time-hhmm`.
 
-| Script | What it does |
+For current manual playback captures, use the [playback guide](../../../docs/playback-toolbar.md) and [story timeline](../../../docs/story-timeline-guide.md). For traces, use [Debugging playback](../../../docs/diagnostics.md). To capture the original program for comparison, start with the [oracle methodology](../METHODOLOGY.md).
+
+| Script | Historical purpose |
 | --- | --- |
-| `browse-canvases.mjs <outPrefix> [classic\|enhanced] [shots] [everyMs] [startTime]` | Starts playback and saves page screenshots plus each 640x480 canvas as PNG, logging the host's night, tide, island position and waves. Used for the island-offset and night/tide checks in #53. |
-| `play-gag.mjs <outDir> <day> <band> <cardRegex> [tag]` | Picks a gag through the story timeline, plays it, and screenshots it 2, 6 and 12 s in. |
-| `playwright.mjs` | Shared loader. |
+| `browse-canvases.mjs <outPrefix> [classic\|enhanced] [shots] [everyMs] [startTime]` | Save page screenshots and each 640×480 canvas, logging night, tide, island position and waves. |
+| `play-gag.mjs <outDir> <day> <band> <cardRegex> [tag]` | Select a timeline gag and capture it 2, 6 and 12 seconds in. |
+| `playwright.mjs` | Shared Playwright loader; `PLAYWRIGHT_FROM` locates a separate installation, `CHROME` optionally selects its executable, and `JC_URL` sets the app URL. |
 
-Playwright is not a repo dependency. Install it in a scratch directory and point the scripts at it:
-
-```sh
-(cd scratchpad/pw && npm i playwright && npx playwright install chromium)
-pnpm dev &   # http://localhost:5173/
-PLAYWRIGHT_FROM=scratchpad/pw node tools/faithfulness-oracle/browser/browse-canvases.mjs scratchpad/shots/night classic 3 4000 21:30
-```
-
-`JC_URL` sets the app URL, and `CHROME` sets a browser executable if you don't use Playwright's own Chromium. Screenshots show game graphics, so write them under `scratchpad/`.
+If maintaining these helpers, install Playwright separately in a scratch directory; it is not a project dependency. Update the launch/storage assumptions before running them, create output directories first, and keep all game-derived screenshots under ignored `scratchpad/`.

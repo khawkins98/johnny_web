@@ -96,6 +96,8 @@ This requires agent-browser and working WebGL. It verifies an exact neutral nati
 
 ## CRT method and integration boundaries
 
+This section describes the original Creative CRT experiment. `crt.mjs` now re-exports the shared game renderer; VGA, public-domain CRT-Lottes and the lab-only GPL Guest pipeline have separate implementations and [provenance](vendor/README.md). The lab stage owns fallback until reload; the game's compositor owns automatic context restoration. Historical capture settings and results below remain evidence of the original experiment.
+
 `crt.mjs` is an original WebGL 1 fullscreen-quad pass, without Three.js or vendored shader code. Its default **Subtle** preset uses horizontal center/neighbor weights of 0.76/0.12/0.12, with a half-source-pixel radius, and scanlines at 12%. Bleed, bloom, curvature and vignette are off in this preset. The optional controls below extend the initial experiment; flicker, phosphor masks, RGB splitting and temporal trails remain absent. This is a style experiment, not a calibrated CRT simulation.
 
 The live adapter copies `mainCanvas` and `canvas` in order to a separate 640×480 staging canvas. This observes title, background, foreground, walking and wipe writers without calling them again. The shader uploads that finished image with `texSubImage2D`; it does not modify native canvases, renderer buffers, simulation state or timing settings. Controls remain ordinary DOM outside the pass. Frozen source hashes verify retained input identity; they do **not** establish canonical runtime-trace or scheduling equivalence.
@@ -147,6 +149,8 @@ The capture-run CPU values include baseline-canvas copy plus GL upload/draw **su
 Real-game integration was also checked locally using user-supplied data. One frozen gameplay composite (`85e2287f`, FNV-1a of RGBA bytes) remained unchanged across smooth Fit, Auto and CRT comparisons. Those PNGs are in ignored `scratchpad/issue81/`; they are intentionally absent from Git. The [actual Johnny comparison screenshots are attached to issue 81](https://github.com/khawkins98/johnny_web/issues/81#issuecomment-6364428873), with capture revision, geometry and original-art credits. Switching effects does not prove animation fidelity. A moving live-source check produced distinct hashes (`f36b37f4` then `7773e43b`) 1.2 seconds apart. Actual WebGL creation failure and context loss both revealed the baseline in Chromium. A broad matched-tick motion/zoom matrix remains pending.
 
 ## Credits and reference provenance
+
+The links below credit the original Creative experiment. Later upstream shader imports retain their own [source and license records](vendor/README.md).
 
 - Dynamix/Sierra's original Johnny Castaway art and software, and the project's port/reverse-engineering contributors: see [NOTICE](../../NOTICE). The public test pattern and lab implementation are original project code; the lab does not redistribute game data.
 - [MDN crisp pixel-art guidance](https://developer.mozilla.org/en-US/docs/Games/Techniques/Crisp_pixel_art_look) informed the CSS/device alignment investigation. [MDN devicePixelRatio](https://developer.mozilla.org/en-US/docs/Web/API/Window/devicePixelRatio) documents page zoom, monitor changes and re-armed resolution queries. The Auto policy is our experimental application of these principles.

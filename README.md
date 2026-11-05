@@ -47,18 +47,7 @@ Start with [Contributing](CONTRIBUTING.md) for the source layout, local data set
 
 See the [changelog](CHANGELOG.md) for what each release changed.
 
-For a specific task:
-
-- [Modify the illustrated Island UI](docs/island-ui-art.md) — painted artwork, exact generation prompts, source coordinates, layout and verification for future contributors/agents.
-- [Experiment with scaling and CRT presentation](tools/presentation-lab/README.md) — development lab, reproducible screenshots, findings, and source credits for issue #81.
-- [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
-- [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.
-- [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.
-- [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
-- [Read the resource format](docs/resindex.md) — archive layout and decoding notes.
-- [Compare with the original](tools/faithfulness-oracle/README.md) — capture and comparison tools, the [methodology](tools/faithfulness-oracle/METHODOLOGY.md), and [current coverage](docs/oracle-coverage.md).
-- [Accepted differences from the original](docs/accepted-deviations.md) — what we deliberately do differently, and why.
-- [Reverse-engineering notes](docs/scrantic-re-findings.md) — what the original executable does, cited by address.
+Find player guides, developer tasks, fidelity tools and historical records in the [documentation index](docs/README.md).
 
 ## A personal note and acknowledgements
 

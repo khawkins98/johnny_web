@@ -24,7 +24,7 @@ The earlier Google Antigravity (`agy`) pixel-art pass remains documented in [his
 | Cabinet aperture and viewport geometry | [`island-layout.mjs`](../src/games/johnny/ui/island-layout.mjs) |
 | Image imports and measured lettering windows | [`island-art.mjs`](../src/games/johnny/ui/island-art.mjs) |
 | Live root/canvas scaling into the aperture | [`settings.mjs`, `applyScaling()`](../src/games/johnny/ui/settings.mjs) |
-| Actual picture effects, independent of the illustration | [`crt/`](../src/games/johnny/ui/crt/) and [CRT guide](../tools/presentation-lab/README.md) |
+| Actual picture effects, independent of the illustration | [`crt/`](../src/games/johnny/ui/crt/) and [CRT guide](optional-crt.md) |
 | Original painted PNGs and exact generator prompts | [`island-art/`](../src/games/johnny/ui/island-art/) |
 
 The preview studies and user references were saved in ignored `scratchpad/issue81/art-direction/`, including a reference manifest. That directory is local research and may not exist in a fresh checkout. **Nothing needed to build or amend the active skin depends on it.** The active artwork, prompts and geometry are versioned here. Keep future proprietary captures/references in ignored scratchpad too.
@@ -68,7 +68,7 @@ Log remains an overlay over the right control cheek (its left edge at 71% is bey
 6. Keep accessible names in DOM text/`aria-label`; artwork is decorative. Sound and playback rate use separate live text. Timeline is deliberately live text next to a painted notebook; it opens the real story browser. The green cabinet button and screen overlay use the real browser playback controller to pause/resume; do not substitute a frozen screenshot while the story continues.
 7. Run the checks below, inspect actual desktop/mobile screenshots, then update these notes if the palette, source geometry, composition or generation method changed.
 
-For a new provider, `agy` can generate editable SVG art through its CLI as in the earlier asset README. Do not assume SVG output will match a painted raster reference automatically. Prefer direct editing of a measured existing asset or a reference-guided raster edit when continuity matters. No generator credentials or CLI setup are required to build/run the checked-in PNG skin.
+The [historical pixel study](ui-early-pixel-study.md) records the earlier `agy` SVG generation method. Do not assume SVG output will match a painted raster reference automatically. Prefer direct editing of a measured existing asset or a reference-guided raster edit when continuity matters. No generator credentials or CLI setup are required to build/run the checked-in PNG skin.
 
 ## Verification checklist
 
