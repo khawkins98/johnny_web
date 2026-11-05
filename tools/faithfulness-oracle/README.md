@@ -14,6 +14,8 @@ These tools compare the browser engine with the original 1993 program. Start wit
 
 Start with [local extraction](../../CONTRIBUTING.md#local-game-data) for engine replay. Use the [original-program capture setup](METHODOLOGY.md#capturing-one-original-gag) when you need new evidence. **A skipped data-dependent check is not a fidelity pass.** CI has no game data.
 
+The sequencing check fails on zero live ticks or peak concurrency at least two actors above the reference. Actor-combination coverage and duration differences are review warnings; read them even when the command passes. A pass does not establish exact timing or pixel equality.
+
 For a small planner-only smoke run from the repository root:
 
 ```sh

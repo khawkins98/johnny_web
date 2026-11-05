@@ -5,10 +5,10 @@ Press `D` to open the developer panel and enable diagnostics. You can also turn 
 ## Capture a trace
 
 1. Enable diagnostics, then reproduce the issue.
-2. Click **Download JSONL Trace** in the developer panel.
-3. Attach the file to your bug report with a description of what you saw.
+2. Soon after reproducing the bug, click **Download JSONL Trace** in the developer panel.
+3. Attach the file to your bug report with the build ID shown in the panel and a description of what you saw.
 
-The panel shows the active build ID, which is also included in the trace. The first record identifies the build, browser, display, and engine state; later records describe scene changes, drawing, timing, and audio. See the [trace reference](#trace-reference) for event details and capture limits.
+A session starts with build, browser, display and engine metadata, followed by scene, drawing, timing and audio events. The rolling capture can discard that opening record, so include the panel's build ID separately. See the [trace reference](#trace-reference) for event details and capture limits.
 
 To enable diagnostics as the page loads, use:
 
@@ -55,7 +55,7 @@ During Vite development, runtime stops automatically save a bounded snapshot und
 | On | Concise console events, structured events and pixel fingerprints |
 | Verbose | The same, plus per-sprite console logs |
 
-A capture holds at most 50,000 events and spans successive ADS runtimes, including host selections, walking interludes, transitions and relevant settings/debug actions. It records named controls and values rather than arbitrary pointer movement, typing or page content. When full, it drops the oldest events and reports the dropped count.
+A capture holds at most 50,000 events and spans successive ADS runtimes, including host selections, walking interludes, transitions and relevant settings/debug actions. It records named controls and values rather than arbitrary pointer movement, typing or page content. When full, it drops the oldest events, including `session-start`. Download soon after reproducing the bug to retain its context. `runtime-stop` and `session-stop` records report the dropped count when those events occur.
 
 | Event | Details |
 | --- | --- |
