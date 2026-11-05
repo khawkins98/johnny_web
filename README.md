@@ -29,17 +29,11 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 The Island TV interface, with the Log closed to show the TV controls. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
 
-Press **Play** to start Johnny with the illustrated Island TV, Balanced CRT, stretch-to-fill picture, drifting clouds and original waves/story clock. **Options** remembers your individual choices, including preferences saved before this unified launch flow. Picture presets, sound and clock come first; fine tuning and developer controls expand when needed.
+Press **Play** to start Johnny with the illustrated Island TV. Fresh preferences use Balanced CRT, a stretch-to-fill picture, drifting clouds and the original story clock. **Options** remembers your choices across visits; **Picture** opens the picture presets. See [CRT setup and controls](docs/optional-crt.md) for models, tuning and fallback behavior.
 
-**Picture look** in Options starts with Balanced CRT. Choose Original picture to turn CRT off; existing saved choices are preserved. Choose Creative CRT (Balanced and saved presets), experimental VGA beam, or Libretro CRT-Lottes. Each remembers its own tuning in this browser. See [CRT setup and controls](docs/optional-crt.md).
+Use the [playback toolbar and Island Log](docs/playback-toolbar.md) to pause, change speed, hide the cabinet or jump to a gag. The [story timeline](docs/story-timeline-guide.md) (`T`) lets you browse days, times and scenes without interrupting playback until you choose a Play action.
 
-Settings also has the original's **Start Time** (9:00 by default, in half-hour steps). It sets the game's 8-hour story clock: night starts 6 hours after it and lasts 2 hours, and the clock also decides which gags can appear. A change applies from the next visit. **Time of Day → Live Local Clock** takes night from your local hour instead.
-
-The bottom toolbar opens Options, Picture controls and the story Timeline. **Log** toggles day/gag navigation; session statistics and specific-gag selection expand on demand. **Toggle Island TV** or `H` hides/restores the cabinet and toolbar. Press `S` for Settings, `T` for the Timeline, `R` to return to the title, `←`/`→` to step animation scenes, `↑`/`↓` to change speed, and `F` to fill the page with the screensaver. [Playback toolbar and Island Log guide](docs/playback-toolbar.md).
-
-Johnny also has an [11-day story](docs/story-over-time.md) that unfolds across visits, with progress saved in your browser.
-
-While a gag is playing, click the compass or press `T` to explore the [story timeline](docs/story-timeline-guide.md). It asks one question at a time: which day, what time of day, which gag. Each gag shows its steps with silent previews from the original game, and **▶ Play this gag** or **▶ Play this scene now** starts it. **Picking a day only explores it:** Johnny keeps playing until you choose **▶ Play day**.
+Johnny's [11-day story](docs/story-over-time.md) unfolds across visits, with progress saved in your browser. To change when night falls or explore a particular day/time, see [browsing and playback clocks](docs/story-timeline-guide.md#browsing-and-playback-clocks).
 
 ## Development
 
@@ -53,18 +47,7 @@ Start with [Contributing](CONTRIBUTING.md) for the source layout, local data set
 
 See the [changelog](CHANGELOG.md) for what each release changed.
 
-For a specific task:
-
-- [Modify the illustrated Island UI](docs/island-ui-art.md) — painted artwork, exact generation prompts, source coordinates, layout and verification for future contributors/agents.
-- [Experiment with scaling and CRT presentation](tools/presentation-lab/README.md) — development lab, reproducible screenshots, findings, and source credits for issue #81.
-- [Debug playback](docs/diagnostics.md) — developer panel, traces, and resource dumps.
-- [Use the story timeline](docs/story-timeline-guide.md) — days, visits, gag steps, previews, and scene jumps.
-- [Understand scene selection](docs/johnny-host-behavior.md) — story sequencing, walking, tides, and holidays.
-- [Explore scene scripts](docs/scene-flows/README.md) — generated outlines and flowcharts for each gag.
-- [Read the resource format](docs/resindex.md) — archive layout and decoding notes.
-- [Compare with the original](tools/faithfulness-oracle/README.md) — capture and comparison tools, the [methodology](tools/faithfulness-oracle/METHODOLOGY.md), and [current coverage](docs/oracle-coverage.md).
-- [Accepted differences from the original](docs/accepted-deviations.md) — what we deliberately do differently, and why.
-- [Reverse-engineering notes](docs/scrantic-re-findings.md) — what the original executable does, cited by address.
+Find player guides, developer tasks, fidelity tools and historical records in the [documentation index](docs/README.md).
 
 ## A personal note and acknowledgements
 

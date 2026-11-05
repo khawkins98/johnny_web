@@ -2,7 +2,7 @@
 
 This port aims to look and behave like the original *Johnny Castaway* screensaver (`SCRANTIC.SCR`). The [pixel oracle](../tools/faithfulness-oracle/pixel-oracle/README.md) compares our frames with captures of the original. The [sequencing oracle](../tools/faithfulness-oracle/README.md) compares which scenes run and when. The differences below are known and kept on purpose. Each says why. Anything not listed here that the oracles find is treated as a bug.
 
-The rendering model behind these notes is the buffer contract in [scrantic-re-findings.md, Part C](scrantic-re-findings.md). The work that produced this list is in [#53](https://github.com/khawkins98/johnny_web/issues/53).
+The rendering model behind these notes is the buffer contract in [scrantic-re-findings.md, Part C](scrantic-re-findings.md#part-c--buffer-contract-issue-53-phase-0). The work that produced this list is in [#53](https://github.com/khawkins98/johnny_web/issues/53).
 
 ## Drawing
 

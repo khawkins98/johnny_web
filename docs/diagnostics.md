@@ -5,10 +5,10 @@ Press `D` to open the developer panel and enable diagnostics. You can also turn 
 ## Capture a trace
 
 1. Enable diagnostics, then reproduce the issue.
-2. Click **Download JSONL Trace** in the developer panel.
-3. Attach the file to your bug report with a description of what you saw.
+2. Soon after reproducing the bug, click **Download JSONL Trace** in the developer panel.
+3. Attach the file to your bug report with the build ID shown in the panel and a description of what you saw.
 
-The panel shows the active build ID, which is also included in the trace. The first record identifies the build, browser, display, and engine state; later records describe scene changes, drawing, timing, and audio. See [architecture diagnostics](architecture.md#diagnostics) for event details and capture limits.
+A session starts with build, browser, display and engine metadata, followed by scene, drawing, timing and audio events. The rolling capture can discard that opening record, so include the panel's build ID separately. See the [trace reference](#trace-reference) for event details and capture limits.
 
 To enable diagnostics as the page loads, use:
 
@@ -23,7 +23,7 @@ The panel's **Console detail** control changes log verbosity without a reload. S
 
 The panel's **Holiday Theme** selector previews Calendar, None, St Patrick's Day, Halloween, Christmas, or New Year without changing your system clock. Calendar is the default.
 
-**Saved day for normal playback** sets or advances saved story progress. **Simulated day for this run** applies only to a debug run and leaves saved progress alone; see [developer panel runs](johnny-host-behavior.md#developer-panel-runs). For the visitor-facing day exploration and explicit **Play day** control, see the [story timeline guide](story-timeline-guide.md); for automatic day progression, see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
+**Saved day for normal playback** sets or advances saved story progress. **Simulated day for this run** applies only to a debug run and leaves saved progress alone; see [developer panel runs](johnny-host-behavior.md#developer-panel-runs). For the visitor-facing day exploration and explicit **Play selected day/time** control, see the [story timeline guide](story-timeline-guide.md); for automatic day progression, see [Johnny's 11-day story](story-over-time.md#viewing-or-changing-the-story-day).
 
 ## Inspect the original resources
 
@@ -46,3 +46,24 @@ window.__DGDS__.persistTrace() // Write through the Vite development endpoint
 ```
 
 During Vite development, runtime stops automatically save a bounded snapshot under the ignored `traces/` directory. Successive scenes in one diagnostic session overwrite the same snapshot. Production builds support explicit downloads but don't automatically post traces.
+
+## Trace reference
+
+| Setting | Output |
+| --- | --- |
+| Off | No diagnostics |
+| On | Concise console events, structured events and pixel fingerprints |
+| Verbose | The same, plus per-sprite console logs |
+
+A capture holds at most 50,000 events and spans successive ADS runtimes, including host selections, walking interludes, transitions and relevant settings/debug actions. It records named controls and values rather than arbitrary pointer movement, typing or page content. When full, it drops the oldest events, including `session-start`. Download soon after reproducing the bug to retain its context. `runtime-stop` and `session-stop` records report the dropped count when those events occur.
+
+| Event | Details |
+| --- | --- |
+| `session-start` | Application/build, engine, timing profile, page, browser-reported capability and display metadata |
+| `frame-timing-map` | Authored and mapped delays, with applied patch names |
+| `browser-presentation` | Foreground clear/upload/reuse decisions, retained-composition identity, pixel fingerprints, fades and cloud count |
+| `audio-sample` | Sample requests and whether audio playback started |
+
+The Vite development endpoint `/__dgds_trace` writes one bounded snapshot per diagnostic session to ignored `traces/`. Runtime stops overwrite that session's snapshot; disabling diagnostics writes a stop record and persists again. A new session uses a new file. Production builds have explicit downloads and no automatic trace posts.
+
+The developer panel shows the same build identifier as `session-start` so you can spot a stale server before downloading. Its Console detail selector stays synchronized with Settings and the debug URL mode. The panel can be dragged and resized; on short windows its outer scroll keeps the controls and resize corner reachable.

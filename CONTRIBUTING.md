@@ -4,6 +4,8 @@ Follow the [README setup](README.md#run-locally) to get the app running. You can
 
 ## Finding your way around
 
+Use the [documentation index](docs/README.md) to choose a guide, comparison tool or research record.
+
 | Path | What lives here |
 | --- | --- |
 | `src/games/johnny/` | Johnny's scene selection, story, settings, and UI |
@@ -37,6 +39,12 @@ To test the first-run import screen, use `pnpm run dev:empty`. It hides local as
 Use ES modules and prefer native Web APIs where practical. Keep script behavior in the DGDS runtime, browser adaptations in the host modules, and Johnny-specific behavior in `src/games/johnny/`. Give compatibility fixes a descriptive name and a focused test.
 
 If you consult another implementation, record the upstream file and the behavior you checked in a test or document. ScummVM's DGDS engine is a GPL-3.0-or-later reference; see [NOTICE](NOTICE). Copying or adapting its source into this MIT-licensed project requires identifying its provenance and satisfying the applicable license and copyright requirements.
+
+## Maintaining documentation
+
+Keep the README focused on getting Johnny running and choosing a next task. Update the existing guide for detailed controls or behavior, and link to it instead of repeating its instructions in the README. Use the UI's current labels and check behavior against the relevant source.
+
+Keep dated research, release plans, provenance and validation records as records of what was known or checked then. Add a pointer to current guidance when needed. Scene-flow pages are generated; follow [their regeneration instructions](docs/scene-flows/README.md) rather than editing the output by hand. Check relative links and heading anchors when moving or renaming material.
 
 ## Checking your work
 

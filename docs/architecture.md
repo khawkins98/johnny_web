@@ -239,16 +239,4 @@ Tests use software or recording surfaces plus deterministic runtime inputs and p
 
 ## Diagnostics
 
-Diagnostics can start at page load or change at runtime from Settings (`S`):
-
-| Setting | Output                                                               |
-| ------- | -------------------------------------------------------------------- |
-| Off     | No diagnostics                                                       |
-| On      | Concise console events plus structured events and pixel fingerprints |
-| Verbose | The same, plus per-sprite console logs                               |
-
-Enabling diagnostics starts a bounded 50,000-event flight-recorder session at the current engine tick. Its first JSONL record contains application and build, engine, timing profile, page, browser-reported capability, and display metadata. The recorder spans successive ADS runtimes so host selections, walking interludes, transitions, and relevant settings/debug actions can be correlated with engine events. It deliberately records named controls and values rather than arbitrary pointer movement, typing, or page content. `frame-timing-map` events record authored and mapped delays with applied patch names; `browser-presentation` events record foreground clear/upload/reuse decisions, retained-composition identity, pixel fingerprints, fades, and cloud count; `audio-sample` events distinguish sample requests from actual playback starts. If the bound is reached, the oldest events are discarded and the dropped count is reported.
-
-During Vite development, every runtime stop automatically overwrites one bounded JSONL snapshot for the current diagnostic session through the localhost-only `/__dgds_trace` endpoint in the ignored `traces/` directory. Disabling diagnostics writes a stop record and persists once more. A new diagnostics session gets a new file, but successive ADS events do not multiply cumulative snapshots. Production builds never post automatically; the developer panel can still download the capture explicitly. Automation may read the active recorder directly. `?debug=verbose` adds noisy console logging without changing the structured trace.
-
-The developer panel heading displays the same injected build identifier written to `session-start`, making stale dev-server traces visible before download. Its console-detail selector exposes the existing standard and verbose diagnostics modes, synchronized with the Off/On/Verbose selector in Settings and the `?debug=verbose` URL mode. On first open the panel converts its initial right-edge placement to a fixed left/top anchor; native bottom-right resizing then grows in the pointer's direction, while title dragging continues to update that same anchor. The height-limited outer panel owns scrolling with a stable gutter and contained overscroll, so every control and the resize corner remain reachable in short viewports or when browser developer tools are open.
+The browser host records engine and presentation events across successive ADS runtimes. See [Debugging playback](diagnostics.md) to capture a bug, and its [trace reference](diagnostics.md#trace-reference) for modes, event fields, retention limits and development persistence. This keeps the capture contract alongside the instructions that use it.
