@@ -22,15 +22,31 @@ For UI/artwork changes, start with [Maintaining the illustrated Island UI](docs/
 
 ## Local game data
 
-Browser imports stay in IndexedDB. To make the data available to tests and command-line tools, extract the downloaded floppy ZIP into `public/data/`:
+Browser imports stay in IndexedDB. Tests and command-line tools instead read files from `public/data/`.
+
+Use the unmodified Windows 3.1 floppy image ZIP linked in the [README setup](README.md#run-locally). The [CLI extractor](src/extract.mjs) checks its SHA-256 fingerprint before unpacking; it rejects other versions and repackaged ZIPs. An extracted `.ima` works for browser import, but the CLI needs the original ZIP.
+
+Install `unzip`, `mcopy`, and `mdir` on your PATH before extracting. On macOS, `unzip` is built in and `brew install mtools` provides both mtools commands. On Debian/Ubuntu, use `apt install unzip mtools`.
+
+From the repository root, run:
 
 ```bash
 pnpm run extract "<path-to-zip>"
 ```
 
-The extractor requires `unzip` and `mcopy` on your PATH. On macOS, `unzip` is built in and `brew install mtools` provides `mcopy`. On Debian/Ubuntu, install both with `apt install unzip mtools`.
+Successful extraction ends with `Done! Files written to public/data/`. Check that all three files exist:
 
-This creates `RESOURCE.MAP`, `RESOURCE.001`, and `SCRANTIC.SCR`. Keep these proprietary files out of Git. The output directories `public/data/`, `dumps/`, and `traces/` are ignored, as is `scratchpad/`, where captures of the original and other game-derived files go. Save lasting reverse-engineering findings in tests or documentation; never commit game data, captures, extracted assets, or decompiled code.
+```bash
+ls public/data/RESOURCE.MAP public/data/RESOURCE.001 public/data/SCRANTIC.SCR
+```
+
+| Extraction failure | Next step |
+| --- | --- |
+| `File not found` | Check the ZIP path; keep the quotes if it contains spaces. |
+| `Missing prerequisite` or an `mdir` command error | Install the tools above and check that all three commands are on your PATH. |
+| `Unsupported or corrupted ZIP file` | Compare the reported expected and actual hashes. Download the original ZIP linked above again; an extracted image or a newly created ZIP will not match. |
+
+Keep these proprietary files out of Git. The output directories `public/data/`, `dumps/`, and `traces/` are ignored, as is `scratchpad/`, where captures of the original and other game-derived files go. Save lasting reverse-engineering findings in tests or documentation; never commit game data, captures, extracted assets, or decompiled code.
 
 To test the first-run import screen, use `pnpm run dev:empty`. It hides local assets and opens `/?reset`, which clears the browser's imported data.
 
