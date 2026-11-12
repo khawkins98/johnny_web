@@ -3,11 +3,10 @@ import { playStepEntrance, stepDirection } from '../story-step-motion.mjs';
 
 describe('stepDirection', () => {
     it('is forward going deeper and back going up', () => {
-        expect(stepDirection('day', 'tide')).toBe('forward');
-        expect(stepDirection('gag', 'detail')).toBe('forward');
-        expect(stepDirection('detail', 'day')).toBe('back');
-        expect(stepDirection('gag', 'gag')).toBeNull();
-        expect(stepDirection(undefined, 'day')).toBeNull();
+        expect(stepDirection('home', 'detail')).toBe('forward');
+        expect(stepDirection('detail', 'home')).toBe('back');
+        expect(stepDirection('home', 'home')).toBeNull();
+        expect(stepDirection(undefined, 'home')).toBeNull();
     });
 });
 

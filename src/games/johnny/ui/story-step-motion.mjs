@@ -8,9 +8,9 @@
  * motion, or when the browser can't animate elements.
  */
 
-export const STEP_LEVELS = Object.freeze(['day', 'tide', 'gag', 'detail']);
+export const STEP_LEVELS = Object.freeze(['home', 'detail']);
 
-/** 'forward' when moving deeper (day → tide → gag → detail), 'back' when returning, else null. */
+/** 'forward' when moving from the scene list into one scene, 'back' when returning, else null. */
 export function stepDirection(fromLevel, toLevel) {
     const from = STEP_LEVELS.indexOf(fromLevel);
     const to = STEP_LEVELS.indexOf(toLevel);
@@ -80,6 +80,6 @@ export function playStepEntrance(root, motion) {
         dealIn(rest, motion.direction);
         return;
     }
-    const items = root.querySelectorAll('.story-steps-grid > *, .story-steps-tides > *, .story-steps-visit, .story-steps-empty');
+    const items = root.querySelectorAll('.story-steps-grid > *, .story-steps-now');
     dealIn([...items], motion.direction);
 }
