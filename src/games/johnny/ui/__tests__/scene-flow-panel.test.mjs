@@ -333,7 +333,7 @@ describe('scene-flow panel', () => {
         panel.destroy();
     });
 
-    it('shows the live visit in the Now bar, and starts a day visit from its story scene', () => {
+    it('shows the live visit in the Now bar, with links between a planned gag, the running gag and the list', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
         sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
@@ -349,14 +349,119 @@ describe('scene-flow panel', () => {
         expect(detailName()).toContain('Johnny naps · GAG 2 OF 2');
         // From a planned gag, one link each back to the list and to the running gag.
         expect(Array.from(document.querySelectorAll('.story-steps-backrow button'), (b) => b.textContent)).toEqual(['‹ All scenes', '↖ Johnny now']);
-        document.querySelector('.story-steps-backrow .is-live').click();
+        document.querySelector('.story-steps-backrow [data-focus="live"]').click();
         expect(detailName()).toContain('Johnny fishes · LIVE GAG');
         document.querySelector('.story-steps-backrow button').click();
+        expect(document.querySelector('.story-steps-hero')).toBeNull();
+        expect(startRun).not.toHaveBeenCalled();
+        expect(setStoryDay).not.toHaveBeenCalled();
+        panel.destroy();
+    });
 
-        cardNamed(/^Day 2: /).click();
-        document.querySelector('.story-steps-actions .story-steps-link').click();
-        expect(setStoryDay).not.toHaveBeenCalled(); // A visit is temporary.
-        expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'JOHNNY.ADS', tagId: 2, storyDay: 2, band: 'early' });
+    it('never passes a time of day the gag cannot play at, from either Play button', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        // Night is the time now; NATIVE 3 (ACTIVITY.ADS #9) only plays by day.
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, storyDay: 2, tidePhase: 13 });
+        sequenceTools.startRun = vi.fn();
+        const dayAds = { ...FISHY_ADS, scenes: [{ ...FISHY_ADS.scenes[0], tagId: { id: 9, description: 'Daytime example' } }] };
+        const panel = setupSceneFlowPanel({ resolveEntry: (name) => name === 'ACTIVITY.ADS' ? dayAds : resolveEntry(name), sequenceTools });
+        const pick = () => { panel.open(); cardNamed(/Daytime example/).click(); };
+        pick();
+        expect(timeChips('.story-steps-hero').map((chip) => [chip.getAttribute('aria-pressed'), chip.disabled]))
+            .toEqual([['true', false], ['false', false], ['false', true]]);
+        document.querySelector('.scene-flow-play-button').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview-child', band: 'early' }));
+        pick();
+        document.querySelector('.story-steps .story-steps-play').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', band: 'early' }));
+        panel.destroy();
+    });
+
+    it('only asks about the time of day where the answer shows', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, storyDay: 2, tidePhase: 3 });
+        sequenceTools.startRun = vi.fn();
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+        // Day 5, the date, forces the night sky.
+        cardNamed(/^Day 5: /).click();
+        expect(timeChips('.story-steps-hero').map((chip) => [chip.getAttribute('aria-pressed'), chip.disabled]))
+            .toEqual([['false', true], ['false', true], ['true', false]]);
+        expect(document.querySelector('.story-steps-hint').textContent).toBe('This scene always plays at night.');
+        document.querySelector('.story-steps .story-steps-play').click();
+        expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ storyDay: 5, band: 'night' }));
+        // Day 3 is set away from the island: no question at all.
+        panel.open();
+        cardNamed(/^Day 3: /).click();
+        expect(timeChips('.story-steps-hero')).toEqual([]);
+        expect(document.querySelector('.story-steps-hint').textContent).toMatch(/away from the island/);
+        // A story scene offers one action; a whole-day visit stays in the Log.
+        expect(Array.from(document.querySelectorAll('.story-steps-actions button'), (b) => b.textContent)).toEqual(['▶ Play this scene']);
+        panel.destroy();
+    });
+
+    it('keeps your place and focus in the list through live updates, filters and a trip into a scene', () => {
+        const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        panel.open();
+        const modal = document.getElementById('scene-flow-modal');
+        const focused = () => document.activeElement?.dataset?.focus;
+
+        // A live update redraws the list.
+        const card = cardNamed(/, night only/);
+        card.focus();
+        modal.scrollTop = 900;
+        sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
+        expect(card.isConnected).toBe(false); // It really was redrawn.
+        expect(modal.scrollTop).toBe(900);
+        expect(focused()).toBe(card.dataset.focus);
+
+        // A filter chip keeps the scroll position, the focus and (through later updates) its setting.
+        const night = timeChips('.story-steps-section')[2];
+        night.focus();
+        night.click();
+        expect(modal.scrollTop).toBe(900);
+        expect(focused()).toBe('filter:night');
+        sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 5 });
+        expect(timeChips('.story-steps-section')[2].getAttribute('aria-pressed')).toBe('true');
+        expect(modal.scrollTop).toBe(900);
+
+        // Into a scene and back: the scene starts at its top with focus on the way back; the list
+        // returns to where it was, with focus on the card that was open.
+        cardNamed(/, night only/).click();
+        expect(modal.scrollTop).toBe(0);
+        expect(focused()).toBe('back');
+        // A picked scene stays put through live updates.
+        const name = document.querySelector('.story-steps-hero-name').textContent;
+        sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
+        expect(document.querySelector('.story-steps-hero-name').textContent).toBe(name);
+        timeChips('.story-steps-hero')[2].focus();
+        document.querySelector('.story-steps-backrow button').click();
+        expect(modal.scrollTop).toBe(900);
+        expect(focused()).toBe(card.dataset.focus);
+        panel.destroy();
+    });
+
+    it('marks today and the time now from the saved position while visiting, and keeps previews out of the visit strip', () => {
+        let status = { active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 3, storyDay: 1, tidePhase: 13 };
+        const listeners = new Set();
+        const publish = (next) => { status = next; for (const listener of listeners) listener(status); };
+        const sequenceTools = {
+            status: () => status, getStoryDay: () => 1, startRun: vi.fn(), snapshot: () => [],
+            subscribeStatus: (listener) => { listeners.add(listener); listener(status); return () => listeners.delete(listener); },
+        };
+        const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+        const live = status;
+        // A single-gag preview of day 5, then back to the visit; the same gag is reported twice.
+        publish({ active: { script: 'MARY.ADS', tagId: 1 }, current: 1, total: 1, storyDay: 5, band: 'early', tidePhase: 0, preview: true });
+        panel.open();
+        expect(document.querySelector('.story-steps-now-where strong').textContent).toBe('Visiting Day 5 · Early day');
+        expect(cardNamed(/\(today\)/).getAttribute('aria-label')).toMatch(/^Day 1: /);
+        expect(timeChips('.story-steps-section').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night']);
+        publish(live);
+        publish({ ...live });
+        expect(timeChips('.story-steps-section').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night · now']);
+        expect(Array.from(document.querySelectorAll('.story-steps-visit button'), (chip) => chip.dataset.role)).toEqual(['live']);
         panel.destroy();
     });
 

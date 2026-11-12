@@ -8,7 +8,7 @@
  * motion, or when the browser can't animate elements.
  */
 
-export const STEP_LEVELS = ['home', 'detail'];
+export const STEP_LEVELS = Object.freeze(['home', 'detail']);
 
 /** 'forward' when moving from the scene list into one scene, 'back' when returning, else null. */
 export function stepDirection(fromLevel, toLevel) {
@@ -80,6 +80,6 @@ export function playStepEntrance(root, motion) {
         dealIn(rest, motion.direction);
         return;
     }
-    const items = root.querySelectorAll('.story-steps-grid > *, .story-steps-tides > *, .story-steps-visit, .story-steps-empty');
+    const items = root.querySelectorAll('.story-steps-grid > *, .story-steps-now');
     dealIn([...items], motion.direction);
 }

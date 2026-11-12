@@ -1,6 +1,6 @@
 /**
- * story-steps.mjs — the data behind the story timeline's step-by-step view
- * (issue #47): pick a day, then a time of day, then a gag.
+ * story-steps.mjs — the data behind the story timeline: the 11 story scenes,
+ * the everyday gags by kind, and the times of day each can play at.
  *
  * Pure functions over the host catalogue (JOHNNY_SCENES). Day locks and
  * story-clock windows decide which gags the game can choose; this module
@@ -70,6 +70,10 @@ const describeRecord = (record) => ({
     weight: record.weight,
     tideMin: record.tideMin,
     tideMax: record.tideMax,
+    // The scene bakes the night sky whatever the clock says (binary flagsB & 0x800).
+    forceNight: Boolean(record.forceNight),
+    // The scene is set away from the island, so no island sky is drawn at all.
+    offIsland: !(record.flags & SceneFlags.ISLAND),
 });
 
 /** Catalogue facts for a gag reference ({script, tagId}); the reference itself if unknown. */
@@ -138,10 +142,21 @@ export function everydayGagsByFamily() {
         .map((group) => ({ ...group, gags: group.gags.sort((a, b) => b.weight - a.weight) }));
 }
 
-/** The time bands a gag can play in: a key scene ignores the clock, others need their window. */
+/**
+ * The time bands worth offering for a gag, matching what the player will then see: a scene
+ * that forces night only ever shows night; a story scene ignores its clock window; any other
+ * gag needs its window to cover the band.
+ */
 export const bandsFor = (gag) =>
-    gag?.keyDay || gag?.tideMin == null ? [...TIDE_BANDS]
-        : TIDE_BANDS.filter((band) => gag.tideMin <= band.min && band.max <= gag.tideMax);
+    gag?.forceNight ? TIDE_BANDS.filter((band) => band.id === 'night')
+        : gag?.keyDay || gag?.tideMin == null ? [...TIDE_BANDS]
+            : TIDE_BANDS.filter((band) => gag.tideMin <= band.min && band.max <= gag.tideMax);
+
+/** The band to use for `gag`: the wanted one if it can play then, else the time now, else its first. */
+export const bandForGag = (gag, wanted, now = null) => {
+    const allowed = bandsFor(gag);
+    return (allowed.find((band) => band.id === wanted) ?? allowed.find((band) => band.id === now) ?? allowed[0]).id;
+};
 
 /** A short label for a gag that cannot play at every time of day, else ''. */
 export const restrictionLabel = (gag) =>

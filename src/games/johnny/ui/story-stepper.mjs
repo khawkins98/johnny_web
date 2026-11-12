@@ -62,7 +62,10 @@ export const STEPPER_STYLE = `
   border: 2px solid #8bb9a8; border-radius: 9px 5px; background: #e4f1dc; }
 .story-steps-now-where { margin: 0; }
 .story-steps-now-where strong { display: block; font: 700 17px/1.25 Georgia, serif; color: #22553b; }
-.story-steps-now .story-steps-visit { flex: 1 1 100%; margin: 0; padding: 0; border: 0; }
+/* One row that scrolls sideways, so a long visit never pushes the scenes off the first screen. */
+.story-steps-now .story-steps-visit { flex: 1 1 100%; min-width: 0; margin: 0; padding: 2px 0 6px; border: 0;
+  flex-wrap: nowrap; overflow-x: auto; }
+.story-steps-now .story-steps-visit > * { flex: none; }
 .story-steps-link { border: 0; background: none; padding: 0; min-height: 40px; color: #22553b; cursor: pointer;
   font: 700 14px/1.35 'Trebuchet MS', Arial, sans-serif; text-decoration: underline; }
 .story-steps-link:focus-visible, .story-steps-chip:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
@@ -94,7 +97,9 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
     if (onClick) {
         button.type = 'button';
         button.addEventListener('click', onClick);
-    }
+        // Lets the panel put focus back on this card after it redraws the list.
+        button.dataset.focus = `card:${gag.script}:${gag.tagId}`;
+    } else button.setAttribute('role', 'img');
     button.className = 'story-steps-card';
     button.setAttribute('aria-label', label);
     const canvas = document.createElement('canvas');
@@ -150,19 +155,21 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  * @param {{day:number, band:string|null, gag:object|null, startTime?:number}} options.live  where Johnny is now,
  *        and the Start Time (HHMM) the story clock counts from
  * @param {Array} options.visit       the live visit (visitSequence), for the Now bar
- * @param {{day:number, band:string, preview:boolean}|null} options.visiting  a temporary visit in progress
+ * @param {{day:number, band:string}|null} options.visiting  a temporary visit in progress
+ * @param {number} [options.today]    the saved story day (differs from live.day while visiting)
+ * @param {string|null} [options.nowBand]  the real time of day, or null when it is not known
  * @param {(gag)=>string} options.gagName
  * @param {object} options.faces      card face queue
  * @param {(patch, from?:DOMRect|null)=>void} options.onStep  move between screens / pick something;
  *        `from` is where the picked card was, for the entrance animation
  * @param {()=>void} options.onLive   show the gag Johnny is playing now
  * @param {(()=>void)|null} options.onGoBack  leave a temporary visit
- * @param {((day, band)=>boolean)|null} options.onPlayDay
  * @param {((gag, day, band)=>boolean)|null} options.onPlayGag
  * @returns {HTMLElement} the rendered screen, for playStepEntrance
  */
 export function renderStoryStepper(host, {
-    step, live, visit = [], visiting = null, gagName, faces, onStep, onLive, onGoBack = null, onPlayDay = null, onPlayGag = null,
+    step, live, visit = [], visiting = null, today = live.day, nowBand = live.band, gagName, faces, onStep, onLive,
+    onGoBack = null, onPlayGag = null,
 }) {
     const root = document.createElement('section');
     root.className = 'story-steps';
@@ -190,11 +197,12 @@ export function renderStoryStepper(host, {
         return button;
     };
     // A time-of-day chip; its tooltip gives the local clock times the band covers.
-    const bandChip = (option, { pressed, disabled = false, onPick }) => {
-        const isNow = option.id === live.band;
+    const bandChip = (option, { pressed, disabled = false, onPick, focus }) => {
+        const isNow = option.id === nowBand;
         const chip = el('button', 'story-steps-chip', `${option.label}${isNow ? ' · now' : ''}`);
         chip.type = 'button';
         chip.dataset.band = option.id;
+        chip.dataset.focus = `${focus}:${option.id}`;
         chip.setAttribute('aria-pressed', String(pressed));
         chip.disabled = disabled;
         const ranges = bandClockRanges(startTime, option.min, option.max).join(', ');
@@ -217,12 +225,14 @@ export function renderStoryStepper(host, {
         if (live.gag) {
             const show = el('button', 'story-steps-link', 'How this gag works ›');
             show.type = 'button';
+            show.dataset.focus = 'now-link';
             show.addEventListener('click', onLive);
             now.appendChild(show);
         }
         if (visiting && onGoBack) {
             const back = el('button', 'story-steps-play', 'Go back');
             back.type = 'button';
+            back.dataset.focus = 'go-back';
             back.title = 'Return now to the day and gag you left. Nothing from this visit is saved.';
             back.addEventListener('click', onGoBack);
             now.appendChild(back);
@@ -234,6 +244,7 @@ export function renderStoryStepper(host, {
                 const chip = document.createElement('button');
                 chip.type = 'button';
                 chip.dataset.role = gag.role;
+                chip.dataset.focus = `visit:${gag.index ?? 0}`;
                 const name = gag.filler ? 'pause' : gagName(gag);
                 chip.textContent = `${pad(gag.index ?? 0)} ${name}${gag.repeat > 1 ? ` ×${gag.repeat}` : ''}`;
                 chip.title = gag.role === 'live' ? 'Johnny now' : gag.role === 'seen' ? 'Already played' : 'Planned';
@@ -242,6 +253,9 @@ export function renderStoryStepper(host, {
                 strip.appendChild(chip);
             }
             now.appendChild(strip);
+            // Start the row at the gag that is playing.
+            const liveChip = strip.querySelector('[data-role="live"]');
+            if (liveChip) strip.scrollLeft = Math.max(0, liveChip.offsetLeft - 80);
         }
         root.appendChild(now);
 
@@ -252,14 +266,14 @@ export function renderStoryStepper(host, {
         const days = el('div', 'story-steps-grid story-steps-days');
         for (const scene of storyScenes()) {
             const day = scene.keyDay;
-            const today = day === live.day;
+            const isToday = day === today;
             days.appendChild(cardButton({
                 gag: scene, faces,
                 name: gagName(scene),
                 kicker: `Day ${pad(day)}`,
-                live: today,
-                badge: today ? 'TODAY' : null,
-                label: `Day ${day}: ${gagName(scene)}${today ? ' (today)' : ''}`,
+                live: isToday,
+                badge: isToday ? 'TODAY' : null,
+                label: `Day ${day}: ${gagName(scene)}${isToday ? ' (today)' : ''}`,
                 onClick: (event) => onStep({ level: 'detail', gag: scene, day }, originOf(event)),
             }));
         }
@@ -278,11 +292,12 @@ export function renderStoryStepper(host, {
         chips.setAttribute('aria-label', 'Show what can play at');
         const any = el('button', 'story-steps-chip', 'Any time');
         any.type = 'button';
+        any.dataset.focus = 'filter:any';
         any.setAttribute('aria-pressed', String(!filter));
         any.addEventListener('click', () => onStep({ filter: null }));
         chips.appendChild(any);
         for (const option of TIDE_BANDS) {
-            chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, onPick: (id) => onStep({ filter: id }) }));
+            chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, focus: 'filter', onPick: (id) => onStep({ filter: id }) }));
         }
         everyday.appendChild(chips);
         for (const group of groups) {
@@ -316,17 +331,20 @@ export function renderStoryStepper(host, {
     const gag = step.gag;
     const isLive = sameGag(gag, live.gag);
     const allowed = bandsFor(gag);
-    const band = allowed.find((option) => option.id === step.band) ?? allowed.find((option) => option.id === live.band) ?? allowed[0];
+    // The panel keeps step.band to a time this gag can play at; this is only a safeguard.
+    const band = allowed.find((option) => option.id === step.band) ?? allowed[0];
     const day = gag.keyDay || step.day || live.day;
 
     const backRow = el('div', 'story-steps-backrow');
     const back = el('button', 'story-steps-link', '‹ All scenes');
     back.type = 'button';
+    back.dataset.focus = 'back';
     back.addEventListener('click', () => onStep({ level: 'home' }));
     backRow.appendChild(back);
     if (!isLive && live.gag) {
-        const liveLink = el('button', 'story-steps-link is-live', '↖ Johnny now');
+        const liveLink = el('button', 'story-steps-link', '↖ Johnny now');
         liveLink.type = 'button';
+        liveLink.dataset.focus = 'live';
         liveLink.addEventListener('click', onLive);
         backRow.appendChild(liveLink);
     }
@@ -343,43 +361,41 @@ export function renderStoryStepper(host, {
     const facts = document.createElement('ul');
     const fact = (text) => facts.appendChild(el('li', null, text));
     if (isLive) fact('Johnny is playing this now.');
-    if (gag.keyDay) fact(`✦ The story scene for day ${gag.keyDay}: playing it unlocks the next day.`);
+    if (gag.keyDay) fact(`✦ The story scene for day ${gag.keyDay}. In normal play, reaching it unlocks the next day.`);
     if (gag.final) fact(gag.first && !gag.keyDay ? '☾ Ends a visit, or plays on its own.' : '☾ Ends a visit.');
     if (!gag.keyDay && allowed.length === TIDE_BANDS.length) fact(describeWhenItPlays(gag));
     info.appendChild(facts);
 
-    info.appendChild(el('p', 'story-steps-question', 'What time of day?'));
-    const chips = el('div', 'story-steps-chips');
-    chips.setAttribute('role', 'group');
-    chips.setAttribute('aria-label', 'Time of day');
-    for (const option of TIDE_BANDS) {
-        chips.appendChild(bandChip(option, {
-            pressed: option.id === band.id,
-            disabled: !allowed.includes(option),
-            onPick: (id) => onStep({ band: id }),
-        }));
-    }
-    info.appendChild(chips);
-    if (allowed.length < TIDE_BANDS.length) {
-        const words = (option) => (option.id === 'night' ? 'at night' : `in the ${option.label.toLowerCase()}`);
-        info.appendChild(el('p', 'story-steps-hint', allowed.length === 1
-            ? `This one only plays ${words(allowed[0])}.`
-            : `This one does not play ${TIDE_BANDS.filter((option) => !allowed.includes(option)).map(words).join(' or ')}.`));
+    if (gag.offIsland) {
+        // No island, no sky: asking would be a question with no visible answer.
+        info.appendChild(el('p', 'story-steps-hint', 'This scene happens away from the island, so the time of day makes no difference.'));
+    } else {
+        info.appendChild(el('p', 'story-steps-question', 'What time of day?'));
+        const chips = el('div', 'story-steps-chips');
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', 'Time of day');
+        for (const option of TIDE_BANDS) {
+            chips.appendChild(bandChip(option, {
+                pressed: option.id === band.id,
+                disabled: !allowed.includes(option),
+                focus: 'band',
+                onPick: (id) => onStep({ band: id }),
+            }));
+        }
+        info.appendChild(chips);
+        if (allowed.length < TIDE_BANDS.length) {
+            const words = (option) => (option.id === 'night' ? 'at night' : `in the ${option.label.toLowerCase()}`);
+            info.appendChild(el('p', 'story-steps-hint', gag.forceNight ? 'This scene always plays at night.'
+                : allowed.length === 1 ? `This one only plays ${words(allowed[0])}.`
+                    : `This one does not play ${TIDE_BANDS.filter((option) => !allowed.includes(option)).map(words).join(' or ')}.`));
+        }
     }
 
     const actions = el('div', 'story-steps-actions');
     if (onPlayGag) {
         actions.appendChild(playButton(isLive ? '▶ Replay this gag' : gag.keyDay ? '▶ Play this scene' : '▶ Play this gag',
             'Play just this now, then go back to where you were', () => onPlayGag(gag, day, band.id)));
-    }
-    if (gag.keyDay && onPlayDay) {
-        const visitDay = el('button', 'story-steps-link', `or spend a whole visit on day ${gag.keyDay}`);
-        visitDay.type = 'button';
-        visitDay.title = 'Start a visit on this day from its story scene';
-        visitDay.addEventListener('click', () => {
-            if (onPlayDay(gag.keyDay, band.id) === false) visitDay.textContent = 'Could not start';
-        });
-        actions.appendChild(visitDay);
+        actions.lastChild.dataset.focus = 'play';
     }
     info.appendChild(actions);
     hero.appendChild(info);

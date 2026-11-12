@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
 import {
-    TIDE_BANDS, bandById, bandForPhase, describeTideWindow, describeWhenItPlays, gagCountsByBand, gagFacts, gagsFor, keySceneFor, visitSequence, storyScenes, everydayGagsByFamily, bandsFor, restrictionLabel,
+    bandForGag, TIDE_BANDS, bandById, bandForPhase, describeTideWindow, describeWhenItPlays, gagCountsByBand, gagFacts, gagsFor, keySceneFor, visitSequence, storyScenes, everydayGagsByFamily, bandsFor, restrictionLabel,
 } from '../story-steps.mjs';
 
 describe('tide bands', () => {
@@ -116,8 +116,13 @@ describe('scene-first timeline data', () => {
     it('lists the 11 story scenes in day order, each locked to its own day', () => {
         const scenes = storyScenes();
         expect(scenes.map((scene) => scene.keyDay)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-        // The clock does not decide a story scene, so every time of day is offered.
-        expect(scenes.every((scene) => bandsFor(scene).length === 3 && restrictionLabel(scene) === '')).toBe(true);
+        // The clock window does not decide a story scene, so every time of day is offered, except
+        // where the scene itself forces the night sky (day 5, the date).
+        expect(scenes.map((scene) => bandsFor(scene).map((band) => band.id).join('+'))).toEqual(
+            scenes.map((scene) => (scene.keyDay === 5 ? 'night' : 'early+late+night')));
+        expect(scenes.every((scene) => restrictionLabel(scene) === '')).toBe(true);
+        // Four are set away from the island, where the time of day shows nothing.
+        expect(scenes.filter((scene) => scene.offIsland).map((scene) => scene.keyDay)).toEqual([3, 9, 10, 11]);
     });
 
     it('groups the 40 everyday gags by kind, with every gag in exactly one group', () => {
@@ -148,5 +153,14 @@ describe('scene-first timeline data', () => {
         }
         expect(counts).toEqual({ 'Any time': 28, 'Daytime only': 7, 'Early day only': 2, 'Night only': 3 });
         expect(bandsFor({ script: 'UNKNOWN.ADS', tagId: 9 })).toEqual([...TIDE_BANDS]);
+    });
+
+    it('resolves one time of day a gag can actually play at', () => {
+        const gags = everydayGagsByFamily().flatMap((group) => group.gags);
+        const daytime = gags.find((gag) => restrictionLabel(gag) === 'Daytime only');
+        expect(bandForGag(daytime, 'late', 'night')).toBe('late'); // What was asked for, when allowed.
+        expect(bandForGag(daytime, 'night', 'night')).toBe('early'); // Never a time it cannot play at.
+        expect(bandForGag(daytime, 'night', 'late')).toBe('late'); // Else the time now, when allowed.
+        expect(bandForGag(storyScenes()[4], 'early', 'early')).toBe('night');
     });
 });

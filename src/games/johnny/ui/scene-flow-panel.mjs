@@ -21,7 +21,7 @@ import {
     describeSceneFlowGuard,
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
-import { bandById, bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
+import { bandById, bandForGag, bandForPhase, gagFacts, visitSequence } from '../story-steps.mjs';
 import { DEFAULT_START_TIME } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
@@ -312,9 +312,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let mountedPreview = null;
     let previewGeneration = 0;
     let renderedGagId = null;
-    // Story steps (issue #47): which day, then what time of day, then which gag.
-    // `step` is where the viewer is; while `followLive` holds it tracks Johnny.
+    // `step` is where the viewer is: the scene list ('home') or one scene ('detail'), with the
+    // chosen time of day. While `followLive` holds it tracks Johnny.
     let step = null;
+    // Where the scene list was scrolled to, so coming back from a scene returns there.
+    let homeScroll = 0;
     let stepperRoot = null;
     let faceQueue = null;
     const stepperStyle = document.createElement('style');
@@ -371,7 +373,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // scene screen (when it is showing the running gag) follows on to the next gag.
     const followLive = (status, level = step?.level ?? 'home') => {
         const live = liveSpot(status);
-        step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day, band: live.band ?? 'early',
+        step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day,
+            // Always a time the gag can play at: the outline's Play button and preview use it too.
+            band: live.gag ? bandForGag(live.gag, live.band, live.band) : live.band ?? 'early',
             gag: live.gag, filter: step?.filter ?? null, followLive: true };
     };
     const playGag = (gag, day, band) => {
@@ -502,21 +506,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         }
     };
 
-    const canJumpDay = () => typeof sequenceTools?.setStoryDay === 'function' &&
-        typeof sequenceTools?.startRun === 'function';
-    const playDay = (day, band) => {
-        const keyScene = keySceneFor(day);
-        if (!keyScene || !canJumpDay()) return false;
-        // A visit is temporary: the saved story day only changes if the viewer chooses Stay here.
-        try {
-            sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day, band });
-            close();
-            return true;
-        } catch {
-            return false;
-        }
-    };
-
     const renderStoryTimeline = (status) => {
         const live = liveSpot(status);
         if (!step || step.followLive) followLive(status);
@@ -534,26 +523,41 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 current: status.current,
                 planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
             }),
-            visiting: status?.band ? { day: status.storyDay ?? 1, band: status.band, preview: Boolean(status.preview) } : null,
+            visiting: status?.band ? { day: status.storyDay ?? 1, band: status.band } : null,
+            // While visiting, "today" is still the saved day, and the real time of day is not the visit's.
+            today: status?.band ? (sequenceTools?.getStoryDay?.() ?? live.day) : live.day,
+            nowBand: status?.band ? null : live.band,
             onGoBack: typeof sequenceTools?.startRun === 'function' ? () => sequenceTools.startRun({ mode: 'live' }) : null,
             gagName,
             faces: faceQueue,
             onStep: (patch, from = null) => {
-                const direction = stepDirection(step.level, patch.level ?? step.level);
+                const before = step.level;
+                const direction = stepDirection(before, patch.level ?? before);
+                const leaving = step.gag;
+                if (before === 'home') homeScroll = modal.scrollTop;
                 // The scene list always tracks where Johnny is; a picked scene stays put.
-                step = { ...step, ...patch, followLive: (patch.level ?? step.level) === 'home' };
+                step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
                 if (patch.gag) step.gag = gagFacts(patch.gag);
+                // One resolved time of day for the Play button, the outline's Play and the preview.
+                if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
                 renderCurrent();
-                modal.scrollTop = 0;
+                if (step.level !== before) {
+                    // A new screen: the scene starts at its top; the list returns to where it was,
+                    // with focus on the card that was open.
+                    modal.scrollTop = step.level === 'home' ? homeScroll : 0;
+                    focusKey(step.level === 'home' && leaving ? `card:${leaving.script}:${leaving.tagId}` : 'back');
+                }
                 playStepEntrance(stepperRoot, { direction, from });
             },
             onLive: () => {
                 const before = step.level;
+                if (before === 'home') homeScroll = modal.scrollTop;
                 followLive(sequenceTools?.status?.() ?? status, 'detail');
                 renderCurrent();
+                if (before === 'home') modal.scrollTop = 0;
+                focusKey('back');
                 playStepEntrance(stepperRoot, { direction: stepDirection(before, step.level) });
             },
-            onPlayDay: canJumpDay() ? playDay : null,
             onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,
         });
         body.appendChild(shell);
@@ -822,7 +826,18 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         renderLinks(adsName);
     };
 
+    // Controls carry a data-focus key so focus survives the redraws that live updates cause.
+    const focusKey = (key) => {
+        if (!key) return;
+        Array.from(modal.querySelectorAll('[data-focus]')).find((node) => node.dataset.focus === key && !node.disabled)
+            ?.focus({ preventScroll: true });
+    };
     const renderCurrent = () => {
+        const held = modal.contains(document.activeElement) ? document.activeElement.dataset?.focus : null;
+        renderBody();
+        if (held && !modal.contains(document.activeElement)) focusKey(held);
+    };
+    const renderBody = () => {
         const status = sequenceTools?.status?.() ?? null;
         const active = status?.active ?? null;
         if (!active) {
@@ -841,6 +856,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const detail = renderStoryTimeline(status);
         if (!detail) {
             renderedGagId = null;
+            // The list is rebuilt on every live update; keep the viewer's place in it.
+            modal.scrollTop = oldScrollTop;
             return;
         }
         const target = step.gag;
@@ -917,11 +934,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             for (const line of clockMessage.children) line.style.display = 'block';
         }
         if (status?.current === 0 && !status.active) seenGags = [];
-        if (status?.active) {
-            const previous = seenGags.at(-1);
-            if (previous?.script !== status.active.script || previous?.tagId !== status.active.tagId || previous?.index !== status.current) {
-                seenGags.push({ ...status.active, index: status.current });
-            }
+        // The visit's own gags only: a single-gag preview is not part of it, and going back to
+        // an earlier gag replaces what was recorded from there on.
+        if (status?.active && !status.preview) {
+            seenGags = seenGags.filter((gag) => gag.index < status.current);
+            seenGags.push({ ...status.active, index: status.current });
         }
         if (isOpen) renderCurrent();
     });
