@@ -29,7 +29,7 @@ For tests and command-line tools that need game data, follow the [local extracti
 
 The Island TV interface, with the Log closed to show the TV controls. Original Johnny Castaway game artwork © Dynamix / Sierra On-Line; the surrounding interface illustrations were created for this project.
 
-Press **Play** to start Johnny with the illustrated Island TV. Fresh preferences use Balanced CRT, a stretch-to-fill picture, drifting clouds and the original story clock. **Options** remembers your choices across visits; **Picture** opens the picture presets. See [CRT setup and controls](docs/optional-crt.md) for models, tuning and fallback behavior.
+Press **Play** to start Johnny with the illustrated Island TV. Fresh preferences use Balanced CRT, automatic picture sizing, drifting clouds and the original story clock. **Options** remembers your choices across visits; **Picture** opens the picture presets. See [CRT setup and controls](docs/optional-crt.md) for models, tuning and fallback behavior.
 
 Use the [playback toolbar and Island Log](docs/playback-toolbar.md) to pause, change speed, hide the cabinet or jump to a gag. The [story timeline](docs/story-timeline-guide.md) (`T`) lets you browse days, times and scenes without interrupting playback until you choose a Play action.
 

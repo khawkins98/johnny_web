@@ -3,7 +3,7 @@ import { setupVgaControls, setupLottesControls } from './vga-controls.mjs';
 import { createCrtPresentation } from './presentation.mjs';
 import { presets, sanitizeSettings, readStored, writeStored, readPresets } from './presets.mjs';
 
-export function setupCrtSettings(container) {
+export function setupCrtSettings(container, { onActiveChange } = {}) {
     let storage;
     try { storage = window.localStorage; } catch { /* Session-only controls. */ }
     const key = 'jc-crt-v1', saved = readStored(storage, key, {});
@@ -29,7 +29,7 @@ export function setupCrtSettings(container) {
     creativePanel.dataset.crtPanel = 'creative'; vgaPanel.dataset.crtPanel = 'vga'; lottesPanel.dataset.crtPanel = 'lottes';
     details.append(summary, label, modelLabel, help, creativePanel, vgaPanel, lottesPanel); container.append(details);
     let lastStatus = '';
-    const presentation = createCrtPresentation({ root: document.getElementById('root'), onStatus: text => {
+    const presentation = createCrtPresentation({ root: document.getElementById('root'), onActiveChange, onStatus: text => {
         if (text !== lastStatus) {
             status.textContent = text;
             status.hidden = text === 'CRT off.' || text === 'CRT enabled.';

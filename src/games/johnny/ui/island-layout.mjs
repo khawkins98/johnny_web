@@ -39,5 +39,40 @@ export function halfStepScale(width, height, sourceWidth, sourceHeight) {
     return Math.max(0.5, Math.floor((Math.min(width / sourceWidth, height / sourceHeight) + 1e-6) * 2) / 2);
 }
 
+/**
+ * Largest scale at which each source pixel covers the same whole number of device
+ * pixels. Sizes are CSS pixels; dpr includes page zoom. Below one device pixel per
+ * source pixel there is no clean step, so the continuous fit is returned.
+ */
+export function deviceStepScale(width, height, dpr, sourceWidth, sourceHeight) {
+    const fit = Math.min(width / sourceWidth, height / sourceHeight);
+    const multiple = Math.floor(fit * dpr + 1e-6);
+    return multiple >= 1 ? multiple / dpr : fit;
+}
+
+/** Device pixels per source pixel from which even GPU resampling is worth its cost. */
+export const RESAMPLE_MIN_DEVICE_PIXELS = 2;
+
+/** Automatic sizing takes a clean step only when it keeps this share of the fitted size. */
+export const AUTO_SHARP_MIN_FILL = 0.8;
+
+/** Whether Automatic should use the whole-device-pixel step rather than a smooth fit. */
+export function prefersDeviceStep(width, height, dpr, sourceWidth, sourceHeight) {
+    const fit = Math.min(width / sourceWidth, height / sourceHeight);
+    const step = deviceStepScale(width, height, dpr, sourceWidth, sourceHeight);
+    return isDeviceSharp(step, dpr) && step >= fit * AUTO_SHARP_MIN_FILL - 1e-9;
+}
+
+/** True when nearest-neighbour scaling gives equal pixel blocks at this CSS scale. */
+export function isDeviceSharp(scale, dpr) {
+    const devicePixels = scale * dpr;
+    return devicePixels > 1 - 1e-6 && Math.abs(devicePixels - Math.round(devicePixels)) < 1e-6;
+}
+
+/** CSS offset that moves an edge onto the nearest device-pixel boundary. */
+export function deviceSnapOffset(edge, dpr) {
+    return Math.round(edge * dpr) / dpr - edge;
+}
+
 // Retain the existing title API; live TV-off view shares the same step calculation.
 export const titleScale = halfStepScale;
