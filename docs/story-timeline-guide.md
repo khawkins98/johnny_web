@@ -1,6 +1,6 @@
 # Explore the story timeline
 
-The timeline has two screens: **pick what to watch**, then **what time of day**. It opens on a list of every scene: the 11 story scenes in day order, and the 40 everyday gags grouped by kind. A **Now** bar at the top shows the day, time of day and gag Johnny is on. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
+The timeline has two screens: **pick what to watch**, then **what time of day**. It opens on a list of every scene: the 11 story scenes in day order, and the 40 everyday gags grouped by kind. A **Now** strip along the bottom of the panel shows the day, time of day and gag Johnny is on, with the visit in progress; it stays in view as you scroll. On small screens it sits at the top and scrolls with the page. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
 
 ## Open and close
 

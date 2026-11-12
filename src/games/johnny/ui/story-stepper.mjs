@@ -60,8 +60,17 @@ export const STEPPER_STYLE = `
   .story-steps-card:hover canvas { transform: none; }
 }
 
-.story-steps-now { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 14px; padding: 10px 12px;
+/* Where Johnny is and the visit in progress sit along the bottom edge of the panel, like a
+   status strip, so the map or the list gets the top of the screen. */
+.story-steps-now { position: sticky; bottom: 0; z-index: 6; box-shadow: 0 -5px 10px -4px #234e5244;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 14px 0 0; padding: 10px 12px;
   border: 2px solid #8bb9a8; border-radius: 9px 5px; background: #e4f1dc; }
+/* On a small screen a pinned strip would take a fifth of the view, and the end of a long list is
+   a long way down: there it goes back to the top and scrolls with the page. */
+@media (max-width: 700px), (max-height: 620px) {
+  .story-steps { display: flex; flex-direction: column; }
+  .story-steps-now { position: static; order: -1; margin: 0 0 14px; box-shadow: none; }
+}
 .story-steps-now-where { margin: 0; }
 .story-steps-now-where strong { display: block; font: 700 17px/1.25 Georgia, serif; color: #22553b; }
 /* One row that scrolls sideways, so a long visit never pushes the scenes off the first screen. */
@@ -262,8 +271,6 @@ export function renderStoryStepper(host, {
             const liveChip = strip.querySelector('[data-role="live"]');
             if (liveChip) strip.scrollLeft = Math.max(0, liveChip.offsetLeft - 80);
         }
-        root.appendChild(now);
-
         const filter = bandById(step.filter);
         // The time-of-day filter only dims what cannot play then; it starts nothing.
         const filterChips = () => {
@@ -304,6 +311,7 @@ export function renderStoryStepper(host, {
                 place: step.place ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
                 makeCard: (options) => cardButton({ ...options, faces }),
             });
+            root.appendChild(now);
             return root;
         }
         root.appendChild(viewbar);
@@ -359,6 +367,7 @@ export function renderStoryStepper(host, {
             everyday.appendChild(family);
         }
         root.appendChild(everyday);
+        root.appendChild(now);
         return root;
     }
 
