@@ -486,4 +486,3 @@ it('offers the Show TV tab choice among the everyday options and announces chang
     expect(localStorage.getItem('jc-tv-tab')).toBe('hidden');
     expect(heard).toHaveBeenCalledWith('hidden');
 });
-
