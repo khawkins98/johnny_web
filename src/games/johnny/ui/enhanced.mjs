@@ -46,7 +46,7 @@ export function setupEnhancedUI({
         <button class="jc-full-width jc-play-day" id="jc-play-day">Visit this day →</button>
         <div class="jc-nav-row"><button id="jc-gag-prev" aria-label="Play previous gag">‹ Previous gag</button><button id="jc-gag-next" aria-label="Play next gag">Next gag ›</button></div>
         <details class="jc-log-details"><summary>Choose a specific gag</summary><label for="jc-jump-gag">Gag on this day</label><select id="jc-jump-gag"></select><button id="jc-play-gag" class="jc-full-width jc-play-day">Play gag</button></details>
-        <button id="jc-return-live" class="jc-full-width">↶ Return to live story</button><p id="jc-log-error" class="jc-log-error" role="status"></p>
+        <button id="jc-return-live" class="jc-full-width" title="Return to the day and gag you left">↶ Go back</button><p id="jc-log-error" class="jc-log-error" role="status"></p>
         </section>
     </aside>`;
     document.body.append(hud);
@@ -386,7 +386,8 @@ export function setupEnhancedUI({
             $(id).disabled = !capable || typeof sequenceTools?.setStoryDay !== 'function' || !keySceneFor(day);
         $('jc-day-prev').disabled ||= day <= 1;
         $('jc-day-next').disabled ||= day >= 11;
-        $('jc-return-live').disabled = !capable;
+        // Only a temporary visit or preview has somewhere to go back to.
+        $('jc-return-live').disabled = !capable || !(status?.band || status?.preview);
         $('jc-jump-gag').disabled = !capable || !choices.length;
     }
     function playDay(day) {
@@ -396,20 +397,14 @@ export function setupEnhancedUI({
         $('jc-jump-day').value = String(day);
         fillGags();
         invoke(() => {
-            const previous = sequenceTools.getStoryDay?.();
-            try {
-                sequenceTools.setStoryDay(day);
-                sequenceTools.startRun({
-                    mode: 'sequence',
-                    script: gag.script,
-                    tagId: gag.tagId,
-                    storyDay: day,
-                    band: $('jc-jump-band').value,
-                });
-            } catch (error) {
-                if (previous != null) sequenceTools.setStoryDay(previous);
-                throw error;
-            }
+            // A visit is temporary: the saved story day changes only through Stay here.
+            sequenceTools.startRun({
+                mode: 'sequence',
+                script: gag.script,
+                tagId: gag.tagId,
+                storyDay: day,
+                band: $('jc-jump-band').value,
+            });
         });
     }
     function playGag(delta = 0) {

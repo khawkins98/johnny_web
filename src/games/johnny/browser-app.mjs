@@ -35,6 +35,8 @@ export const runJohnnyCastaway = () => {
             preview: (script, tagId, options) => story.preview(script, tagId, options),
             planFrom: (script, tagId, options) => story.planFrom(script, tagId, options),
             returnToLive: () => story.returnToLive(),
+            holdPlace: (kind) => story.holdPlace(kind),
+            keepVisit: (options) => story.keepVisit(options),
             clearRun: () => story.clearRun(),
             status: () => story.status(),
             snapshot: () => story.snapshot(),

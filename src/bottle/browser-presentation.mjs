@@ -159,6 +159,7 @@ export const runBrowserPresentation = async ({
         ? {
               ...debugSequence,
               startRun: (request) => debugRuns.request(request),
+              keepVisit: () => debugRuns.keep(),
               status: () => debugRuns.status(),
               subscribeStatus: (listener) => debugRuns.subscribeStatus(listener),
           }

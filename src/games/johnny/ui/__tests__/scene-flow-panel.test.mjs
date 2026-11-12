@@ -341,7 +341,7 @@ describe('scene-flow panel', () => {
 
         crumbButtons()[1].click();
         document.querySelector('.story-steps .story-steps-play').click();
-        expect(setStoryDay).toHaveBeenCalledWith(2);
+        expect(setStoryDay).not.toHaveBeenCalled(); // A visit is temporary.
         expect(startRun).toHaveBeenCalledWith({ mode: 'sequence', script: 'JOHNNY.ADS', tagId: 2, storyDay: 2, band: 'early' });
         panel.destroy();
     });
@@ -388,9 +388,13 @@ describe('scene-flow panel', () => {
         publish({ storyDay: 5, band: 'early', night: true, forceNight: true, forceHighTide: true, lowTide: false, preview: true });
         const notice = document.getElementById('timeline-clock-notice');
         expect(notice.hidden).toBe(false);
-        expect(notice.textContent).toContain('Scene requires night');
-        expect(notice.textContent).toContain('Scene requires high tide');
-        expect(notice.textContent).toContain('Ends after this gag/scene');
+        // Short, plain lines; the tide (which nobody picks) is not mentioned.
+        expect([...notice.querySelector('[role="status"]').children].map((line) => line.textContent)).toEqual([
+            'Visiting Day 5 · Early day',
+            'Just this gag, then back to where you were.',
+            'This scene always plays at night.',
+        ]);
+        expect([...notice.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Go back', 'Stay here']);
         notice.querySelector('button').click();
         expect(startRun).toHaveBeenCalledWith({ mode: 'live' });
         publish({ storyDay: 5, band: null });
@@ -403,21 +407,23 @@ describe('scene-flow panel', () => {
         expect(document.getElementById('timeline-clock-notice')).toBeNull();
     });
 
-    it('saves the preview band as the current advancing clock and returns to live playback', () => {
+    it('keeps the visit as the saved position without starting another run, and says where you came from', () => {
         let publish;
-        const startRun = vi.fn();
+        const startRun = vi.fn(), keepVisit = vi.fn();
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools: {
-            startRun, subscribeStatus: (listener) => { publish = listener; return () => {}; },
+            startRun, keepVisit, getStoryDay: () => 1, subscribeStatus: (listener) => { publish = listener; return () => {}; },
         } });
         localStorage.setItem('jc-time', 'local');
         publish({ storyDay: 3, band: 'night', night: true, forceHighTide: true, preview: true });
+        expect([...document.querySelector('#timeline-clock-notice [role="status"]').children].map((line) => line.textContent)).toEqual([
+            'Visiting Day 3 · Night',
+            'Just this gag, then back to where you were.',
+        ]);
         document.querySelector('#timeline-save-clock').click();
         expect(localStorage.getItem('jc-time')).toBe('original');
-        expect(startRun).toHaveBeenLastCalledWith({ mode: 'live' });
-        const offset = Number(localStorage.getItem('jc-start-time-hhmm') ?? 900);
-        const now = new Date();
-        const slot = (hhmm) => Math.floor(hhmm / 100) * 2 + (hhmm % 100 >= 30 ? 1 : 0);
-        expect((now.getHours() * 2 + Math.floor(now.getMinutes() / 30) - slot(offset) + 48) % 16).toBe(12);
+        expect(keepVisit).toHaveBeenCalledOnce();
+        // Staying must not cut to a different scene.
+        expect(startRun).not.toHaveBeenCalled();
         publish({ band: null });
         expect(document.querySelector('#timeline-clock-notice').hidden).toBe(true);
         panel.destroy();
