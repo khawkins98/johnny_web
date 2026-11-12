@@ -9,6 +9,7 @@ This changelog tracks the browser project. Its version numbers are separate from
 - With **Original picture**, Automatic size (and TV-off or Full view at any saved size), pictures of two or more device pixels per source pixel that do not land on a whole multiple are now resampled on the GPU into even blocks with thin blended edges, instead of the browser's blur. Smaller pictures keep the browser's smooth fit, which no filter improves on at those sizes.
 - The CRT output is placed on device pixels at exactly its drawn size, so the browser no longer resamples the finished picture a second time.
 - CRT looks now redraw only when the game picture, its size or the settings change, instead of on every display frame. A paused game no longer uploads or draws anything.
+- Added **Hide shelf / B**: the playback shelf slides below the page edge like an auto-hiding Dock and the Island TV grows into the space, between the normal layout and Full view. Pointing at the bottom edge, focusing a shelf control or pressing the **Show shelf** tab peeks the shelf over the page without resizing the picture. The choice is remembered.
 
 ## v1.4.0 — Island TV (2026-10-25)
 

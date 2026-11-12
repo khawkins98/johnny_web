@@ -58,6 +58,10 @@ The source remains native 640×480. `applyScaling()` fits it into the 4:3 openin
 
 Log remains an overlay over the right control cheek (its left edge at 71% is beyond the picture's 69.69% right edge), so opening it never changes picture size. Hardware underneath the open Log is inert until it closes. Narrow/short Log uses one notebook scroll and a sticky Close; roomy desktop sections scroll internally. Temporary-clock feedback stays above the shelf and hides with the Island UI.
 
+### Receding shelf (B)
+
+`body.jc-shelf-receded` (preference `jc-shelf`, owned by `enhanced.mjs`) slides `#jc-deck` below the page with a transform. `applyScaling()` then passes `shelfTopFor()` from `island-layout.mjs` to `islandLayout()`: the viewport height less `RECEDED_SHELF_RESERVE` (24px for the visible part of the **Show shelf** handle) instead of the deck's top, and publishes the same value as `--jc-deck-top`. The deck's resting top is measured without its current vertical transform, so neither the slide nor a peek feeds back into the cabinet size. A peek only adds `#enhanced-hud.is-shelf-peeking`; it must not call `refreshLayout()`. While receded the deck is at z-index 920, above the Log (910), so a peek overlays it; the handle is at 930. Tucked shelf controls stay in the Tab order, and focusing one reveals the shelf. Focus left behind by a click moves to the handle when the shelf tucks away. The tab and handle are CSS paper tabs in the existing palette, with 40px targets; no artwork was added. The floating Log and the clock notice sit slightly higher on narrow windows to clear the tab, and drop to the handle when the shelf is receded. `prefers-reduced-motion` removes the slide.
+
 ## Editing or regenerating artwork
 
 1. Read the prompts and inspect the five actual images first. Retain pale aqua/cream/green/orange, irregular ink contours, hand-painted highlights and generous silhouettes. Avoid replacing the system with tiny pixel icons, generic vector symbols, pirate brass/dark furniture or photorealistic wood.
@@ -80,6 +84,8 @@ pnpm run build
 Use an isolated `agent-browser --session <task-name>` session, not the user's active browser. Test actual playback with locally supplied data at **1940×1200, 1440×1000, 1024×768 and 390×844**, plus a short desktop window. Capture open/closed Log, UI hidden/restored, Settings, Timeline and CRT on/off. Store proprietary screenshots under ignored scratchpad, not here.
 
 Check: game remains 4:3; opening Log leaves the game rectangle identical; roomy Log never covers the picture; narrow controls wrap without clipping or horizontal overflow; H and the restore button retain Log state; Escape closes Log and returns focus; dialogs keep their keyboard behavior; day/gag/live requests still use the existing coordinator; CRT follows the game rectangle and never colors the cabinet; returning to title removes the skin/observers and restores normal layout.
+
+Also check the receded shelf (`B`) at each size: larger cabinet, identical picture rectangle while peeking, Log and dialogs reachable, H/F round-trips.
 
 Geometry regressions live in `island-layout.test.mjs` and `settings.test.mjs`; playback wiring, state and hide/restore tests live in `enhanced.test.mjs`. Unit checks complement screenshots: they cannot judge crop seams, lettering or alpha visually.
 

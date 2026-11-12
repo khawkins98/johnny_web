@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { islandLayout, titleScale, deviceStepScale, isDeviceSharp, deviceSnapOffset, prefersDeviceStep } from '../island-layout.mjs';
+import { islandLayout, shelfTopFor, titleScale, RECEDED_SHELF_RESERVE, deviceStepScale, isDeviceSharp, deviceSnapOffset, prefersDeviceStep } from '../island-layout.mjs';
 
 describe('island cabinet picture geometry', () => {
     it.each([
@@ -62,4 +62,31 @@ it.each([
     [375, 667, 1, false],   // no clean step below one device pixel
 ])('Automatic at %i×%i, DPR %s takes the clean step: %s', (width, height, dpr, expected) => {
     expect(prefersDeviceStep(width, height, dpr, 640, 480)).toBe(expected);
+});
+
+// Resting shelf tops as laid out in the browser; a receded shelf leaves only its handle.
+it.each([
+    [1940, 1200, 1029],
+    [1440, 1000, 829],
+    [1024, 768, 597],
+    [844, 390, 219],
+])('grows the cabinet into the receded shelf at %i×%i and stays on the page', (width, height, deckTop) => {
+    const normal = islandLayout(width, height, shelfTopFor(height, deckTop, false));
+    const receded = islandLayout(width, height, shelfTopFor(height, deckTop, true));
+    expect(shelfTopFor(height, deckTop, true)).toBe(height - RECEDED_SHELF_RESERVE);
+    expect(receded.picture.width).toBeGreaterThan(normal.picture.width * 1.1);
+    expect(receded.picture.width / receded.picture.height).toBeCloseTo(4 / 3, 8);
+    expect(receded.left).toBeGreaterThanOrEqual(0);
+    expect(receded.left + receded.width).toBeLessThanOrEqual(width);
+    expect(receded.top).toBeGreaterThanOrEqual(0);
+    expect(receded.top + receded.height).toBeLessThanOrEqual(height - RECEDED_SHELF_RESERVE);
+    // Still centred.
+    expect(receded.left + receded.width / 2).toBeCloseTo(width / 2, 8);
+});
+it('re-centres a width-limited portrait phone cabinet without clipping or shrinking it', () => {
+    const normal = islandLayout(390, 844, shelfTopFor(844, 562, false));
+    const receded = islandLayout(390, 844, shelfTopFor(844, 562, true));
+    expect(receded.picture.width).toBe(normal.picture.width);
+    expect(receded.top).toBeGreaterThan(normal.top);
+    expect(receded.top + receded.height).toBeLessThanOrEqual(844 - RECEDED_SHELF_RESERVE);
 });

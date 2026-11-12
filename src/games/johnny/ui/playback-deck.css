@@ -838,3 +838,121 @@ body:has(#enhanced-hud.is-hidden) #timeline-clock-notice {
 #jc-log .jc-log-details { margin: 12px 0; border-top: 1px solid #a9c9b7; }
 #jc-log .jc-log-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; box-sizing: border-box; font-weight: bold; }
 #jc-log .jc-log-details > summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
+
+/* Receding shelf (B): the shelf tucks below the page edge like an auto-hiding Dock and the
+   cabinet uses its height. settings.mjs sizes the cabinet from the mode alone, so the
+   transforms below (slide, peek) never move the picture. */
+#jc-deck {
+    transition: transform 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+#jc-deck #jc-deck-recede,
+#enhanced-hud #jc-shelf-handle {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: max-content;
+    min-width: 0;
+    min-height: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #234e52;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+}
+#jc-deck #jc-deck-recede {
+    top: -42px;
+}
+#enhanced-hud #jc-shelf-handle {
+    position: fixed;
+    z-index: 930;
+    bottom: 0;
+}
+/* The painted tab is smaller than its 40px target. */
+#jc-deck-recede span,
+#jc-shelf-handle span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 14px 4px;
+    border: 2px solid #22553b;
+    border-radius: 9px 5px;
+    background: #fff9dc;
+    font:
+        700 12px/15px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    white-space: nowrap;
+    box-shadow: 2px 3px #234e5233;
+}
+#jc-shelf-handle span {
+    border-bottom: 0;
+    border-radius: 9px 6px 0 0;
+    box-shadow: none;
+}
+#jc-deck-recede span::before,
+#jc-shelf-handle span::before {
+    content: '';
+    border: 5px solid transparent;
+    border-top: 6px solid #22553b;
+    border-bottom: 0;
+}
+#jc-shelf-handle span::before {
+    border-top: 0;
+    border-bottom: 6px solid #22553b;
+}
+/* Pressed: the shelf is only peeking and will tuck away again. */
+#jc-deck-recede[aria-pressed='true'] span {
+    background: #f2cc91;
+    box-shadow: inset 1px 2px #234e5233;
+}
+#jc-deck-recede:hover span,
+#jc-shelf-handle:hover span {
+    background: #f6e2ae;
+}
+#jc-shelf-edge {
+    position: fixed;
+    z-index: 899;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 8px;
+}
+body.jc-shelf-receded #jc-deck {
+    z-index: 920;
+    transform: translate(-50%, calc(100% + 72px));
+}
+/* A peek floats just above the handle and over the Log; the page beneath keeps its layout. */
+body.jc-shelf-receded #enhanced-hud.is-shelf-peeking #jc-deck {
+    transform: translate(-50%, -22px);
+}
+@media (max-height: 950px), (max-width: 1100px) {
+    body.jc-shelf-receded #jc-log {
+        bottom: 44px;
+    }
+}
+/* The tab above the shelf stays clear of the floating notebook and the clock notice. */
+@media (max-width: 800px) {
+    body:not(.jc-shelf-receded) #jc-log {
+        bottom: 250px;
+    }
+}
+@media (max-width: 550px) {
+    body:not(.jc-shelf-receded) #jc-log {
+        bottom: 328px;
+    }
+}
+@media (max-width: 1100px) {
+    body.jc-deck-visible:not(.jc-shelf-receded) #timeline-clock-notice {
+        bottom: calc(100dvh - var(--jc-deck-top) + 50px) !important;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #jc-deck {
+        transition: none;
+    }
+}

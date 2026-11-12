@@ -5,6 +5,9 @@ import { TIDE_BANDS, bandForPhase, gagsFor, keySceneFor } from '../story-steps.m
 import deckCss from './playback-deck.css?inline';
 import { islandTitle, paintedControl, cabinetArtwork } from './island-art.mjs';
 const PLAYBACK_RATES = [0.5, 1, 2, 4];
+/** 'receded' tucks the shelf below the page edge so the cabinet can use its height. */
+export const SHELF_SETTING_KEY = 'jc-shelf';
+const PEEK_LINGER_MS = 600;
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 const keyOf = (gag) => `${gag.script}:${gag.tagId}`;
 const catalogue = new Set(JOHNNY_SCENES.filter((g) => g.script !== 'POSE' && g.script !== 'STAND.ADS').map(keyOf));
@@ -22,7 +25,8 @@ export function setupEnhancedUI({
     const hud = document.createElement('section');
     hud.id = 'enhanced-hud';
     hud.setAttribute('aria-label', 'Playback controls');
-    hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><nav id="jc-deck" aria-label="Playback toolbar">
+    hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><div id="jc-shelf-edge" aria-hidden="true" hidden></div><button id="jc-shelf-handle" type="button" aria-controls="jc-deck" aria-expanded="false" title="Show shelf" hidden><span>Show shelf</span></button><nav id="jc-deck" aria-label="Playback toolbar">
+        <button id="jc-deck-recede" type="button" aria-label="Hide shelf" aria-pressed="false" aria-keyshortcuts="B" title="Hide shelf [B]"><span>Hide shelf · B</span></button>
         <div class="jc-deck-brand"><div><strong><img src="${islandTitle}" alt="Johnny Web"></strong><small id="enhanced-hud-status"><span id="enhanced-hud-stage">Day 1</span> · <span id="enhanced-hud-name">On island time</span></small></div></div>
         <div class="jc-deck-tools"></div><span id="jc-deck-announcement" role="status"></span>
     </nav>
@@ -45,7 +49,11 @@ export function setupEnhancedUI({
     document.body.append(hud);
     const $ = (id) => hud.querySelector('#' + id),
         rail = $('jc-log'),
-        tools = hud.querySelector('.jc-deck-tools');
+        tools = hud.querySelector('.jc-deck-tools'),
+        deck = $('jc-deck'),
+        shelfHandle = $('jc-shelf-handle'),
+        shelfEdge = $('jc-shelf-edge'),
+        recede = $('jc-deck-recede');
     const restore = document.createElement('button');
     restore.id = 'jc-deck-restore';
     restore.textContent = 'Toggle Island TV · H';
@@ -73,6 +81,11 @@ export function setupEnhancedUI({
         lastSignature = '',
         choices = [],
         picked = false;
+    let shelfReceded = localStorage.getItem(SHELF_SETTING_KEY) === 'receded',
+        shelfPeeking = false,
+        peekPinned = false,
+        pointerOnShelf = false,
+        peekTimer;
     const seen = new Set(),
         days = new Set();
     let pictureTurns = 0, speedTurns = 0, lastSpeedIndex = null;
@@ -151,6 +164,94 @@ export function setupEnhancedUI({
         document.body.classList.toggle('jc-full-view', value);
         setHudVisible(!value);
     }
+    // Receding shelf. The mode itself resizes the cabinet; a peek is only an overlay.
+    const shelfZone = [deck, shelfHandle, shelfEdge];
+    const onShelf = (node) => shelfZone.some((part) => part.contains(node));
+    // Focus placed by the keyboard holds a peek open; focus left behind by a click does not.
+    let keyboardInput = false;
+    const keyboardFocusOnShelf = () => keyboardInput && onShelf(document.activeElement);
+    function setShelfPeek(value, { moveFocus = true } = {}) {
+        clearTimeout(peekTimer);
+        value = Boolean(value && shelfReceded && hudVisible);
+        if (!value) peekPinned = false;
+        if (value === shelfPeeking) return;
+        shelfPeeking = value;
+        hud.classList.toggle('is-shelf-peeking', value);
+        shelfHandle.setAttribute('aria-expanded', String(value));
+        // A tucked control must not keep focus where it cannot be seen.
+        if (!value && moveFocus && shelfReceded && deck.contains(document.activeElement))
+            shelfHandle.focus({ preventScroll: true });
+    }
+    const settleShelfPeek = () => {
+        clearTimeout(peekTimer);
+        if (!shelfPeeking) return;
+        peekTimer = setTimeout(() => {
+            if (!peekPinned && !pointerOnShelf && !keyboardFocusOnShelf()) setShelfPeek(false);
+        }, PEEK_LINGER_MS);
+    };
+    function setShelfReceded(value, { persist = true } = {}) {
+        const hadFocus = onShelf(document.activeElement);
+        shelfReceded = Boolean(value);
+        if (persist) localStorage.setItem(SHELF_SETTING_KEY, shelfReceded ? 'receded' : 'shown');
+        setShelfPeek(false, { moveFocus: false });
+        pointerOnShelf = false;
+        document.body.classList.toggle('jc-shelf-receded', shelfReceded);
+        recede.setAttribute('aria-pressed', String(shelfReceded));
+        recede.title = shelfReceded ? 'Shelf is hidden; press to keep it showing [B]' : 'Hide shelf [B]';
+        shelfHandle.hidden = shelfEdge.hidden = !shelfReceded;
+        refreshLayout();
+        if (hadFocus && hudVisible) (shelfReceded ? shelfHandle : recede).focus({ preventScroll: true });
+    }
+    const toggleShelf = () => {
+        setShelfReceded(!shelfReceded);
+        $('jc-deck-announcement').textContent = shelfReceded
+            ? 'Shelf hidden. Press B or use Show shelf to bring it back.'
+            : 'Shelf shown.';
+    };
+    recede.onclick = toggleShelf;
+    shelfHandle.onclick = (event) => {
+        // Hovering already revealed the shelf; a mouse click must not tuck it straight back.
+        if (event.pointerType === 'mouse' && shelfPeeking) {
+            peekPinned = true;
+            return;
+        }
+        const next = !shelfPeeking;
+        setShelfPeek(next);
+        peekPinned = next;
+    };
+    const hovers = (event) => event.pointerType !== 'touch';
+    const onShelfEnter = (event) => {
+        if (!hovers(event) || !shelfReceded) return;
+        pointerOnShelf = true;
+        setShelfPeek(true);
+    };
+    const onShelfLeave = (event) => {
+        if (!hovers(event)) return;
+        pointerOnShelf = false;
+        peekPinned = false;
+        settleShelfPeek();
+    };
+    for (const part of shelfZone) {
+        part.addEventListener('pointerenter', onShelfEnter);
+        part.addEventListener('pointerleave', onShelfLeave);
+    }
+    deck.addEventListener('focusin', () => {
+        if (!shelfReceded) return;
+        setShelfPeek(true);
+        settleShelfPeek();
+    });
+    const onShelfFocusOut = (event) => {
+        if (!shelfPeeking || onShelf(event.relatedTarget)) return;
+        peekPinned = false;
+        settleShelfPeek();
+    };
+    deck.addEventListener('focusout', onShelfFocusOut);
+    shelfHandle.addEventListener('focusout', onShelfFocusOut);
+    const onOutsidePointerDown = (event) => {
+        keyboardInput = false;
+        if (shelfPeeking && !onShelf(event.target)) setShelfPeek(false);
+    };
+    document.addEventListener('pointerdown', onOutsidePointerDown, true);
     const onFullView = () => setFullView(true);
     window.addEventListener('johnny-full-view', onFullView);
     const logButton = button('jc-deck-log', 'Log', 'rail', () => setRailOpen(!railOpen));
@@ -172,6 +273,7 @@ export function setupEnhancedUI({
         const hadFocus = hud.contains(document.activeElement);
         const restoreFocus = value && document.activeElement === restore;
         hudVisible = value;
+        if (!value) setShelfPeek(false, { moveFocus: false });
         if (value) document.body.classList.remove('jc-full-view');
         hud.classList.toggle('is-hidden', !value);
         hud.inert = !value;
@@ -415,10 +517,17 @@ export function setupEnhancedUI({
     const modalOpen = () =>
         document.querySelector('#settings-overlay[aria-hidden="false"],#scene-flow-overlay[aria-hidden="false"]');
     const handleKeydown = async (event) => {
+        keyboardInput = true;
         if (modalOpen()) return;
         if (event.key === 'Escape' && document.body.classList.contains('jc-full-view')) {
             event.preventDefault();
             setFullView(false);
+            return;
+        }
+        if (event.key === 'Escape' && shelfPeeking && (peekPinned || onShelf(document.activeElement))) {
+            event.preventDefault();
+            setShelfPeek(false, { moveFocus: false });
+            shelfHandle.focus({ preventScroll: true });
             return;
         }
         if (event.key === 'Escape' && railOpen) {
@@ -442,6 +551,16 @@ export function setupEnhancedUI({
         ) {
             event.preventDefault();
             fullView();
+            return;
+        }
+        if (
+            event.key.toLowerCase() === 'b' &&
+            hudVisible &&
+            !event.target?.matches?.('input, select, textarea, [contenteditable="true"]')
+        ) {
+            event.preventDefault();
+            toggleShelf();
+            if (shelfReceded) screenMessage('Shelf hidden · B brings it back');
             return;
         }
         if (isTyping(event.target)) return;
@@ -472,6 +591,7 @@ export function setupEnhancedUI({
     window.addEventListener('resize', onResize);
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(refreshLayout) : null;
     observer?.observe($('jc-deck'));
+    setShelfReceded(shelfReceded, { persist: false });
     setHudVisible(true);
     renderStatus();
     animationFrame = requestAnimationFrame(render);
@@ -483,17 +603,19 @@ export function setupEnhancedUI({
         unsubscribePause();
         browserPlayback.reset();
         clearTimeout(osdTimer);
+        clearTimeout(peekTimer);
+        document.removeEventListener('pointerdown', onOutsidePointerDown, true);
         pauseOverlay.remove();
         osd.remove();
         window.removeEventListener('johnny-full-view', onFullView);
         document.removeEventListener('visibilitychange', resetVisibilityClock);
         window.removeEventListener('keydown', handleKeydown, true);
         window.removeEventListener('resize', onResize);
-        document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+        document.body.classList.remove('jc-deck-visible', 'jc-full-view', 'jc-shelf-receded');
         hud.remove();
         restore.remove();
         style.remove();
         refreshLayout();
     };
-    return { hud, setHudVisible, setRailOpen, destroy };
+    return { hud, setHudVisible, setRailOpen, setShelfReceded, destroy };
 }

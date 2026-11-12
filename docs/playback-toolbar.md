@@ -14,12 +14,17 @@ Press **Play** to show the painted Island TV cabinet and playback shelf. Play ke
 | Options / `S` | Open settings. |
 | Full view / `F` | Fill the page with the screensaver. |
 | Toggle Island TV / `H` | Hide or restore the cabinet and toolbar. |
+| Hide shelf / `B` | Tuck the shelf below the page edge so the TV can use its height; the cabinet stays. |
 | Log | Open day/gag navigation and session statistics. |
 | `R` | Return to the title. |
 | `←` / `→` | Step animation scenes. |
 | `↑` / `↓` | Change playback speed. |
 
 A corner button restores hidden controls by pointer or touch. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle, with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
+
+## Hiding the shelf for a bigger TV
+
+**Hide shelf** (the paper tab on the shelf's top edge) or `B` slides the shelf off the bottom of the page, like an auto-hiding Dock, and the cabinet re-fits into the reclaimed height. It sits between the normal layout and Full view: the TV, dials and Log stay. A small **Show shelf** tab remains at the bottom edge. Moving the pointer to the bottom edge, moving keyboard focus onto any shelf control, or pressing the tab brings the shelf back as an overlay; it tucks away shortly after the pointer or focus leaves, on a tap elsewhere, or with `Esc`. A peek never resizes the picture. Press **Hide shelf** again (shown pressed) or `B` to keep the shelf in place. The choice is saved as `jc-shelf` (`shown`/`receded`) and survives reloads and returning to the title. `H` and Full view work from either state and come back to it. Width-limited windows such as a portrait phone gain no picture size; the cabinet only re-centres.
 
 ## Island Log
 
