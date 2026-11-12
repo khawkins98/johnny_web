@@ -552,7 +552,10 @@ describe('scene-flow panel', () => {
             placeButton('campfire').focus();
             placeButton('campfire').click();
             expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('true');
-            expect(document.activeElement.dataset.focus).toBe('place:campfire'); // Focus survives the redraw.
+            // Focus moves on to the place's list, which may sit below the map or far on in reading order.
+            expect(document.activeElement.dataset.focus).toBe('place-panel');
+            expect(document.activeElement.textContent).toBe('The campfire');
+            expect(document.querySelector('.island-map-panel').getAttribute('aria-live')).toBe('polite');
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
             const cards = Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'));
             expect(cards.map((card) => card.dataset.focus)).toEqual(
@@ -568,6 +571,12 @@ describe('scene-flow panel', () => {
             document.querySelector('.story-steps-backrow button').click();
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
             expect(document.activeElement.dataset.focus).toBe('card:BUILDING.ADS:8');
+
+            // Pressing the open place again closes it and keeps focus there.
+            placeButton('campfire').click();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+            expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('false');
+            expect(document.activeElement.dataset.focus).toBe('place:campfire');
 
             // One thing happens at the sandcastle: no list, straight to it; back lands on the place.
             placeButton('sandcastle').click();
@@ -605,6 +614,54 @@ describe('scene-flow panel', () => {
             placeButton('campfire').click();
             expect(Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'), (card) => card.classList.contains('is-dim')))
                 .toEqual([true, true, false, false]);
+            expect(document.querySelector('.island-map-panel p').textContent).toBe('4 things happen here; 2 at this time of day.');
+            placeButton('bottle').click();
+            expect(document.querySelector('.island-map-panel p').textContent).toBe('2 things happen here, none at this time of day.');
+            panel.destroy();
+        });
+
+        it('keeps the open place, filter and view through live updates and a switch to the list and back', () => {
+            const { panel, sequenceTools } = start();
+            showMap();
+            timeChips('.story-steps-viewbar')[2].click();
+            placeButton('fishing').click();
+            const before = placeButton('fishing');
+            sequenceTools.status = () => ({ active: { script: 'BUILDING.ADS', tagId: 1 }, current: 2, total: 2, storyDay: 2, tidePhase: 3 });
+            sequenceTools.setActive({ script: 'BUILDING.ADS', tagId: 1 });
+            expect(before.isConnected).toBe(false); // Redrawn by the update.
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The fishing spot');
+            expect(placeButton('fishing').getAttribute('aria-pressed')).toBe('true');
+            expect(document.querySelector('.island-map').classList.contains('is-night')).toBe(true);
+            // The marker followed Johnny to the sandcastle.
+            expect(Array.from(document.querySelectorAll('.island-map-place.is-live'), (place) => place.dataset.place)).toEqual(['sandcastle']);
+
+            document.querySelector('[data-view="list"]').click();
+            showMap();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The fishing spot');
+            panel.destroy();
+        });
+
+        it('marks no place while Johnny idles, and moves through places in reading order', () => {
+            const { panel } = start({ script: 'POSE', tagId: 1 });
+            showMap();
+            expect(document.querySelectorAll('.island-map-place.is-live')).toHaveLength(0);
+            const order = Array.from(document.querySelectorAll('.island-map-place'), (place) =>
+                [Math.round(parseFloat(place.style.top) / 14), parseFloat(place.style.left)]);
+            for (let i = 1; i < order.length; i++) {
+                expect(order[i][0] > order[i - 1][0] || (order[i][0] === order[i - 1][0] && order[i][1] >= order[i - 1][1])).toBe(true);
+            }
+            // Days come first, in order, and every picture reserves its space before it loads.
+            expect(document.querySelector('.island-map button').dataset.focus).toBe('day:1');
+            expect(Array.from(document.querySelectorAll('.island-map img')).every((img) => img.width > 0 && img.height > 0)).toBe(true);
+            panel.destroy();
+        });
+
+        it('ignores a junk saved view', () => {
+            localStorage.setItem('jc-timeline-view', 'sideways');
+            const sequenceTools = makeSequenceTools({ script: 'FISHING.ADS', tagId: 3 });
+            const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+            panel.open();
+            expect(document.querySelector('[data-view="list"]').getAttribute('aria-pressed')).toBe('true');
             panel.destroy();
         });
     });

@@ -32,6 +32,17 @@ describe('island map places', () => {
         expect(open('late')).not.toContain('shark');
     });
 
+    it('files each gag by what happens in it, not by its script file', () => {
+        // The boat he swims out to and the plane that buzzes him are visitors, not jogging or coconuts.
+        expect(placeForGag({ script: 'WALKSTUF.ADS', tagId: 1 }).id).toBe('visitors');
+        expect(placeForGag({ script: 'VISITOR.ADS', tagId: 5 }).id).toBe('visitors');
+        expect(ISLAND_PLACES.find((place) => place.id === 'coconuts').gags.map((gag) => gag.tagId)).toEqual([4, 6, 7]);
+        expect(ISLAND_PLACES.find((place) => place.id === 'jogging').gags).toHaveLength(1);
+        // Lilliput's three gags live in the BUILDING script beside the sandcastle and the fire.
+        expect(ISLAND_PLACES.find((place) => place.id === 'lilliput').gags.map((gag) => `${gag.script}:${gag.tagId}`))
+            .toEqual(['BUILDING.ADS:2', 'BUILDING.ADS:4', 'BUILDING.ADS:6']);
+    });
+
     it('finds a gag\'s place, and gives story scenes a trail of eleven days in order', () => {
         expect(placeForGag({ script: 'FISHING.ADS', tagId: 3 }).id).toBe('fishing');
         expect(placeForGag({ script: 'MARY.ADS', tagId: 1 })).toBeNull();

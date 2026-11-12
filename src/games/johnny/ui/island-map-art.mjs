@@ -25,3 +25,6 @@ export const islandMapArt = Object.freeze({
     signpost,
     places: Object.freeze({ fishing, campfire, reading, coconuts, lilliput, diving, canoe, visitors, bottle, bath, jogging, sandcastle, leafbed, summer, raft, shark }),
 });
+
+/** Pixel size of each picture, so the page can reserve its space before it loads. */
+export const islandMapArtSize = Object.freeze({"bath": [300, 279], "bottle": [300, 291], "campfire": [285, 300], "canoe": [300, 250], "coconuts": [266, 300], "diving": [300, 262], "fishing": [300, 286], "flag": [243, 300], "jogging": [300, 265], "leafbed": [300, 257], "lilliput": [292, 300], "map": [1536, 1024], "raft": [273, 300], "reading": [295, 300], "sandcastle": [300, 300], "shark": [300, 233], "signpost": [247, 300], "summer": [239, 300], "visitors": [300, 241]});

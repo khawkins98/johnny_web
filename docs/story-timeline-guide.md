@@ -12,12 +12,14 @@ Card pictures are real frames, rendered in your browser from your own game data 
 
 On screens at least 900 pixels wide the timeline opens on a fold-out map of Johnny's island; elsewhere it opens on the list below. **Map** and **List** switch between them and the choice is remembered. Both show the same scenes and the same Now bar.
 
-- **Places.** Sixteen painted objects, each named, hold the 40 everyday gags: the fishing spot, the campfire, the reading spot, the coconut palm, Lilliput, the diving spot, the natives' canoe, the visitors' boat, bottle beach, the bath, the jogging track, the sandcastle, the leaf bed, a hot summer day, raft trips and shark waters. A number after a name is how many gags happen there. The place Johnny is at glows.
-- **Picking.** A place with several gags lists them beside the map; pick one to open its scene screen. A place with one gag opens it directly.
+- **Places.** Sixteen painted objects, each named, hold the 40 everyday gags: the fishing spot, the campfire, the reading spot, the coconut palm, Lilliput, the diving spot, the natives' canoe, visitors, bottle beach, the bath, the jogging track, the sandcastle, the leaf bed, a hot summer day, raft trips and shark waters. A number after a name is how many gags happen there. The place Johnny is at glows.
+- **Picking.** A place with several gags lists them in a panel (beside the map on wide windows, under it otherwise) and moves focus there; pick one to open its scene screen, or press the place again to close it. A place with one gag opens it directly.
 - **The story.** Eleven numbered flags on a dotted trail across the top are the story days, with today marked. A flag opens that day's scene.
 - **Time of day.** The chips dim places with nothing on at that time and darken the map at night; three places (bottle beach, raft trips, shark waters) close at night. Nothing is hidden.
 
-The map only browses: nothing plays until you press Play on a scene. Places are grouped by what you see, so they differ from the list's seven groups, and they sit where it looks right on the map: the game's own data records where Johnny stands when a gag begins, not where the shark or the boat is. The artwork is provisional (see [issue #96](https://github.com/khawkins98/johnny_web/issues/96)).
+The map is sized to fit the window's height, so the whole island is on screen at once; when the window is too narrow for it, it keeps a readable size and scrolls sideways, and says so. Places are reached by keyboard in reading order, after the eleven days.
+
+The map only browses: nothing plays until you press Play on a scene. Places are grouped by what happens in each gag, so they differ from the list's seven groups (the boat Johnny swims out to is with the visitors, not with the jog it shares a script file with), and they sit where it looks right on the map: the game's own data records where Johnny stands when a gag begins, not where the shark or the boat is. The artwork is provisional (see [issue #96](https://github.com/khawkins98/johnny_web/issues/96)).
 
 ## The scene list
 

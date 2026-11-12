@@ -15,22 +15,25 @@ const gags = (script, ...tags) => tags.map((tagId) => Object.freeze({ script: `$
 const place = (id, name, x, y, width, list) => Object.freeze({ id, name, x, y, width, gags: Object.freeze(list) });
 
 export const ISLAND_PLACES = Object.freeze([
-    place('fishing', 'The fishing spot', 66, 72.5, 8, gags('FISHING', 1, 2, 3, 4, 5, 6, 7, 8)),
-    place('campfire', 'The campfire', 46, 52, 7.5, gags('BUILDING', 5, 7, 8, 9)),
-    place('reading', 'The reading spot', 56, 63, 8, gags('ACTIVITY', 6, 7, 10, 12)),
-    place('coconuts', 'The coconut palm', 77, 47, 6.5, gags('VISITOR', 4, 5, 6, 7)),
-    place('lilliput', 'Lilliput', 36, 43, 7.5, gags('BUILDING', 2, 4, 6)),
-    place('diving', 'The diving spot', 15, 27, 9.5, gags('ACTIVITY', 1, 4)),
+    // Roughly top to bottom. The map itself sorts them into reading order for the keyboard.
     place('canoe', "The natives' canoe", 10, 11, 11, gags('ACTIVITY', 5, 9)),
-    place('visitors', "The visitors' boat", 89, 17, 12, gags('VISITOR', 1, 3)),
-    place('bottle', 'Bottle beach', 60, 89, 8, gags('JOHNNY', 4, 5)),
-    place('bath', 'The bath', 38, 80, 9.5, gags('ACTIVITY', 8, 11)),
-    place('jogging', 'The jogging track', 42, 66, 7, gags('WALKSTUF', 3, 1)),
-    place('sandcastle', 'The sandcastle', 29, 61, 7.5, gags('BUILDING', 1)),
-    place('leafbed', 'The leaf bed', 59, 44, 7.5, gags('BUILDING', 3)),
-    place('summer', 'A hot summer day', 23, 47, 7.5, gags('MISCGAG', 1)),
+    // Everything that passes or calls: the telescope's boat, plane and helicopter, the tanker,
+    // the plane that buzzes him, and the boat he swims out to (WALKSTUF 1).
+    place('visitors', 'Visitors', 89, 17, 12, [...gags('VISITOR', 1, 3, 5), ...gags('WALKSTUF', 1)]),
+    place('diving', 'The diving spot', 13, 29, 9.5, gags('ACTIVITY', 1, 4)),
+    place('lilliput', 'Lilliput', 37, 42, 7.5, gags('BUILDING', 2, 4, 6)),
+    place('leafbed', 'The leaf bed', 59, 43, 7.5, gags('BUILDING', 3)),
+    place('summer', 'A hot summer day', 25, 47, 7.5, gags('MISCGAG', 1)),
+    place('coconuts', 'The coconut palm', 77, 47, 6.5, gags('VISITOR', 4, 6, 7)),
+    place('campfire', 'The campfire', 47, 51, 7.5, gags('BUILDING', 5, 7, 8, 9)),
+    place('reading', 'The reading spot', 59, 61, 8, gags('ACTIVITY', 6, 7, 10, 12)),
+    place('sandcastle', 'The sandcastle', 31, 64.5, 7.5, gags('BUILDING', 1)),
+    place('jogging', 'The jogging track', 44, 67, 7, gags('WALKSTUF', 3)),
+    place('fishing', 'The fishing spot', 71, 75, 8, gags('FISHING', 1, 2, 3, 4, 5, 6, 7, 8)),
     place('raft', 'Raft trips', 92, 74, 9.5, gags('WALKSTUF', 2)),
+    place('bath', 'The bath', 34, 84, 9.5, gags('ACTIVITY', 8, 11)),
     place('shark', 'Shark waters', 9, 83, 11, gags('MISCGAG', 2)),
+    place('bottle', 'Bottle beach', 58, 86.5, 8, gags('JOHNNY', 4, 5)),
 ]);
 
 /** Where the eleven story-day markers sit: a gentle trail across the top of the sea. */

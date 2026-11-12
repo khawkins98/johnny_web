@@ -545,6 +545,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 const before = step.level;
                 const direction = stepDirection(before, patch.level ?? before);
                 const leaving = step.gag;
+                const lastPlace = step.place;
                 if (before === 'home') homeScroll = modal.scrollTop;
                 // The scene list always tracks where Johnny is; a picked scene stays put.
                 step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
@@ -555,6 +556,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 // One resolved time of day for the Play button, the outline's Play and the preview.
                 if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
                 renderCurrent();
+                if ('place' in patch && patch.place) {
+                    // Opening a place moves on to its list: the panel may be below the map or a
+                    // long way on in reading order.
+                    focusKey('place-panel');
+                    modal.querySelector('.island-map-panel')?.scrollIntoView?.({ block: 'nearest' });
+                } else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
                 if (step.level !== before) {
                     // A new screen: the scene starts at its top; the list returns to where it was,
                     // with focus on the card that was open.
