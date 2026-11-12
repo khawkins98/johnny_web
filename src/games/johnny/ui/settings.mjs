@@ -974,11 +974,13 @@ function applyScaling(mode) {
     const width = 640;
     const height = 480;
     const dpr = window.devicePixelRatio || 1;
-    const automatic = mode === 'auto';
+    let automatic = mode === 'auto';
     let smoothScale = 0; // Uniform scale of a picture the browser would otherwise filter smoothly.
     const fullView = document.body.classList.contains('jc-full-view');
-    if (document.getElementById('enhanced-hud')?.classList.contains('is-hidden')) mode = 'half-step';
-    if (fullView) mode = 'freeform';
+    // TV-off and Full view choose the size themselves, whatever size is saved for the cabinet,
+    // so they are as free as Automatic to resample evenly.
+    if (document.getElementById('enhanced-hud')?.classList.contains('is-hidden')) { mode = 'half-step'; automatic = true; }
+    if (fullView) { mode = 'freeform'; automatic = true; }
     const splash = document.getElementById('start-overlay')?.classList.contains('visible');
     const deck = splash ? document.getElementById('start-actions') : document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
     const cabinet = splash ? document.getElementById('start-cabinet') : deck ? document.getElementById('jc-cabinet') : null;
@@ -1047,12 +1049,14 @@ function applyScaling(mode) {
             root.style.transform = `scale(${scale})`;
         }
         // Nearest-neighbour is only even at whole device multiples; other sizes stay smooth.
-        // Native at one device pixel per source pixel needs no filter at all.
-        if (isDeviceSharp(scale, dpr) && (mode !== 'native' || dpr > 1)) {
-            root.style.imageRendering = 'pixelated';
-            Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
-                c.style.imageRendering = 'pixelated';
-            });
+        if (isDeviceSharp(scale, dpr)) {
+            // Native at one device pixel per source pixel needs no filter, only whole-pixel placement.
+            if (mode !== 'native' || dpr > 1) {
+                root.style.imageRendering = 'pixelated';
+                Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
+                    c.style.imageRendering = 'pixelated';
+                });
+            }
             root.style.marginLeft = `${-320 + deviceSnapOffset(centerX - 320 * scale, dpr)}px`;
             root.style.marginTop = `${-240 + deviceSnapOffset(centerY - 240 * scale, dpr)}px`;
         } else smoothScale = scale;
@@ -1074,5 +1078,6 @@ function applyScaling(mode) {
     }
     // With enough device pixels per source pixel, even GPU resampling beats the browser's blur.
     // Smaller pictures gain nothing from it, so they keep the browser's fit and no GPU canvas.
+    // An explicitly chosen cabinet size is left exactly as the browser draws it.
     requestResample(automatic && !crtActive && !splash && smoothScale * dpr >= RESAMPLE_MIN_DEVICE_PIXELS);
 }

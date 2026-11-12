@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createCrtPresentation } from './presentation.mjs';
-import { trackCanvasWrites } from './canvas-writes.mjs';
+import { trackCanvasWrites, WRITERS } from './canvas-writes.mjs';
 
 const gpu = vi.hoisted(() => ({ draw: null }));
+const lostCallbacks = vi.hoisted(() => []);
 vi.mock('./renderer.mjs', () => ({
-    createCrt: () => ({ maxOutputSize: 4096, draw: gpu.draw, dispose() {} }),
+    createCrt: (canvas, onLost) => { lostCallbacks.push(onLost); return { maxOutputSize: 4096, draw: (...args) => gpu.draw(...args), dispose() {} }; },
 }));
 
 const settings = { model: 'creative', bypass: false };
@@ -76,6 +77,13 @@ it('counts every pixel-changing call without altering it, and never claims an un
     context.measureText('x');
     expect(count()).toBe(1);
 
+    // Every listed method is wrapped, and nothing else is.
+    const all = Object.fromEntries([...WRITERS, 'getImageData', 'save'].map(name => [name, vi.fn()]));
+    const total = trackCanvasWrites({ getContext: () => all });
+    WRITERS.forEach((name, index) => { all[name](); expect(total()).toBe(index + 1); });
+    all.getImageData(); all.save();
+    expect(total()).toBe(WRITERS.length);
+
     const blind = trackCanvasWrites({ getContext: () => null });
     expect(blind()).not.toBe(blind());
 });
@@ -118,4 +126,28 @@ it('places the output on device pixels at its backing size', () => {
     expect(gpu.draw.mock.calls[0].slice(1, 3)).toEqual([1226, 920]);
     expect(output.style).toMatchObject({ left: '10.5px', top: '20px', width: '613px', height: '460px' });
     vi.unstubAllGlobals();
+});
+
+it('recovers resampling after a lost context was discarded with its canvas', () => {
+    const original = gpu.draw;
+    controller.dispose();
+    const plain = createCrtPresentation({ root: document.getElementById('root') });
+    plain.update(false, settings);
+    plain.setResample(true); frames();
+    expect(original).toHaveBeenCalledTimes(1);
+    // The renderer reports a loss through the callback it was built with.
+    lostCallbacks.at(-1)('WebGL context lost');
+    plain.setResample(false);
+    plain.setResample(true); frames();
+    expect(original).toHaveBeenCalledTimes(2);
+    expect(document.getElementById('root').classList.contains('jc-crt-active')).toBe(true);
+    plain.dispose();
+});
+
+it('reports inactive when disposed while a look is showing', () => {
+    const active = vi.fn();
+    const other = createCrtPresentation({ root: document.getElementById('root'), onActiveChange: active });
+    other.update(true, settings);
+    other.dispose();
+    expect(active.mock.calls.flat()).toEqual([true, false]);
 });

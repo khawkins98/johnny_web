@@ -95,7 +95,8 @@ export function createCrtPresentation({ root, onStatus = () => {}, onActiveChang
     const visibility = () => { if (document.hidden) stop(); else schedule(); };
     document.addEventListener('visibilitychange', visibility);
     // pagehide also releases the context; pageshow recreates it for bfcache returns.
-    const release = () => { stop(); renderer?.dispose(); renderer = null; output?.remove(); output = null; };
+    // A loss belongs to the context being discarded; a rebuilt output starts with a fresh one.
+    const release = () => { stop(); renderer?.dispose(); renderer = null; output?.remove(); output = null; lost = false; };
     const resume = () => {
         if (!running() || disposed) return;
         try { if (!renderer) build(); lost = false; failed = false; report(); schedule(); } catch (error) { failure(error.message); }
@@ -124,7 +125,7 @@ export function createCrtPresentation({ root, onStatus = () => {}, onActiveChang
             try { if (!renderer && !failed) build(); schedule(); } catch (error) { failure(error.message); }
         },
         dispose() {
-            disposed = true; enabled = false; release(); style.remove();
+            disposed = true; enabled = false; release(); report(); style.remove();
             document.removeEventListener('visibilitychange', visibility);
             window.removeEventListener('pagehide', release); window.removeEventListener('pageshow', resume);
         },

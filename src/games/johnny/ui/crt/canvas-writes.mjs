@@ -3,10 +3,12 @@
  * changed without reading them back. The game has many direct writers (scenes, walks,
  * fades, clouds), so the count is taken at the context rather than at each writer.
  *
- * These are all the Canvas 2D methods that change pixels; resizing the canvas also clears
- * it, so callers should compare its dimensions too. Drawing behaviour is unchanged.
+ * These are the Canvas 2D methods that change pixels. Assigning the canvas's width or height
+ * also clears it without a call: callers should compare dimensions, and a same-size assignment
+ * is only noticed through the drawing that follows it (the game always redraws after one).
+ * Drawing behaviour is unchanged.
  */
-const WRITERS = ['clearRect', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'fill', 'stroke', 'drawImage', 'putImageData', 'reset'];
+export const WRITERS = ['clearRect', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'fill', 'stroke', 'drawImage', 'putImageData', 'drawFocusIfNeeded', 'reset'];
 const counters = new WeakMap();
 
 /** Returns a function giving the canvas's current write count. */
