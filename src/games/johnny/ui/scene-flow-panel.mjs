@@ -386,7 +386,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day,
             // Always a time the gag can play at: the outline's Play button and preview use it too.
             band: live.gag ? bandForGag(live.gag, live.band, live.band) : live.band ?? 'early',
-            gag: live.gag, filter: step?.filter ?? null, view: step?.view ?? preferredView(), place: step?.place ?? null,
+            gag: live.gag, filter: step?.filter ?? null, view: step?.view ?? preferredView(), place: step?.place ?? null, mapDay: step?.mapDay ?? null,
             followLive: true };
     };
     const playGag = (gag, day, band) => {
@@ -546,6 +546,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 const direction = stepDirection(before, patch.level ?? before);
                 const leaving = step.gag;
                 const lastPlace = step.place;
+                const lastDay = step.mapDay;
                 if (before === 'home') homeScroll = modal.scrollTop;
                 // The scene list always tracks where Johnny is; a picked scene stays put.
                 step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
@@ -556,12 +557,13 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 // One resolved time of day for the Play button, the outline's Play and the preview.
                 if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
                 renderCurrent();
-                if ('place' in patch && patch.place) {
+                if (('place' in patch && patch.place) || ('mapDay' in patch && patch.mapDay)) {
                     // Opening a place moves on to its list: the panel may be below the map or a
                     // long way on in reading order.
                     focusKey('place-panel');
                     modal.querySelector('.island-map-panel')?.scrollIntoView?.({ block: 'nearest' });
-                } else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
+                } else if ('mapDay' in patch) focusKey(`day:${lastDay ?? ''}`);
+                else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
                 if (step.level !== before) {
                     // A new screen: the scene starts at its top; the list returns to where it was,
                     // with focus on the card that was open.

@@ -42,6 +42,10 @@ export const ISLAND_MAP_STYLE = `
 .island-map-thing.is-live { filter: drop-shadow(0 0 6px #fff) drop-shadow(0 2px 2px #0005); }
 .island-map-thing.is-away.is-live { filter: grayscale(1) drop-shadow(0 0 6px #fff); }
 .island-map-thing[aria-pressed="true"] { z-index: 2; filter: drop-shadow(0 0 5px #ffd36b) drop-shadow(0 0 2px #ffd36b); }
+.island-map-day.is-picked { transform: translate(-50%, -62%) scale(1.25); }
+.island-map-day.is-picked .island-map-daynum { background: #e99a32; }
+.island-map-story { filter: drop-shadow(0 0 5px #ffd36b) drop-shadow(0 2px 2px #0005); }
+.island-map-story .island-map-name { background: #f2cc91; }
 /* Names scale with the map: 10px at its smallest, up to 15px on a large screen. */
 .island-map-name { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 1px; padding: .08em .5em; white-space: nowrap;
   border: 2px solid #22553b; border-radius: 7px 4px; background: #fff9dc; color: #234e52;
@@ -57,11 +61,15 @@ export const ISLAND_MAP_STYLE = `
 .island-map-panel h3 { margin: 0 0 2px; font: 700 21px/1.2 Georgia, serif; color: #22553b; }
 .island-map-panel h3:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; }
 .island-map-panel p { margin: 0 0 10px; }
+.island-map-panel .island-map-question { margin: 10px 0 6px; font-weight: 700; }
+.island-map-panel .island-map-aside { margin: 12px 0 0; color: #53736a; font-size: 13px; }
+.island-map-daycard { grid-template-columns: minmax(0, 150px) !important; justify-content: center; }
 .island-map-panel-art { display: block; width: 96px; height: auto; margin: 0 auto 6px; }
 .island-map-panel .story-steps-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 18px 10px; padding-top: 12px; }
 @media (prefers-reduced-motion: reduce) {
   .island-map-thing, .island-map-base { transition: none; }
   .island-map-thing:hover, .island-map-thing:focus-visible { transform: translate(-50%, -50%); }
+  .island-map-day.is-picked { transform: translate(-50%, -62%); }
 }
 `;
 
@@ -88,6 +96,8 @@ const sameGag = (a, b) => Boolean(a && b && a.script === b.script && a.tagId ===
  * @param {HTMLElement} root
  * @param {object} options
  * @param {string|null} options.place     id of the open place, if any
+ * @param {number|null} options.day       the story day picked from its flag, if any
+ * @param {((scene:object)=>boolean)|null} options.onStartDay  play a day's story scene
  * @param {string|null} options.filter    time-of-day band id that dims closed places, or null
  * @param {{day:number, gag:object|null}} options.live  where Johnny is
  * @param {number} options.today          the saved story day
@@ -95,7 +105,7 @@ const sameGag = (a, b) => Boolean(a && b && a.script === b.script && a.tagId ===
  * @param {(options:object)=>HTMLElement} options.makeCard  the stepper's card factory
  * @param {(patch:object, from?:DOMRect|null)=>void} options.onStep
  */
-export function renderIslandMap(root, { place: openId = null, filter = null, live, today, gagName, makeCard, onStep }) {
+export function renderIslandMap(root, { place: openId = null, day: pickedDay = null, filter = null, live, today, gagName, makeCard, onStep, onStartDay = null }) {
     const layout = el('div', 'island-map-layout');
     const map = el('div', `island-map${filter === 'night' ? ' is-night' : ''}`);
     map.setAttribute('role', 'group');
@@ -107,7 +117,8 @@ export function renderIslandMap(root, { place: openId = null, filter = null, liv
     const places = islandPlaces().sort((a, b) => Math.round(a.y / 14) - Math.round(b.y / 14) || a.x - b.x);
     const livePlace = placeForGag(live.gag);
     const open = places.find((entry) => entry.id === openId) ?? null;
-    const pickGag = (gag, event) => onStep({ level: 'detail', gag, day: live.day },
+    // Whatever is picked plays as the day chosen from its flag, else the day Johnny is on.
+    const pickGag = (gag, event) => onStep({ level: 'detail', gag, day: pickedDay ?? live.day },
         event?.currentTarget?.querySelector?.('canvas, img')?.getBoundingClientRect?.() ?? null);
 
     // The story: a dotted trail of numbered flags across the top of the sea.
@@ -129,7 +140,9 @@ export function renderIslandMap(root, { place: openId = null, filter = null, liv
     map.appendChild(svg);
     for (const stop of trail) {
         const isToday = stop.day === today;
-        const button = el('button', `island-map-thing island-map-day${isToday ? ' is-today' : ''}`);
+        const isPicked = stop.day === pickedDay;
+        const button = el('button', `island-map-thing island-map-day${isToday ? ' is-today' : ''}${isPicked ? ' is-picked' : ''}`);
+        button.setAttribute('aria-pressed', String(isPicked));
         button.type = 'button';
         button.dataset.focus = `day:${stop.day}`;
         button.style.left = `${stop.x}%`;
@@ -137,8 +150,24 @@ export function renderIslandMap(root, { place: openId = null, filter = null, liv
         const name = `Day ${stop.day}: ${gagName(stop.scene)}`;
         button.setAttribute('aria-label', `${name}${isToday ? ' (today)' : ''}`);
         button.append(picture('flag', islandMapArt.flag), el('span', 'island-map-daynum', String(stop.day)), el('span', 'island-map-name', `${name}${isToday ? ' · today' : ''}`));
-        button.addEventListener('click', (event) => pickGag(stop.scene, event));
+        // A flag picks its day: the map then shows that day's own scene, and anything chosen
+        // plays as that day. Pressing it again lets go of the day.
+        button.addEventListener('click', () => onStep({ mapDay: isPicked ? null : stop.day, place: null }));
         map.appendChild(button);
+    }
+    // The one thing a day has to itself: its story scene, standing on the island while picked.
+    const picked = trail.find((stop) => stop.day === pickedDay) ?? null;
+    if (picked) {
+        const marker = el('button', 'island-map-thing island-map-story');
+        marker.type = 'button';
+        marker.dataset.focus = 'story-marker';
+        marker.style.left = '48%';
+        marker.style.top = '33%';
+        marker.style.width = '6.5%';
+        marker.setAttribute('aria-label', `Day ${picked.day}'s story: ${gagName(picked.scene)}`);
+        marker.append(picture('signpost', islandMapArt.signpost), el('span', 'island-map-name', `Day ${picked.day}'s story`));
+        marker.addEventListener('click', () => onStep({ mapDay: picked.day, place: null }));
+        map.appendChild(marker);
     }
 
     // The places: one object each, named, with how many gags it holds.
@@ -181,18 +210,44 @@ export function renderIslandMap(root, { place: openId = null, filter = null, liv
     panel.setAttribute('aria-label', open ? open.name : 'About the map');
     // Announced when a place opens, since the panel can be far from the button in reading order.
     panel.setAttribute('aria-live', 'polite');
-    const heading = el('h3', null, open ? open.name : "Johnny's island");
+    const heading = el('h3', null, open ? open.name : picked ? `Day ${picked.day}` : "Johnny's island");
     heading.tabIndex = -1;
     heading.dataset.focus = 'place-panel';
-    if (!open) {
+    if (!open && picked) {
+        // A day: its story scene, and one question. No detour through the scene screen.
+        const scene = picked.scene;
+        panel.setAttribute('aria-label', `Day ${picked.day}`);
+        const grid = el('div', 'story-steps-grid island-map-daycard');
+        grid.appendChild(makeCard({ gag: scene, name: gagName(scene), kicker: `Day ${String(picked.day).padStart(2, '0')}`, live: picked.day === today, label: gagName(scene), priority: true }));
+        panel.append(heading, el('p', null, `${gagName(scene)}${picked.day === today ? ' · today' : ''}`), grid,
+            el('p', 'island-map-question', 'Start this day from its story scene?'));
+        const start = el('button', 'story-steps-play', `▶ Start day ${picked.day}`);
+        start.type = 'button';
+        start.dataset.focus = 'start-day';
+        start.title = 'Play this day\'s story scene now. Nothing is saved unless you then choose Stay here.';
+        start.disabled = !onStartDay;
+        start.addEventListener('click', () => {
+            if (onStartDay(scene) === false) {
+                start.disabled = true;
+                start.textContent = 'Could not start';
+            }
+        });
+        const more = el('button', 'story-steps-link', 'How this scene unfolds ›');
+        more.type = 'button';
+        more.dataset.focus = 'day-detail';
+        more.addEventListener('click', (event) => pickGag(scene, event));
+        const actions = el('div', 'story-steps-actions');
+        actions.append(start, more);
+        panel.append(actions, el('p', 'island-map-aside', `Anything else you pick on the map plays as day ${picked.day}.`));
+    } else if (!open) {
         panel.append(picture('signpost', islandMapArt.signpost, 'island-map-panel-art'), heading,
             el('p', null, 'Pick something on the map to go and see. The numbered flags are the eleven days of the story.'));
     } else {
         const on = filter ? open.gags.filter((gag) => bandsFor(gag).some((band) => band.id === filter)).length : open.gags.length;
         panel.append(picture(open.id, islandMapArt.places[open.id], 'island-map-panel-art'), heading,
-            el('p', null, on === open.gags.length ? `${open.gags.length} things happen here. Pick one.`
+            el('p', null, (on === open.gags.length ? `${open.gags.length} things happen here. Pick one.`
                 : on ? `${open.gags.length} things happen here; ${on} at this time of day.`
-                    : `${open.gags.length} things happen here, none at this time of day.`));
+                    : `${open.gags.length} things happen here, none at this time of day.`) + (picked ? ` Playing as day ${picked.day}.` : '')));
         const grid = el('div', 'story-steps-grid');
         for (const gag of open.gags) {
             const isLive = sameGag(gag, live.gag);

@@ -590,13 +590,59 @@ describe('scene-flow panel', () => {
             panel.destroy();
         });
 
-        it('opens a story day from its flag and returns focus to it', () => {
-            const { panel } = start();
+        it('picks a day from its flag: the map shows that day, asks to start it, and plays picks as that day', () => {
+            const { panel, sequenceTools } = start();
             showMap();
-            document.querySelector('.island-map-day[data-focus="day:7"]').click();
-            expect(document.querySelector('.story-steps-hero-name').textContent).toMatch(/^Day 7: /);
+            const flag = (day) => document.querySelector(`.island-map-day[data-focus="day:${day}"]`);
+            expect(document.querySelector('.island-map-story')).toBeNull();
+
+            flag(7).click();
+            // No detour to the scene screen: the day is picked on the map.
+            expect(document.querySelector('.story-steps-hero')).toBeNull();
+            expect(flag(7).getAttribute('aria-pressed')).toBe('true');
+            expect(flag(2).getAttribute('aria-pressed')).toBe('false');
+            expect(flag(2).classList.contains('is-today')).toBe(true); // Today is still today.
+            expect(document.querySelector('.island-map-story').getAttribute('aria-label')).toMatch(/^Day 7's story: /);
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 7');
+            expect(document.querySelector('.island-map-question').textContent).toBe('Start this day from its story scene?');
+            expect(document.activeElement.dataset.focus).toBe('place-panel');
+            expect(document.querySelectorAll('.island-map-place')).toHaveLength(16); // Every place is there on every day.
+            expect(sequenceTools.startRun).not.toHaveBeenCalled();
+
+            // A place picked now plays as day 7.
+            placeButton('sandcastle').click();
+            document.querySelector('.story-steps .story-steps-play').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ script: 'BUILDING.ADS', tagId: 1, storyDay: 7 }));
+
+            // Start the day: its story scene, at the time now.
+            panel.open();
+            showMap();
+            flag(7).click();
+            document.querySelector('.island-map-panel [data-focus="start-day"]').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7, band: 'early' });
+            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
+
+            // Day 5 always plays at night, whatever the time now; the outline is still one link away.
+            panel.open();
+            showMap();
+            flag(5).click();
+            document.querySelector('.island-map-panel [data-focus="start-day"]').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ storyDay: 5, band: 'night' }));
+            panel.open();
+            showMap();
+            flag(5).click();
+            document.querySelector('.island-map-panel [data-focus="day-detail"]').click();
+            expect(document.querySelector('.story-steps-hero-name').textContent).toMatch(/^Day 5: /);
             document.querySelector('.story-steps-backrow button').click();
-            expect(document.activeElement.dataset.focus).toBe('day:7');
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 5');
+
+            // Opening a place keeps the day and says so; pressing the flag again lets go of it.
+            placeButton('campfire').click();
+            expect(document.querySelector('.island-map-panel p').textContent).toBe('4 things happen here. Pick one. Playing as day 5.');
+            flag(5).click();
+            expect(document.querySelector('.island-map-story')).toBeNull();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+            expect(document.activeElement.dataset.focus).toBe('day:5');
             panel.destroy();
         });
 

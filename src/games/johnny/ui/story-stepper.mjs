@@ -11,7 +11,7 @@
  * the current screen and reports choices through callbacks.
  */
 import {
-    TIDE_BANDS, bandById, bandsFor, describeWhenItPlays, everydayGagsByFamily, restrictionLabel, storyScenes,
+    TIDE_BANDS, bandById, bandForGag, bandsFor, describeWhenItPlays, everydayGagsByFamily, restrictionLabel, storyScenes,
 } from '../story-steps.mjs';
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
 import { DEFAULT_START_TIME, bandClockRanges } from '../start-time.mjs';
@@ -165,7 +165,7 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  *
  * @param {HTMLElement} host
  * @param {object} options
- * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string, view?:'map'|'list', place?:string}} options.step
+ * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string, view?:'map'|'list', place?:string, mapDay?:number}} options.step
  * @param {{day:number, band:string|null, gag:object|null, startTime?:number}} options.live  where Johnny is now,
  *        and the Start Time (HHMM) the story clock counts from
  * @param {Array} options.visit       the live visit (visitSequence), for the Now bar
@@ -308,7 +308,11 @@ export function renderStoryStepper(host, {
             viewbar.appendChild(filterChips());
             root.appendChild(viewbar);
             renderIslandMap(root, {
-                place: step.place ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
+                place: step.place ?? null, day: step.mapDay ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
+                // Starting a day plays its story scene at the filtered time, else the time now,
+                // whichever the scene can actually show.
+                onStartDay: onPlayGag
+                    ? (scene) => onPlayGag(scene, scene.keyDay, bandForGag(scene, filter?.id ?? live.band, live.band)) : null,
                 makeCard: (options) => cardButton({ ...options, faces }),
             });
             root.appendChild(now);
