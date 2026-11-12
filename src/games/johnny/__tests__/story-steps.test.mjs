@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { JOHNNY_SCENES } from '../story-controller.mjs';
 import {
-    TIDE_BANDS, bandById, bandForPhase, describeTideWindow, describeWhenItPlays, gagCountsByBand, gagFacts, gagsFor,
-    keySceneFor, visitSequence,
+    TIDE_BANDS, bandById, bandForPhase, describeTideWindow, describeWhenItPlays, gagCountsByBand, gagFacts, gagsFor, keySceneFor, visitSequence, storyScenes, everydayGagsByFamily, bandsFor, restrictionLabel,
 } from '../story-steps.mjs';
 
 describe('tide bands', () => {
@@ -110,5 +109,44 @@ describe('gag words', () => {
         expect(gagFacts({ script: 'MARY.ADS', tagId: 4, index: 3 })).toMatchObject({ index: 3, keyDay: 7, final: true, first: false });
         expect(gagFacts({ script: 'ACTIVITY.ADS', tagId: 11 })).toMatchObject({ final: true, first: true, keyDay: null });
         expect(gagFacts({ script: 'NOPE.ADS', tagId: 1 })).toEqual({ script: 'NOPE.ADS', tagId: 1 });
+    });
+});
+
+describe('scene-first timeline data', () => {
+    it('lists the 11 story scenes in day order, each locked to its own day', () => {
+        const scenes = storyScenes();
+        expect(scenes.map((scene) => scene.keyDay)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        // The clock does not decide a story scene, so every time of day is offered.
+        expect(scenes.every((scene) => bandsFor(scene).length === 3 && restrictionLabel(scene) === '')).toBe(true);
+    });
+
+    it('groups the 40 everyday gags by kind, with every gag in exactly one group', () => {
+        const groups = everydayGagsByFamily();
+        expect(groups.map((group) => [group.label, group.gags.length])).toEqual([
+            ['Fishing', 8], ['Around the island', 10], ['Camp life', 9], ['Visitors and coconuts', 6],
+            ['Out and about', 3], ['Bottles', 2], ['Odds and ends', 2],
+        ]);
+        const keys = groups.flatMap((group) => group.gags.map((gag) => gag.key));
+        expect(new Set(keys).size).toBe(40);
+        expect(groups.every((group) => group.gags.every((gag) => !gag.keyDay))).toBe(true);
+        // Likeliest first within a group.
+        for (const group of groups) {
+            const weights = group.gags.map((gag) => gag.weight);
+            expect(weights).toEqual([...weights].sort((a, b) => b - a));
+        }
+    });
+
+    it('says when a gag is restricted and which times of day it allows', () => {
+        const gags = everydayGagsByFamily().flatMap((group) => group.gags);
+        const counts = {};
+        for (const gag of gags) {
+            const label = restrictionLabel(gag) || 'Any time';
+            counts[label] = (counts[label] ?? 0) + 1;
+            // The label and the offered times always agree.
+            const ids = bandsFor(gag).map((band) => band.id).join('+');
+            expect(ids).toBe({ 'Any time': 'early+late+night', 'Daytime only': 'early+late', 'Early day only': 'early', 'Night only': 'night' }[label]);
+        }
+        expect(counts).toEqual({ 'Any time': 28, 'Daytime only': 7, 'Early day only': 2, 'Night only': 3 });
+        expect(bandsFor({ script: 'UNKNOWN.ADS', tagId: 9 })).toEqual([...TIDE_BANDS]);
     });
 });

@@ -99,6 +99,54 @@ export function gagsFor(day, band) {
     return gags.sort((a, b) => Boolean(b.keyDay) - Boolean(a.keyDay) || b.weight - a.weight);
 }
 
+/** The 11 story scenes in day order: each day's key scene. */
+export function storyScenes() {
+    const scenes = [];
+    for (let day = 1; day <= 11; day++) {
+        const record = keySceneFor(day);
+        if (record) scenes.push(describeRecord(record));
+    }
+    return scenes;
+}
+
+/**
+ * Everyday gags (those not locked to a story day) in the groups people look for. The groups
+ * are the original's own script files under plainer names; within a group, likeliest first.
+ */
+export const GAG_FAMILIES = Object.freeze([
+    Object.freeze({ id: 'FISHING', label: 'Fishing' }),
+    Object.freeze({ id: 'ACTIVITY', label: 'Around the island' }),
+    Object.freeze({ id: 'BUILDING', label: 'Camp life' }),
+    Object.freeze({ id: 'VISITOR', label: 'Visitors and coconuts' }),
+    Object.freeze({ id: 'WALKSTUF', label: 'Out and about' }),
+    Object.freeze({ id: 'JOHNNY', label: 'Bottles' }),
+    Object.freeze({ id: 'MISCGAG', label: 'Odds and ends' }),
+]);
+
+export function everydayGagsByFamily() {
+    const seen = new Set();
+    const groups = new Map(GAG_FAMILIES.map((family) => [family.id, { ...family, gags: [] }]));
+    for (const record of JOHNNY_SCENES) {
+        if (isFiller(record) || record.day !== 0) continue;
+        const key = keyOf(record);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const id = record.script.replace(/\.ADS$/, '');
+        (groups.get(id) ?? groups.get('MISCGAG')).gags.push(describeRecord(record));
+    }
+    return [...groups.values()].filter((group) => group.gags.length)
+        .map((group) => ({ ...group, gags: group.gags.sort((a, b) => b.weight - a.weight) }));
+}
+
+/** The time bands a gag can play in: a key scene ignores the clock, others need their window. */
+export const bandsFor = (gag) =>
+    gag?.keyDay || gag?.tideMin == null ? [...TIDE_BANDS]
+        : TIDE_BANDS.filter((band) => gag.tideMin <= band.min && band.max <= gag.tideMax);
+
+/** A short label for a gag that cannot play at every time of day, else ''. */
+export const restrictionLabel = (gag) =>
+    gag?.keyDay || gag?.tideMin == null || (gag.tideMin === 0 && gag.tideMax === TIDE_PHASES) ? '' : describeTideWindow(gag.tideMin, gag.tideMax);
+
 /** How many gags each time band allows on `day`, keyed by band id. */
 export const gagCountsByBand = (day) =>
     Object.fromEntries(TIDE_BANDS.map((band) => [band.id, gagsFor(day, band).length]));

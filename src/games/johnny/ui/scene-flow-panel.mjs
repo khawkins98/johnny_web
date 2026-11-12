@@ -22,7 +22,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandById, bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
-import { DEFAULT_START_TIME, formatStartTime } from '../start-time.mjs';
+import { DEFAULT_START_TIME } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
@@ -367,9 +367,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         // the bands' clock times agree), else the stored setting, else 09:00.
         startTime: status?.startTime ?? sequenceTools?.getStartTime?.() ?? DEFAULT_START_TIME,
     });
-    const followLive = (status) => {
+    // Keep the open screen on where Johnny is: the scene list tracks the day and time, and the
+    // scene screen (when it is showing the running gag) follows on to the next gag.
+    const followLive = (status, level = step?.level ?? 'home') => {
         const live = liveSpot(status);
-        step = { level: 'detail', day: live.day, band: live.band ?? 'early', gag: live.gag, followLive: true };
+        step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day, band: live.band ?? 'early',
+            gag: live.gag, filter: step?.filter ?? null, followLive: true };
     };
     const playGag = (gag, day, band) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
@@ -519,22 +522,6 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
         subtitle.textContent = clockDescription(status);
-        const context = document.createElement('p');
-        context.className = 'scene-flow-clock-context';
-        context.style.cssText = 'margin:8px 0 12px;color:#234e52;font:14px/1.45 Trebuchet MS,Arial,sans-serif';
-        context.textContent = `Browsing day ${step.day} · ${bandById(step.band)?.label ?? 'Early day'}. Browsing does not change playback. ` +
-            `Visit story-clock offset: ${formatStartTime(live.startTime)}. Configured sky: ${localStorage.getItem('jc-time') === 'local' ? 'Live Local Clock (night before 06:00 / from 18:00)' : 'Sequence Clock (Original)'}. ` +
-            (status?.band ? `Visiting day ${status.storyDay ?? 1} · ${bandById(status.band)?.label}: ${status.preview ? 'this gag, then the interrupted visit resumes' : 'this visit, then your saved day and clock resume'}. ` : '');
-        if (status?.band) {
-            const backToClock = document.createElement('button');
-            backToClock.type = 'button';
-            backToClock.className = 'story-steps-play';
-            backToClock.textContent = 'Go back';
-            backToClock.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
-            context.appendChild(backToClock);
-        }
-        body.appendChild(context);
-
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
         faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
@@ -547,11 +534,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 current: status.current,
                 planned: status.preview ? [] : (sequenceTools?.snapshot?.() || []),
             }),
+            visiting: status?.band ? { day: status.storyDay ?? 1, band: status.band, preview: Boolean(status.preview) } : null,
+            onGoBack: typeof sequenceTools?.startRun === 'function' ? () => sequenceTools.startRun({ mode: 'live' }) : null,
             gagName,
             faces: faceQueue,
             onStep: (patch, from = null) => {
                 const direction = stepDirection(step.level, patch.level ?? step.level);
-                step = { ...step, ...patch, followLive: false };
+                // The scene list always tracks where Johnny is; a picked scene stays put.
+                step = { ...step, ...patch, followLive: (patch.level ?? step.level) === 'home' };
                 if (patch.gag) step.gag = gagFacts(patch.gag);
                 renderCurrent();
                 modal.scrollTop = 0;
@@ -559,7 +549,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             },
             onLive: () => {
                 const before = step.level;
-                followLive(sequenceTools?.status?.() ?? status);
+                followLive(sequenceTools?.status?.() ?? status, 'detail');
                 renderCurrent();
                 playStepEntrance(stepperRoot, { direction: stepDirection(before, step.level) });
             },
