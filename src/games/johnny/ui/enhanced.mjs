@@ -7,6 +7,9 @@ import { islandTitle, paintedControl, cabinetArtwork } from './island-art.mjs';
 const PLAYBACK_RATES = [0.5, 1, 2, 4];
 /** 'receded' tucks the shelf below the page edge so the cabinet can use its height. */
 export const SHELF_SETTING_KEY = 'jc-shelf';
+/** 'hidden' removes the Show TV tab, leaving the bare picture when the Island TV is hidden. */
+export const TV_TAB_SETTING_KEY = 'jc-tv-tab';
+export const TV_TAB_EVENT = 'johnny-tv-tab';
 const PEEK_LINGER_MS = 600;
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 const keyOf = (gag) => `${gag.script}:${gag.tagId}`;
@@ -61,7 +64,18 @@ export function setupEnhancedUI({
     restore.setAttribute('aria-label', 'Show TV: bring back the Island TV and shelf');
     restore.setAttribute('aria-keyshortcuts', 'H');
     restore.hidden = true;
-    document.body.append(restore);
+    // The tab can be dismissed for a bare picture; Options brings it back.
+    const restoreBar = document.createElement('div');
+    restoreBar.id = 'jc-deck-restore-bar';
+    restoreBar.hidden = true;
+    const restoreClose = document.createElement('button');
+    restoreClose.id = 'jc-deck-restore-close';
+    restoreClose.type = 'button';
+    restoreClose.innerHTML = '<span aria-hidden="true">×</span>';
+    restoreClose.title = 'Remove this tab (Options brings it back; H still shows the TV)';
+    restoreClose.setAttribute('aria-label', 'Remove the Show TV tab');
+    restoreBar.append(restore, restoreClose);
+    document.body.append(restoreBar);
     const pauseOverlay = document.createElement('div');
     pauseOverlay.id = 'jc-pause-overlay';
     pauseOverlay.hidden = true;
@@ -89,6 +103,28 @@ export function setupEnhancedUI({
         hud.classList.add('is-shelf-instant');
         requestAnimationFrame(() => requestAnimationFrame(() => hud.classList.remove('is-shelf-instant')));
     }
+    let tvTab = localStorage.getItem(TV_TAB_SETTING_KEY) !== 'hidden';
+    const showTvTab = () => {
+        restoreBar.hidden = restore.hidden = hudVisible || !tvTab;
+    };
+    const onTvTabSetting = (event) => {
+        tvTab = event.detail !== 'hidden';
+        showTvTab();
+    };
+    window.addEventListener(TV_TAB_EVENT, onTvTabSetting);
+    restoreClose.onclick = () => {
+        // Options owns the saved choice when it is on the page.
+        const control = document.querySelector('[data-setting="tv-tab"]');
+        if (control) {
+            control.value = 'hidden';
+            control.dispatchEvent(new Event('change'));
+        } else {
+            localStorage.setItem(TV_TAB_SETTING_KEY, 'hidden');
+            onTvTabSetting({ detail: 'hidden' });
+        }
+        document.activeElement?.blur?.();
+        screenMessage('Tab removed · H shows the TV · Options brings the tab back');
+    };
     let shelfReceded = localStorage.getItem(SHELF_SETTING_KEY) === 'receded',
         shelfPeeking = false,
         peekPinned = false,
@@ -294,12 +330,15 @@ export function setupEnhancedUI({
         hud.inert = !value;
         hud.setAttribute('aria-hidden', String(!value));
         document.body.classList.toggle('jc-deck-visible', value);
-        restore.hidden = value;
+        showTvTab();
         rail.hidden = !value || !railOpen;
         logButton.setAttribute('aria-expanded', String(value && railOpen));
         logButton.querySelector('.jc-control-state').textContent = railOpen ? 'CLOSE' : 'OPEN';
         refreshLayout();
-        if (!value && hadFocus) restore.focus();
+        if (!value && hadFocus) {
+            if (tvTab) restore.focus();
+            else document.activeElement?.blur?.(); // Nothing visible to hold focus on the bare picture.
+        }
         if (restoreFocus) focusShelf(logButton);
     }
     restore.onclick = () => {
@@ -629,7 +668,8 @@ export function setupEnhancedUI({
         window.removeEventListener('resize', onResize);
         document.body.classList.remove('jc-deck-visible', 'jc-full-view', 'jc-shelf-receded');
         hud.remove();
-        restore.remove();
+        restoreBar.remove();
+        window.removeEventListener(TV_TAB_EVENT, onTvTabSetting);
         style.remove();
         refreshLayout();
     };

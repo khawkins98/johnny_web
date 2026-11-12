@@ -8,7 +8,7 @@ vi.mock('../../../../dgds/scripting/process.mjs', () => ({
     },
 }));
 
-import { setupEnhancedUI, SHELF_SETTING_KEY } from '../enhanced.mjs';
+import { setupEnhancedUI, SHELF_SETTING_KEY, TV_TAB_SETTING_KEY, TV_TAB_EVENT } from '../enhanced.mjs';
 import { browserPlayback } from '../../../../dgds/hosts/browser-playback.mjs';
 import { __DEBUG__ } from '../../../../dgds/scripting/process.mjs';
 
@@ -509,5 +509,54 @@ describe('receding shelf', () => {
         expect(restore.getAttribute('aria-label')).toMatch(/^Show TV/);
         restore.click();
         expect(ui.hud.inert).toBe(false);
+    });
+
+    it('lets the Show TV tab be removed for a bare picture, and Options bring it back', () => {
+        start();
+        const bar = el('jc-deck-restore-bar'), close = el('jc-deck-restore-close');
+        expect(bar.hidden).toBe(true); // Only offered while the TV is hidden.
+        key('h');
+        expect([bar.hidden, el('jc-deck-restore').hidden]).toEqual([false, false]);
+        expect(close.getAttribute('aria-label')).toBe('Remove the Show TV tab');
+
+        close.click();
+        expect([bar.hidden, el('jc-deck-restore').hidden]).toEqual([true, true]);
+        expect(localStorage.getItem(TV_TAB_SETTING_KEY)).toBe('hidden');
+        expect(document.getElementById('jc-tv-osd').textContent).toContain('Options brings the tab back');
+
+        // H still restores the TV, and hiding it again stays bare, with no focus left on a hidden tab.
+        key('h');
+        expect(ui.hud.inert).toBe(false);
+        el('jc-deck-log').focus();
+        key('h', el('jc-deck-log'));
+        expect(bar.hidden).toBe(true);
+        expect(document.activeElement).toBe(document.body);
+
+        // The Options setting brings it back at once.
+        window.dispatchEvent(new CustomEvent(TV_TAB_EVENT, { detail: 'shown' }));
+        expect(bar.hidden).toBe(false);
+        key('h');
+        expect(bar.hidden).toBe(true);
+    });
+
+    it('starts without the tab when it was removed earlier, and saves through Options when present', () => {
+        localStorage.setItem(TV_TAB_SETTING_KEY, 'hidden');
+        start();
+        key('h');
+        expect(el('jc-deck-restore-bar').hidden).toBe(true);
+        ui.destroy();
+
+        localStorage.clear();
+        const control = document.createElement('select');
+        control.dataset.setting = 'tv-tab';
+        control.append(new Option('', 'shown'), new Option('', 'hidden'));
+        const changed = vi.fn();
+        control.addEventListener('change', changed);
+        document.body.append(control);
+        start();
+        key('h');
+        el('jc-deck-restore-close').click();
+        expect(control.value).toBe('hidden');
+        expect(changed).toHaveBeenCalledOnce();
     });
 });

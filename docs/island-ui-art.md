@@ -136,7 +136,7 @@ A successful preset selection advances the top face by 45°. Speed positions adv
 
 ## Readouts and pointer feedback (2026-10-24)
 
-Shelf status text uses 14px Georgia with cream-backed sound/speed readouts; avoid shrinking status text to fit the artwork. Redundant Timeline/Log captions are hidden, while accessible button names/state remain live. Pointer hover highlights the alpha silhouettes of the painted object and lettering with warm drop shadows, rather than a circular plaque. Cabinet dials have no pointer ring; retain keyboard focus outlines. The H control is the “Hide TV · H” paper tab beside “Hide shelf · B” above the shelf; with the TV hidden it becomes a “Show TV · H” tab at the bottom centre.
+Shelf status text uses 14px Georgia with cream-backed sound/speed readouts; avoid shrinking status text to fit the artwork. Redundant Timeline/Log captions are hidden, while accessible button names/state remain live. Pointer hover highlights the alpha silhouettes of the painted object and lettering with warm drop shadows, rather than a circular plaque. Cabinet dials have no pointer ring; retain keyboard focus outlines. The H control is the “Hide TV · H” paper tab beside “Hide shelf · B” above the shelf; with the TV hidden it becomes a “Show TV · H” tab at the bottom centre, with a × that removes it (preference `jc-tv-tab`, restored from Options).
 
 Pause is an in-picture VT323 on-screen display with a click/Space resume hint, without a paper dialog or a typographic pause symbol. Its placement follows the actual canvas, including Full view.
 

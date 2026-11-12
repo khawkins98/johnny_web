@@ -20,7 +20,7 @@ Press **Play** to show the painted Island TV cabinet and playback shelf. Play ke
 | `←` / `→` | Step animation scenes. |
 | `↑` / `↓` | Change playback speed. |
 
-**Hide TV · H** sits beside **Hide shelf · B** in one pair of paper tabs on the shelf's top edge. With the TV hidden, a **Show TV · H** tab at the bottom centre of the page restores the controls by pointer or touch. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle (or to the Show shelf tab while the shelf is hidden, so the shelf is not pulled back out), with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
+**Hide TV · H** sits beside **Hide shelf · B** in one pair of paper tabs on the shelf's top edge. With the TV hidden (H or Full view), a **Show TV · H** tab at the bottom centre of the page restores the controls by pointer or touch. Its **×** removes the tab for a bare picture; the choice is saved as `jc-tv-tab` (`shown`/`hidden`). `H` and `Esc` still bring the TV back, moving the mouse still fades in the corner Options button, and **Options → With the TV hidden** brings the tab back. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle (or to the Show shelf tab while the shelf is hidden, so the shelf is not pulled back out), with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
 
 ## Hiding the shelf for a bigger TV
 

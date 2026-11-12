@@ -370,8 +370,9 @@ body.jc-deck-visible #root {
     overflow: hidden;
     clip-path: inset(50%);
 }
-/* With the Island TV hidden, one tab at the bottom edge brings it back (same place as Show shelf). */
-#jc-deck-restore {
+/* With the Island TV hidden, one tab at the bottom edge brings it back (same place as Show shelf).
+   Its × removes the tab for a bare picture; Options brings it back. */
+#jc-deck-restore-bar {
     position: fixed;
     z-index: 900;
     left: 0;
@@ -379,6 +380,17 @@ body.jc-deck-visible #root {
     bottom: 0;
     margin-inline: auto;
     width: max-content;
+    height: 40px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    box-sizing: border-box;
+}
+#jc-deck-restore-bar[hidden] {
+    display: none !important;
+}
+#jc-deck-restore,
+#jc-deck-restore-close {
     min-width: 0;
     height: 40px;
     min-height: 40px;
@@ -390,6 +402,35 @@ body.jc-deck-visible #root {
     align-items: flex-end;
     justify-content: center;
     cursor: pointer;
+    box-sizing: border-box;
+}
+#jc-deck-restore-close {
+    min-width: 40px;
+}
+#jc-deck-restore-close span {
+    padding: 5px 9px 4px;
+    border: 2px solid #22553b;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 6px 0 0;
+    background: #fff9dc;
+    font:
+        700 15px/15px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+}
+#jc-deck-restore-bar #jc-deck-restore span {
+    border-radius: 9px 0 0 0;
+}
+#jc-deck-restore-close:hover span {
+    background: #f6e2ae;
+}
+#jc-deck-restore-close:active {
+    transform: scale(0.96);
+}
+#jc-deck-restore-close:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 3px;
 }
 body.jc-deck-visible #settings-cog,
 body.jc-deck-visible #scene-flow-cog {

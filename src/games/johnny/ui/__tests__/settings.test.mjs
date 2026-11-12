@@ -467,3 +467,23 @@ it('keeps an existing shelf preference when seeding defaults and lists the B sho
     const keys = [...document.querySelectorAll('.settings-shortcut')].map((item) => item.querySelector('kbd').innerText);
     expect(keys.filter((value) => value === 'B')).toHaveLength(1);
 });
+
+it('offers the Show TV tab choice among the everyday options and announces changes', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    localStorage.clear();
+    setupSettingsUI();
+    const control = document.querySelector('[data-setting="tv-tab"]');
+    expect(localStorage.getItem('jc-tv-tab')).toBe('shown');
+    expect(control.value).toBe('shown');
+    expect(control.labels[0].textContent).toBe('With the TV hidden:');
+    expect(control.closest('details')).toBeNull(); // Not tucked inside a disclosure.
+    const heard = vi.fn();
+    const listener = (event) => heard(event.detail);
+    window.addEventListener('johnny-tv-tab', listener);
+    control.value = 'hidden';
+    control.dispatchEvent(new Event('change'));
+    window.removeEventListener('johnny-tv-tab', listener);
+    expect(localStorage.getItem('jc-tv-tab')).toBe('hidden');
+    expect(heard).toHaveBeenCalledWith('hidden');
+});
+

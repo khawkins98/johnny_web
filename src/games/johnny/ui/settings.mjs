@@ -20,7 +20,7 @@ export const SOUND_SETTING_KEY = 'jc-sound';
 // Seed only absent preferences: old profile choices and pre-launch edits survive Play.
 const DEFAULT_PREFERENCES = Object.freeze({
     'jc-scale-mode': 'auto', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
-    'jc-shelf': 'shown',
+    'jc-shelf': 'shown', 'jc-tv-tab': 'shown',
 });
 // Whether a CRT look is running; Automatic sizing depends on it (see applyScaling).
 let crtActive = false;
@@ -599,6 +599,26 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     audioRow.appendChild(audioSelect);
     modal.appendChild(audioRow);
 
+    // The Show TV tab that remains when the Island TV is hidden (H or Full view).
+    const tvTabRow = document.createElement('div');
+    tvTabRow.className = 'settings-row';
+    const tvTabLabel = document.createElement('label');
+    tvTabLabel.textContent = 'With the TV hidden:';
+    const tvTabSelect = document.createElement('select');
+    tvTabSelect.dataset.setting = 'tv-tab';
+    tvTabSelect.id = 'jc-setting-tv-tab';
+    tvTabLabel.htmlFor = tvTabSelect.id;
+    tvTabSelect.append(new Option('Keep a “Show TV” tab', 'shown'), new Option('Picture only (H brings the TV back)', 'hidden'));
+    tvTabSelect.value = localStorage.getItem('jc-tv-tab') === 'hidden' ? 'hidden' : 'shown';
+    tvTabSelect.onchange = (event) => {
+        const value = event.target.value;
+        localStorage.setItem('jc-tv-tab', value);
+        window.dispatchEvent(new CustomEvent('johnny-tv-tab', { detail: value }));
+        recordSetting('tv-tab', value);
+    };
+    tvTabRow.append(tvTabLabel, tvTabSelect);
+    modal.appendChild(tvTabRow);
+
     // Moving Clouds Toggle
     const cloudsRow = document.createElement('div');
     cloudsRow.className = 'settings-row';
@@ -917,7 +937,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Everyday choices first. Technical controls remain available without dominating.
     const essentials = document.createElement('section');
     essentials.setAttribute('aria-label', 'Everyday options');
-    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow);
+    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow, tvTabRow);
     modal.insertBefore(essentials, scaleRow);
     disclose('settings-fine-tuning', 'Picture & clock fine tuning', scaleRow, cloudsRow, wavesRow, startRow, startHelp);
     const crtDetails = modal.querySelector('.johnny-crt');
