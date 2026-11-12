@@ -438,7 +438,7 @@ it('sizes the cabinet from the receded mode, not from where a sliding or peeking
         const receded = frame();
         expect(parseFloat(root.style.width)).toBeGreaterThan(parseFloat(normal[2]) * 1.1);
         expect(parseFloat(root.style.width) / parseFloat(root.style.height)).toBeCloseTo(4 / 3, 8);
-        expect(document.body.style.getPropertyValue('--jc-deck-top')).toBe('976px');
+        expect(document.body.style.getPropertyValue('--jc-deck-top')).toBe('952px');
 
         rect.mockReturnValue({ top: 807 }); // Peeking over the page.
         transform = 'matrix(1, 0, 0, 1, -696, -22)';

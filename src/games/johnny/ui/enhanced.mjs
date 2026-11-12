@@ -28,8 +28,8 @@ export function setupEnhancedUI({
     const hud = document.createElement('section');
     hud.id = 'enhanced-hud';
     hud.setAttribute('aria-label', 'Playback controls');
-    hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><div id="jc-shelf-edge" aria-hidden="true" hidden></div><button id="jc-shelf-handle" type="button" aria-controls="jc-deck" aria-expanded="false" title="Show shelf" hidden><span>Show shelf</span></button><nav id="jc-deck" aria-label="Playback toolbar">
-        <div id="jc-deck-tabs"><button id="jc-deck-recede" type="button" aria-label="Hide shelf" aria-pressed="false" aria-keyshortcuts="B" title="Hide shelf [B]"><span>Hide shelf · B</span></button></div>
+    hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><div id="jc-shelf-edge" aria-hidden="true" hidden></div><button id="jc-shelf-handle" type="button" aria-controls="jc-deck" aria-expanded="false" aria-label="Show shelf" title="Show shelf" hidden><span>Show shelf</span></button><nav id="jc-deck" aria-label="Playback toolbar">
+        <div id="jc-deck-tabs"><button id="jc-deck-recede" type="button" aria-label="Hide shelf" aria-keyshortcuts="B" title="Hide shelf [B]"><span>Hide shelf · B</span></button></div>
         <div class="jc-deck-brand"><div><strong><img src="${islandTitle}" alt="Johnny Web"></strong><small id="enhanced-hud-status"><span id="enhanced-hud-stage">Day 1</span> · <span id="enhanced-hud-name">On island time</span></small></div></div>
         <div class="jc-deck-tools"></div><span id="jc-deck-announcement" role="status"></span>
     </nav>
@@ -59,7 +59,7 @@ export function setupEnhancedUI({
         recede = $('jc-deck-recede');
     const restore = document.createElement('button');
     restore.id = 'jc-deck-restore';
-    restore.innerHTML = '<span>Show TV · H</span>';
+    restore.innerHTML = '<span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M4.5 1v3.5H1M7.5 1v3.5H11M11 7.5H7.5V11M1 7.5h3.5V11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Show TV · H</span>';
     restore.title = 'Show the Island TV and shelf [H]';
     restore.setAttribute('aria-label', 'Show TV: bring back the Island TV and shelf');
     restore.setAttribute('aria-keyshortcuts', 'H');
@@ -164,7 +164,7 @@ export function setupEnhancedUI({
         if (symbol !== 'hide') b.classList.add('island-art-control');
         b.innerHTML =
             symbol === 'hide'
-                ? '<span>Hide TV · H</span>'
+                ? '<span><svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Hide TV · H</span>'
                 : paintedControl(symbol, symbol === 'speed' ? '1×' : symbol === 'sound' ? 'ON' : '');
         b.setAttribute('aria-label', label);
         b.title = label;
@@ -244,8 +244,10 @@ export function setupEnhancedUI({
         setShelfPeek(false, { moveFocus: false });
         pointerOnShelf = false;
         document.body.classList.toggle('jc-shelf-receded', shelfReceded);
-        recede.setAttribute('aria-pressed', String(shelfReceded));
-        recede.title = shelfReceded ? 'Shelf is hidden; press to keep it showing [B]' : 'Hide shelf [B]';
+        // While tucked, the tab is only on screen with a raised shelf, where it offers to keep it there.
+        recede.firstElementChild.textContent = shelfReceded ? 'Keep shelf · B' : 'Hide shelf · B';
+        recede.setAttribute('aria-label', shelfReceded ? 'Keep shelf showing' : 'Hide shelf');
+        recede.title = shelfReceded ? 'Keep the shelf showing [B]' : 'Hide shelf [B]';
         shelfHandle.hidden = shelfEdge.hidden = !shelfReceded;
         refreshLayout();
         if (hadFocus && hudVisible) (shelfReceded ? shelfHandle : recede).focus({ preventScroll: true });
@@ -253,7 +255,7 @@ export function setupEnhancedUI({
     const toggleShelf = () => {
         setShelfReceded(!shelfReceded);
         $('jc-deck-announcement').textContent = shelfReceded
-            ? 'Shelf hidden. Press B or use Show shelf to bring it back.'
+            ? 'Shelf tucked away. Point at it, or press B, to bring it back.'
             : 'Shelf shown.';
     };
     recede.onclick = toggleShelf;
@@ -615,7 +617,7 @@ export function setupEnhancedUI({
         ) {
             event.preventDefault();
             toggleShelf();
-            if (shelfReceded) screenMessage('Shelf hidden · B brings it back');
+            if (shelfReceded) screenMessage('Shelf tucked away · point at it or press B');
             return;
         }
         if (isTyping(event.target)) return;

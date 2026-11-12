@@ -262,14 +262,15 @@ describe('receding shelf', () => {
         start();
         const recede = el('jc-deck-recede');
         expect(recede.getAttribute('aria-label')).toBe('Hide shelf');
-        expect(recede.getAttribute('aria-pressed')).toBe('false');
+        expect(recede.textContent).toBe('Hide shelf · B');
         expect(el('jc-shelf-handle').hidden).toBe(true);
         expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
 
         recede.focus();
         recede.click();
         expect(document.body.classList.contains('jc-shelf-receded')).toBe(true);
-        expect(recede.getAttribute('aria-pressed')).toBe('true');
+        // Tucked away, the tab only appears with a raised shelf and offers to keep it up.
+        expect([recede.textContent, recede.getAttribute('aria-label')]).toEqual(['Keep shelf · B', 'Keep shelf showing']);
         expect(localStorage.getItem(SHELF_SETTING_KEY)).toBe('receded');
         expect(el('jc-shelf-handle').hidden).toBe(false);
         expect(el('jc-shelf-handle').getAttribute('aria-expanded')).toBe('false');
@@ -288,7 +289,7 @@ describe('receding shelf', () => {
         expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
         start();
         expect(document.body.classList.contains('jc-shelf-receded')).toBe(true);
-        expect(el('jc-deck-recede').getAttribute('aria-pressed')).toBe('true');
+        expect(el('jc-deck-recede').textContent).toBe('Keep shelf · B');
         expect(el('jc-shelf-handle').hidden).toBe(false);
     });
 
