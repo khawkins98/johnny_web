@@ -26,7 +26,7 @@ export function setupEnhancedUI({
     hud.id = 'enhanced-hud';
     hud.setAttribute('aria-label', 'Playback controls');
     hud.innerHTML = `<div id="jc-cabinet-matte" aria-hidden="true"><div></div></div><div id="jc-cabinet" role="group" aria-label="TV controls"><div class="island-cabinet-art" aria-hidden="true">${cabinetArtwork}</div><span id="jc-tv-picture-paint" class="jc-tv-knob-paint jc-tv-knob-picture" aria-hidden="true"></span><span id="jc-tv-speed-paint" class="jc-tv-knob-paint jc-tv-knob-speed" aria-hidden="true"></span><button id="jc-tv-picture" class="jc-tv-dial" type="button" aria-label="Next picture preset" title="Next picture preset"><span class="jc-tv-caption">Picture preset</span></button><button id="jc-tv-speed" class="jc-tv-dial" type="button" aria-label="Change playback speed" title="Change playback speed"><span class="jc-tv-caption">Speed</span></button><button id="jc-tv-pause" type="button" aria-label="Pause screensaver" title="Pause screensaver" aria-pressed="false"><span class="jc-tv-caption">Pause</span></button></div><div id="jc-shelf-edge" aria-hidden="true" hidden></div><button id="jc-shelf-handle" type="button" aria-controls="jc-deck" aria-expanded="false" title="Show shelf" hidden><span>Show shelf</span></button><nav id="jc-deck" aria-label="Playback toolbar">
-        <button id="jc-deck-recede" type="button" aria-label="Hide shelf" aria-pressed="false" aria-keyshortcuts="B" title="Hide shelf [B]"><span>Hide shelf · B</span></button>
+        <div id="jc-deck-tabs"><button id="jc-deck-recede" type="button" aria-label="Hide shelf" aria-pressed="false" aria-keyshortcuts="B" title="Hide shelf [B]"><span>Hide shelf · B</span></button></div>
         <div class="jc-deck-brand"><div><strong><img src="${islandTitle}" alt="Johnny Web"></strong><small id="enhanced-hud-status"><span id="enhanced-hud-stage">Day 1</span> · <span id="enhanced-hud-name">On island time</span></small></div></div>
         <div class="jc-deck-tools"></div><span id="jc-deck-announcement" role="status"></span>
     </nav>
@@ -56,9 +56,10 @@ export function setupEnhancedUI({
         recede = $('jc-deck-recede');
     const restore = document.createElement('button');
     restore.id = 'jc-deck-restore';
-    restore.textContent = 'Toggle Island TV · H';
-    restore.title = 'Toggle Island TV [H]';
-    restore.setAttribute('aria-label', 'Toggle Island TV');
+    restore.innerHTML = '<span>Show TV · H</span>';
+    restore.title = 'Show the Island TV and shelf [H]';
+    restore.setAttribute('aria-label', 'Show TV: bring back the Island TV and shelf');
+    restore.setAttribute('aria-keyshortcuts', 'H');
     restore.hidden = true;
     document.body.append(restore);
     const pauseOverlay = document.createElement('div');
@@ -81,6 +82,13 @@ export function setupEnhancedUI({
         lastSignature = '',
         choices = [],
         picked = false;
+    // A saved hidden shelf starts hidden: set the mode before the first layout and skip the slide,
+    // so Play does not show the shelf, slide it away and catch the pointer on the way.
+    if (localStorage.getItem(SHELF_SETTING_KEY) === 'receded') {
+        document.body.classList.add('jc-shelf-receded');
+        hud.classList.add('is-shelf-instant');
+        requestAnimationFrame(() => requestAnimationFrame(() => hud.classList.remove('is-shelf-instant')));
+    }
     let shelfReceded = localStorage.getItem(SHELF_SETTING_KEY) === 'receded',
         shelfPeeking = false,
         peekPinned = false,
@@ -120,12 +128,12 @@ export function setupEnhancedUI({
         if (symbol !== 'hide') b.classList.add('island-art-control');
         b.innerHTML =
             symbol === 'hide'
-                ? '<span>Toggle Island TV · H</span>'
+                ? '<span>Hide TV · H</span>'
                 : paintedControl(symbol, symbol === 'speed' ? '1×' : symbol === 'sound' ? 'ON' : '');
         b.setAttribute('aria-label', label);
         b.title = label;
         b.onclick = action;
-        (symbol === 'hide' ? hud : tools).append(b);
+        (symbol === 'hide' ? $('jc-deck-tabs') : tools).append(b);
         return b;
     };
     const report = (message) => {
@@ -168,7 +176,11 @@ export function setupEnhancedUI({
     const shelfZone = [deck, shelfHandle, shelfEdge];
     const onShelf = (node) => shelfZone.some((part) => part.contains(node));
     // Focus placed by the keyboard holds a peek open; focus left behind by a click does not.
-    let keyboardInput = false;
+    let keyboardInput = false,
+        lastPointerType = '';
+    // Where focus goes when a shelf control would otherwise take it: a tucked control would
+    // pull the shelf back out, so a hidden shelf hands focus to its handle instead.
+    const focusShelf = (control) => (shelfReceded ? shelfHandle : control).focus({ preventScroll: true });
     const keyboardFocusOnShelf = () => keyboardInput && onShelf(document.activeElement);
     function setShelfPeek(value, { moveFocus = true } = {}) {
         clearTimeout(peekTimer);
@@ -210,8 +222,10 @@ export function setupEnhancedUI({
     };
     recede.onclick = toggleShelf;
     shelfHandle.onclick = (event) => {
-        // Hovering already revealed the shelf; a mouse click must not tuck it straight back.
-        if (event.pointerType === 'mouse' && shelfPeeking) {
+        // Hovering already revealed the shelf; a mouse or pen click must not tuck it straight back.
+        // Not every browser gives click a pointer type, so use the press that led to it.
+        const hovering = !keyboardInput && lastPointerType && lastPointerType !== 'touch';
+        if (hovering && shelfPeeking) {
             peekPinned = true;
             return;
         }
@@ -249,6 +263,7 @@ export function setupEnhancedUI({
     shelfHandle.addEventListener('focusout', onShelfFocusOut);
     const onOutsidePointerDown = (event) => {
         keyboardInput = false;
+        lastPointerType = event.pointerType || 'mouse';
         if (shelfPeeking && !onShelf(event.target)) setShelfPeek(false);
     };
     document.addEventListener('pointerdown', onOutsidePointerDown, true);
@@ -257,10 +272,10 @@ export function setupEnhancedUI({
     const logButton = button('jc-deck-log', 'Log', 'rail', () => setRailOpen(!railOpen));
     logButton.setAttribute('aria-controls', 'jc-log');
     logButton.setAttribute('aria-expanded', 'false');
-    button('enhanced-hud-dismiss', 'Toggle Island TV', 'hide', () => setHudVisible(false)).setAttribute(
-        'aria-label',
-        'Toggle Island TV; press H to show or hide',
-    );
+    const dismiss = button('enhanced-hud-dismiss', 'Hide TV', 'hide', () => setHudVisible(false));
+    dismiss.setAttribute('aria-label', 'Hide TV: hide the Island TV and shelf');
+    dismiss.setAttribute('aria-keyshortcuts', 'H');
+    dismiss.title = 'Hide the Island TV and shelf [H]';
     function setRailOpen(value) {
         railOpen = value;
         $('jc-cabinet').inert = value;
@@ -285,15 +300,15 @@ export function setupEnhancedUI({
         logButton.querySelector('.jc-control-state').textContent = railOpen ? 'CLOSE' : 'OPEN';
         refreshLayout();
         if (!value && hadFocus) restore.focus();
-        if (restoreFocus) logButton.focus();
+        if (restoreFocus) focusShelf(logButton);
     }
     restore.onclick = () => {
         setHudVisible(true);
-        logButton.focus();
+        focusShelf(logButton);
     };
     hud.querySelector('.jc-log-close').onclick = () => {
         setRailOpen(false);
-        logButton.focus();
+        focusShelf(logButton);
     };
     function gagName(gag) {
         if (!gag) return 'Johnny settles in';
@@ -533,7 +548,7 @@ export function setupEnhancedUI({
         if (event.key === 'Escape' && railOpen) {
             event.preventDefault();
             setRailOpen(false);
-            logButton.focus();
+            focusShelf(logButton);
             return;
         }
         if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -555,6 +570,7 @@ export function setupEnhancedUI({
         }
         if (
             event.key.toLowerCase() === 'b' &&
+            !event.repeat &&
             hudVisible &&
             !event.target?.matches?.('input, select, textarea, [contenteditable="true"]')
         ) {

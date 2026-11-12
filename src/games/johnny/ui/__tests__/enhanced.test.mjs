@@ -417,8 +417,97 @@ describe('receding shelf', () => {
         expect(el('jc-deck-log').getAttribute('aria-expanded')).toBe('true');
         key('Escape');
         expect(el('jc-log').hidden).toBe(true);
-        // Focus returns to the Log button, which reveals the tucked shelf.
-        expect(document.activeElement).toBe(el('jc-deck-log'));
-        expect(ui.hud.classList.contains('is-shelf-peeking')).toBe(true);
+        // Focus goes to the handle: returning it to the tucked Log button would pull the shelf out.
+        expect(document.activeElement).toBe(el('jc-shelf-handle'));
+        expect(ui.hud.classList.contains('is-shelf-peeking')).toBe(false);
+    });
+
+    it('comes back from H, Full view and the Log with the shelf still tucked away', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const peeking = () => ui.hud.classList.contains('is-shelf-peeking');
+        const handle = el('jc-shelf-handle');
+
+        handle.focus();
+        key('h', handle);
+        key('h', el('jc-deck-restore'));
+        expect(ui.hud.inert).toBe(false);
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+
+        el('jc-deck-restore').hidden = false; // As when the TV is hidden.
+        key('h');
+        el('jc-deck-restore').click();
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+
+        // Full view from a peeking shelf, then Esc.
+        pointer('pointerenter', el('jc-shelf-edge'));
+        el('jc-deck-fullscreen').focus();
+        el('jc-deck-fullscreen').click();
+        key('Escape');
+        vi.advanceTimersByTime(2000);
+        expect(peeking()).toBe(false);
+
+        // Closing the Log with its own button.
+        el('jc-deck-log').click();
+        document.querySelector('.jc-log-close').click();
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+    });
+
+    it('starts hidden without a slide when the shelf was saved hidden', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        const frames = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback) => frames.push(callback)));
+        const layouts = [];
+        settings = { refreshLayout: vi.fn(() => layouts.push(document.body.classList.contains('jc-shelf-receded'))) };
+        ui = setupEnhancedUI({ settings });
+        // Every layout, including the first, already sees the hidden mode.
+        expect(layouts.length).toBeGreaterThan(0);
+        expect(layouts.every(Boolean)).toBe(true);
+        expect(ui.hud.classList.contains('is-shelf-instant')).toBe(true);
+        // The slide is allowed again once the first frames have been painted.
+        for (let i = 0; i < 4 && frames.length; i++) frames.shift()();
+        expect(ui.hud.classList.contains('is-shelf-instant')).toBe(false);
+    });
+
+    it('does not tuck a hover-revealed shelf when the handle click carries no pointer type', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const handle = el('jc-shelf-handle');
+        const peeking = () => ui.hud.classList.contains('is-shelf-peeking');
+        pointer('pointerenter', handle);
+        expect(peeking()).toBe(true);
+        pointer('pointerdown', handle); // The press that leads to the click.
+        handle.click(); // A plain click event, as some browsers send.
+        expect(peeking()).toBe(true);
+        // A touch press toggles, since touch has no hover to have revealed it.
+        pointer('pointerdown', handle, 'touch');
+        handle.click();
+        expect(peeking()).toBe(false);
+        // So does the keyboard.
+        key('Enter', handle);
+        handle.click();
+        expect(peeking()).toBe(true);
+    });
+
+    it('ignores key repeat on B', () => {
+        start();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', repeat: true, bubbles: true, cancelable: true }));
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+    });
+
+    it('offers both ways to clear the furniture in one cluster above the shelf', () => {
+        start();
+        const tabs = el('jc-deck-tabs');
+        expect([...tabs.children].map((tab) => tab.id)).toEqual(['jc-deck-recede', 'enhanced-hud-dismiss']);
+        expect([...tabs.children].map((tab) => tab.textContent)).toEqual(['Hide shelf · B', 'Hide TV · H']);
+        // Accessible names start with the visible words.
+        expect(el('enhanced-hud-dismiss').getAttribute('aria-label')).toMatch(/^Hide TV/);
+        el('enhanced-hud-dismiss').click();
+        expect(ui.hud.inert).toBe(true);
+        const restore = el('jc-deck-restore');
+        expect([restore.hidden, restore.textContent]).toEqual([false, 'Show TV · H']);
+        expect(restore.getAttribute('aria-label')).toMatch(/^Show TV/);
+        restore.click();
+        expect(ui.hud.inert).toBe(false);
     });
 });
