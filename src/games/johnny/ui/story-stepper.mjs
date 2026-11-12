@@ -2,7 +2,8 @@
  * story-stepper.mjs — the story timeline in two screens: pick what to watch, then
  * (only if it matters) what time of day.
  *
- * Home lists the 11 story scenes in day order and the 40 everyday gags by kind. The
+ * Home is a fold-out map of the island (see island-map.mjs) or, as a plain list, the 11
+ * story scenes in day order and the 40 everyday gags by kind. The
  * day changes only which story scene plays and the time of day only matters for a
  * dozen gags, so neither is a step of its own; time of day is a choice on the scene.
  *
@@ -14,6 +15,7 @@ import {
 } from '../story-steps.mjs';
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
 import { DEFAULT_START_TIME, bandClockRanges } from '../start-time.mjs';
+import { ISLAND_MAP_STYLE, renderIslandMap } from './island-map.mjs';
 
 const pad = (value) => String(value).padStart(2, '0');
 // Where a pick was clicked, so the next step can fly the card from there.
@@ -86,6 +88,9 @@ export const STEPPER_STYLE = `
 .story-steps-hint { margin: 0 0 10px; color: #53736a; }
 .story-steps-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .story-steps-backrow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin: 0 0 8px; }
+.story-steps-viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 0 0 10px; }
+.story-steps-viewbar .story-steps-chips { margin: 0; }
+${ISLAND_MAP_STYLE}
 `;
 
 /**
@@ -151,7 +156,7 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  *
  * @param {HTMLElement} host
  * @param {object} options
- * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string}} options.step
+ * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string, view?:'map'|'list', place?:string}} options.step
  * @param {{day:number, band:string|null, gag:object|null, startTime?:number}} options.live  where Johnny is now,
  *        and the Start Time (HHMM) the story clock counts from
  * @param {Array} options.visit       the live visit (visitSequence), for the Now bar
@@ -259,6 +264,50 @@ export function renderStoryStepper(host, {
         }
         root.appendChild(now);
 
+        const filter = bandById(step.filter);
+        // The time-of-day filter only dims what cannot play then; it starts nothing.
+        const filterChips = () => {
+            const chips = el('div', 'story-steps-chips');
+            chips.setAttribute('role', 'group');
+            chips.setAttribute('aria-label', 'Show what can play at');
+            const any = el('button', 'story-steps-chip', 'Any time');
+            any.type = 'button';
+            any.dataset.focus = 'filter:any';
+            any.setAttribute('aria-pressed', String(!filter));
+            any.addEventListener('click', () => onStep({ filter: null }));
+            chips.appendChild(any);
+            for (const option of TIDE_BANDS) {
+                chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, focus: 'filter', onPick: (id) => onStep({ filter: id }) }));
+            }
+            return chips;
+        };
+        // Two ways to see the same scenes: the island map, or everything as a list.
+        const view = step.view === 'map' ? 'map' : 'list';
+        const viewbar = el('div', 'story-steps-viewbar');
+        const views = el('div', 'story-steps-chips');
+        views.setAttribute('role', 'group');
+        views.setAttribute('aria-label', 'View');
+        for (const [id, label] of [['map', 'Map'], ['list', 'List']]) {
+            const chip = el('button', 'story-steps-chip', label);
+            chip.type = 'button';
+            chip.dataset.view = id;
+            chip.dataset.focus = `view:${id}`;
+            chip.setAttribute('aria-pressed', String(view === id));
+            chip.addEventListener('click', () => onStep({ view: id }));
+            views.appendChild(chip);
+        }
+        viewbar.appendChild(views);
+        if (view === 'map') {
+            viewbar.appendChild(filterChips());
+            root.appendChild(viewbar);
+            renderIslandMap(root, {
+                place: step.place ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
+                makeCard: (options) => cardButton({ ...options, faces }),
+            });
+            return root;
+        }
+        root.appendChild(viewbar);
+
         // The story: one scene per day, in order.
         const story = el('section', 'story-steps-section');
         story.appendChild(el('h3', null, 'The story'));
@@ -283,23 +332,10 @@ export function renderStoryStepper(host, {
         // Everyday gags by kind. The filter only dims what cannot play then.
         const groups = everydayGagsByFamily();
         const total = groups.reduce((count, group) => count + group.gags.length, 0);
-        const filter = bandById(step.filter);
         const everyday = el('section', 'story-steps-section');
         everyday.appendChild(el('h3', null, 'Things Johnny does'));
         everyday.appendChild(el('p', null, `${total} everyday gags. They can turn up on any day; a few only by day or only at night.`));
-        const chips = el('div', 'story-steps-chips');
-        chips.setAttribute('role', 'group');
-        chips.setAttribute('aria-label', 'Show what can play at');
-        const any = el('button', 'story-steps-chip', 'Any time');
-        any.type = 'button';
-        any.dataset.focus = 'filter:any';
-        any.setAttribute('aria-pressed', String(!filter));
-        any.addEventListener('click', () => onStep({ filter: null }));
-        chips.appendChild(any);
-        for (const option of TIDE_BANDS) {
-            chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, focus: 'filter', onPick: (id) => onStep({ filter: id }) }));
-        }
-        everyday.appendChild(chips);
+        everyday.appendChild(filterChips());
         for (const group of groups) {
             const family = el('div', 'story-steps-family');
             family.appendChild(el('h4', null, group.label));

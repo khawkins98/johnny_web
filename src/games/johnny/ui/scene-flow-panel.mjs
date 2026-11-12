@@ -22,6 +22,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandById, bandForGag, bandForPhase, gagFacts, visitSequence } from '../story-steps.mjs';
+import { placeForGag } from '../island-places.mjs';
 import { DEFAULT_START_TIME } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
@@ -369,6 +370,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         // the bands' clock times agree), else the stored setting, else 09:00.
         startTime: status?.startTime ?? sequenceTools?.getStartTime?.() ?? DEFAULT_START_TIME,
     });
+    // The island map is the way in on screens with room for it; the list everywhere else, and
+    // whichever the viewer last chose after that.
+    const VIEW_KEY = 'jc-timeline-view';
+    const preferredView = () => {
+        let saved = null;
+        try { saved = localStorage.getItem(VIEW_KEY); } catch { /* Not remembered. */ }
+        if (saved === 'map' || saved === 'list') return saved;
+        return window.matchMedia?.('(min-width: 900px)')?.matches ? 'map' : 'list';
+    };
     // Keep the open screen on where Johnny is: the scene list tracks the day and time, and the
     // scene screen (when it is showing the running gag) follows on to the next gag.
     const followLive = (status, level = step?.level ?? 'home') => {
@@ -376,7 +386,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day,
             // Always a time the gag can play at: the outline's Play button and preview use it too.
             band: live.gag ? bandForGag(live.gag, live.band, live.band) : live.band ?? 'early',
-            gag: live.gag, filter: step?.filter ?? null, followLive: true };
+            gag: live.gag, filter: step?.filter ?? null, view: step?.view ?? preferredView(), place: step?.place ?? null,
+            followLive: true };
     };
     const playGag = (gag, day, band) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
@@ -537,6 +548,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 if (before === 'home') homeScroll = modal.scrollTop;
                 // The scene list always tracks where Johnny is; a picked scene stays put.
                 step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
+                if (patch.view) {
+                    try { localStorage.setItem(VIEW_KEY, patch.view); } catch { /* Not remembered. */ }
+                }
                 if (patch.gag) step.gag = gagFacts(patch.gag);
                 // One resolved time of day for the Play button, the outline's Play and the preview.
                 if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
@@ -545,7 +559,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     // A new screen: the scene starts at its top; the list returns to where it was,
                     // with focus on the card that was open.
                     modal.scrollTop = step.level === 'home' ? homeScroll : 0;
-                    focusKey(step.level === 'home' && leaving ? `card:${leaving.script}:${leaving.tagId}` : 'back');
+                    if (step.level === 'home' && leaving) {
+                        focusKey(`card:${leaving.script}:${leaving.tagId}`,
+                            leaving.keyDay ? `day:${leaving.keyDay}` : `place:${placeForGag(leaving)?.id}`);
+                    } else focusKey('back');
                 }
                 playStepEntrance(stepperRoot, { direction, from });
             },
@@ -827,10 +844,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     };
 
     // Controls carry a data-focus key so focus survives the redraws that live updates cause.
-    const focusKey = (key) => {
-        if (!key) return;
-        Array.from(modal.querySelectorAll('[data-focus]')).find((node) => node.dataset.focus === key && !node.disabled)
-            ?.focus({ preventScroll: true });
+    const focusKey = (...keys) => {
+        // The first key that is on screen wins: a card in the list is a place or a day on the map.
+        for (const key of keys) {
+            const node = key && Array.from(modal.querySelectorAll('[data-focus]')).find((item) => item.dataset.focus === key && !item.disabled);
+            if (node) {
+                node.focus({ preventScroll: true });
+                return;
+            }
+        }
     };
     const renderCurrent = () => {
         const held = modal.contains(document.activeElement) ? document.activeElement.dataset?.focus : null;

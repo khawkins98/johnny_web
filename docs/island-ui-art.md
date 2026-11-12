@@ -26,6 +26,7 @@ The earlier Google Antigravity (`agy`) pixel-art pass remains documented in [his
 | Live root/canvas scaling into the aperture | [`settings.mjs`, `applyScaling()`](../src/games/johnny/ui/settings.mjs) |
 | Actual picture effects, independent of the illustration | [`crt/`](../src/games/johnny/ui/crt/) and [CRT guide](optional-crt.md) |
 | Original painted PNGs and exact generator prompts | [`island-art/`](../src/games/johnny/ui/island-art/) |
+| Island map view, its places and provisional artwork | [`island-map.mjs`](../src/games/johnny/ui/island-map.mjs), [`island-places.mjs`](../src/games/johnny/island-places.mjs), [`island-map-art/`](../src/games/johnny/ui/island-map-art/) |
 
 The preview studies and user references were saved in ignored `scratchpad/issue81/art-direction/`, including a reference manifest. That directory is local research and may not exist in a fresh checkout. **Nothing needed to build or amend the active skin depends on it.** The active artwork, prompts and geometry are versioned here. Keep future proprietary captures/references in ignored scratchpad too.
 

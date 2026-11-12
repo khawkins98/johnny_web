@@ -8,6 +8,17 @@ Press Play, then choose **Timeline** in the bottom toolbar or press `T`. With th
 
 Card pictures are real frames, rendered in your browser from your own game data and kept there, so each one is made only once. Until a picture is ready, or when a gag shows nothing clear in its first 15 seconds, its card shows a pixel icon for its family of gags (fishing, building, visitors, Mary, Suzy, and so on).
 
+## The island map
+
+On screens at least 900 pixels wide the timeline opens on a fold-out map of Johnny's island; elsewhere it opens on the list below. **Map** and **List** switch between them and the choice is remembered. Both show the same scenes and the same Now bar.
+
+- **Places.** Sixteen painted objects, each named, hold the 40 everyday gags: the fishing spot, the campfire, the reading spot, the coconut palm, Lilliput, the diving spot, the natives' canoe, the visitors' boat, bottle beach, the bath, the jogging track, the sandcastle, the leaf bed, a hot summer day, raft trips and shark waters. A number after a name is how many gags happen there. The place Johnny is at glows.
+- **Picking.** A place with several gags lists them beside the map; pick one to open its scene screen. A place with one gag opens it directly.
+- **The story.** Eleven numbered flags on a dotted trail across the top are the story days, with today marked. A flag opens that day's scene.
+- **Time of day.** The chips dim places with nothing on at that time and darken the map at night; three places (bottle beach, raft trips, shark waters) close at night. Nothing is hidden.
+
+The map only browses: nothing plays until you press Play on a scene. Places are grouped by what you see, so they differ from the list's seven groups, and they sit where it looks right on the map: the game's own data records where Johnny stands when a gag begins, not where the shark or the boat is. The artwork is provisional (see [issue #96](https://github.com/khawkins98/johnny_web/issues/96)).
+
 ## The scene list
 
 Why a list rather than steps: the day changes only which story scene plays, and the time of day only matters for a dozen gags, so neither needs a screen of its own.

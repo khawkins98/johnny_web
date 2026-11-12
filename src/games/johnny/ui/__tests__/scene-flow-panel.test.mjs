@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupSceneFlowPanel } from '../scene-flow-panel.mjs';
 
 // Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses. Real
@@ -495,6 +495,118 @@ describe('scene-flow panel', () => {
         document.querySelector('.story-steps-now .story-steps-play').click();
         expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
         panel.destroy();
+    });
+
+    describe('island map view', () => {
+        const start = (active = { script: 'FISHING.ADS', tagId: 3 }) => {
+            localStorage.clear();
+            const sequenceTools = makeSequenceTools(active);
+            sequenceTools.status = () => ({ active, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
+            Object.assign(sequenceTools, { startRun: vi.fn(), getStoryDay: () => 2 });
+            const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+            panel.open();
+            return { panel, sequenceTools };
+        };
+        const showMap = () => document.querySelector('[data-view="map"]').click();
+        const placeButton = (id) => document.querySelector(`.island-map-place[data-place="${id}"]`);
+        afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
+
+        it('is one click from the list, remembers the choice, and shows sixteen places and eleven days', () => {
+            const { panel } = start();
+            // No room is known for it here, so the list is the way in.
+            expect(document.querySelector('.island-map')).toBeNull();
+            expect(document.querySelector('[data-view="list"]').getAttribute('aria-pressed')).toBe('true');
+            showMap();
+            expect(document.querySelectorAll('.island-map-place')).toHaveLength(16);
+            expect(Array.from(document.querySelectorAll('.island-map-day'), (day) => day.getAttribute('aria-label').slice(0, 6)))
+                .toEqual(['Day 1:', 'Day 2:', 'Day 3:', 'Day 4:', 'Day 5:', 'Day 6:', 'Day 7:', 'Day 8:', 'Day 9:', 'Day 10', 'Day 11']);
+            expect(document.querySelector('.island-map-day.is-today').getAttribute('aria-label')).toMatch(/^Day 2: .*\(today\)$/);
+            // Every place is a named button; the place Johnny is at is marked.
+            expect(placeButton('fishing').getAttribute('aria-label')).toBe('The fishing spot, 8 gags (Johnny now)');
+            expect(placeButton('fishing').classList.contains('is-live')).toBe(true);
+            expect(placeButton('shark').querySelector('.island-map-name').textContent).toBe('Shark waters');
+            expect(localStorage.getItem('jc-timeline-view')).toBe('map');
+            panel.close();
+            panel.open();
+            expect(document.querySelector('.island-map')).not.toBeNull();
+            // The list is still one click away, and the Now bar is on both.
+            expect(document.querySelector('.story-steps-now')).not.toBeNull();
+            document.querySelector('[data-view="list"]').click();
+            expect(document.querySelector('.island-map')).toBeNull();
+            expect(document.querySelectorAll('.story-steps-family .story-steps-card')).toHaveLength(40);
+            panel.destroy();
+        });
+
+        it('opens on the map where the screen has room for it', () => {
+            vi.stubGlobal('matchMedia', (query) => ({ matches: query === '(min-width: 900px)' }));
+            const { panel } = start();
+            expect(document.querySelector('.island-map')).not.toBeNull();
+            panel.destroy();
+        });
+
+        it('lists a place\'s gags beside the map, and goes straight to a place with one', () => {
+            const { panel, sequenceTools } = start();
+            showMap();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+
+            placeButton('campfire').focus();
+            placeButton('campfire').click();
+            expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('true');
+            expect(document.activeElement.dataset.focus).toBe('place:campfire'); // Focus survives the redraw.
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
+            const cards = Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'));
+            expect(cards.map((card) => card.dataset.focus)).toEqual(
+                ['card:BUILDING.ADS:5', 'card:BUILDING.ADS:7', 'card:BUILDING.ADS:8', 'card:BUILDING.ADS:9']);
+            expect(document.querySelector('.story-steps-hero')).toBeNull();
+            expect(sequenceTools.startRun).not.toHaveBeenCalled(); // The map only browses.
+
+            // A gag from the panel opens the usual scene screen; coming back returns to the map,
+            // the same place still open and focus on that gag's card.
+            cards[2].click();
+            expect(document.querySelector('.story-steps-hero')).not.toBeNull();
+            expect(timeChips('.story-steps-hero').map((chip) => chip.disabled)).toEqual([true, true, false]); // A night gag.
+            document.querySelector('.story-steps-backrow button').click();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
+            expect(document.activeElement.dataset.focus).toBe('card:BUILDING.ADS:8');
+
+            // One thing happens at the sandcastle: no list, straight to it; back lands on the place.
+            placeButton('sandcastle').click();
+            expect(document.querySelector('.story-steps-hero')).not.toBeNull();
+            document.querySelector('.story-steps .story-steps-play').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', script: 'BUILDING.ADS', tagId: 1 }));
+            panel.open();
+            document.querySelector('[data-place="sandcastle"]').click();
+            document.querySelector('.story-steps-backrow button').click();
+            expect(document.activeElement.dataset.focus).toBe('place:sandcastle');
+            panel.destroy();
+        });
+
+        it('opens a story day from its flag and returns focus to it', () => {
+            const { panel } = start();
+            showMap();
+            document.querySelector('.island-map-day[data-focus="day:7"]').click();
+            expect(document.querySelector('.story-steps-hero-name').textContent).toMatch(/^Day 7: /);
+            document.querySelector('.story-steps-backrow button').click();
+            expect(document.activeElement.dataset.focus).toBe('day:7');
+            panel.destroy();
+        });
+
+        it('dims places with nothing on at the chosen time, without hiding them', () => {
+            const { panel } = start();
+            showMap();
+            const away = () => Array.from(document.querySelectorAll('.island-map-place.is-away'), (place) => place.dataset.place).sort();
+            expect(away()).toEqual([]);
+            timeChips('.story-steps-viewbar')[2].click(); // Night
+            expect(away()).toEqual(['bottle', 'raft', 'shark']);
+            expect(document.querySelector('.island-map').classList.contains('is-night')).toBe(true);
+            expect(placeButton('shark').getAttribute('aria-label')).toBe('Shark waters, SHARK1, nothing on at this time'.replace('SHARK1', 'MISCGAG.ADS #2'));
+            expect(document.querySelectorAll('.island-map-place')).toHaveLength(16);
+            // Inside an open place, the gags that cannot play then are dimmed too.
+            placeButton('campfire').click();
+            expect(Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'), (card) => card.classList.contains('is-dim')))
+                .toEqual([true, true, false, false]);
+            panel.destroy();
+        });
     });
 
     it('shows temporary clock lifetime and scene exceptions, then hides it on live status', () => {
