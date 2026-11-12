@@ -3,7 +3,7 @@ import { isolateDialog } from './dialog-background.mjs';
 import './island-theme.css';
 import './island-objects.css';
 import './splash.css';
-import { islandLayout, titleScale, halfStepScale } from './island-layout.mjs';
+import { islandLayout, titleScale, halfStepScale, deviceStepScale, isDeviceSharp, deviceSnapOffset, prefersDeviceStep, RESAMPLE_MIN_DEVICE_PIXELS } from './island-layout.mjs';
 import { setupCrtSettings } from './crt/settings.mjs';
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
@@ -19,8 +19,13 @@ import {
 export const SOUND_SETTING_KEY = 'jc-sound';
 // Seed only absent preferences: old profile choices and pre-launch edits survive Play.
 const DEFAULT_PREFERENCES = Object.freeze({
-    'jc-scale-mode': 'stretch', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
+    'jc-scale-mode': 'auto', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
 });
+// Whether a CRT look is running; Automatic sizing depends on it (see applyScaling).
+let crtActive = false;
+// Asks the picture compositor for even GPU resampling when Automatic sizing has no clean step.
+let requestResample = () => {};
+const savedScaleMode = () => localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode'];
 
 const isTyping = (target) => target?.matches?.('input, select, textarea, button, a, [contenteditable="true"]');
 
@@ -509,6 +514,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     scaleSelect.id = 'jc-setting-scale';
     scaleLabel.htmlFor = scaleSelect.id;
     const scaleOpts = [
+        { val: 'auto', text: 'Automatic' },
         { val: 'native', text: 'Native size (1×)' },
         { val: 'integer', text: 'Whole-pixel steps' },
         { val: 'freeform', text: 'Fit to TV' },
@@ -535,7 +541,12 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     scaleRow.appendChild(scaleSelect);
     modal.appendChild(scaleRow);
 
-    const crt = setupCrtSettings(modal);
+    crtActive = false;
+    requestResample = () => {};
+    const crt = setupCrtSettings(modal, {
+        onActiveChange: (active) => { crtActive = active; applyScaling(savedScaleMode()); },
+    });
+    requestResample = (wanted) => crt.setResample?.(wanted);
 
     const fullscreenRow = document.createElement('div');
     fullscreenRow.className = 'settings-row';
@@ -942,10 +953,13 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     });
 
     // Handle Resize
-    window.addEventListener('resize', () => {
-        const mode = localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode'];
-        applyScaling(mode);
-    });
+    window.addEventListener('resize', () => applyScaling(savedScaleMode()));
+    // Moving to a display with another pixel ratio changes the clean steps without a resize.
+    const watchPixelRatio = () => {
+        const query = window.matchMedia?.(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+        query?.addEventListener?.('change', () => { applyScaling(savedScaleMode()); watchPixelRatio(); }, { once: true });
+    };
+    watchPixelRatio();
 
     // Apply initial
     applyScaling(savedScale);
@@ -959,9 +973,14 @@ function applyScaling(mode) {
 
     const width = 640;
     const height = 480;
+    const dpr = window.devicePixelRatio || 1;
+    let automatic = mode === 'auto';
+    let smoothScale = 0; // Uniform scale of a picture the browser would otherwise filter smoothly.
     const fullView = document.body.classList.contains('jc-full-view');
-    if (document.getElementById('enhanced-hud')?.classList.contains('is-hidden')) mode = 'half-step';
-    if (fullView) mode = 'freeform';
+    // TV-off and Full view choose the size themselves, whatever size is saved for the cabinet,
+    // so they are as free as Automatic to resample evenly.
+    if (document.getElementById('enhanced-hud')?.classList.contains('is-hidden')) { mode = 'half-step'; automatic = true; }
+    if (fullView) { mode = 'freeform'; automatic = true; }
     const splash = document.getElementById('start-overlay')?.classList.contains('visible');
     const deck = splash ? document.getElementById('start-actions') : document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
     const cabinet = splash ? document.getElementById('start-cabinet') : deck ? document.getElementById('jc-cabinet') : null;
@@ -976,6 +995,11 @@ function applyScaling(mode) {
     }
     const vw = Math.max(1, layout?.picture.width ?? window.innerWidth);
     const vh = Math.max(1, layout?.picture.height ?? (window.innerHeight - bottom));
+    // Automatic: a CRT look reconstructs the picture at any size, so fill the opening. Without one,
+    // take the whole-device-pixel step when it is nearly as large; otherwise fit smoothly at 4:3.
+    if (mode === 'auto') {
+        mode = crtActive ? 'stretch' : prefersDeviceStep(vw, vh, dpr, width, height) ? 'integer' : 'freeform';
+    }
     const centerX = layout ? layout.picture.left + vw / 2 : vw / 2;
     const centerY = layout ? layout.picture.top + vh / 2 : vh / 2;
 
@@ -1010,22 +1034,36 @@ function applyScaling(mode) {
         c.style.height = '480px';
     });
 
-    if (mode === 'native') {
-        // Keep the native picture within the physical cabinet on small windows.
-        if (layout) root.style.transform = `scale(${Math.min(1, vw / width, vh / height)})`;
-    } else if (mode === 'integer' || mode === 'half-step') {
+    if (mode === 'native' || mode === 'integer' || mode === 'half-step') {
         const fit = Math.min(vw / width, vh / height);
-        const scale = mode === 'half-step'
-            ? (fit < 0.5 ? fit : halfStepScale(vw, vh, width, height))
-            : (layout && fit < 1 ? fit : Math.max(1, Math.floor(fit)));
-        root.style.transform = `scale(${scale})`;
-        root.style.imageRendering = 'pixelated';
-        Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
-            c.style.imageRendering = 'pixelated';
-        });
+        let scale;
+        if (mode === 'native') {
+            // Keep the native picture within the physical cabinet on small windows.
+            scale = layout ? Math.min(1, fit) : 1;
+            if (layout) root.style.transform = `scale(${scale})`;
+        } else {
+            // Integer counts device pixels, so DPR 2 gains a clean 1.5× stop and DPR 1.25 avoids uneven blocks.
+            scale = mode === 'half-step'
+                ? (fit < 0.5 ? fit : halfStepScale(vw, vh, width, height))
+                : deviceStepScale(vw, vh, dpr, width, height);
+            root.style.transform = `scale(${scale})`;
+        }
+        // Nearest-neighbour is only even at whole device multiples; other sizes stay smooth.
+        if (isDeviceSharp(scale, dpr)) {
+            // Native at one device pixel per source pixel needs no filter, only whole-pixel placement.
+            if (mode !== 'native' || dpr > 1) {
+                root.style.imageRendering = 'pixelated';
+                Array.from(root.getElementsByTagName('canvas')).forEach((c) => {
+                    c.style.imageRendering = 'pixelated';
+                });
+            }
+            root.style.marginLeft = `${-320 + deviceSnapOffset(centerX - 320 * scale, dpr)}px`;
+            root.style.marginTop = `${-240 + deviceSnapOffset(centerY - 240 * scale, dpr)}px`;
+        } else smoothScale = scale;
     } else if (mode === 'freeform') {
         const scale = Math.min(vw / width, vh / height);
         root.style.transform = `scale(${scale})`;
+        smoothScale = scale;
     } else if (mode === 'stretch') {
         root.style.width = deck ? `${vw}px` : '100vw';
         root.style.height = deck ? `${vh}px` : '100vh';
@@ -1038,4 +1076,8 @@ function applyScaling(mode) {
             c.style.height = '100%';
         });
     }
+    // With enough device pixels per source pixel, even GPU resampling beats the browser's blur.
+    // Smaller pictures gain nothing from it, so they keep the browser's fit and no GPU canvas.
+    // An explicitly chosen cabinet size is left exactly as the browser draws it.
+    requestResample(automatic && !crtActive && !splash && smoothScale * dpr >= RESAMPLE_MIN_DEVICE_PIXELS);
 }

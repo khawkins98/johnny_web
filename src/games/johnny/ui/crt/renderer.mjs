@@ -18,7 +18,8 @@ export function createCrt(canvas, onFailure) {
             varying vec2 uv;
             uniform sampler2D image;
             uniform float density;
-            uniform float sharpBase;
+            uniform float sharpBase; // 0 linear, 1 nearest, 2 even blocks with one-output-pixel blended edges
+            uniform vec2 pixelScale; // output pixels per source pixel
             uniform vec4 effectsA; // blur radius, colour bleed radius, bloom gain, scanline strength
             uniform vec2 effectsB; // curvature, vignette
             const vec2 sourceSize=vec2(640.,480.);
@@ -33,7 +34,13 @@ export function createCrt(canvas, onFailure) {
                 if(any(lessThan(p,vec2(0.))) || any(greaterThan(p,vec2(1.)))){
                     gl_FragColor=vec4(0.,0.,0.,1.); return;
                 }
-                vec2 basePoint=sharpBase>0.5 ? (floor(p*sourceSize)+0.5)/sourceSize : p;
+                vec2 basePoint=p;
+                if(sharpBase>1.5){
+                    // Hold each source pixel flat, then blend into its neighbour across one output pixel.
+                    vec2 texel=p*sourceSize, scale=max(pixelScale,vec2(1.)), centre=fract(texel)-0.5;
+                    vec2 hold=0.5-0.5/scale;
+                    basePoint=(floor(texel)+0.5+(centre-clamp(centre,-hold,hold))*scale)/sourceSize;
+                } else if(sharpBase>0.5) basePoint=(floor(p*sourceSize)+0.5)/sourceSize;
                 vec3 c=colour(basePoint);
                 if(effectsA.x>0.){
                     vec2 offset=vec2(effectsA.x/640.,0.);
@@ -76,7 +83,7 @@ export function createCrt(canvas, onFailure) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 640, 480, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-        const locations = Object.fromEntries(['density', 'sharpBase', 'effectsA', 'effectsB'].map(name => [name, gl.getUniformLocation(program, name)]));
+        const locations = Object.fromEntries(['density', 'sharpBase', 'pixelScale', 'effectsA', 'effectsB'].map(name => [name, gl.getUniformLocation(program, name)]));
         const onContextLost = event => { event.preventDefault(); onFailure('WebGL context lost'); };
         canvas.addEventListener('webglcontextlost', onContextLost);
         // The caller owns restoration and must recreate resources after context restoration.
@@ -88,7 +95,8 @@ export function createCrt(canvas, onFailure) {
                 gl.viewport(0, 0, width, height); gl.useProgram(program);
                 gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source);
                 gl.uniform1f(locations.density, height / 480);
-                gl.uniform1f(locations.sharpBase, sharp ? 1 : 0);
+                gl.uniform1f(locations.sharpBase, Number(sharp) || 0);
+                gl.uniform2f(locations.pixelScale, width / 640, height / 480);
                 gl.uniform4f(locations.effectsA, settings.blur, settings.bleed, settings.bloom, settings.scanlines);
                 gl.uniform2f(locations.effectsB, settings.curvature, settings.vignette);
                 gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

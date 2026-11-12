@@ -2,6 +2,14 @@
 
 This changelog tracks the browser project. Its version numbers are separate from the version of the original Johnny Castaway game data. A number such as (#53) is a GitHub issue or pull request.
 
+## Unreleased
+
+- Picture sizing now counts device pixels (#81). **Whole-pixel steps** uses whole device-pixel multiples, so a 2× display gains a clean 1.5× stop and a 1.25× display no longer gets uneven blocks; below one device pixel per source pixel it fits smoothly without cropping. Nearest-neighbour filtering, including TV-off half steps and Native size, is applied only where every source pixel covers the same number of device pixels, and those pictures are placed on device-pixel boundaries.
+- New **Automatic** picture size, the default for fresh preferences: it fills the TV opening under a CRT look; with **Original picture** it takes the whole-device-pixel step when that is at least 80% of the fitted size, and otherwise fits smoothly at 4:3. v1.4.0 saved Stretch to fill for everyone who opened it, so existing visitors keep Stretch until they choose Automatic in Options.
+- With **Original picture**, Automatic size (and TV-off or Full view at any saved size), pictures of two or more device pixels per source pixel that do not land on a whole multiple are now resampled on the GPU into even blocks with thin blended edges, instead of the browser's blur. Smaller pictures keep the browser's smooth fit, which no filter improves on at those sizes.
+- The CRT output is placed on device pixels at exactly its drawn size, so the browser no longer resamples the finished picture a second time.
+- CRT looks now redraw only when the game picture, its size or the settings change, instead of on every display frame. A paused game no longer uploads or draws anything.
+
 ## v1.4.0 — Island TV (2026-10-25)
 
 - Added an illustrated driftwood/bamboo TV, coconut controls and a painted playback shelf. The picture dial selects CRT presets, the speed dial changes playback rate, and the green button pauses/resumes the screensaver. The Johnny Web wordmark links to the project background (#86).

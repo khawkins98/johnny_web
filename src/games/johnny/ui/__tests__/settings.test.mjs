@@ -36,7 +36,7 @@ describe('settings UI', () => {
         setupSettingsUI();
         const setting = (name) => document.querySelector(`[data-setting="${name}"]`);
         expect(setting('experience')).toBeNull();
-        expect(setting('scale').value).toBe('stretch');
+        expect(setting('scale').value).toBe('auto');
         expect(setting('clouds').value).toBe('on');
         expect(setting('waves').value).toBe('on');
         expect(setting('time').value).toBe('original');
@@ -308,7 +308,8 @@ it.each([
         const settings = setupSettingsUI();
         const root = document.querySelector('#root');
         expect(root.style.transform).toBe(`scale(${scale})`);
-        expect(root.style.imageRendering).toBe('pixelated');
+        // At DPR 1 only whole steps give equal pixel blocks; .5 steps stay smooth.
+        expect(root.style.imageRendering).toBe(Number.isInteger(scale) ? 'pixelated' : 'auto');
         expect(root.querySelector('canvas').width).toBe(640);
         expect(root.querySelector('canvas').height).toBe(480);
         expect(localStorage.getItem('jc-scale-mode')).toBe('native');
@@ -340,4 +341,68 @@ it('does not let the return-to-title shortcut escape the Timeline modal', () => 
     timeline.setAttribute('aria-hidden', 'true');
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r' }));
     expect(onRestart).toHaveBeenCalledOnce();
+});
+
+// Issue #81: sizing counts device pixels, and nearest-neighbour is used only where it is even.
+describe('device-pixel-aware picture sizing', () => {
+    const scaled = (mode, { width = 1000, height = 750, dpr = 1, hidden = false } = {}) => {
+        document.body.innerHTML = `<div id="root"><canvas width="640" height="480"></canvas></div><section id="enhanced-hud"${hidden ? ' class="is-hidden"' : ''}></section>`;
+        document.body.classList.remove('jc-deck-visible', 'jc-full-view');
+        localStorage.clear();
+        if (mode) localStorage.setItem('jc-scale-mode', mode);
+        vi.stubGlobal('innerWidth', width);
+        vi.stubGlobal('innerHeight', height);
+        vi.stubGlobal('devicePixelRatio', dpr);
+        setupSettingsUI();
+        const root = document.getElementById('root');
+        return { transform: root.style.transform, filter: root.querySelector('canvas').style.imageRendering, root };
+    };
+    afterEach(() => vi.unstubAllGlobals());
+
+    it.each([
+        [1, 'scale(1)'],      // 1 device pixel per source pixel
+        [2, 'scale(1.5)'],    // 3 device pixels: a clean stop CSS-pixel stepping skipped
+        [1.25, 'scale(0.8)'], // 1 device pixel, rather than an uneven 1.25
+        [1.5, 'scale(' + 2 / 1.5 + ')'],
+    ])('steps Whole-pixel sizing in device pixels at DPR %s', (dpr, transform) => {
+        expect(scaled('integer', { dpr })).toMatchObject({ transform, filter: 'pixelated' });
+    });
+
+    it('fits smoothly, without cropping, below one device pixel per source pixel', () => {
+        const { transform, filter } = scaled('integer', { width: 375, height: 667 });
+        expect(transform).toBe(`scale(${375 / 640})`);
+        expect(filter).toBe('auto');
+    });
+
+    it('keeps TV-off half steps sharp only at whole device multiples', () => {
+        expect(scaled('native', { width: 1024, height: 768, dpr: 1, hidden: true })).toMatchObject({ transform: 'scale(1.5)', filter: 'auto' });
+        expect(scaled('native', { width: 1024, height: 768, dpr: 2, hidden: true })).toMatchObject({ transform: 'scale(1.5)', filter: 'pixelated' });
+        expect(scaled('native', { width: 390, height: 844, dpr: 2, hidden: true })).toMatchObject({ transform: 'scale(0.5)', filter: 'pixelated' });
+    });
+
+    it('doubles Native size cleanly on a high-density display', () => {
+        expect(scaled('native', { dpr: 2 }).filter).toBe('pixelated');
+        expect(scaled('native', { dpr: 1.5 }).filter).toBe('auto');
+    });
+
+    it('places sharp pictures on device-pixel boundaries', () => {
+        const { root } = scaled('integer', { width: 1001, height: 751, dpr: 2 });
+        // Centre 500.5: the 960px-wide picture's left edge 20.5 is already on a half-CSS-pixel boundary.
+        expect(root.style.marginLeft).toBe('-320px');
+        const odd = scaled('integer', { width: 1001, height: 751, dpr: 1 }).root;
+        // Left edge 180.5 moves to 181 at DPR 1.
+        expect(odd.style.marginLeft).toBe('-319.5px');
+        expect(odd.style.marginTop).toBe('-239.5px');
+    });
+
+    it('defaults to Automatic, which takes a nearby whole-device-pixel step when no CRT look is running', () => {
+        // jsdom has no WebGL, so the CRT falls back to the normal picture.
+        expect(scaled(null, { dpr: 2 })).toMatchObject({ transform: 'scale(1.5)', filter: 'pixelated' });
+        expect(localStorage.getItem('jc-scale-mode')).toBe('auto');
+    });
+
+    it('keeps Automatic at a smooth 4:3 fit rather than shrinking far below the available size', () => {
+        // The nearest clean step here is half the fitted size.
+        expect(scaled(null, { width: 620, height: 465, dpr: 2 })).toMatchObject({ transform: `scale(${620 / 640})`, filter: 'auto' });
+    });
 });
