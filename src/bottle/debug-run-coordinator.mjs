@@ -7,6 +7,8 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
     let pendingOverride = null;
     let activeAttempt = null;
     let activeSelection = null;
+    // A preview the viewer chose to keep: it plays on, no longer reported as temporary.
+    let keptSelection = null;
     let generation = 0;
     let interruptionReason = 'script_override';
     const statusListeners = new Set();
@@ -29,6 +31,7 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
             lowTide: activeSelection.titleState?.lowTide ?? false,
             preview: true,
             resume: resumedSequence,
+            ...(keptSelection === activeSelection ? { band: null, preview: false } : {}),
         });
     };
 
@@ -41,6 +44,8 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
     const request = ({ mode, script, tagId, storyDay, band, slot, childTag, route }) => {
         const options = band == null ? { storyDay } : { storyDay, band };
         if (mode === 'live') sequenceTools.returnToLive?.();
+        // A preview interrupts the gag in progress; remember it so the viewer can go back.
+        else if (mode === 'preview' || mode === 'preview-child') sequenceTools.holdPlace?.('preview');
         const override =
             mode === 'live' ? null : mode === 'preview' || mode === 'preview-child'
                 ? mode === 'preview-child'
@@ -62,8 +67,19 @@ export const createDebugRunCoordinator = ({ sequenceTools, stopRuntime, stopAudi
         return override;
     };
 
+    /** Keep the temporary day and time of day as the saved position, without a cut. */
+    const keep = () => {
+        const current = status();
+        if (!current?.band) return false;
+        sequenceTools.keepVisit?.({ storyDay: current.storyDay, band: current.band, preview: Boolean(current.preview) });
+        if (current.preview) keptSelection = activeSelection;
+        publishStatus();
+        return true;
+    };
+
     return Object.freeze({
         request,
+        keep,
         reset() {
             generation++;
             interruptionReason = 'restart';

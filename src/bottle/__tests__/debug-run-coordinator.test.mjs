@@ -26,6 +26,40 @@ describe('debug run coordinator', () => {
         return { coordinator, preview, planFrom, returnToLive, clearRun, status, publishStatus, stopRuntime, stopAudio };
     };
 
+    it('holds the interrupted place for previews, and keeps a visit or preview without interrupting it', () => {
+        const preview = vi.fn((script, tagId, options) => ({ script, tagId, preview: true, titleState: { storyDay: options.storyDay, band: options.band } }));
+        const holdPlace = vi.fn(), keepVisit = vi.fn(), planFrom = vi.fn(), returnToLive = vi.fn();
+        let live = { storyDay: 1, band: null };
+        const stopRuntime = vi.fn();
+        const coordinator = createDebugRunCoordinator({
+            sequenceTools: { preview, planFrom, returnToLive, holdPlace, keepVisit, status: () => live, subscribeStatus: () => {} },
+            stopRuntime,
+        });
+        expect(coordinator.keep()).toBe(false); // Nothing temporary to keep.
+
+        coordinator.request({ mode: 'sequence', script: 'A.ADS', tagId: 1, storyDay: 6, band: 'night' });
+        expect(holdPlace).not.toHaveBeenCalled(); // The story controller holds the place for visits.
+        live = { storyDay: 6, band: 'night' };
+        stopRuntime.mockClear();
+        expect(coordinator.keep()).toBe(true);
+        expect(keepVisit).toHaveBeenLastCalledWith({ storyDay: 6, band: 'night', preview: false });
+        expect(stopRuntime).not.toHaveBeenCalled();
+
+        live = { storyDay: 1, band: null };
+        coordinator.request({ mode: 'preview', script: 'B.ADS', tagId: 2, storyDay: 3, band: 'early' });
+        expect(holdPlace).toHaveBeenCalledWith('preview');
+        coordinator.activate(coordinator.takeOverride());
+        expect(coordinator.status()).toMatchObject({ storyDay: 3, band: 'early', preview: true });
+        const statuses = [];
+        coordinator.subscribeStatus((status) => statuses.push(status));
+        stopRuntime.mockClear();
+        expect(coordinator.keep()).toBe(true);
+        expect(keepVisit).toHaveBeenLastCalledWith({ storyDay: 3, band: 'early', preview: true });
+        expect(stopRuntime).not.toHaveBeenCalled();
+        // Still the same gag, no longer reported as temporary.
+        expect(statuses.at(-1)).toMatchObject({ storyDay: 3, band: null, preview: false, active: { script: 'B.ADS', tagId: 2 } });
+    });
+
     it('atomically interrupts the complete host attempt and queues a preview', () => {
         const { coordinator, preview, stopRuntime, stopAudio } = create();
         const attempt = coordinator.beginAttempt();

@@ -22,7 +22,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandById, bandForPhase, gagFacts, keySceneFor, visitSequence } from '../story-steps.mjs';
-import { DEFAULT_START_TIME, formatStartTime, startTimeForPhase, writeStartTime } from '../start-time.mjs';
+import { DEFAULT_START_TIME, formatStartTime } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
 import { createCardFaceQueue } from './story-card-faces.mjs';
@@ -330,21 +330,22 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const returnLive = document.createElement('button');
     returnLive.type = 'button';
     returnLive.className = 'story-steps-play';
-    returnLive.textContent = 'Use saved clock';
+    returnLive.id = 'timeline-go-back';
+    returnLive.textContent = 'Go back';
+    returnLive.title = 'Return to the day and gag you left; nothing from this visit is saved.';
     returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
     let temporaryStatus = null;
     const saveClock = document.createElement('button');
     saveClock.type = 'button';
     saveClock.id = 'timeline-save-clock';
     saveClock.className = 'story-steps-play';
-    saveClock.textContent = 'Save as current time';
-    saveClock.title = 'Set the story clock to this time now; it will keep advancing. Scene-only sky and tide changes are not saved.';
+    saveClock.textContent = 'Stay here';
+    saveClock.title = 'Make this day and time of day the saved story position. Playback carries on without a cut; scene-only sky and tide changes are not saved.';
     saveClock.onclick = () => {
-        const band = bandById(temporaryStatus?.band);
-        if (!band) return;
-        writeStartTime(localStorage, startTimeForPhase(new Date(), band.min));
+        if (!bandById(temporaryStatus?.band)) return;
+        // The story clock now stands at this time of day, so the sky follows it.
         localStorage.setItem('jc-time', 'original');
-        sequenceTools?.startRun?.({ mode: 'live' });
+        sequenceTools?.keepVisit?.();
     };
     clockNotice.append(clockMessage, returnLive, saveClock);
     document.body.appendChild(clockNotice);
@@ -503,14 +504,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const playDay = (day, band) => {
         const keyScene = keySceneFor(day);
         if (!keyScene || !canJumpDay()) return false;
-        const savedDay = sequenceTools.getStoryDay?.();
+        // A visit is temporary: the saved story day only changes if the viewer chooses Stay here.
         try {
-            sequenceTools.setStoryDay(day);
             sequenceTools.startRun({ mode: 'sequence', script: keyScene.script, tagId: keyScene.tagId, storyDay: day, band });
             close();
             return true;
         } catch {
-            if (savedDay != null) sequenceTools.setStoryDay(savedDay);
             return false;
         }
     };
@@ -525,12 +524,12 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         context.style.cssText = 'margin:8px 0 12px;color:#234e52;font:14px/1.45 Trebuchet MS,Arial,sans-serif';
         context.textContent = `Browsing day ${step.day} · ${bandById(step.band)?.label ?? 'Early day'}. Browsing does not change playback. ` +
             `Visit story-clock offset: ${formatStartTime(live.startTime)}. Configured sky: ${localStorage.getItem('jc-time') === 'local' ? 'Live Local Clock (night before 06:00 / from 18:00)' : 'Sequence Clock (Original)'}. ` +
-            (status?.band ? `Temporary ${bandById(status.band)?.label} override: ${status.preview ? 'this gag/scene, then the interrupted visit resumes' : 'this visit, then the configured clock resumes'}. ` : '');
+            (status?.band ? `Visiting day ${status.storyDay ?? 1} · ${bandById(status.band)?.label}: ${status.preview ? 'this gag, then the interrupted visit resumes' : 'this visit, then your saved day and clock resume'}. ` : '');
         if (status?.band) {
             const backToClock = document.createElement('button');
             backToClock.type = 'button';
             backToClock.className = 'story-steps-play';
-            backToClock.textContent = 'Return to live clock';
+            backToClock.textContent = 'Go back';
             backToClock.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
             context.appendChild(backToClock);
         }
@@ -917,8 +916,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         const band = bandById(status?.band);
         const exceptions = [status?.forceNight && status?.band !== 'night' ? 'Scene requires night' : '',
             status?.forceHighTide ? 'Scene requires high tide' : ''].filter(Boolean);
+        const savedDay = sequenceTools?.getStoryDay?.();
         clockMessage.textContent = band
-            ? `Day ${status.storyDay ?? 1} · ${band.label} preview. ${status.preview ? 'Ends after this gag/scene.' : 'Ends after this visit.'} Your saved clock is unchanged.${exceptions.length ? ' ' + exceptions.join('. ') + '.' : ''}` : '';
+            ? `Visiting Day ${status.storyDay ?? 1} · ${band.label}.${savedDay ? ` You were on Day ${savedDay}.` : ''} ${status.preview ? 'Ends after this gag.' : 'Ends after this visit.'} Nothing is saved unless you choose Stay here.${exceptions.length ? ' ' + exceptions.join('. ') + '.' : ''}` : '';
         if (status?.current === 0 && !status.active) seenGags = [];
         if (status?.active) {
             const previous = seenGags.at(-1);

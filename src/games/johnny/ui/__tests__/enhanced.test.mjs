@@ -96,8 +96,11 @@ describe('playback toolbar and captain’s log', () => {
             ui = setupEnhancedUI({ sequenceTools: c.tools });
         change('jc-jump-day', 3);
         change('jc-jump-band', 'night');
+        // Nothing to go back to until a visit starts.
+        expect(document.getElementById('jc-return-live').disabled).toBe(true);
         click('jc-play-day');
-        expect(c.tools.setStoryDay).toHaveBeenCalledWith(3);
+        // A visit is temporary: it must not save the story day.
+        expect(c.tools.setStoryDay).not.toHaveBeenCalled();
         expect(c.tools.startRun).toHaveBeenLastCalledWith(
             expect.objectContaining({ mode: 'sequence', storyDay: 3, band: 'night' }),
         );
@@ -109,8 +112,11 @@ describe('playback toolbar and captain’s log', () => {
         expect(c.tools.startRun).toHaveBeenLastCalledWith(
             expect.objectContaining({ mode: 'preview', storyDay: 3, band: 'night' }),
         );
+        expect(document.getElementById('jc-return-live').textContent).toBe('↶ Go back');
         click('jc-return-live');
         expect(c.tools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
+        c.notify({ storyDay: 1, band: null, active: { script: 'POSE', tagId: 1 }, current: 0, total: 5 });
+        expect(document.getElementById('jc-return-live').disabled).toBe(true);
         ui.destroy();
         expect(c.unsubscribe).toHaveBeenCalledOnce();
     });

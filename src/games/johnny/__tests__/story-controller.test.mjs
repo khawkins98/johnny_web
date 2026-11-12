@@ -203,6 +203,103 @@ describe('Johnny host story controller', () => {
         expect(statuses).toHaveLength(3);
     });
 
+    describe('temporary visits', () => {
+        const start = (values = {}) => {
+            const storage = memoryStorage(values);
+            const controller = createJohnnyStoryController({ random: () => 0, storage, now: () => new Date(2026, 6, 21, 12) });
+            return { controller, storage };
+        };
+        const key = (selection) => `${selection.script}#${selection.tagId}`;
+
+        it('go back returns to the interrupted gag and the rest of its visit, on the day that was saved', () => {
+            const { controller } = start();
+            controller.next();
+            const interrupted = controller.next();
+            const rest = controller.snapshot().map(key);
+            const before = controller.status();
+
+            controller.planFrom('MISCGAG.ADS', 1, { storyDay: 6, band: 'night' });
+            expect(controller.status()).toMatchObject({ storyDay: 6, band: 'night' });
+            // Visiting saves nothing.
+            expect(controller.getStoryDay()).toBe(1);
+            controller.next();
+
+            controller.returnToLive();
+            expect(controller.status()).toBe(before);
+            expect(key(controller.next())).toBe(key(interrupted));
+            expect(controller.snapshot().map(key)).toEqual(rest);
+            expect(controller.status()).toMatchObject({ storyDay: 1, band: null, current: before.current });
+        });
+
+        it('hopping between visits and previews still goes back to the original place', () => {
+            const { controller } = start();
+            const interrupted = controller.next();
+            controller.holdPlace('preview');
+            controller.planFrom('MISCGAG.ADS', 1, { storyDay: 3, band: 'early' });
+            controller.next();
+            controller.planFrom('MISCGAG.ADS', 1, { storyDay: 6, band: 'night' });
+            controller.next();
+            controller.returnToLive();
+            expect(key(controller.next())).toBe(key(interrupted));
+        });
+
+        it('has nowhere to go back to once a preview or a visit has run its course', () => {
+            const { controller } = start();
+            controller.next();
+            controller.holdPlace('preview');
+            const carriedOn = controller.next(); // The visit beneath the preview continues.
+            const remaining = controller.snapshot().length;
+            controller.returnToLive(); // Nothing held: a fresh visit.
+            expect(controller.status().current).toBe(0);
+            expect(carriedOn).toBeTruthy();
+            expect(remaining).toBeGreaterThan(0);
+
+            controller.next();
+            controller.planFrom('MISCGAG.ADS', 1, { storyDay: 6, band: 'night' });
+            let selection;
+            do selection = controller.next();
+            while (!selection.sequenceEnd);
+            controller.next(); // The visit ended; play returned to the saved day by itself.
+            expect(controller.status()).toMatchObject({ storyDay: 1, band: null });
+            const afterVisit = controller.status();
+            controller.returnToLive();
+            expect(controller.status()).not.toBe(afterVisit);
+            expect(controller.status()).toMatchObject({ storyDay: 1, current: 0 });
+        });
+
+        it('stay here saves the day and time of day and keeps the same visit playing', () => {
+            const { controller, storage } = start();
+            controller.next();
+            controller.planFrom('MISCGAG.ADS', 1, { storyDay: 6, band: 'night' });
+            const playing = controller.next();
+            const rest = controller.snapshot().map(key);
+            const statuses = [];
+            controller.subscribeStatus((status) => statuses.push(status));
+
+            controller.keepVisit({ storyDay: 6, band: 'night' });
+            expect(controller.getStoryDay()).toBe(6);
+            // At 12:00, night (phase 12 of 16 half hours) began six hours ago.
+            expect(controller.getStartTime()).toBe(600);
+            expect(statuses.at(-1)).toMatchObject({ storyDay: 6, band: null, active: { script: playing.script, tagId: playing.tagId } });
+            expect(controller.snapshot().map(key)).toEqual(rest);
+
+            // No longer a visit: going back would not restore the old place.
+            controller.returnToLive();
+            expect(controller.status()).toMatchObject({ storyDay: 6, current: 0 });
+            expect(storage.getItem('jc-story-day')).toBe('6');
+        });
+
+        it('stay here during a single gag plans the next visit from the new position', () => {
+            const { controller } = start();
+            controller.next();
+            controller.holdPlace('preview');
+            controller.keepVisit({ storyDay: 4, band: 'late', preview: true });
+            expect(controller.snapshot()).toEqual([]);
+            controller.next();
+            expect(controller.status()).toMatchObject({ storyDay: 4, band: null });
+        });
+    });
+
     it('plans ordinary scenes followed by one final and rotates five wipes', () => {
         const controller = createJohnnyStoryController({
             random: () => 0,

@@ -5,6 +5,8 @@ import {
     dropLegacyStartTime,
     normalizeStartTime,
     readStartTime,
+    startTimeForPhase,
+    writeStartTime,
 } from './start-time.mjs';
 
 export { DEFAULT_START_TIME };
@@ -540,6 +542,10 @@ export const createJohnnyStoryController = ({
     let queue = [];
     let transition = 0;
     let sequenceStatus = null;
+    // The selection now playing, and the place a temporary visit or preview was started from
+    // (that selection, the rest of its visit and its status), so "Go back" can return to it.
+    let playing = null;
+    let heldPlace = null;
     // Anti-repeat state (FUN_1018_08b9): 30e8 is the previous batch's ending, 30ea the
     // previous batch's keyframe intermediate (or none). The ending roulette refuses
     // only 30e8; the keyframe gate refuses both. Session memory, as in the binary.
@@ -860,6 +866,14 @@ export const createJohnnyStoryController = ({
         installPlan(createPlan({ storyDay, finalScene, keyframe, date, startTime }));
     };
 
+    const holdPlace = (kind) => {
+        // Hopping from one visit or preview to another keeps the original place; a visit begun
+        // from a preview outlives that preview.
+        if (heldPlace && kind === 'visit') heldPlace.kind = 'visit';
+        if (heldPlace || !playing) return;
+        heldPlace = { kind, queue: [playing, ...queue], status: sequenceStatus };
+    };
+
     const debugStoryDay = (sceneMetadata, requestedDay) =>
         sceneMetadata.day || Math.max(1, Math.min(11, Number(requestedDay) || 1));
 
@@ -916,8 +930,12 @@ export const createJohnnyStoryController = ({
 
     return {
         next() {
+            // A single-gag preview is over once the visit beneath it carries on, and a visit is
+            // over once it runs out: either way there is no longer a place to go back to.
+            if (heldPlace?.kind === 'preview' || queue.length === 0) heldPlace = null;
             if (queue.length === 0) buildSequence();
             const selection = queue.shift();
+            playing = selection;
             sequenceStatus = Object.freeze({
                 ...sequenceStatus,
                 current: selection.sequence.index,
@@ -956,14 +974,44 @@ export const createJohnnyStoryController = ({
             const finalScene = hasAll(selected.flags, F.FINAL) ? selected : chooseDebugFinal(selected, band == null ? null : timelinePhase(band));
             const anchorScene = hasAll(selected.flags, F.FINAL) ? null : selected;
             const anchor = Object.freeze({ script: selected.script, tagId: selected.tagId });
+            holdPlace('visit');
             installPlan(createPlan({ storyDay, finalScene, anchorScene, band }), anchor);
             return sequenceStatus;
         },
+        holdPlace: (kind = 'preview') => holdPlace(kind),
+        /**
+         * Leave a temporary visit: back to the gag it interrupted (from that gag's start) and
+         * the rest of its visit, or a fresh visit on the saved day and clock if none is held.
+         */
         returnToLive() {
-            queue = [];
-            buildSequence();
+            const held = heldPlace;
+            heldPlace = null;
+            playing = null;
+            if (!held) {
+                queue = [];
+                buildSequence();
+                return;
+            }
+            queue = [...held.queue];
+            sequenceStatus = held.status;
+            publishStatus();
+        },
+        /**
+         * Make a temporary visit the saved position without interrupting it: its day becomes
+         * the story day and its time of day becomes the story clock's current phase.
+         */
+        keepVisit({ storyDay, band, preview = false } = {}) {
+            heldPlace = null;
+            if (storyDay != null) setStoryDay(storyDay);
+            if (band != null) writeStartTime(storage, startTimeForPhase(now(), timelinePhase(band)));
+            // A single gag has no visit of its own to carry on: plan one from the new position.
+            if (preview) queue = [];
+            else if (sequenceStatus) sequenceStatus = Object.freeze({ ...sequenceStatus, band: null });
+            publishStatus();
         },
         clearRun() {
+            heldPlace = null;
+            playing = null;
             queue = [];
             sequenceStatus = null;
             publishStatus();

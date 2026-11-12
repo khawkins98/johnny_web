@@ -14,7 +14,7 @@ Johnny's story runs over 11 days. Each day card shows that day's **key scene**; 
 
 ## What time of day?
 
-The game's story clock decides which gags can appear. It counts half hours from the **Start Time** in Settings (9:00 by default, as in the original) and repeats every 8 hours; its last 2 hours are night, when the original shows the night sky. Each band lists the local clock times it covers, worked out from that Start Time: with 9:00, night is 07:00–09:00, 15:00–17:00 and 23:00–01:00. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day**, and **night**. Each option says how many gags it allows, and the time right now is marked. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) **▶ Play selected day/time** saves the selected story day and starts a visit from its key scene using the selected band. The selection is shown above the cards; choose a band first to change it.
+The game's story clock decides which gags can appear. It counts half hours from the **Start Time** in Settings (9:00 by default, as in the original) and repeats every 8 hours; its last 2 hours are night, when the original shows the night sky. Each band lists the local clock times it covers, worked out from that Start Time: with 9:00, night is 07:00–09:00, 15:00–17:00 and 23:00–01:00. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day**, and **night**. Each option says how many gags it allows, and the time right now is marked. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) **▶ Play selected day/time** starts a temporary visit from that day's key scene using the selected band; it saves nothing. The selection is shown above the cards; choose a band first to change it.
 
 ## Which gag?
 
@@ -38,7 +38,12 @@ Settings labels **Story clock offset (Start Time)** as an offset of the original
 
 ### Play a selected day or preview
 
-Explicit **Play selected day/time**, **Play this gag**, and **Play this scene now** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. A visit pins this context through its final gag, then automatic playback uses the configured clock again. A single gag/scene preview pins it only for that preview and then resumes the interrupted visit (including any still-active visit override). Overrides are not saved and end on reload or return to the title screen. Returning to title cancels the visit; starting again uses the configured clock. A persistent **Temporary** notice shows the playing day, sky, beach tide and lifetime; **Return to live clock** interrupts the run and starts a fresh visit using the current configured clock and saved story day. It does not change clock settings.
+Explicit **Play selected day/time**, **Play this gag**, and **Play this scene now** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. These are temporary visits: neither the story day nor the clock is saved. A visit keeps its day and band through its final gag, then automatic playback returns to the saved day and configured clock. A single gag or scene preview keeps them only for that preview and then resumes the interrupted visit. Visits end on reload or return to the title screen.
+
+While visiting, a notice shows the day and time of day being visited, the day you were on, and how long the visit lasts. It offers two actions:
+
+- **Go back** returns to the gag that was interrupted, from that gag's beginning, followed by the rest of its visit. Hopping between several visits and previews still goes back to the original place. The Log's **Go back** does the same and is only enabled during a visit.
+- **Stay here** makes the visit the saved position: the visited day becomes the story day, and the Start Time offset is set so the story clock stands at the start of the visited band now and keeps advancing. Playback is not interrupted. Scene-only sky and tide requirements are not saved.
 
 ### Scene and tide exceptions
 
