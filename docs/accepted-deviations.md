@@ -18,7 +18,7 @@ The rendering model behind these notes is the buffer contract in [scrantic-re-fi
 
 ## Timeline playback
 
-- **Explicit day/time exploration.** Timeline browsing is non-destructive. Its Play actions temporarily pin the selected day and story-clock band for the visit or single gag/scene preview, taking precedence over Live Local Clock while preserving scene-required night, high tide and off-island backgrounds. Nothing is saved by a visit, including the story day. The notice says where you came from and offers **Go back** (to the gag and visit that were interrupted) and **Stay here** (save the day and time of day, with no cut in playback). Automatic playback retains the original eight-hour sequence clock. See the [timeline guide](story-timeline-guide.md#browsing-and-playback-clocks).
+- **Explicit day/time exploration.** Timeline browsing is non-destructive. Its Play actions temporarily pin the selected day and story-clock band for the visit or single gag/scene preview, taking precedence over Live Local Clock while preserving scene-required night, high tide and off-island backgrounds. Nothing is saved by a visit, including the story day. The notice says where you are and for how long, and offers **Go back** (to the gag and visit that were interrupted) and **Stay here** (save the day and time of day, with no cut in playback). Automatic playback retains the original eight-hour sequence clock. See the [timeline guide](story-timeline-guide.md#browsing-and-playback-clocks).
 
 ## Checked in normal play
 

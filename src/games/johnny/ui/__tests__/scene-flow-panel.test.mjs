@@ -388,11 +388,12 @@ describe('scene-flow panel', () => {
         publish({ storyDay: 5, band: 'early', night: true, forceNight: true, forceHighTide: true, lowTide: false, preview: true });
         const notice = document.getElementById('timeline-clock-notice');
         expect(notice.hidden).toBe(false);
-        expect(notice.textContent).toContain('Scene requires night');
-        expect(notice.textContent).toContain('Scene requires high tide');
-        expect(notice.textContent).toContain('Visiting Day 5 · Early day.');
-        expect(notice.textContent).toContain('Ends after this gag.');
-        expect(notice.textContent).toContain('Nothing is saved unless you choose Stay here.');
+        // Short, plain lines; the tide (which nobody picks) is not mentioned.
+        expect([...notice.querySelector('[role="status"]').children].map((line) => line.textContent)).toEqual([
+            'Visiting Day 5 · Early day',
+            'Just this gag, then back to where you were.',
+            'This scene always plays at night.',
+        ]);
         expect([...notice.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Go back', 'Stay here']);
         notice.querySelector('button').click();
         expect(startRun).toHaveBeenCalledWith({ mode: 'live' });
@@ -414,7 +415,10 @@ describe('scene-flow panel', () => {
         } });
         localStorage.setItem('jc-time', 'local');
         publish({ storyDay: 3, band: 'night', night: true, forceHighTide: true, preview: true });
-        expect(document.querySelector('#timeline-clock-notice').textContent).toContain('Visiting Day 3 · Night. You were on Day 1.');
+        expect([...document.querySelector('#timeline-clock-notice [role="status"]').children].map((line) => line.textContent)).toEqual([
+            'Visiting Day 3 · Night',
+            'Just this gag, then back to where you were.',
+        ]);
         document.querySelector('#timeline-save-clock').click();
         expect(localStorage.getItem('jc-time')).toBe('original');
         expect(keepVisit).toHaveBeenCalledOnce();

@@ -332,7 +332,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     returnLive.className = 'story-steps-play';
     returnLive.id = 'timeline-go-back';
     returnLive.textContent = 'Go back';
-    returnLive.title = 'Return to the day and gag you left; nothing from this visit is saved.';
+    returnLive.title = 'Return now to the day and gag you left. Nothing from this visit is saved.';
     returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
     let temporaryStatus = null;
     const saveClock = document.createElement('button');
@@ -340,7 +340,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     saveClock.id = 'timeline-save-clock';
     saveClock.className = 'story-steps-play';
     saveClock.textContent = 'Stay here';
-    saveClock.title = 'Make this day and time of day the saved story position. Playback carries on without a cut; scene-only sky and tide changes are not saved.';
+    saveClock.title = 'Carry on from here: this day and time of day become your saved place in the story.';
     saveClock.onclick = () => {
         if (!bandById(temporaryStatus?.band)) return;
         // The story clock now stands at this time of day, so the sky follows it.
@@ -914,11 +914,18 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         temporaryStatus = status;
         clockNotice.hidden = !status?.band;
         const band = bandById(status?.band);
-        const exceptions = [status?.forceNight && status?.band !== 'night' ? 'Scene requires night' : '',
-            status?.forceHighTide ? 'Scene requires high tide' : ''].filter(Boolean);
-        const savedDay = sequenceTools?.getStoryDay?.();
-        clockMessage.textContent = band
-            ? `Visiting Day ${status.storyDay ?? 1} · ${band.label}.${savedDay ? ` You were on Day ${savedDay}.` : ''} ${status.preview ? 'Ends after this gag.' : 'Ends after this visit.'} Nothing is saved unless you choose Stay here.${exceptions.length ? ' ' + exceptions.join('. ') + '.' : ''}` : '';
+        // Three short lines: where you are, how long for, and (only when it contradicts the
+        // choice) why the sky differs. Tide is not something the viewer picks, so it is left
+        // to the Timeline's own status line.
+        clockMessage.replaceChildren();
+        if (band) {
+            const where = document.createElement('strong');
+            where.textContent = `Visiting Day ${status.storyDay ?? 1} · ${band.label}`;
+            const lines = [status.preview ? 'Just this gag, then back to where you were.' : 'Just this visit, then back to where you were.'];
+            if (status.forceNight && status.band !== 'night') lines.push('This scene always plays at night.');
+            clockMessage.append(where, ...lines.map((text) => Object.assign(document.createElement('span'), { textContent: text })));
+            for (const line of clockMessage.children) line.style.display = 'block';
+        }
         if (status?.current === 0 && !status.active) seenGags = [];
         if (status?.active) {
             const previous = seenGags.at(-1);

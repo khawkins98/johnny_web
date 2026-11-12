@@ -40,7 +40,7 @@ Settings labels **Story clock offset (Start Time)** as an offset of the original
 
 Explicit **Play selected day/time**, **Play this gag**, and **Play this scene now** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. These are temporary visits: neither the story day nor the clock is saved. A visit keeps its day and band through its final gag, then automatic playback returns to the saved day and configured clock. A single gag or scene preview keeps them only for that preview and then resumes the interrupted visit. Visits end on reload or return to the title screen.
 
-While visiting, a notice shows the day and time of day being visited, the day you were on, and how long the visit lasts. It offers two actions:
+While visiting, a short notice says where you are (“Visiting Day 6 · Night”) and for how long (“Just this visit, then back to where you were.”, or “Just this gag…” for a single gag). It adds “This scene always plays at night.” only when a scene overrides a daytime choice. It offers two actions:
 
 - **Go back** returns to the gag that was interrupted, from that gag's beginning, followed by the rest of its visit. Hopping between several visits and previews still goes back to the original place. The Log's **Go back** does the same and is only enabled during a visit.
 - **Stay here** makes the visit the saved position: the visited day becomes the story day, and the Start Time offset is set so the story clock stands at the start of the visited band now and keeps advancing. Playback is not interrupted. Scene-only sky and tide requirements are not saved.
