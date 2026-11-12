@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../dgds/scripting/process.mjs', () => ({
     __DEBUG__: {
@@ -8,7 +8,7 @@ vi.mock('../../../../dgds/scripting/process.mjs', () => ({
     },
 }));
 
-import { setupEnhancedUI } from '../enhanced.mjs';
+import { setupEnhancedUI, SHELF_SETTING_KEY, TV_TAB_SETTING_KEY, TV_TAB_EVENT } from '../enhanced.mjs';
 import { browserPlayback } from '../../../../dgds/hosts/browser-playback.mjs';
 import { __DEBUG__ } from '../../../../dgds/scripting/process.mjs';
 
@@ -227,4 +227,337 @@ it('leaves Space on the TV restore button to native button activation', () => {
         restore.click(); // jsdom does not synthesize native clicks from keyboard events.
         expect(ui.hud.classList.contains('is-hidden')).toBe(false);
     } finally { ui.destroy(); }
+});
+
+describe('receding shelf', () => {
+    let ui, settings;
+    const el = (id) => document.getElementById(id);
+    const key = (value, target = window) =>
+        target.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true }));
+    const pointer = (type, target, pointerType = 'mouse') => {
+        const event = new Event(type, { bubbles: type === 'pointerdown' });
+        event.pointerType = pointerType;
+        target.dispatchEvent(event);
+    };
+    const start = () => {
+        settings = { refreshLayout: vi.fn() };
+        ui = setupEnhancedUI({ settings });
+    };
+    beforeEach(() => {
+        document.head.querySelectorAll('style').forEach((style) => style.remove());
+        document.body.replaceChildren();
+        document.body.className = '';
+        localStorage.clear();
+        vi.stubGlobal('requestAnimationFrame', vi.fn());
+        vi.stubGlobal('cancelAnimationFrame', vi.fn());
+        vi.useFakeTimers();
+    });
+    afterEach(() => {
+        ui?.destroy();
+        ui = null;
+        vi.useRealTimers();
+    });
+
+    it('toggles from the labelled tab and B, persists, and restores on the next Play', () => {
+        start();
+        const recede = el('jc-deck-recede');
+        expect(recede.getAttribute('aria-label')).toBe('Hide shelf');
+        expect(recede.textContent).toBe('Hide shelf · B');
+        expect(el('jc-shelf-handle').hidden).toBe(true);
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+
+        recede.focus();
+        recede.click();
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(true);
+        // Tucked away, the tab only appears with a raised shelf and offers to keep it up.
+        expect([recede.textContent, recede.getAttribute('aria-label')]).toEqual(['Keep shelf · B', 'Keep shelf showing']);
+        expect(localStorage.getItem(SHELF_SETTING_KEY)).toBe('receded');
+        expect(el('jc-shelf-handle').hidden).toBe(false);
+        expect(el('jc-shelf-handle').getAttribute('aria-expanded')).toBe('false');
+        // Focus does not stay on a control that has slid off the page.
+        expect(document.activeElement).toBe(el('jc-shelf-handle'));
+        expect(settings.refreshLayout).toHaveBeenCalled();
+
+        key('b');
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+        expect(localStorage.getItem(SHELF_SETTING_KEY)).toBe('shown');
+        key('B', el('jc-deck-log')); // Works from a focused shelf button, like H.
+        expect(localStorage.getItem(SHELF_SETTING_KEY)).toBe('receded');
+
+        // Return to title, then Play again.
+        ui.destroy();
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+        start();
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(true);
+        expect(el('jc-deck-recede').textContent).toBe('Keep shelf · B');
+        expect(el('jc-shelf-handle').hidden).toBe(false);
+    });
+
+    it('leaves B to text fields, modal dialogs and modified keys', () => {
+        start();
+        const input = document.body.appendChild(document.createElement('input'));
+        key('b', input);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', metaKey: true }));
+        const modal = document.body.appendChild(document.createElement('div'));
+        modal.id = 'settings-overlay';
+        modal.setAttribute('aria-hidden', 'false');
+        key('b');
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+        expect(localStorage.getItem(SHELF_SETTING_KEY)).toBeNull();
+    });
+
+    it('peeks as an overlay for pointer, keyboard focus and the handle without asking for a new layout', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const handle = el('jc-shelf-handle'),
+            hud = ui.hud;
+        settings.refreshLayout.mockClear();
+        const peeking = () => hud.classList.contains('is-shelf-peeking');
+
+        // Pointer at the bottom edge, then onto the shelf, then away.
+        pointer('pointerenter', el('jc-shelf-edge'));
+        expect(peeking()).toBe(true);
+        expect(handle.getAttribute('aria-expanded')).toBe('true');
+        pointer('pointerleave', el('jc-shelf-edge'));
+        pointer('pointerenter', el('jc-deck'));
+        vi.advanceTimersByTime(5000);
+        expect(peeking()).toBe(true);
+        pointer('pointerleave', el('jc-deck'));
+        vi.advanceTimersByTime(300);
+        expect(peeking()).toBe(true); // Short linger, like the Dock.
+        vi.advanceTimersByTime(400);
+        expect(peeking()).toBe(false);
+        expect(handle.getAttribute('aria-expanded')).toBe('false');
+
+        // Keyboard focus on any shelf control reveals it; leaving tucks it away.
+        key('Tab');
+        el('jc-deck-speed').focus();
+        expect(peeking()).toBe(true);
+        vi.advanceTimersByTime(5000);
+        expect(peeking()).toBe(true);
+        el('jc-tv-pause').focus();
+        vi.advanceTimersByTime(700);
+        expect(peeking()).toBe(false);
+
+        // The handle toggles a pinned peek (touch and keyboard); a tap elsewhere ends it.
+        handle.click();
+        expect(peeking()).toBe(true);
+        vi.advanceTimersByTime(5000);
+        expect(peeking()).toBe(true);
+        pointer('pointerdown', el('jc-deck-sound'), 'touch');
+        expect(peeking()).toBe(true);
+        pointer('pointerdown', document.body, 'touch');
+        expect(peeking()).toBe(false);
+        handle.click();
+        handle.click();
+        expect(peeking()).toBe(false);
+
+        // Focus that a click left on a shelf control does not hold the peek open.
+        el('jc-deck-speed').focus();
+        expect(peeking()).toBe(true);
+        vi.advanceTimersByTime(700);
+        expect(peeking()).toBe(false);
+        expect(document.activeElement).toBe(handle);
+        key('Tab');
+
+        // Escape closes a peek that holds focus and returns to the handle.
+        el('jc-deck-options').focus();
+        expect(peeking()).toBe(true);
+        key('Escape', el('jc-deck-options'));
+        expect(peeking()).toBe(false);
+        expect(document.activeElement).toBe(handle);
+
+        expect(settings.refreshLayout).not.toHaveBeenCalled();
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(true);
+    });
+
+    it('does not peek while the shelf is in its normal place', () => {
+        start();
+        pointer('pointerenter', el('jc-deck'));
+        el('jc-deck-speed').focus();
+        expect(ui.hud.classList.contains('is-shelf-peeking')).toBe(false);
+    });
+
+    it.each([false, true])('H and Full view return to the shelf state they left (receded: %s)', (receded) => {
+        if (receded) localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const state = () => [
+            document.body.classList.contains('jc-shelf-receded'),
+            el('jc-shelf-handle').hidden,
+            localStorage.getItem(SHELF_SETTING_KEY),
+        ];
+        const before = state();
+        if (receded) el('jc-shelf-handle').click();
+
+        key('h');
+        expect(ui.hud.inert).toBe(true);
+        expect(ui.hud.classList.contains('is-shelf-peeking')).toBe(false);
+        key('b'); // Nothing to recede while the Island TV is hidden.
+        expect(state()).toEqual(before);
+        key('h');
+        expect(ui.hud.inert).toBe(false);
+        expect(state()).toEqual(before);
+
+        key('f');
+        expect(document.body.classList.contains('jc-full-view')).toBe(true);
+        expect(ui.hud.inert).toBe(true);
+        key('Escape');
+        expect(document.body.classList.contains('jc-full-view')).toBe(false);
+        expect(state()).toEqual(before);
+        key('f');
+        key('f');
+        expect(ui.hud.inert).toBe(false);
+        expect(state()).toEqual(before);
+    });
+
+    it('keeps the Log state and reachability across receding', () => {
+        start();
+        el('jc-deck-log').click();
+        key('b');
+        expect(el('jc-log').hidden).toBe(false);
+        expect(el('jc-deck-log').getAttribute('aria-expanded')).toBe('true');
+        key('Escape');
+        expect(el('jc-log').hidden).toBe(true);
+        // Focus goes to the handle: returning it to the tucked Log button would pull the shelf out.
+        expect(document.activeElement).toBe(el('jc-shelf-handle'));
+        expect(ui.hud.classList.contains('is-shelf-peeking')).toBe(false);
+    });
+
+    it('comes back from H, Full view and the Log with the shelf still tucked away', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const peeking = () => ui.hud.classList.contains('is-shelf-peeking');
+        const handle = el('jc-shelf-handle');
+
+        handle.focus();
+        key('h', handle);
+        key('h', el('jc-deck-restore'));
+        expect(ui.hud.inert).toBe(false);
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+
+        el('jc-deck-restore').hidden = false; // As when the TV is hidden.
+        key('h');
+        el('jc-deck-restore').click();
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+
+        // Full view from a peeking shelf, then Esc.
+        pointer('pointerenter', el('jc-shelf-edge'));
+        el('jc-deck-fullscreen').focus();
+        el('jc-deck-fullscreen').click();
+        key('Escape');
+        vi.advanceTimersByTime(2000);
+        expect(peeking()).toBe(false);
+
+        // Closing the Log with its own button.
+        el('jc-deck-log').click();
+        document.querySelector('.jc-log-close').click();
+        expect([peeking(), document.activeElement]).toEqual([false, handle]);
+    });
+
+    it('starts hidden without a slide when the shelf was saved hidden', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        const frames = [];
+        vi.stubGlobal('requestAnimationFrame', vi.fn((callback) => frames.push(callback)));
+        const layouts = [];
+        settings = { refreshLayout: vi.fn(() => layouts.push(document.body.classList.contains('jc-shelf-receded'))) };
+        ui = setupEnhancedUI({ settings });
+        // Every layout, including the first, already sees the hidden mode.
+        expect(layouts.length).toBeGreaterThan(0);
+        expect(layouts.every(Boolean)).toBe(true);
+        expect(ui.hud.classList.contains('is-shelf-instant')).toBe(true);
+        // The slide is allowed again once the first frames have been painted.
+        for (let i = 0; i < 4 && frames.length; i++) frames.shift()();
+        expect(ui.hud.classList.contains('is-shelf-instant')).toBe(false);
+    });
+
+    it('does not tuck a hover-revealed shelf when the handle click carries no pointer type', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const handle = el('jc-shelf-handle');
+        const peeking = () => ui.hud.classList.contains('is-shelf-peeking');
+        pointer('pointerenter', handle);
+        expect(peeking()).toBe(true);
+        pointer('pointerdown', handle); // The press that leads to the click.
+        handle.click(); // A plain click event, as some browsers send.
+        expect(peeking()).toBe(true);
+        // A touch press toggles, since touch has no hover to have revealed it.
+        pointer('pointerdown', handle, 'touch');
+        handle.click();
+        expect(peeking()).toBe(false);
+        // So does the keyboard.
+        key('Enter', handle);
+        handle.click();
+        expect(peeking()).toBe(true);
+    });
+
+    it('ignores key repeat on B', () => {
+        start();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', repeat: true, bubbles: true, cancelable: true }));
+        expect(document.body.classList.contains('jc-shelf-receded')).toBe(false);
+    });
+
+    it('offers both ways to clear the furniture in one cluster above the shelf', () => {
+        start();
+        const tabs = el('jc-deck-tabs');
+        expect([...tabs.children].map((tab) => tab.id)).toEqual(['jc-deck-recede', 'enhanced-hud-dismiss']);
+        expect([...tabs.children].map((tab) => tab.textContent)).toEqual(['Hide shelf · B', 'Hide TV · H']);
+        // Accessible names start with the visible words.
+        expect(el('enhanced-hud-dismiss').getAttribute('aria-label')).toMatch(/^Hide TV/);
+        el('enhanced-hud-dismiss').click();
+        expect(ui.hud.inert).toBe(true);
+        const restore = el('jc-deck-restore');
+        expect([restore.hidden, restore.textContent]).toEqual([false, 'Show TV · H']);
+        expect(restore.getAttribute('aria-label')).toMatch(/^Show TV/);
+        restore.click();
+        expect(ui.hud.inert).toBe(false);
+    });
+
+    it('lets the Show TV tab be removed for a bare picture, and Options bring it back', () => {
+        start();
+        const bar = el('jc-deck-restore-bar'), close = el('jc-deck-restore-close');
+        expect(bar.hidden).toBe(true); // Only offered while the TV is hidden.
+        key('h');
+        expect([bar.hidden, el('jc-deck-restore').hidden]).toEqual([false, false]);
+        expect(close.getAttribute('aria-label')).toBe('Remove the Show TV tab');
+
+        close.click();
+        expect([bar.hidden, el('jc-deck-restore').hidden]).toEqual([true, true]);
+        expect(localStorage.getItem(TV_TAB_SETTING_KEY)).toBe('hidden');
+        expect(document.getElementById('jc-tv-osd').textContent).toContain('Options brings the tab back');
+
+        // H still restores the TV, and hiding it again stays bare, with no focus left on a hidden tab.
+        key('h');
+        expect(ui.hud.inert).toBe(false);
+        el('jc-deck-log').focus();
+        key('h', el('jc-deck-log'));
+        expect(bar.hidden).toBe(true);
+        expect(document.activeElement).toBe(document.body);
+
+        // The Options setting brings it back at once.
+        window.dispatchEvent(new CustomEvent(TV_TAB_EVENT, { detail: 'shown' }));
+        expect(bar.hidden).toBe(false);
+        key('h');
+        expect(bar.hidden).toBe(true);
+    });
+
+    it('starts without the tab when it was removed earlier, and saves through Options when present', () => {
+        localStorage.setItem(TV_TAB_SETTING_KEY, 'hidden');
+        start();
+        key('h');
+        expect(el('jc-deck-restore-bar').hidden).toBe(true);
+        ui.destroy();
+
+        localStorage.clear();
+        const control = document.createElement('select');
+        control.dataset.setting = 'tv-tab';
+        control.append(new Option('', 'shown'), new Option('', 'hidden'));
+        const changed = vi.fn();
+        control.addEventListener('change', changed);
+        document.body.append(control);
+        start();
+        key('h');
+        el('jc-deck-restore-close').click();
+        expect(control.value).toBe('hidden');
+        expect(changed).toHaveBeenCalledOnce();
+    });
 });

@@ -13,13 +13,18 @@ Press **Play** to show the painted Island TV cabinet and playback shelf. Play ke
 | Timeline / `T` | Open the [story browser and scene previews](story-timeline-guide.md). |
 | Options / `S` | Open settings. |
 | Full view / `F` | Fill the page with the screensaver. |
-| Toggle Island TV / `H` | Hide or restore the cabinet and toolbar. |
+| Hide TV / `H` | Hide or restore the cabinet and toolbar. |
+| Hide shelf / `B` | Tuck the shelf below the page edge so the TV can use its height; the cabinet stays. |
 | Log | Open day/gag navigation and session statistics. |
 | `R` | Return to the title. |
 | `←` / `→` | Step animation scenes. |
 | `↑` / `↓` | Change playback speed. |
 
-A corner button restores hidden controls by pointer or touch. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle, with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
+**Hide TV · H** sits beside **Hide shelf · B** in one pair of paper tabs on the shelf's top edge. With the TV hidden (H or Full view), a **Show TV · H** tab at the bottom centre of the page restores the controls by pointer or touch. Its **×** removes the tab for a bare picture; the choice is saved as `jc-tv-tab` (`shown`/`hidden`). `H` and `Esc` still bring the TV back, moving the mouse still fades in the corner Options button, and **Options → With the TV hidden** brings the tab back. Hidden controls are inert. `H` also works when a toolbar button has focus; text/select controls keep their own keyboard behavior. `Esc` closes Log and returns focus to its toggle (or to the tucked shelf's handle, so the shelf is not pulled back out), with modal dialogs taking precedence. In Full view, `Esc`, `F` or `H` restores the cabinet and previous Log state.
+
+## Hiding the shelf for a bigger TV
+
+**Hide shelf** (the paper tab on the shelf's top edge) or `B` tucks the shelf most of the way below the page, leaving the tops of its controls in view so they are not forgotten, and the cabinet re-fits into the reclaimed height. It sits between the normal layout and Full view: the TV, dials and Log stay. Pointing at the tucked shelf, moving keyboard focus onto any shelf control, or tapping it raises the shelf to its usual place as an overlay; it tucks away shortly after the pointer or focus leaves, on a tap elsewhere, or with `Esc`. Raising it never resizes the picture. While it is raised the tab reads **Keep shelf · B**: press it or `B` to keep the shelf in place. The choice is saved as `jc-shelf` (`shown`/`receded`) and survives reloads and returning to the title. `H` and Full view work from either state and come back to it with the shelf still tucked away; a shelf saved as tucked starts that way on Play, without sliding. The temporary-clock notice sits above the tucked shelf and under a raised one. Width-limited windows such as a portrait phone gain no picture size; the cabinet only re-centres.
 
 ## Island Log
 

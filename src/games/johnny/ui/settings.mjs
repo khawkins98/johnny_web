@@ -3,7 +3,7 @@ import { isolateDialog } from './dialog-background.mjs';
 import './island-theme.css';
 import './island-objects.css';
 import './splash.css';
-import { islandLayout, titleScale, halfStepScale, deviceStepScale, isDeviceSharp, deviceSnapOffset, prefersDeviceStep, RESAMPLE_MIN_DEVICE_PIXELS } from './island-layout.mjs';
+import { islandLayout, shelfTopFor, titleScale, halfStepScale, deviceStepScale, isDeviceSharp, deviceSnapOffset, prefersDeviceStep, RESAMPLE_MIN_DEVICE_PIXELS } from './island-layout.mjs';
 import { setupCrtSettings } from './crt/settings.mjs';
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
@@ -20,6 +20,7 @@ export const SOUND_SETTING_KEY = 'jc-sound';
 // Seed only absent preferences: old profile choices and pre-launch edits survive Play.
 const DEFAULT_PREFERENCES = Object.freeze({
     'jc-scale-mode': 'auto', 'jc-clouds': 'on', 'jc-waves': 'on', 'jc-time': 'original',
+    'jc-shelf': 'shown', 'jc-tv-tab': 'shown',
 });
 // Whether a CRT look is running; Automatic sizing depends on it (see applyScaling).
 let crtActive = false;
@@ -598,6 +599,26 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     audioRow.appendChild(audioSelect);
     modal.appendChild(audioRow);
 
+    // The Show TV tab that remains when the Island TV is hidden (H or Full view).
+    const tvTabRow = document.createElement('div');
+    tvTabRow.className = 'settings-row';
+    const tvTabLabel = document.createElement('label');
+    tvTabLabel.textContent = 'With the TV hidden:';
+    const tvTabSelect = document.createElement('select');
+    tvTabSelect.dataset.setting = 'tv-tab';
+    tvTabSelect.id = 'jc-setting-tv-tab';
+    tvTabLabel.htmlFor = tvTabSelect.id;
+    tvTabSelect.append(new Option('Keep a “Show TV” tab', 'shown'), new Option('Picture only (H brings the TV back)', 'hidden'));
+    tvTabSelect.value = localStorage.getItem('jc-tv-tab') === 'hidden' ? 'hidden' : 'shown';
+    tvTabSelect.onchange = (event) => {
+        const value = event.target.value;
+        localStorage.setItem('jc-tv-tab', value);
+        window.dispatchEvent(new CustomEvent('johnny-tv-tab', { detail: value }));
+        recordSetting('tv-tab', value);
+    };
+    tvTabRow.append(tvTabLabel, tvTabSelect);
+    modal.appendChild(tvTabRow);
+
     // Moving Clouds Toggle
     const cloudsRow = document.createElement('div');
     cloudsRow.className = 'settings-row';
@@ -844,6 +865,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
         [['←', '→'], 'Previous / next scene'],
         [['↑', '↓'], 'Slower / faster'],
         [['H'], 'Show / hide Island UI'],
+        [['B'], 'Hide / show the shelf · bigger TV'],
         [['S'], 'Island Options'],
         [['T'], 'Story timeline'],
         [['D'], 'Developer panel'],
@@ -915,7 +937,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Everyday choices first. Technical controls remain available without dominating.
     const essentials = document.createElement('section');
     essentials.setAttribute('aria-label', 'Everyday options');
-    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow);
+    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow, tvTabRow);
     modal.insertBefore(essentials, scaleRow);
     disclose('settings-fine-tuning', 'Picture & clock fine tuning', scaleRow, cloudsRow, wavesRow, startRow, startHelp);
     const crtDetails = modal.querySelector('.johnny-crt');
@@ -967,6 +989,13 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     return { open, close, restart, cyclePicturePreset: () => crt.cyclePreset(), openPicture: () => { open(); crt.openPicture(); }, refreshLayout: () => applyScaling(localStorage.getItem('jc-scale-mode') || DEFAULT_PREFERENCES['jc-scale-mode']) };
 }
 
+/** Top of an element where it rests, ignoring any vertical slide still in progress. */
+function restingTop(element) {
+    const top = element.getBoundingClientRect().top;
+    const shift = /^matrix\((?:[^,]+,){5}\s*([^)]+)\)$/.exec(getComputedStyle(element).transform || '')?.[1];
+    return top - (Number(shift) || 0);
+}
+
 function applyScaling(mode) {
     const root = document.getElementById('root');
     if (!root) return;
@@ -984,11 +1013,14 @@ function applyScaling(mode) {
     const splash = document.getElementById('start-overlay')?.classList.contains('visible');
     const deck = splash ? document.getElementById('start-actions') : document.body.classList.contains('jc-deck-visible') ? document.getElementById('jc-deck') : null;
     const cabinet = splash ? document.getElementById('start-cabinet') : deck ? document.getElementById('jc-cabinet') : null;
-    if (deck) document.body.style.setProperty('--jc-deck-top', `${deck.getBoundingClientRect().top}px`);
-    const bottom = deck ? window.innerHeight - deck.getBoundingClientRect().top + 12 : 0;
+    // A receded shelf slides and peeks with a transform; the cabinet follows the mode, not the motion.
+    const receded = !splash && document.body.classList.contains('jc-shelf-receded');
+    const deckTop = deck ? shelfTopFor(window.innerHeight, restingTop(deck), receded) : 0;
+    if (deck) document.body.style.setProperty('--jc-deck-top', `${deckTop}px`);
+    const bottom = deck ? window.innerHeight - deckTop + 12 : 0;
     const titleCanvas = splash ? document.getElementById('start-title-picture') : null;
     const minimumPicture = titleCanvas ? { width: titleCanvas.width * .5, height: titleCanvas.height * .5 } : null;
-    const layout = cabinet ? islandLayout(window.innerWidth, window.innerHeight, deck.getBoundingClientRect().top + (splash ? 12 : 0), minimumPicture) : null;
+    const layout = cabinet ? islandLayout(window.innerWidth, window.innerHeight, deckTop + (splash ? 12 : 0), minimumPicture) : null;
     if (layout) {
         const hud = splash ? document.body : document.getElementById('enhanced-hud');
         for (const key of ['left', 'top', 'width', 'height']) hud.style.setProperty(`--cabinet-${key}`, `${layout[key]}px`);

@@ -4,6 +4,17 @@
 export const CABINET_ASPECT = 1399 / 1024;
 export const CABINET_APERTURE = Object.freeze({ x: 199 / 1399, y: 240 / 1024, width: 776 / 1399, height: 582 / 1024 });
 
+/** Page height kept for the visible top of a tucked shelf; the cabinet may use everything above it. */
+export const RECEDED_SHELF_RESERVE = 48;
+
+/**
+ * Top edge the cabinet may grow down to. A receded shelf yields its height whether or not it is
+ * peeking, so a peek never resizes the picture.
+ */
+export function shelfTopFor(height, restingDeckTop, receded = false) {
+    return receded ? Math.max(restingDeckTop, height - RECEDED_SHELF_RESERVE) : restingDeckTop;
+}
+
 export function islandLayout(width, height, shelfTop, minimumPicture = null) {
     const availableHeight = Math.max(80, Math.min(height, shelfTop) - 20);
     const minimumWidth = minimumPicture

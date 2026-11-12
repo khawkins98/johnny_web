@@ -170,23 +170,6 @@ body.jc-deck-visible #root {
 #jc-deck-log .jc-control-state {
     visibility: hidden;
 }
-#enhanced-hud #enhanced-hud-dismiss {
-    position: fixed;
-    top: 16px;
-    bottom: auto;
-    right: 16px;
-    min-height: 44px;
-    min-width: 120px;
-    padding: 8px 12px;
-    border: 2px solid #22553b;
-    border-radius: 9px 5px;
-    background: #fff9dc;
-    font-size: 12px;
-    font-weight: bold;
-}
-#enhanced-hud #enhanced-hud-dismiss::before {
-    display: none;
-}
 #enhanced-hud button:active,
 #jc-deck-restore:active {
     transform: scale(0.96);
@@ -387,22 +370,67 @@ body.jc-deck-visible #root {
     overflow: hidden;
     clip-path: inset(50%);
 }
-#jc-deck-restore {
+/* With the Island TV hidden, one tab at the bottom edge brings it back (same place as Show shelf).
+   Its × removes the tab for a bare picture; Options brings it back. */
+#jc-deck-restore-bar {
     position: fixed;
     z-index: 900;
-    right: 16px;
-    top: 16px;
-    min-height: 44px;
-    padding: 8px 14px;
-    border: 2px solid #22553b;
-    border-radius: 9px 5px;
-    background: #fff9dc;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-inline: auto;
+    width: max-content;
+    height: 40px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    box-sizing: border-box;
+}
+#jc-deck-restore-bar[hidden] {
+    display: none !important;
+}
+#jc-deck-restore,
+#jc-deck-restore-close {
+    min-width: 0;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 0;
+    background: transparent;
     color: #234e52;
-    font:
-        700 12px 'Trebuchet MS',
-        sans-serif;
-    box-shadow: 3px 4px #678c83;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
     cursor: pointer;
+    box-sizing: border-box;
+}
+#jc-deck-restore-close {
+    min-width: 40px;
+}
+#jc-deck-restore-close span {
+    padding: 5px 9px 4px;
+    border: 2px solid #22553b;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 6px 0 0;
+    background: #fff9dc;
+    font:
+        700 15px/15px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+}
+#jc-deck-restore-bar #jc-deck-restore span {
+    border-radius: 9px 0 0 0;
+}
+#jc-deck-restore-close:hover span {
+    background: #f6e2ae;
+}
+#jc-deck-restore-close:active {
+    transform: scale(0.96);
+}
+#jc-deck-restore-close:focus-visible {
+    outline: 3px solid #e99a32;
+    outline-offset: 3px;
 }
 body.jc-deck-visible #settings-cog,
 body.jc-deck-visible #scene-flow-cog {
@@ -527,12 +555,6 @@ body.jc-deck-visible #scene-flow-cog {
         bottom: 260px;
         width: auto;
         min-width: 0;
-    }
-    #enhanced-hud #enhanced-hud-dismiss {
-        top: 10px;
-        bottom: auto;
-        font-size: 11px;
-        min-width: 110px;
     }
     .jc-log-title {
         padding: 8px 12px;
@@ -838,3 +860,173 @@ body:has(#enhanced-hud.is-hidden) #timeline-clock-notice {
 #jc-log .jc-log-details { margin: 12px 0; border-top: 1px solid #a9c9b7; }
 #jc-log .jc-log-details > summary { cursor: pointer; min-height: 44px; padding: 12px 0; box-sizing: border-box; font-weight: bold; }
 #jc-log .jc-log-details > summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
+
+/* Receding shelf (B): the shelf tucks most of the way below the page edge, leaving its top in
+   view so its controls are not forgotten, and the cabinet uses the height. Pointing at it,
+   focusing a control or tapping it raises it as an overlay. settings.mjs sizes the cabinet from the mode alone, so the
+   transforms below (slide, peek) never move the picture. */
+#jc-deck {
+    transition: transform 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+/* One cluster above the shelf holds both ways to clear the furniture: the shelf (B) or everything (H). */
+#jc-deck #jc-deck-tabs {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: max-content;
+    height: 40px;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+}
+#jc-deck #jc-deck-tabs {
+    top: -42px;
+    gap: 8px;
+}
+#jc-deck-tabs button {
+    min-width: 0;
+    min-height: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #234e52;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: center;
+}
+/* An unpainted button over the part of the tucked shelf still in view: hovering, tapping or
+   focusing it raises the shelf. Raised, it steps aside so the shelf's own controls take over. */
+#enhanced-hud #jc-shelf-handle {
+    position: fixed;
+    z-index: 930;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 48px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+}
+#enhanced-hud #jc-shelf-handle:focus-visible {
+    outline-offset: -4px;
+}
+#enhanced-hud.is-shelf-peeking #jc-shelf-handle {
+    pointer-events: none;
+}
+#jc-shelf-handle span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+/* The painted tab is smaller than its 40px target. */
+#jc-deck-tabs button span,
+#jc-deck-restore span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 14px 4px;
+    border: 2px solid #22553b;
+    border-radius: 9px 5px;
+    background: #fff9dc;
+    font:
+        700 12px/15px 'Trebuchet MS',
+        Arial,
+        sans-serif;
+    white-space: nowrap;
+    box-shadow: 2px 3px #234e5233;
+}
+#jc-deck-restore span {
+    border-bottom: 0;
+    border-radius: 9px 6px 0 0;
+    box-shadow: none;
+}
+/* The shelf tab points the way the shelf will go; the TV tabs carry a full-view glyph instead. */
+#jc-deck-recede span::before {
+    content: '';
+    border: 5px solid transparent;
+    border-top: 6px solid #22553b;
+    border-bottom: 0;
+}
+body.jc-shelf-receded #jc-deck-recede span::before {
+    border-top: 0;
+    border-bottom: 6px solid #22553b;
+}
+#jc-deck-tabs svg,
+#jc-deck-restore svg {
+    flex: none;
+    color: #22553b;
+}
+#jc-deck-tabs button:hover span,
+#jc-deck-restore:hover span {
+    background: #f6e2ae;
+}
+/* The tabs belong to a shelf that is up: tucked away, they would float over the cabinet. */
+body.jc-shelf-receded #enhanced-hud:not(.is-shelf-peeking) #jc-deck-tabs {
+    visibility: hidden;
+}
+/* Keeps the pointer "on the shelf" in the margin under a raised shelf, so it does not tuck away
+   and rise again while the pointer rests at the page edge. */
+#jc-shelf-edge {
+    position: fixed;
+    z-index: 899;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 48px;
+}
+body.jc-shelf-receded #jc-deck {
+    z-index: 920;
+    transform: translate(-50%, calc(100% - 30px));
+}
+/* A shelf saved as hidden starts hidden, without sliding away on Play. */
+#enhanced-hud.is-shelf-instant #jc-deck {
+    transition: none;
+}
+/* The temporary-clock notice sits above the tucked shelf, and under a raised one rather than over
+   its controls. */
+body.jc-shelf-receded.jc-deck-visible #timeline-clock-notice {
+    bottom: 60px !important;
+}
+body.jc-shelf-receded:has(#enhanced-hud.is-shelf-peeking) #timeline-clock-notice {
+    z-index: 910 !important;
+}
+/* Raised, the shelf returns to its usual place, over the Log and the bottom of the larger
+   cabinet; the page beneath keeps its layout. */
+body.jc-shelf-receded #enhanced-hud.is-shelf-peeking #jc-deck {
+    transform: translate(-50%, 0);
+}
+@media (max-height: 950px), (max-width: 1100px) {
+    body.jc-shelf-receded #jc-log {
+        bottom: 60px;
+    }
+}
+/* The tab above the shelf stays clear of the floating notebook and the clock notice. */
+@media (max-width: 800px) {
+    body:not(.jc-shelf-receded) #jc-log {
+        bottom: 250px;
+    }
+}
+@media (max-width: 550px) {
+    body:not(.jc-shelf-receded) #jc-log {
+        bottom: 328px;
+    }
+}
+@media (max-width: 1100px) {
+    body.jc-deck-visible:not(.jc-shelf-receded) #timeline-clock-notice {
+        bottom: calc(100dvh - var(--jc-deck-top) + 50px) !important;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    #jc-deck {
+        transition: none;
+    }
+}

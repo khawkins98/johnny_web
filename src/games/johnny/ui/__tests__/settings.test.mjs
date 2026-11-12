@@ -126,6 +126,7 @@ describe('settings UI', () => {
             '↑',
             '↓',
             'H',
+            'B',
             'S',
             'T',
             'D',
@@ -405,4 +406,83 @@ describe('device-pixel-aware picture sizing', () => {
         // The nearest clean step here is half the fitted size.
         expect(scaled(null, { width: 620, height: 465, dpr: 2 })).toMatchObject({ transform: `scale(${620 / 640})`, filter: 'auto' });
     });
+});
+
+it('sizes the cabinet from the receded mode, not from where a sliding or peeking shelf currently is', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div><section id="enhanced-hud"><div id="jc-cabinet"></div><nav id="jc-deck"></nav></section>';
+    document.body.classList.add('jc-deck-visible');
+    localStorage.clear();
+    localStorage.setItem('jc-scale-mode', 'stretch'); // Fills the opening, so the root style shows its size.
+    vi.stubGlobal('innerWidth', 1440);
+    vi.stubGlobal('innerHeight', 1000);
+    const deck = document.getElementById('jc-deck');
+    const rect = vi.spyOn(deck, 'getBoundingClientRect').mockReturnValue({ top: 829 });
+    const realComputedStyle = window.getComputedStyle.bind(window);
+    let transform = 'none';
+    vi.stubGlobal('getComputedStyle', (element, ...rest) =>
+        element === deck ? { transform } : realComputedStyle(element, ...rest));
+    try {
+        const settings = setupSettingsUI();
+        expect(localStorage.getItem('jc-shelf')).toBe('shown');
+        const root = document.getElementById('root');
+        const hud = document.getElementById('enhanced-hud');
+        const frame = () => [root.style.left, root.style.top, root.style.width, root.style.height,
+            hud.style.getPropertyValue('--cabinet-width'), document.body.style.getPropertyValue('--jc-deck-top')];
+        const normal = frame();
+        expect(document.body.style.getPropertyValue('--jc-deck-top')).toBe('829px');
+
+        document.body.classList.add('jc-shelf-receded');
+        rect.mockReturnValue({ top: 1054 }); // Tucked below the page.
+        transform = 'matrix(1, 0, 0, 1, -696, 225)';
+        settings.refreshLayout();
+        const receded = frame();
+        expect(parseFloat(root.style.width)).toBeGreaterThan(parseFloat(normal[2]) * 1.1);
+        expect(parseFloat(root.style.width) / parseFloat(root.style.height)).toBeCloseTo(4 / 3, 8);
+        expect(document.body.style.getPropertyValue('--jc-deck-top')).toBe('952px');
+
+        rect.mockReturnValue({ top: 807 }); // Peeking over the page.
+        transform = 'matrix(1, 0, 0, 1, -696, -22)';
+        settings.refreshLayout();
+        expect(frame()).toEqual(receded);
+
+        // Coming back: the shelf is still mid-slide when the layout is refreshed.
+        document.body.classList.remove('jc-shelf-receded');
+        rect.mockReturnValue({ top: 1054 });
+        transform = 'matrix(1, 0, 0, 1, -696, 225)';
+        settings.refreshLayout();
+        expect(frame()).toEqual(normal);
+    } finally {
+        document.body.classList.remove('jc-deck-visible', 'jc-shelf-receded');
+        rect.mockRestore();
+        vi.unstubAllGlobals();
+    }
+});
+
+it('keeps an existing shelf preference when seeding defaults and lists the B shortcut', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    localStorage.clear();
+    localStorage.setItem('jc-shelf', 'receded');
+    setupSettingsUI();
+    expect(localStorage.getItem('jc-shelf')).toBe('receded');
+    const keys = [...document.querySelectorAll('.settings-shortcut')].map((item) => item.querySelector('kbd').innerText);
+    expect(keys.filter((value) => value === 'B')).toHaveLength(1);
+});
+
+it('offers the Show TV tab choice among the everyday options and announces changes', () => {
+    document.body.innerHTML = '<div id="root"><canvas></canvas></div>';
+    localStorage.clear();
+    setupSettingsUI();
+    const control = document.querySelector('[data-setting="tv-tab"]');
+    expect(localStorage.getItem('jc-tv-tab')).toBe('shown');
+    expect(control.value).toBe('shown');
+    expect(control.labels[0].textContent).toBe('With the TV hidden:');
+    expect(control.closest('details')).toBeNull(); // Not tucked inside a disclosure.
+    const heard = vi.fn();
+    const listener = (event) => heard(event.detail);
+    window.addEventListener('johnny-tv-tab', listener);
+    control.value = 'hidden';
+    control.dispatchEvent(new Event('change'));
+    window.removeEventListener('johnny-tv-tab', listener);
+    expect(localStorage.getItem('jc-tv-tab')).toBe('hidden');
+    expect(heard).toHaveBeenCalledWith('hidden');
 });
