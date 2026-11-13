@@ -170,6 +170,18 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             text-decoration-style: wavy;
         }
 
+        #scene-flow-about { display: none; }
+        #scene-flow-modal.is-map-home #scene-flow-about { display: block; position: absolute; top: 10px; right: 62px; z-index: 6; }
+        #scene-flow-about summary { display: grid; place-items: center; width: 40px; height: 40px; box-sizing: border-box; list-style: none; cursor: pointer;
+            border: 2px solid #22553b; border-radius: 50%; background: #f2e2b8; color: #234e52; font: 700 20px/1 Georgia, serif; box-shadow: 0 2px 4px #5a431f55; }
+        #scene-flow-about summary::-webkit-details-marker { display: none; }
+        #scene-flow-about summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
+        .scene-flow-about-body { position: absolute; top: 48px; right: -50px; width: min(360px, calc(100vw - 48px)); box-sizing: border-box; padding: 12px 14px;
+            display: flex; flex-direction: column; gap: 7px; border: 2px solid #22553b; border-radius: 9px 5px; background: #fff9dc; color: #234e52;
+            box-shadow: 4px 6px #234e5244; font: 14px/1.45 'Trebuchet MS', Arial, sans-serif; }
+        .scene-flow-about-body p { margin: 0; }
+        .scene-flow-about-body p:last-of-type { padding-bottom: 8px; border-bottom: 2px dashed #a9c9b7; }
+
         .scene-flow-link:hover {
             color: #234e52;
         }
@@ -295,6 +307,17 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const header = document.createElement('header');
     header.className = 'scene-flow-header';
     header.appendChild(closeBtn);
+    // Shown on the map screen only: a small "About this map" box beside the close button.
+    const about = document.createElement('details');
+    about.id = 'scene-flow-about';
+    const aboutSummary = document.createElement('summary');
+    aboutSummary.textContent = '?';
+    aboutSummary.title = 'About this map';
+    aboutSummary.setAttribute('aria-label', 'About this map');
+    const aboutBody = document.createElement('div');
+    aboutBody.className = 'scene-flow-about-body';
+    about.append(aboutSummary, aboutBody);
+    header.appendChild(about);
     modal.appendChild(header);
 
     const title = document.createElement('h2');
@@ -579,7 +602,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,
         });
         body.appendChild(shell);
-        if (step.level !== 'detail' || !step.gag) return null;
+        if (step.level !== 'detail' || !step.gag) {
+            renderAbout(live.gag?.script);
+            return null;
+        }
 
         const detail = document.createElement('section');
         detail.className = 'scene-flow-matrix-detail';
@@ -598,31 +624,41 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         return detail;
     };
 
+    const linkTo = (href, text) => {
+        const link = document.createElement('a');
+        link.className = 'scene-flow-link';
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = text;
+        return link;
+    };
+    // The way into the reverse-engineering behind what is on screen. `adsName` is the script the
+    // diagram link is for; fillers such as a pause have none.
+    const sourceLinks = (adsName) => [
+        ...(/\.ADS$/.test(adsName ?? '') ? [linkTo(`${DOCS_BASE}/${adsName}.md`, `See every gag's full flow for ${adsName} (diagram)`)] : []),
+        linkTo(EXTRACTOR_URL, 'See the code that reads this straight from the original data'),
+        linkTo(METHODOLOGY_URL, 'How our reverse-engineering works'),
+    ];
     const renderLinks = (adsName) => {
         clear(links);
-        const docLink = document.createElement('a');
-        docLink.className = 'scene-flow-link';
-        docLink.href = `${DOCS_BASE}/${adsName}.md`;
-        docLink.target = '_blank';
-        docLink.rel = 'noopener';
-        docLink.textContent = `See every gag's full flow for ${adsName} (diagram)`;
-        links.appendChild(docLink);
-
-        const codeLink = document.createElement('a');
-        codeLink.className = 'scene-flow-link';
-        codeLink.href = EXTRACTOR_URL;
-        codeLink.target = '_blank';
-        codeLink.rel = 'noopener';
-        codeLink.textContent = 'See the code that reads this straight from the original data';
-        links.appendChild(codeLink);
-
-        const methodLink = document.createElement('a');
-        methodLink.className = 'scene-flow-link';
-        methodLink.href = METHODOLOGY_URL;
-        methodLink.target = '_blank';
-        methodLink.rel = 'noopener';
-        methodLink.textContent = 'How our reverse-engineering works';
-        links.appendChild(methodLink);
+        links.append(...sourceLinks(adsName));
+    };
+    // On the map those links live in the "About this map" box, with a few lines on how it works.
+    const renderAbout = (adsName) => {
+        clear(aboutBody);
+        const lines = [
+            'Pick a place on the island to see what happens there, or a flag for one of the eleven story days.',
+            'Picking a gag plays it straight away as a short visit. Nothing is saved unless you then choose Stay here.',
+            'The chips choose the time of day it plays at, and dim what cannot play then.',
+            'Shift-click a gag to see how it unfolds, scene by scene, instead of playing it.',
+        ];
+        for (const line of lines) {
+            const p = document.createElement('p');
+            p.textContent = line;
+            aboutBody.appendChild(p);
+        }
+        aboutBody.append(...sourceLinks(adsName));
     };
 
     // The gag view: one numbered step per condition ("after walk to bottle"),

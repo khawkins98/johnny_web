@@ -122,10 +122,16 @@ const placeButton = (id) => document.querySelector(`.island-map-place[data-place
 const flag = (day) => document.querySelector(`.island-map-day[data-focus="day:${day}"]`);
 // Open an everyday gag's scene screen from the map: its place, then (where a place holds
 // several) its card in the diary.
+// A plain click plays a gag; Shift-click opens its outline instead.
+const shiftClick = (node) => node.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
 const pickGag = (script, tagId) => {
     const card = () => document.querySelector(`[data-focus="card:${script}:${tagId}"]`);
-    if (!card()) placeButton(placeForGag({ script, tagId }).id).click();
-    card()?.click();
+    if (card()) return shiftClick(card());
+    const place = placeButton(placeForGag({ script, tagId }).id);
+    if (place.hasAttribute('aria-pressed')) {
+        place.click();
+        shiftClick(card());
+    } else shiftClick(place);
 };
 // Open a story day's scene screen: its flag, then the link in the diary.
 const pickDay = (day) => {
@@ -532,9 +538,18 @@ describe('scene-flow panel', () => {
             expect(document.getElementById('scene-flow-modal').classList.contains('is-map-home')).toBe(true);
             expect(timeChips('.island-beach .island-top')).toHaveLength(3);
             expect(document.querySelector('.island-diary-conditions').textContent).toMatch(/^Day sky · Beach: (low|high) tide$/);
-            placeButton('sandcastle').click();
+            shiftClick(placeButton('sandcastle'));
             expect(document.getElementById('scene-flow-modal').classList.contains('is-map-home')).toBe(false);
             document.querySelector('.story-steps-backrow button').click();
+            // The explainer and the links into the reverse-engineering sit in a box beside the close button.
+            const about = document.getElementById('scene-flow-about');
+            expect(about.querySelector('summary').getAttribute('aria-label')).toBe('About this map');
+            expect(Array.from(about.querySelectorAll('a'), (link) => link.textContent)).toEqual([
+                "See every gag's full flow for FISHING.ADS (diagram)",
+                'See the code that reads this straight from the original data',
+                'How our reverse-engineering works',
+            ]);
+            expect(about.querySelectorAll('p').length).toBeGreaterThan(0);
             // A view saved by an earlier version, when there was a list too, changes nothing.
             panel.destroy();
             localStorage.setItem('jc-timeline-view', 'list');
@@ -544,7 +559,7 @@ describe('scene-flow panel', () => {
             again.destroy();
         });
 
-        it('lists a place\'s gags beside the map, and goes straight to a place with one', () => {
+        it('lists a place\'s gags beside the map, plays a pick straight away, and keeps the outline on Shift-click', () => {
             const { panel, sequenceTools } = start();
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
 
@@ -560,11 +575,12 @@ describe('scene-flow panel', () => {
             expect(cards.map((card) => card.dataset.focus)).toEqual(
                 ['card:BUILDING.ADS:5', 'card:BUILDING.ADS:7', 'card:BUILDING.ADS:8', 'card:BUILDING.ADS:9']);
             expect(document.querySelector('.story-steps-hero')).toBeNull();
-            expect(sequenceTools.startRun).not.toHaveBeenCalled(); // The map only browses.
+            expect(sequenceTools.startRun).not.toHaveBeenCalled(); // Opening a place plays nothing.
 
-            // A gag from the panel opens the usual scene screen; coming back returns to the map,
-            // the same place still open and focus on that gag's card.
-            cards[2].click();
+            // Shift-click opens the gag's outline instead of playing it; coming back returns to the
+            // map, the same place still open and focus on that gag's entry.
+            expect(cards[2].title).toBe('Play this now. Shift-click to see how it unfolds.');
+            shiftClick(cards[2]);
             expect(document.querySelector('.story-steps-hero')).not.toBeNull();
             expect(timeChips('.story-steps-hero').map((chip) => chip.disabled)).toEqual([true, true, false]); // A night gag.
             document.querySelector('.story-steps-backrow button').click();
@@ -577,13 +593,21 @@ describe('scene-flow panel', () => {
             expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('false');
             expect(document.activeElement.dataset.focus).toBe('place:campfire');
 
-            // One thing happens at the sandcastle: no list, straight to it; back lands on the place.
-            placeButton('sandcastle').click();
-            expect(document.querySelector('.story-steps-hero')).not.toBeNull();
-            document.querySelector('.story-steps .story-steps-play').click();
-            expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', script: 'BUILDING.ADS', tagId: 1 }));
+            // A plain click on a gag plays it at once, at a time it can play at, and closes the panel.
+            placeButton('campfire').click();
+            document.querySelector('[data-focus="card:BUILDING.ADS:8"]').click(); // A night gag, picked in the early day.
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'preview', script: 'BUILDING.ADS', tagId: 8, storyDay: 2, band: 'night' });
+            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
             panel.open();
-            document.querySelector('[data-place="sandcastle"]').click();
+            placeButton('campfire').click(); // Close the place again.
+
+            // One thing happens at the sandcastle: no list, it plays; Shift-click opens its outline,
+            // and back lands on the place.
+            placeButton('sandcastle').click();
+            expect(document.querySelector('.story-steps-hero')).toBeNull();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', script: 'BUILDING.ADS', tagId: 1, band: 'early' }));
+            panel.open();
+            shiftClick(document.querySelector('[data-place="sandcastle"]'));
             document.querySelector('.story-steps-backrow button').click();
             expect(document.activeElement.dataset.focus).toBe('place:sandcastle');
             panel.destroy();
@@ -608,7 +632,6 @@ describe('scene-flow panel', () => {
 
             // A place picked now plays as day 7.
             placeButton('sandcastle').click();
-            document.querySelector('.story-steps .story-steps-play').click();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ script: 'BUILDING.ADS', tagId: 1, storyDay: 7 }));
 
             // Start the day: its story scene, at the time now.

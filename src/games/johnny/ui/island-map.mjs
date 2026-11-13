@@ -30,7 +30,7 @@ body #scene-flow-modal.is-map-home .scene-flow-header .scene-flow-close { top: 1
 body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 #scene-flow-modal.is-map-home #scene-flow-subtitle { display: none; }
 #scene-flow-modal.is-map-home .island-beach { border: 0; border-radius: 0; }
-#scene-flow-modal.is-map-home .island-top { padding-right: 52px; }
+#scene-flow-modal.is-map-home .island-top { padding-right: 100px; }
 #scene-flow-modal.is-map-home .scene-flow-story-shell { padding: 0; background: none; box-shadow: none; }
 #scene-flow-modal.is-map-home .story-steps { margin: 0; }
 #scene-flow-modal.is-map-home .scene-flow-links:empty { display: none; }
@@ -170,15 +170,22 @@ const sameGag = (a, b) => Boolean(a && b && a.script === b.script && a.tagId ===
  */
 export function renderIslandMap(root, {
     place: openId = null, day: pickedDay = null, filter = null, live, today, visit = [], visiting = null,
-    gagName, makeCard, onStep, onLive = () => {}, onGoBack = null, onStartDay = null, toolbar = null, conditions = '',
+    gagName, makeCard, onStep, onLive = () => {}, onGoBack = null, onStartDay = null, onPlay = null, toolbar = null, conditions = '',
 }) {
     const beach = el('div', 'island-beach');
     beach.style.setProperty('--island-beach', `url("${islandMapArt.beach}")`);
     beach.style.setProperty('--island-logbook', `url("${islandMapArt.logbook}")`);
 
     // Whatever is picked plays as the day chosen from its flag, else the day Johnny is on.
-    const pickGag = (gag, event) => onStep({ level: 'detail', gag, day: pickedDay ?? live.day },
+    const openGag = (gag, event) => onStep({ level: 'detail', gag, day: pickedDay ?? live.day },
         event?.currentTarget?.querySelector?.('canvas, img')?.getBoundingClientRect?.() ?? null);
+    // Picking a gag plays it, there and then. Its outline (how it unfolds, scene by scene) is one
+    // Shift-click away, and is where a pick lands if nothing can be played.
+    const pickGag = (gag, event) => {
+        if (onPlay && !event?.shiftKey && onPlay(gag, pickedDay ?? live.day) !== false) return;
+        openGag(gag, event);
+    };
+    const PLAY_HINT = 'Play this now. Shift-click to see how it unfolds.';
 
     // The story: eleven numbered flags planted in the sand above the map.
     const trail = storyTrail();
@@ -261,8 +268,9 @@ export function renderIslandMap(root, {
             `${entry.name}, ${many ? `${entry.gags.length} gags` : gagName(entry.gags[0])}${isLive ? ' (Johnny now)' : ''}${isOpen ? '' : ', nothing on at this time'}`);
         button.append(picture(entry.id, islandMapArt.places[entry.id]),
             el('span', 'island-map-name', `${entry.name}${many ? ` · ${entry.gags.length}` : ''}`));
-        // One thing happens here: go straight to it. Several: list them in the diary; pressing
-        // the open place again closes it.
+        // One thing happens here: play it. Several: list them in the diary; pressing the open
+        // place again closes it.
+        if (!many && onPlay) button.title = PLAY_HINT;
         button.addEventListener('click', (event) =>
             (many ? onStep({ place: open?.id === entry.id ? null : entry.id }) : pickGag(entry.gags[0], event)));
         map.appendChild(button);
@@ -320,6 +328,7 @@ export function renderIslandMap(root, {
             if (isLive) entry.dataset.role = 'live';
             entry.setAttribute('aria-label', `${gagName(gag)}${restriction ? `, ${restriction.toLowerCase()}` : ''}${gag.final ? ', ends a visit' : ''}${isLive ? ' (Johnny now)' : ''}`);
             if (notes.length) entry.appendChild(el('small', null, notes.join(' · ')));
+            if (onPlay) entry.title = PLAY_HINT;
             entry.addEventListener('click', (event) => pickGag(gag, event));
             if (filter && !bandsFor(gag).some((band) => band.id === filter)) entry.classList.add('is-dim');
             const item = el('li');
@@ -350,7 +359,7 @@ export function renderIslandMap(root, {
         const more = el('button', 'story-steps-link', 'How this scene unfolds ›');
         more.type = 'button';
         more.dataset.focus = 'day-detail';
-        more.addEventListener('click', (event) => pickGag(scene, event));
+        more.addEventListener('click', (event) => openGag(scene, event));
         const actions = el('div', 'story-steps-actions');
         actions.append(start, more);
         panel.append(actions, el('p', 'island-map-aside', `Anything else you pick on the map plays as day ${picked.day}.`), backToToday());

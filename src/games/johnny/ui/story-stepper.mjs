@@ -216,6 +216,10 @@ export function renderStoryStepper(host, {
             // whichever the scene can actually show.
             onStartDay: onPlayGag
                 ? (scene) => onPlayGag(scene, scene.keyDay, bandForGag(scene, filter?.id ?? live.band, live.band)) : null,
+            // A gag picked on the map plays at the filtered time, else the time now, whichever
+            // it can actually play at.
+            onPlay: onPlayGag
+                ? (gag, day) => onPlayGag(gag, day, bandForGag(gag, filter?.id ?? live.band, live.band)) : null,
             makeCard: (options) => cardButton({ ...options, faces }),
         });
         return root;
