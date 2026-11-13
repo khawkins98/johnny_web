@@ -14,9 +14,9 @@ https://<where the app is served>/?saver
 | --- | --- |
 | Start | Skips the title screen and enters Full view. |
 | Screen | Asks the browser to keep the display awake, so the system's own screensaver or display sleep does not cut in. Browsers without the Screen Wake Lock API, or that refuse it, still play. |
-| Pointer | Hidden after three seconds without moving, along with the Show TV tab and corner buttons. Moving it brings them back. |
+| Pointer | Hidden after three seconds without moving, along with the Show TV tab and corner buttons. Moving it brings them back, and Tab still reaches the Show TV tab. The pointer stays while Options or the Timeline is open. |
 | Game data | Uses the data already imported at that address. With none, the usual "add the game files" card appears; after the import the page reloads into the saver. |
-| Leaving | **Esc**, **F** or **H** returns to the ordinary app and takes `?saver` off the address. Moving the mouse does not leave: a page cannot close itself, so it would only bring the interface back at every bump. |
+| Leaving | **Esc**, **F**, **H** or the **Show TV** tab returns to the ordinary app and takes `?saver` off the address; so does **R** (Return to title). Moving the mouse does not leave: a page cannot close itself, so it would only bring the interface back at every bump. The other keys keep working without leaving: **Space** pauses, **S** opens Options, **T** the Timeline. |
 
 `?saver=off`, `?saver=0` and `?saver=false` are treated as an ordinary visit. A scene link can be combined with it: `?saver#stage=FISHING.ADS:3`.
 
@@ -24,7 +24,7 @@ https://<where the app is served>/?saver
 
 **Fullscreen.** A page may only go fullscreen in answer to a click or key press, so a bookmark opens a tab filled with the picture, with the browser's own bars still around it. Use the browser's fullscreen command (macOS: Control-Command-F) or a launcher, below.
 
-**Sound.** A page may only start audio after a click or key press. The title screen's Play button is that click on an ordinary visit. A saver link has none, so playback starts silent, and sound joins at the first click or key press if **Options → Sound** is on.
+**Sound.** A page may only start audio after a click or key press. The title screen's Play button is that click on an ordinary visit. A saver link has none, so playback starts silent, and sound joins at the first click or key press if **Options → Sound** is on. Browsers do not count Esc as that key press: after leaving with Esc, sound joins at the next one.
 
 ## Launchers
 

@@ -437,13 +437,16 @@ body.jc-deck-visible #scene-flow-cog {
     display: none;
 }
 /* Opened from a screensaver link (saver-mode.mjs): once the pointer rests, it and the
-   corner controls go, leaving only the picture. Moving the pointer brings them back. */
-body.jc-saver-idle,
-body.jc-saver-idle * {
+   corner controls go, leaving only the picture. Moving the pointer brings them back.
+   Options or the Timeline open on top keep the pointer: they are there to be read. */
+body.jc-saver-idle:not(:has(:is(#settings-overlay, #scene-flow-overlay)[aria-hidden='false'])),
+body.jc-saver-idle:not(:has(:is(#settings-overlay, #scene-flow-overlay)[aria-hidden='false'])) * {
     cursor: none !important;
 }
-body.jc-saver-idle :is(#jc-deck-restore-bar, #settings-cog, #scene-flow-cog) {
-    visibility: hidden;
+/* Faded, not removed: Tab can still reach a control, and one holding focus shows itself. */
+body.jc-saver-idle :is(#jc-deck-restore-bar, #settings-cog, #scene-flow-cog):not(:focus-within) {
+    opacity: 0;
+    pointer-events: none;
 }
 /* The notebook covers the cabinet's controls, not a second reserved column. */
 @media (max-height: 950px), (max-width: 1100px) {
