@@ -37,6 +37,16 @@ Below it, **how this gag unfolds** lists its steps in order: each condition ("Af
 
 See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.
 
+## Share or bookmark what is playing
+
+The address bar follows playback. As each gag starts, the part after `#` is rewritten to name it, for example:
+
+```text
+#stage=FISHING.ADS:3&day=2&mode=preview&time=early
+```
+
+Copy the address at any moment to bookmark or share that gag, story day and time of day. Opening the link, pressing Play, then plays that gag as a temporary visit: the visit notice offers **Go back** and **Stay here**, and nothing is saved unless you stay. Pasting a link into a page that is already playing does the same. Reloading the page also replays the gag in its address; remove the `#…` part to start from your saved place. Pauses between gags keep the last gag's link, and rewriting the address adds no browser-history entries.
+
 ## Browsing and playback clocks
 
 Places, flags, chips and the navigation links only browse: they never change the running scene, saved day, or clock. Picking a gag, the Play and Start buttons and **Go back** change playback; none of them saves anything. While you are visiting, **today** still marks your saved day, and no time of day is marked as “now”. Your place on the map and keyboard focus are kept when it redraws as Johnny moves on. On a scene's screen the line under the title shows the **playing day, sky and beach tide**; on the map the diary does.
