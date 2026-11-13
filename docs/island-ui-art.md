@@ -78,7 +78,7 @@ The [historical pixel study](ui-early-pixel-study.md) records the earlier `agy` 
 
 ## Generating artwork from the command line (2026-11-12)
 
-Recorded while testing art for a possible island map (a fold-out map with painted objects). Both installed agent CLIs were given the same two briefs, one run each: a map base, and a sheet of six small objects on a transparent background. Nothing from that test is in the repository yet; this section is the working recipe and the problems met, so the next person does not rediscover them.
+Recorded while making the Story timeline's island map (a fold-out map with painted objects, on a beach with a logbook). Both installed agent CLIs were first given the same two briefs, one run each: a map base, and a sheet of six small objects on a transparent background. The provisional artwork that followed is in [`island-map-art/`](../src/games/johnny/ui/island-map-art/), with its exact prompts in `prompts.json`. This section is the working recipe and the problems met, so the next person does not rediscover them.
 
 ### What worked: Codex
 
@@ -120,7 +120,10 @@ Codex returned a 1536×1024 map with fold creases and frayed edges, and a 2172×
 - **Object sheet: not usable as delivered.** It produced six separate images with opaque white backgrounds at about 220×320 each, then spent the rest of the ten-minute limit writing its own script to remove the backgrounds, and timed out (`DEADLINE_EXCEEDED`). The drawings themselves were fine.
 - The earlier Antigravity pass in this project (see the [historical pixel study](ui-early-pixel-study.md)) wrote SVG rectangles rather than raster paintings.
 
-One run each is a small sample. The split that follows from it: Codex for anything that needs transparency or must match existing objects; either tool for an opaque background plate.
+- **Run it one job at a time.** Four concept-art runs started together produced one image between them; the same four run one after another all finished, though one needed a third attempt.
+- **Concept art: good.** Asked for four whole-screen layout directions as opaque images, it gave four distinct, usable paintings to choose between. The beach layout of the island map follows one of them.
+
+The first comparison was one run each, a small sample. The split that held up through the rest of the work: Codex for anything that needs transparency or must match existing objects (the map's sixteen places, flags and props, and the beach and logbook plates); Antigravity for opaque concept art and background plates.
 
 ### Before promoting a candidate
 
