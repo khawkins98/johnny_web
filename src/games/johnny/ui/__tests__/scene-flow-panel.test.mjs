@@ -607,7 +607,12 @@ describe('scene-flow panel', () => {
             placeButton('sandcastle').click();
             expect(document.querySelector('.story-steps-hero')).toBeNull();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', script: 'BUILDING.ADS', tagId: 1, band: 'early' }));
-            panel.open();
+            // Go back on the visit notice returns to the gag that was interrupted and to the map.
+            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
+            document.getElementById('timeline-go-back').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
+            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('false');
+            expect(document.querySelector('.island-map')).not.toBeNull();
             shiftClick(document.querySelector('[data-place="sandcastle"]'));
             document.querySelector('.story-steps-backrow button').click();
             expect(document.activeElement.dataset.focus).toBe('place:sandcastle');
@@ -790,6 +795,8 @@ describe('scene-flow panel', () => {
         expect([...notice.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Go back', 'Stay here']);
         notice.querySelector('button').click();
         expect(startRun).toHaveBeenCalledWith({ mode: 'live' });
+        // This visit was not started from the Timeline, so going back leaves it closed.
+        expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
         publish({ storyDay: 5, band: null });
         expect(notice.hidden).toBe(true);
         publish({ storyDay: 5, band: 'night', night: true });

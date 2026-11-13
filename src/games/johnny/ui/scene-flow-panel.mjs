@@ -359,7 +359,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     returnLive.id = 'timeline-go-back';
     returnLive.textContent = 'Go back';
     returnLive.title = 'Return now to the day and gag you left. Nothing from this visit is saved.';
-    returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
+    // A visit started from the map: Go back then returns to the map as well as to the gag that
+    // was interrupted. A visit started elsewhere (the Log) leaves the Timeline closed.
+    let visitFromTimeline = false;
+    returnLive.onclick = () => {
+        const reopen = visitFromTimeline;
+        visitFromTimeline = false;
+        sequenceTools?.startRun?.({ mode: 'live' });
+        if (reopen) open();
+    };
     let temporaryStatus = null;
     const saveClock = document.createElement('button');
     saveClock.type = 'button';
@@ -412,6 +420,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             sequenceTools.startRun({
                 mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day, band,
             });
+            visitFromTimeline = true;
             close();
             return true;
         } catch {
@@ -429,6 +438,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         try {
             sequenceTools.startRun({ mode: 'preview-child', script, tagId: gagTag,
                 storyDay: day, band: step?.band, slot, childTag, route });
+            visitFromTimeline = true;
             close();
         } catch {
             onError?.();
@@ -977,6 +987,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // the unsubscribe handle (if the controller returns one) so destroy() can
     // detach it.
     const unsubscribeStatus = sequenceTools?.subscribeStatus?.((status) => {
+        // The visit is over (it ran out, or was kept with Stay here): nothing to come back from.
+        if (temporaryStatus?.band && !status?.band) visitFromTimeline = false;
         temporaryStatus = status;
         clockNotice.hidden = !status?.band;
         const band = bandById(status?.band);
