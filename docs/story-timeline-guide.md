@@ -1,25 +1,35 @@
 # Explore the story timeline
 
-The timeline has two screens: **pick what to watch**, then **what time of day**. It opens on a list of every scene: the 11 story scenes in day order, and the 40 everyday gags grouped by kind. A **Now** bar at the top shows the day, time of day and gag Johnny is on. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
+The timeline opens on a beach scene: a map of Johnny's island with the 40 everyday gags at sixteen places, eleven flags for the story days, and a diary showing the day, the time of day and the visit in progress. Picking a gag plays it straight away. You need to [import the original game data](../README.md#run-locally) before scenes, card pictures, and animation previews can appear.
 
 ## Open and close
 
-Press Play, then choose **Timeline** in the bottom toolbar or press `T`. With the toolbar hidden, moving the pointer also reveals the compass near the upper-left corner. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus. The Now bar's **How this gag works** link opens the gag Johnny is playing; from any other scene, **↖ Johnny now** does the same and **‹ All scenes** returns to the list.
+Press Play, then choose **Timeline** in the bottom toolbar or press `T`. With the toolbar hidden, moving the pointer also reveals the compass near the upper-left corner. Press `T` or `Esc`, or click **×**, to close the panel. The compass and Settings icons show their shortcuts on hover and keyboard focus. Shift-click the diary's circled entry to open the gag Johnny is playing; from any other scene, **↖ Johnny now** does the same and **‹ Back to the map** returns to the map.
 
 Card pictures are real frames, rendered in your browser from your own game data and kept there, so each one is made only once. Until a picture is ready, or when a gag shows nothing clear in its first 15 seconds, its card shows a pixel icon for its family of gags (fishing, building, visitors, Mary, Suzy, and so on).
 
-## The scene list
+## The island map
 
-Why a list rather than steps: the day changes only which story scene plays, and the time of day only matters for a dozen gags, so neither needs a screen of its own.
+The map lies on the sand with the flags planted above it and the diary, an open logbook, beside it. On a narrow screen the flags, the map and the diary stack in that order.
 
-- **Now** shows where Johnny is and, as one row of chips that scrolls sideways, the visit the game has planned in order, with the current gag highlighted. Single gags you play from the timeline are not part of the visit and are not listed. While you are on a temporary visit it reads **Visiting Day N · time** and offers **Go back**.
-- **The story** is one scene per day, 1 to 11. Playing a day's scene unlocks the next day. Today is marked.
-- **Things Johnny does** is the 40 gags that can turn up on any day, in the original's own groups under plainer names: Fishing, Around the island, Camp life, Visitors and coconuts, Out and about, Bottles, Odds and ends. Within a group the likeliest come first. A card says **Daytime only**, **Early day only** or **Night only** when a gag cannot play at every time; **☾** marks a gag that ends a visit.
-- The **Any time / Early day / Late day / Night** chips dim the gags that cannot play then. They do not hide or reorder anything. Each chip's tooltip gives the local clock times that band covers.
+The day changes only which story scene plays, and the time of day only matters for a dozen gags, so neither needs a screen of its own.
+
+- **The diary.** Today's page gives the day, the time of day, the sky and the beach tide, and lists the visit the game has planned as a handwritten checklist: ticked entries are done, the circled one is happening now, plain ones are still to come. Click an entry to play that gag now. Single gags you play from the timeline are not part of the visit and are not listed. Picking a place or a day turns the page to it, and **‹ Today's page** turns back. While you are on a temporary visit the page is headed **Visiting** and offers **Go back**.
+- **Places.** Sixteen painted objects, each named on the map, hold the 40 everyday gags. A number after a name is how many gags happen there. The place Johnny is at glows.
+- **Picking.** A place with several gags writes their names in the diary (beside the map on wide windows, under it otherwise) and moves focus there; pick one to play it now, or press the place again to close it. A place with one gag plays it directly. The Timeline closes and the gag plays as a temporary visit; **Go back** on the visit notice returns to the gag that was interrupted and reopens the map. It plays at the time of day chosen with the chips, or the time now, or else the first time of day it can play at. **Shift-click** a gag to open its scene screen instead, which shows how it unfolds. A small note under a name says **daytime only**, **early day only** or **night only** when a gag cannot play at every time, and **ends a visit** when it does.
+- **The story.** The eleven numbered flags in the sand above the map are the story days; they stand outside the map because days are not places on the island. Today's flag is orange, with footprints leading to it. Pressing a flag picks that day without leaving the map: the flag stays raised, a **Day N's story** marker appears on the island, and the diary shows the day's story scene and asks **Start this day from its story scene?** **▶ Start day N** plays that scene as a temporary visit (choose **Stay here** on the notice to carry on from that day); **How this scene unfolds** opens its scene screen. While a day is picked, anything else chosen on the map plays as that day. Press the flag again to let go of it.
+- **What a day changes.** Only two things differ from day to day: the day's one story scene, and how far the raft has been built (finished from day 6). All sixteen places are there every day, which is why picking a day adds a marker and does not remove anything.
+- **Time of day.** The **Any time / Early day / Late day / Night** chips dim places and gags with nothing on at that time and darken the map at night; three places (bottle beach, raft trips, shark waters) close at night. Nothing is hidden or reordered. Each chip's tooltip gives the local clock times that band covers.
+
+The map is sized to fit the window's height, so the whole island is on screen at once; when the window is too narrow for it, it keeps a readable size and scrolls sideways, and says so. Places are reached by keyboard in reading order, after the eleven days.
+
+The **?** button beside **×** opens a short explanation of the map, with links to the script diagram for the gag Johnny is playing, the code that reads it from the original data, and how the reverse-engineering works.
+
+Places are grouped by what happens in each gag, so they differ from the original's script files (the boat Johnny swims out to is with the visitors, not with the jog it shares a script file with), and they sit where it looks right on the map: the game's own data records where Johnny stands when a gag begins, not where the shark or the boat is. The artwork is provisional (see [issue #96](https://github.com/khawkins98/johnny_web/issues/96)).
 
 ## One scene
 
-Pick any card. The scene's card sits at the top with one question, **What time of day?** Times a gag cannot play at are crossed out, and the time now is chosen when it is allowed; the same time is used by every Play button and preview on the screen. The game's story clock counts half hours from the **Start Time** in Settings (9:00 by default, as in the original) and repeats every 8 hours; its last 2 hours are night. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day** and **night**. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) A story scene is not tied to the clock, because the game reaches it through a one-in-ten chance at the start of a visit that ignores it. So most story scenes offer all three times. Two exceptions follow what you would actually see: the date on day 5 always bakes the night sky, so only night is offered, and the scenes on days 3, 9, 10 and 11 are set away from the island, so the question is not asked.
+Shift-click any gag on the map or in the diary, or choose **How this scene unfolds** on a day. The scene's card sits at the top with one question, **What time of day?** Times a gag cannot play at are crossed out, and the time now is chosen when it is allowed; the same time is used by every Play button and preview on the screen. The game's story clock counts half hours from the **Start Time** in Settings (9:00 by default, as in the original) and repeats every 8 hours; its last 2 hours are night. Every gag's window starts and ends at the same points, so three bands cover them exactly: **early day**, **late day** and **night**. (The original calls these windows "tide", but high or low tide on the beach is a separate coin flip per visit.) A story scene is not tied to the clock, because the game reaches it through a one-in-ten chance at the start of a visit that ignores it. So most story scenes offer all three times. Two exceptions follow what you would actually see: the date on day 5 always bakes the night sky, so only night is offered, and the scenes on days 3, 9, 10 and 11 are set away from the island, so the question is not asked.
 
 **▶ Play this gag** (or **▶ Play this scene**) plays just that, now, at the chosen time, then goes back to where you were. To spend a whole visit on a story day, use **Visit this day** in the Log.
 
@@ -27,9 +37,19 @@ Below it, **how this gag unfolds** lists its steps in order: each condition ("Af
 
 See [Johnny's 11-day story](story-over-time.md) for day progression, or [Scene flows](scene-flows/README.md) for generated script diagrams.
 
+## Share or bookmark what is playing
+
+The address bar follows playback. As each gag starts, the part after `#` is rewritten to name it, for example:
+
+```text
+#stage=FISHING.ADS:3&day=2&mode=preview&time=early
+```
+
+Copy the address at any moment to bookmark or share that gag, story day and time of day. A link made during a whole visit from the Log says `mode=sequence` and reopens as a visit from that gag. Opening a link, pressing Play, then plays it as a temporary visit: the visit notice offers **Go back** and **Stay here**, and nothing is saved unless you stay. Pasting a link into a page that is already playing does the same. Reloading the page also replays the gag in its address; remove the `#…` part to start from your saved place. Pauses between gags keep the last gag's link, and rewriting the address adds no browser-history entries.
+
 ## Browsing and playback clocks
 
-Cards, chips and the navigation links only browse: they never change the running scene, saved day, or clock. Only the Play buttons and **Go back** change playback. While you are visiting, **today** still marks your saved day, and no time of day is marked as “now”. Your place in the list and keyboard focus are kept when the list redraws as Johnny moves on. The line under the title shows the **playing day, sky and beach tide**.
+Places, flags, chips and the navigation links only browse: they never change the running scene, saved day, or clock. Picking a gag, the Play and Start buttons and **Go back** change playback; none of them saves anything. While you are visiting, **today** still marks your saved day, and no time of day is marked as “now”. Your place on the map and keyboard focus are kept when it redraws as Johnny moves on. On a scene's screen the line under the title shows the **playing day, sky and beach tide**; on the map the diary does.
 
 ### Configure the clock
 
@@ -37,7 +57,7 @@ Settings labels **Story clock offset (Start Time)** as an offset of the original
 
 ### Play a selected day or preview
 
-**Play this gag**, **Play this scene**, **Play this scene now** and the Log's **Visit this day** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. These are temporary visits: neither the story day nor the clock is saved. A visit keeps its day and band through its final gag, then automatic playback returns to the saved day and configured clock. A single gag or scene preview keeps them only for that preview and then resumes the interrupted visit. Visits end on reload or return to the title screen.
+**Play this gag**, **Play this scene**, **Play this scene now** and the Log's **Visit this day** use the selected day and band for eligibility and sky, even with Live Local Clock. Night selects phase 12, early day phase 0, and late day phase 8. These are temporary visits: neither the story day nor the clock is saved. A visit keeps its day and band through its final gag, then automatic playback returns to the saved day and configured clock. A single gag or scene preview keeps them only for that preview and then resumes the interrupted visit. A visit ends on return to the title screen. A reload replays the gag named in the address (see [Share or bookmark what is playing](#share-or-bookmark-what-is-playing)).
 
 While visiting, a short notice says where you are (“Visiting Day 6 · Night”) and for how long (“Just this visit, then back to where you were.”, or “Just this gag…” for a single gag). It adds “This scene always plays at night.” only when a scene overrides a daytime choice. It offers two actions:
 

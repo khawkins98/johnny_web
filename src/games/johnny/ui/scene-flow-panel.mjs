@@ -22,6 +22,7 @@ import {
     extractSceneFlow,
 } from '../../../dgds/scripting/scene-flow.mjs';
 import { bandById, bandForGag, bandForPhase, gagFacts, visitSequence } from '../story-steps.mjs';
+import { placeForGag } from '../island-places.mjs';
 import { DEFAULT_START_TIME } from '../start-time.mjs';
 import { STEPPER_STYLE, renderStoryStepper } from './story-stepper.mjs';
 import { playStepEntrance, stepDirection } from './story-step-motion.mjs';
@@ -169,6 +170,18 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             text-decoration-style: wavy;
         }
 
+        #scene-flow-about { display: none; }
+        #scene-flow-modal.is-map-home #scene-flow-about { display: block; position: absolute; top: 10px; right: 62px; z-index: 6; }
+        #scene-flow-about summary { display: grid; place-items: center; width: 40px; height: 40px; box-sizing: border-box; list-style: none; cursor: pointer;
+            border: 2px solid #22553b; border-radius: 50%; background: #f2e2b8; color: #234e52; font: 700 20px/1 Georgia, serif; box-shadow: 0 2px 4px #5a431f55; }
+        #scene-flow-about summary::-webkit-details-marker { display: none; }
+        #scene-flow-about summary:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
+        .scene-flow-about-body { position: absolute; top: 48px; right: -50px; width: min(360px, calc(100vw - 48px)); box-sizing: border-box; padding: 12px 14px;
+            display: flex; flex-direction: column; gap: 7px; border: 2px solid #22553b; border-radius: 9px 5px; background: #fff9dc; color: #234e52;
+            box-shadow: 4px 6px #234e5244; font: 14px/1.45 'Trebuchet MS', Arial, sans-serif; }
+        .scene-flow-about-body p { margin: 0; }
+        .scene-flow-about-body p:last-of-type { padding-bottom: 8px; border-bottom: 2px dashed #a9c9b7; }
+
         .scene-flow-link:hover {
             color: #234e52;
         }
@@ -280,6 +293,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let isOpen = false;
     const close = () => {
         isOpen = false;
+        about.open = false;
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
@@ -294,6 +308,17 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const header = document.createElement('header');
     header.className = 'scene-flow-header';
     header.appendChild(closeBtn);
+    // Shown on the map screen only: a small "About this map" box beside the close button.
+    const about = document.createElement('details');
+    about.id = 'scene-flow-about';
+    const aboutSummary = document.createElement('summary');
+    aboutSummary.textContent = '?';
+    aboutSummary.title = 'About this map';
+    aboutSummary.setAttribute('aria-label', 'About this map');
+    const aboutBody = document.createElement('div');
+    aboutBody.className = 'scene-flow-about-body';
+    about.append(aboutSummary, aboutBody);
+    header.appendChild(about);
     modal.appendChild(header);
 
     const title = document.createElement('h2');
@@ -312,10 +337,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let mountedPreview = null;
     let previewGeneration = 0;
     let renderedGagId = null;
-    // `step` is where the viewer is: the scene list ('home') or one scene ('detail'), with the
+    // `step` is where the viewer is: the island map ('home') or one scene ('detail'), with the
     // chosen time of day. While `followLive` holds it tracks Johnny.
     let step = null;
-    // Where the scene list was scrolled to, so coming back from a scene returns there.
+    // Where the map screen was scrolled to, so coming back from a scene returns there.
     let homeScroll = 0;
     let stepperRoot = null;
     let faceQueue = null;
@@ -335,7 +360,31 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     returnLive.id = 'timeline-go-back';
     returnLive.textContent = 'Go back';
     returnLive.title = 'Return now to the day and gag you left. Nothing from this visit is saved.';
-    returnLive.onclick = () => sequenceTools?.startRun?.({ mode: 'live' });
+    // A visit started from the map: Go back then returns to the map as well as to the gag that
+    // was interrupted. A visit started elsewhere (the Log) leaves the Timeline closed.
+    let visitFromTimeline = false;
+    // What the map was showing when the pick was made, so coming back does not lose it.
+    let mapToResume = null;
+    // Go back was pressed before the interrupted gag is running again: open once it is.
+    let reopenWhenPlaying = false;
+    const reopenMap = () => {
+        reopenWhenPlaying = false;
+        const resume = mapToResume;
+        open();
+        if (!isOpen || !step || !resume) return;
+        Object.assign(step, resume);
+        renderCurrent();
+        focusKey(step.place ? `place:${step.place}` : step.mapDay ? `day:${step.mapDay}` : null);
+    };
+    returnLive.onclick = () => {
+        // Only a single gag picked in the Timeline: a whole visit comes from the Log.
+        const reopen = visitFromTimeline && Boolean(temporaryStatus?.preview);
+        visitFromTimeline = false;
+        sequenceTools?.startRun?.({ mode: 'live' });
+        if (!reopen) return;
+        if (sequenceTools?.status?.()?.active) reopenMap();
+        else reopenWhenPlaying = true;
+    };
     let temporaryStatus = null;
     const saveClock = document.createElement('button');
     saveClock.type = 'button';
@@ -369,14 +418,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         // the bands' clock times agree), else the stored setting, else 09:00.
         startTime: status?.startTime ?? sequenceTools?.getStartTime?.() ?? DEFAULT_START_TIME,
     });
-    // Keep the open screen on where Johnny is: the scene list tracks the day and time, and the
+    // Keep the open screen on where Johnny is: the map tracks the day and time, and the
     // scene screen (when it is showing the running gag) follows on to the next gag.
     const followLive = (status, level = step?.level ?? 'home') => {
         const live = liveSpot(status);
         step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day,
             // Always a time the gag can play at: the outline's Play button and preview use it too.
             band: live.gag ? bandForGag(live.gag, live.band, live.band) : live.band ?? 'early',
-            gag: live.gag, filter: step?.filter ?? null, followLive: true };
+            gag: live.gag, filter: step?.filter ?? null, place: step?.place ?? null, mapDay: step?.mapDay ?? null,
+            followLive: true };
     };
     const playGag = (gag, day, band) => {
         if (typeof sequenceTools?.startRun !== 'function') return false;
@@ -387,6 +437,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             sequenceTools.startRun({
                 mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day, band,
             });
+            visitFromTimeline = true;
+            mapToResume = step?.level === 'home' ? { filter: step.filter ?? null, place: step.place ?? null, mapDay: step.mapDay ?? null } : null;
             close();
             return true;
         } catch {
@@ -404,6 +456,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         try {
             sequenceTools.startRun({ mode: 'preview-child', script, tagId: gagTag,
                 storyDay: day, band: step?.band, slot, childTag, route });
+            visitFromTimeline = true;
             close();
         } catch {
             onError?.();
@@ -419,11 +472,21 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', (event) => {
+        // A click anywhere else puts the About box away.
+        if (about.open && !about.contains(event.target)) about.open = false;
         if (event.target === overlay) close();
     });
     // Named so destroy() can remove it (window listeners outlive the modal DOM).
     const onKeydown = (e) => {
-        if (e.key === 'Escape' && overlay.style.display === 'flex') close();
+        if (e.key === 'Escape' && overlay.style.display === 'flex') {
+            // Esc closes the About box first, and the Timeline only when it is already closed.
+            if (about.open) {
+                about.open = false;
+                aboutSummary.focus();
+                return;
+            }
+            close();
+        }
         if (e.key !== 't' && e.key !== 'T') return;
         if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
         if (e.target?.matches?.('input, select, textarea, [contenteditable="true"]')) return;
@@ -487,6 +550,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         mountedPreview?.destroy();
         mountedPreview = null;
         title.textContent = 'How it works';
+        modal.classList.remove('is-map-home');
         subtitle.textContent = '';
         clear(body);
         clear(links);
@@ -511,6 +575,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
         subtitle.textContent = clockDescription(status);
+        // The map is its own screen: a slim header, and the sky and tide go in the diary.
+        modal.classList.toggle('is-map-home', step.level !== 'detail' || !step.gag);
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
         faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
@@ -528,24 +594,38 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             today: status?.band ? (sequenceTools?.getStoryDay?.() ?? live.day) : live.day,
             nowBand: status?.band ? null : live.band,
             onGoBack: typeof sequenceTools?.startRun === 'function' ? () => sequenceTools.startRun({ mode: 'live' }) : null,
+            conditions: clockDescription(status).replace(/^Playing day \d+ · /, '').replace(/^./, (c) => c.toUpperCase()),
             gagName,
             faces: faceQueue,
             onStep: (patch, from = null) => {
                 const before = step.level;
                 const direction = stepDirection(before, patch.level ?? before);
                 const leaving = step.gag;
+                const lastPlace = step.place;
+                const lastDay = step.mapDay;
                 if (before === 'home') homeScroll = modal.scrollTop;
-                // The scene list always tracks where Johnny is; a picked scene stays put.
+                // The map always tracks where Johnny is; a picked scene stays put.
                 step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
                 if (patch.gag) step.gag = gagFacts(patch.gag);
                 // One resolved time of day for the Play button, the outline's Play and the preview.
                 if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
                 renderCurrent();
+                if (('place' in patch && patch.place) || ('mapDay' in patch && patch.mapDay)) {
+                    // Opening a place moves on to its list: the panel may be below the map or a
+                    // long way on in reading order.
+                    focusKey('place-panel');
+                    // Only where the diary is stacked under the map: beside it, scrolling would push the chips off the top.
+                    if (!window.matchMedia?.('(min-width: 1180px)')?.matches) modal.querySelector('.island-map-panel')?.scrollIntoView?.({ block: 'nearest' });
+                } else if ('mapDay' in patch) focusKey(`day:${lastDay ?? ''}`);
+                else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
                 if (step.level !== before) {
-                    // A new screen: the scene starts at its top; the list returns to where it was,
+                    // A new screen: the scene starts at its top; the map returns to where it was,
                     // with focus on the card that was open.
                     modal.scrollTop = step.level === 'home' ? homeScroll : 0;
-                    focusKey(step.level === 'home' && leaving ? `card:${leaving.script}:${leaving.tagId}` : 'back');
+                    if (step.level === 'home' && leaving) {
+                        focusKey(`card:${leaving.script}:${leaving.tagId}`,
+                            leaving.keyDay ? `day:${leaving.keyDay}` : `place:${placeForGag(leaving)?.id}`);
+                    } else focusKey('back');
                 }
                 playStepEntrance(stepperRoot, { direction, from });
             },
@@ -561,7 +641,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             onPlayGag: typeof sequenceTools?.startRun === 'function' ? playGag : null,
         });
         body.appendChild(shell);
-        if (step.level !== 'detail' || !step.gag) return null;
+        if (step.level !== 'detail' || !step.gag) {
+            renderAbout(live.gag?.script);
+            return null;
+        }
 
         const detail = document.createElement('section');
         detail.className = 'scene-flow-matrix-detail';
@@ -580,31 +663,41 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         return detail;
     };
 
+    const linkTo = (href, text) => {
+        const link = document.createElement('a');
+        link.className = 'scene-flow-link';
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = text;
+        return link;
+    };
+    // The way into the reverse-engineering behind what is on screen. `adsName` is the script the
+    // diagram link is for; fillers such as a pause have none.
+    const sourceLinks = (adsName) => [
+        ...(/\.ADS$/.test(adsName ?? '') ? [linkTo(`${DOCS_BASE}/${adsName}.md`, `See every gag's full flow for ${adsName} (diagram)`)] : []),
+        linkTo(EXTRACTOR_URL, 'See the code that reads this straight from the original data'),
+        linkTo(METHODOLOGY_URL, 'How our reverse-engineering works'),
+    ];
     const renderLinks = (adsName) => {
         clear(links);
-        const docLink = document.createElement('a');
-        docLink.className = 'scene-flow-link';
-        docLink.href = `${DOCS_BASE}/${adsName}.md`;
-        docLink.target = '_blank';
-        docLink.rel = 'noopener';
-        docLink.textContent = `See every gag's full flow for ${adsName} (diagram)`;
-        links.appendChild(docLink);
-
-        const codeLink = document.createElement('a');
-        codeLink.className = 'scene-flow-link';
-        codeLink.href = EXTRACTOR_URL;
-        codeLink.target = '_blank';
-        codeLink.rel = 'noopener';
-        codeLink.textContent = 'See the code that reads this straight from the original data';
-        links.appendChild(codeLink);
-
-        const methodLink = document.createElement('a');
-        methodLink.className = 'scene-flow-link';
-        methodLink.href = METHODOLOGY_URL;
-        methodLink.target = '_blank';
-        methodLink.rel = 'noopener';
-        methodLink.textContent = 'How our reverse-engineering works';
-        links.appendChild(methodLink);
+        links.append(...sourceLinks(adsName));
+    };
+    // On the map those links live in the "About this map" box, with a few lines on how it works.
+    const renderAbout = (adsName) => {
+        clear(aboutBody);
+        const lines = [
+            'Pick a place on the island to see what happens there, or a flag for one of the eleven story days.',
+            'Picking a gag plays it straight away as a short visit. Nothing is saved unless you then choose Stay here.',
+            'The chips choose the time of day it plays at, and dim what cannot play then.',
+            'Shift-click a gag to see how it unfolds, scene by scene, instead of playing it.',
+        ];
+        for (const line of lines) {
+            const p = document.createElement('p');
+            p.textContent = line;
+            aboutBody.appendChild(p);
+        }
+        aboutBody.append(...sourceLinks(adsName));
     };
 
     // The gag view: one numbered step per condition ("after walk to bottle"),
@@ -827,10 +920,15 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     };
 
     // Controls carry a data-focus key so focus survives the redraws that live updates cause.
-    const focusKey = (key) => {
-        if (!key) return;
-        Array.from(modal.querySelectorAll('[data-focus]')).find((node) => node.dataset.focus === key && !node.disabled)
-            ?.focus({ preventScroll: true });
+    const focusKey = (...keys) => {
+        // The first key that is on screen wins: a card in the list is a place or a day on the map.
+        for (const key of keys) {
+            const node = key && Array.from(modal.querySelectorAll('[data-focus]')).find((item) => item.dataset.focus === key && !item.disabled);
+            if (node) {
+                node.focus({ preventScroll: true });
+                return;
+            }
+        }
     };
     const renderCurrent = () => {
         const held = modal.contains(document.activeElement) ? document.activeElement.dataset?.focus : null;
@@ -903,6 +1001,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (isOpen || document.querySelector('#settings-overlay[aria-hidden="false"]')) return;
         isOpen = true;
         step = null;
+        // Opened afresh: what an earlier pick left on the map is no longer wanted.
+        mapToResume = null;
         renderedGagId = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         releaseBackground = isolateDialog(overlay);
@@ -918,6 +1018,11 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // the unsubscribe handle (if the controller returns one) so destroy() can
     // detach it.
     const unsubscribeStatus = sequenceTools?.subscribeStatus?.((status) => {
+        // The visit is over (it ran out, or was kept with Stay here): nothing to come back from.
+        if (temporaryStatus?.band && !status?.band) visitFromTimeline = false;
+        // A whole visit is running: that came from the Log, whatever was picked before it.
+        if (status?.band && !status.preview) visitFromTimeline = false;
+        if (reopenWhenPlaying && status?.active && !status.band) queueMicrotask(reopenMap);
         temporaryStatus = status;
         clockNotice.hidden = !status?.band;
         const band = bandById(status?.band);

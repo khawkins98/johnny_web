@@ -105,10 +105,65 @@
                 color: #2b5a8b;
                 text-decoration: underline;
             }
+            /* The loading cover: on screen from the first paint, before any stylesheet or
+               script, and lifted by ui/loading-screen.mjs once the title screen is whole. */
+            #jc-loading {
+                position: fixed;
+                inset: 0;
+                z-index: 2147483000;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 14px;
+                background: #a9d7d9;
+                color: #234e52;
+                font: 700 15px/1.3 'Trebuchet MS', Arial, sans-serif;
+                letter-spacing: 0.04em;
+                transition: opacity 0.26s ease;
+            }
+            #jc-loading.is-done {
+                opacity: 0;
+                pointer-events: none;
+            }
+            .jc-loading-bar {
+                width: min(220px, 60vw);
+                height: 14px;
+                box-sizing: border-box;
+                border: 2px solid #22553b;
+                border-radius: 8px 5px;
+                background: #fff9dc;
+                overflow: hidden;
+            }
+            .jc-loading-bar::before {
+                content: '';
+                display: block;
+                width: var(--jc-loading-progress, 6%);
+                height: 100%;
+                background: #e99a32;
+                transition: width 0.3s ease;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #jc-loading,
+                .jc-loading-bar::before {
+                    transition: none;
+                }
+            }
         </style>
     </head>
     <body>
-        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <noscript><style>#jc-loading { display: none; }</style>You need to enable JavaScript to run this app.</noscript>
+        <!-- Runs without the app: if its script never loads or fails, the cover must still lift. -->
+        <script>
+            setTimeout(function () {
+                var cover = document.getElementById('jc-loading');
+                if (cover) cover.remove();
+            }, 12000);
+        </script>
+        <div id="jc-loading" role="status">
+            <span>Loading Johnny Castaway…</span>
+            <div class="jc-loading-bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+        </div>
 
         <div id="root" class="background">
             <canvas id="mainCanvas" width="640" height="480" style="position: absolute; z-index: 0"></canvas>
