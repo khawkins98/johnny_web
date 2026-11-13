@@ -11,7 +11,8 @@
  * stalled download can never leave the page blank:
  *   - the title-screen artwork has downloaded and decoded
  *   - the bundled fonts are ready
- *   - the app has shown the title screen, or the "add the game files" card
+ *   - the app has shown the title screen or the "add the game files" card, or has gone
+ *     straight to playing (a screensaver link has no title screen)
  */
 import cabinet from './island-art/cabinet.png';
 import shelf from './island-art/shelf.png';
@@ -30,16 +31,24 @@ const decode = (url) => new Promise((resolve) => {
     image.src = url;
 });
 
-/** Resolves once the title screen or the missing-data card is showing. */
+/** Fired on `window` each time playback begins. */
+export const PLAYING_EVENT = 'johnny-playing';
+
+/** Resolves once the title screen or the missing-data card is showing, or playback has begun. */
 const screenShown = (doc) => new Promise((resolve) => {
     const targets = [doc.getElementById('start-overlay'), doc.getElementById('data-error')].filter(Boolean);
     const shown = () => targets.some((node) => node.classList.contains('visible'));
     if (!targets.length || shown()) return resolve();
-    const observer = new MutationObserver(() => {
-        if (!shown()) return;
+    const view = doc.defaultView;
+    const done = () => {
         observer.disconnect();
+        view?.removeEventListener(PLAYING_EVENT, done);
         resolve();
+    };
+    const observer = new MutationObserver(() => {
+        if (shown()) done();
     });
+    view?.addEventListener(PLAYING_EVENT, done);
     for (const node of targets) observer.observe(node, { attributes: true, attributeFilter: ['class'] });
 });
 

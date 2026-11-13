@@ -102,6 +102,20 @@ describe('settings UI', () => {
         expect(document.getElementById('settings-overlay').getAttribute('aria-hidden')).toBe('true');
     });
 
+    it('offers a screensaver link to drag out, among the everyday options', () => {
+        window.history.replaceState(null, '', '/?reset#stage=FISHING.ADS:3');
+        setupSettingsUI();
+        const link = document.querySelector('a[data-setting="saver-link"]');
+        expect(link.href).toBe(`${window.location.origin}/?saver`);
+        expect(link.draggable).toBe(true);
+        // The dragged bookmark or desktop file is named after the link's text.
+        expect(link.textContent).toBe('Johnny Castaway screensaver');
+        expect(document.getElementById(link.getAttribute('aria-describedby')).textContent).toMatch(/desktop or bookmarks bar/);
+        expect(link.closest('details')).toBeNull();
+        expect(link.closest('section').getAttribute('aria-label')).toBe('Everyday options');
+        window.history.replaceState(null, '', '/');
+    });
+
     it('reveals a temporary settings cog on mouse movement', () => {
         vi.useFakeTimers();
         setupSettingsUI();

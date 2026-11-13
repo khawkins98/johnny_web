@@ -93,6 +93,28 @@ body #settings-modal :is(button, select, input[type='text']) {
 body #settings-modal :is(select, button):hover {
     background-color: #f6e2ae;
 }
+/* A link meant to be dragged out of the page: dashed like a cut-out, with a grab pointer. */
+body #settings-modal .settings-saver-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 12px;
+    box-sizing: border-box;
+    font: 14px/1.2 var(--island-body-font);
+    color: var(--island-ink);
+    text-decoration: none;
+    border: 1px dashed var(--island-green);
+    border-radius: 4px;
+    background-color: var(--island-paper);
+    cursor: grab;
+}
+body #settings-modal .settings-saver-link:hover {
+    background-color: #f6e2ae;
+}
+body #settings-modal .settings-saver-link:focus-visible {
+    outline: 2px solid var(--island-action);
+    outline-offset: 2px;
+}
 body #settings-modal .settings-help,
 body #settings-modal .johnny-crt p {
     font-size: 13px;

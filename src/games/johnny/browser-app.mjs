@@ -11,6 +11,8 @@ import { runJohnnySequenceTransition } from './ui/transitions.mjs';
 import { runJohnnyWalk, runJohnnyPose } from './walking.mjs';
 import { createJohnnySelectionPresenter } from './island-presenter.mjs';
 import { bandForGag, gagFacts } from './story-steps.mjs';
+import { setupSaverMode } from './ui/saver-mode.mjs';
+import { PLAYING_EVENT } from './ui/loading-screen.mjs';
 
 // A time of day asked for from outside (a shared link, a pasted hash) may be one this gag cannot
 // play at, or not a time at all. Whatever the route, the story only ever gets one it can show.
@@ -19,10 +21,18 @@ const withPlayableBand = (script, tagId, options) =>
 
 export const runJohnnyCastaway = () => {
     const story = createJohnnyStoryController();
+    // A `?saver` link: no title screen, straight to Full view (docs/screensaver-mode.md).
+    const saver = setupSaverMode();
     return runBrowserPresentation({
         game: johnnyCastaway,
         setupDebugUI,
-        setupEnhancedUI,
+        setupEnhancedUI: (options) => {
+            const ui = setupEnhancedUI(options);
+            window.dispatchEvent(new Event(PLAYING_EVENT));
+            if (saver.armed) window.dispatchEvent(new Event('johnny-full-view'));
+            return ui;
+        },
+        autoStart: () => saver.armed,
         setupSettingsUI,
         // The Timeline, plus the address bar following what is playing (same story tools).
         setupSceneFlowUI: (options) => {

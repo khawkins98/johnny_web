@@ -12,7 +12,7 @@ Press **Play** to show the painted Island TV cabinet and playback shelf. Play ke
 | Upper coconut dial | Cycle picture looks, including saved Creative presets. |
 | Timeline / `T` | Open the [story browser and scene previews](story-timeline-guide.md). |
 | Options / `S` | Open settings. |
-| Full view / `F` | Fill the page with the screensaver. |
+| Full view / `F` | Fill the page with the screensaver. A link ending in `?saver` opens straight into it: see [Screensaver mode](screensaver-mode.md). |
 | Hide TV / `H` | Hide or restore the cabinet and toolbar. |
 | Hide shelf / `B` | Tuck the shelf below the page edge so the TV can use its height; the cabinet stays. |
 | Log | Open day/gag navigation and session statistics. |

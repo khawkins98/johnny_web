@@ -7,6 +7,7 @@ import { islandLayout, shelfTopFor, titleScale, halfStepScale, deviceStepScale, 
 import { setupCrtSettings } from './crt/settings.mjs';
 import { diagnostics } from '../../../dgds/scripting/diagnostics.mjs';
 import { iconTooltipCss, labelIconShortcut } from './icon-tooltip.mjs';
+import { saverLinkFor } from './saver-mode.mjs';
 import {
     DEFAULT_START_TIME,
     dropLegacyStartTime,
@@ -569,6 +570,29 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     fullscreenRow.appendChild(fullscreenBtn);
     modal.appendChild(fullscreenRow);
 
+    // A link that opens the app as a screensaver: no title screen, straight to Full view.
+    // Dragged out of the page it becomes a bookmark, or a file on the desktop to double-click,
+    // named after its text.
+    const saverRow = document.createElement('div');
+    saverRow.className = 'settings-row settings-saver-row';
+    const saverLabel = document.createElement('span');
+    saverLabel.textContent = 'Screensaver link:';
+    const saverLink = document.createElement('a');
+    saverLink.className = 'settings-saver-link';
+    saverLink.dataset.setting = 'saver-link';
+    saverLink.href = saverLinkFor(window.location);
+    saverLink.textContent = 'Johnny Castaway screensaver';
+    saverLink.draggable = true;
+    saverLink.addEventListener('dragstart', () => recordSetting('saver-link', 'dragged'));
+    const saverHelp = document.createElement('p');
+    saverHelp.className = 'settings-help';
+    saverHelp.id = 'jc-setting-saver-help';
+    saverHelp.textContent =
+        'Drag this to your desktop or bookmarks bar. Opening it skips the title screen and fills the page with the screensaver; press Esc to leave.';
+    saverLink.setAttribute('aria-describedby', saverHelp.id);
+    saverRow.append(saverLabel, saverLink);
+    modal.append(saverRow, saverHelp);
+
     // Persistent sound compatibility setting. The AudioManager may not exist
     // yet when Settings opens on the intro screen.
     const audioRow = document.createElement('div');
@@ -937,7 +961,7 @@ export function setupSettingsUI({ getAudioManager = () => null, onRestart = () =
     // Everyday choices first. Technical controls remain available without dominating.
     const essentials = document.createElement('section');
     essentials.setAttribute('aria-label', 'Everyday options');
-    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow, tvTabRow);
+    essentials.append(modal.querySelector('.johnny-picture'), audioRow, timeRow, fullscreenRow, saverRow, saverHelp, tvTabRow);
     modal.insertBefore(essentials, scaleRow);
     disclose('settings-fine-tuning', 'Picture & clock fine tuning', scaleRow, cloudsRow, wavesRow, startRow, startHelp);
     const crtDetails = modal.querySelector('.johnny-crt');
