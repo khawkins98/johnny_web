@@ -305,6 +305,19 @@ export function setupEnhancedUI({
         if (shelfPeeking && !onShelf(event.target)) setShelfPeek(false);
     };
     document.addEventListener('pointerdown', onOutsidePointerDown, true);
+    // Scrolling down is the first thing people try to bring a tucked shelf up, and the page has
+    // nothing to scroll. So the wheel (or a two-finger scroll) raises it and holds it there;
+    // scrolling up, a click elsewhere or Esc tucks it again. Panels that scroll keep the wheel.
+    const onShelfWheel = (event) => {
+        if (!shelfReceded || !hudVisible || event.ctrlKey || Math.abs(event.deltaY) < 4) return;
+        if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+        if (event.target?.closest?.('#settings-overlay, #scene-flow-overlay, #jc-log, [role="dialog"]')) return;
+        if (event.deltaY > 0) {
+            setShelfPeek(true);
+            peekPinned = shelfPeeking;
+        } else if (shelfPeeking && !pointerOnShelf) setShelfPeek(false, { moveFocus: false });
+    };
+    window.addEventListener('wheel', onShelfWheel, { passive: true });
     const onFullView = () => setFullView(true);
     window.addEventListener('johnny-full-view', onFullView);
     const logButton = button('jc-deck-log', 'Log', 'rail', () => setRailOpen(!railOpen));
@@ -657,6 +670,7 @@ export function setupEnhancedUI({
         clearTimeout(osdTimer);
         clearTimeout(peekTimer);
         document.removeEventListener('pointerdown', onOutsidePointerDown, true);
+        window.removeEventListener('wheel', onShelfWheel);
         pauseOverlay.remove();
         osd.remove();
         window.removeEventListener('johnny-full-view', onFullView);

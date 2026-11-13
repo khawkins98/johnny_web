@@ -496,6 +496,33 @@ describe('receding shelf', () => {
         expect(peeking()).toBe(true);
     });
 
+    it('raises a tucked shelf when you scroll down, and tucks it when you scroll up', () => {
+        localStorage.setItem(SHELF_SETTING_KEY, 'receded');
+        start();
+        const peeking = () => ui.hud.classList.contains('is-shelf-peeking');
+        const wheel = (deltaY, target = document.body, init = {}) =>
+            target.dispatchEvent(new WheelEvent('wheel', { deltaY, bubbles: true, ...init }));
+        wheel(1); // Too slight to mean anything.
+        expect(peeking()).toBe(false);
+        wheel(60, document.body, { ctrlKey: true }); // A pinch-zoom.
+        expect(peeking()).toBe(false);
+        wheel(60);
+        expect(peeking()).toBe(true);
+        wheel(-60);
+        expect(peeking()).toBe(false);
+        // A panel that scrolls keeps the wheel to itself.
+        const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        document.body.appendChild(dialog);
+        wheel(60, dialog);
+        expect(peeking()).toBe(false);
+        dialog.remove();
+        // With the shelf showing normally there is nothing to raise.
+        key('b');
+        wheel(60);
+        expect(peeking()).toBe(false);
+    });
+
     it('ignores key repeat on B', () => {
         start();
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', repeat: true, bubbles: true, cancelable: true }));
