@@ -436,6 +436,15 @@ body.jc-deck-visible #settings-cog,
 body.jc-deck-visible #scene-flow-cog {
     display: none;
 }
+/* Opened from a screensaver link (saver-mode.mjs): once the pointer rests, it and the
+   corner controls go, leaving only the picture. Moving the pointer brings them back. */
+body.jc-saver-idle,
+body.jc-saver-idle * {
+    cursor: none !important;
+}
+body.jc-saver-idle :is(#jc-deck-restore-bar, #settings-cog, #scene-flow-cog) {
+    visibility: hidden;
+}
 /* The notebook covers the cabinet's controls, not a second reserved column. */
 @media (max-height: 950px), (max-width: 1100px) {
     #jc-log {

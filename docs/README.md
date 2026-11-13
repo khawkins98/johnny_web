@@ -10,6 +10,7 @@ Start with the [project setup](../README.md#run-locally) to run Johnny, or [Cont
 | Browse a day/time, preview a gag or return to the live clock | [Story timeline](story-timeline-guide.md) |
 | Understand saved progress and the 11-day story | [Story progression](story-over-time.md) |
 | Choose picture models, save presets or troubleshoot CRT fallback | [CRT picture](optional-crt.md) |
+| Open Johnny as a screensaver from a bookmark, desktop link or launcher | [Screensaver mode](screensaver-mode.md) |
 
 ## Develop and investigate
 

@@ -53,6 +53,7 @@ export const runBrowserPresentation = async ({
     configureStoryRandom = () => {},
     debugThemes = null,
     debugSequence = null,
+    autoStart = () => false,
 }) => {
     if (!game) throw new TypeError('Bottle browser host requires a game package');
     if (typeof setupSettingsUI !== 'function') {
@@ -186,6 +187,8 @@ export const runBrowserPresentation = async ({
     });
 
     const context = document.getElementById('canvas').getContext('2d');
+    // Only the first arrival can skip the title screen; "Return to title" always shows it.
+    let autoStartPending = true;
     while (true) {
         context.clearRect(0, 0, 640, 480);
         mainContext.clearRect(0, 0, 640, 480);
@@ -206,7 +209,9 @@ export const runBrowserPresentation = async ({
             game,
             soundSettingKey,
             archiveBuffer: sndBuf,
+            autoStart: autoStartPending && Boolean(autoStart()),
         });
+        autoStartPending = false;
         audioManager = start.audioManager;
         enhancedUI?.destroy();
         enhancedUI = setupEnhancedUI({
@@ -381,9 +386,31 @@ const requireBrowserPresentationPackage = (game, soundSettingKey) => {
  * Show the start overlay and resolve with a fresh AudioManager once the user
  * clicks. AudioContext must be constructed synchronously inside the click
  * handler — creating it after an await loses the user-activation context.
+ *
+ * With `autoStart` there is no overlay and no click, so the browser keeps the
+ * new AudioContext suspended: playback begins silent and sound joins at the
+ * first click or key press.
  */
-function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey, archiveBuffer }) {
+export function waitForStart({ settings, existingAudioManager = null, game, soundSettingKey, archiveBuffer, autoStart = false }) {
     return new Promise((resolve) => {
+        const audioManagerForStart = () => {
+            const nextAudioManager =
+                existingAudioManager ||
+                createAudioManager({
+                    soundFxVolume: 0.5,
+                    enabled: localStorage.getItem(soundSettingKey) !== 'off',
+                    sampleCatalog: game.audio,
+                    archiveBuffer,
+                });
+            nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
+            return nextAudioManager;
+        };
+        if (autoStart) {
+            const audioManager = audioManagerForStart();
+            resumeAudioOnFirstGesture(audioManager);
+            resolve({ audioManager });
+            return;
+        }
         const overlay = document.getElementById('start-overlay');
         const playBtn = document.getElementById('start-play-btn');
         const pictureBtn = document.getElementById('start-picture-btn');
@@ -408,22 +435,31 @@ function waitForStart({ settings, existingAudioManager = null, game, soundSettin
             helpBtn.removeEventListener('click', toggleHelp);
             overlay.classList.remove('visible');
             settings.refreshLayout?.();
-            const nextAudioManager =
-                existingAudioManager ||
-                createAudioManager({
-                    soundFxVolume: 0.5,
-                    enabled: localStorage.getItem(soundSettingKey) !== 'off',
-                    sampleCatalog: game.audio,
-                    archiveBuffer,
-                });
-            nextAudioManager.setEnabled(localStorage.getItem(soundSettingKey) !== 'off');
             resolve({
-                audioManager: nextAudioManager,
+                audioManager: audioManagerForStart(),
             });
         };
         playBtn.addEventListener('click', start);
         pictureBtn.addEventListener('click', start);
     });
+}
+
+/**
+ * An AudioContext made without a click stays suspended until the page is interacted
+ * with. Resume it at the first click or key press, dropping any sample queued while it
+ * was silent so an old sound does not play late.
+ */
+function resumeAudioOnFirstGesture(audioManager) {
+    if (audioManager?.context?.state !== 'suspended') return;
+    const resume = () => {
+        window.removeEventListener('pointerdown', resume, true);
+        window.removeEventListener('keydown', resume, true);
+        if (audioManager.context.state !== 'suspended') return;
+        audioManager.stopAll?.();
+        Promise.resolve(audioManager.context.resume?.()).catch(() => {});
+    };
+    window.addEventListener('pointerdown', resume, true);
+    window.addEventListener('keydown', resume, true);
 }
 
 function showDataError(game, missing, detail) {
