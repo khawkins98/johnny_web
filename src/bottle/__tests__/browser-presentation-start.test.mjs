@@ -11,11 +11,15 @@ const page = () => {
         </div>`;
     return document.getElementById('start-overlay');
 };
-const manager = (state) => ({
-    context: { state, resume: vi.fn(async () => {}) },
-    setEnabled: vi.fn(),
-    stopAll: vi.fn(),
-});
+/** `allowed: false` is a browser refusing to start audio: resume() settles nothing. */
+const manager = (state, { allowed = true } = {}) => {
+    const context = {
+        state,
+        allowed,
+        resume: vi.fn(async () => { if (context.allowed) context.state = 'running'; }),
+    };
+    return { context, setEnabled: vi.fn(), stopAll: vi.fn() };
+};
 const options = (audioManager, extra = {}) => ({
     settings: { open: vi.fn(), refreshLayout: vi.fn() },
     existingAudioManager: audioManager,
@@ -66,6 +70,28 @@ describe('starting playback', () => {
         window.dispatchEvent(new Event('keydown'));
         expect(audioManager.stopAll).toHaveBeenCalledTimes(1);
         expect(audioManager.context.resume).toHaveBeenCalledTimes(1);
+    });
+
+    it('auto-start keeps trying when the first key press cannot start audio, as Esc cannot', async () => {
+        page();
+        const audioManager = manager('suspended', { allowed: false });
+        await waitForStart(options(audioManager, { autoStart: true }));
+
+        // Esc leaves saver mode but is not an interaction the browser accepts for audio.
+        window.dispatchEvent(new Event('keydown'));
+        await Promise.resolve();
+        expect(audioManager.context.resume).toHaveBeenCalledTimes(1);
+        expect(audioManager.context.state).toBe('suspended');
+
+        audioManager.context.allowed = true;
+        window.dispatchEvent(new Event('pointerdown'));
+        await Promise.resolve();
+        expect(audioManager.context.resume).toHaveBeenCalledTimes(2);
+        expect(audioManager.context.state).toBe('running');
+
+        window.dispatchEvent(new Event('pointerdown'));
+        expect(audioManager.context.resume).toHaveBeenCalledTimes(2);
+        expect(audioManager.stopAll).toHaveBeenCalledTimes(2);
     });
 
     it('auto-start leaves audio alone when the browser already allows it', async () => {

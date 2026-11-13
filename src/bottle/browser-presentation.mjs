@@ -448,15 +448,24 @@ export function waitForStart({ settings, existingAudioManager = null, game, soun
  * An AudioContext made without a click stays suspended until the page is interacted
  * with. Resume it at the first click or key press, dropping any sample queued while it
  * was silent so an old sound does not play late.
+ *
+ * Not every key press counts: browsers do not accept Esc (the key that leaves saver mode)
+ * as an interaction, and the resume it asks for is left waiting. So keep listening until
+ * the context has really started.
  */
 function resumeAudioOnFirstGesture(audioManager) {
     if (audioManager?.context?.state !== 'suspended') return;
-    const resume = () => {
+    const stopListening = () => {
         window.removeEventListener('pointerdown', resume, true);
         window.removeEventListener('keydown', resume, true);
-        if (audioManager.context.state !== 'suspended') return;
+    };
+    const settle = () => {
+        if (audioManager.context.state !== 'suspended') stopListening();
+    };
+    const resume = () => {
+        if (audioManager.context.state !== 'suspended') return stopListening();
         audioManager.stopAll?.();
-        Promise.resolve(audioManager.context.resume?.()).catch(() => {});
+        Promise.resolve(audioManager.context.resume?.()).then(settle, () => {});
     };
     window.addEventListener('pointerdown', resume, true);
     window.addEventListener('keydown', resume, true);
