@@ -556,7 +556,7 @@ describe('scene-flow panel', () => {
             expect(document.activeElement.textContent).toBe('The campfire');
             expect(document.querySelector('.island-map-panel').getAttribute('aria-live')).toBe('polite');
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
-            const cards = Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'));
+            const cards = Array.from(document.querySelectorAll('.island-map-panel .island-diary-pick'));
             expect(cards.map((card) => card.dataset.focus)).toEqual(
                 ['card:BUILDING.ADS:5', 'card:BUILDING.ADS:7', 'card:BUILDING.ADS:8', 'card:BUILDING.ADS:9']);
             expect(document.querySelector('.story-steps-hero')).toBeNull();
@@ -672,9 +672,12 @@ describe('scene-flow panel', () => {
 
             // A place or a day turns the page; one link turns back to today.
             placeButton('campfire').click();
-            expect(document.querySelector('.island-diary-list')).toBeNull();
+            expect(document.querySelector('.island-diary-list[aria-label="This visit"]')).toBeNull();
+            // The place's gags are written out, without pictures.
+            expect(document.querySelectorAll('.island-diary-pick')).toHaveLength(4);
+            expect(document.querySelectorAll('.island-map-panel canvas')).toHaveLength(0);
             document.querySelector('[data-focus="diary-today"]').click();
-            expect(document.querySelector('.island-diary-list')).not.toBeNull();
+            expect(document.querySelector('.island-diary-list[aria-label="This visit"]')).not.toBeNull();
             expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('false');
 
             // While visiting, the page says so and offers the way back.
@@ -697,7 +700,7 @@ describe('scene-flow panel', () => {
             expect(document.querySelectorAll('.island-map-place')).toHaveLength(16);
             // Inside an open place, the gags that cannot play then are dimmed too.
             placeButton('campfire').click();
-            expect(Array.from(document.querySelectorAll('.island-map-panel .story-steps-card'), (card) => card.classList.contains('is-dim')))
+            expect(Array.from(document.querySelectorAll('.island-map-panel .island-diary-pick'), (card) => card.classList.contains('is-dim')))
                 .toEqual([true, true, false, false]);
             expect(document.querySelector('.island-map-panel p').textContent).toBe('4 things happen here; 2 at this time of day.');
             placeButton('bottle').click();

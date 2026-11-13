@@ -57,7 +57,7 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 /* Side by side only where the map still gets its full minimum width beside the diary; below
    that the diary sits under the map. */
 .island-map-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(12px, 1.8vw, 26px); align-items: start; }
-@media (min-width: 1180px) { .island-map-layout { grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); } }
+@media (min-width: 1180px) { .island-map-layout { grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 370px); } }
 /* Objects must stay big enough to recognise and press, so the map keeps a minimum size and pans
    sideways instead of shrinking. It is also capped by the window's height, so the whole island
    is on screen at once rather than running below the fold. */
@@ -115,8 +115,14 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 .island-map-daycard { grid-template-columns: minmax(0, 130px) !important; justify-content: center; }
 .island-map-panel-art { display: block; width: 84px; height: auto; margin: 0 auto 4px; }
 /* A long list scrolls inside the page, so the book keeps its size and the map stays beside it. */
-.island-map-panel .story-steps-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 16px 8px; padding: 10px 4px 6px 0;
-  max-height: min(32dvh, 300px); overflow-y: auto; }
+.island-map-panel .story-steps-grid { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 16px 8px; padding: 10px 4px 6px 0; }
+/* A place's gags: the same handwriting, with a dash for each and a small note where one has a catch. */
+.island-diary-picks { max-height: min(48dvh, 440px); }
+.island-diary-pick::before { content: '–'; position: absolute; left: 6px; color: #53736a; }
+.island-diary-pick[data-role="live"]::before { content: none; }
+.island-diary-pick small { display: block; margin-top: -2px; color: #53736a; font: 11.5px/1.3 'Trebuchet MS', Arial, sans-serif; }
+.island-diary-pick.is-dim { opacity: .4; }
+.island-diary-list { scrollbar-width: thin; }
 .island-map-panel .island-map-daycard { max-height: none; overflow: visible; }
 @media (prefers-reduced-motion: reduce) {
   .island-map-thing, .island-map-base, .island-map-day { transition: none; }
@@ -300,23 +306,27 @@ export function renderIslandMap(root, {
             el('p', null, (on === open.gags.length ? `${open.gags.length} things happen here. Pick one.`
                 : on ? `${open.gags.length} things happen here; ${on} at this time of day.`
                     : `${open.gags.length} things happen here, none at this time of day.`) + (picked ? ` Playing as day ${picked.day}.` : '')));
-        const grid = el('div', 'story-steps-grid');
+        // Written out like the rest of the diary: names, no pictures, so the whole list fits the page.
+        const list = el('ul', 'island-diary-list island-diary-picks');
+        list.setAttribute('aria-label', `Things that happen at ${open.name}`);
         for (const gag of open.gags) {
             const isLive = sameGag(gag, live.gag);
             const restriction = restrictionLabel(gag);
-            const card = makeCard({
-                gag,
-                name: gagName(gag),
-                kicker: restriction || (gag.final ? 'Ends a visit' : 'Gag'),
-                live: isLive,
-                badge: isLive ? 'NOW' : null,
-                label: `${gagName(gag)}${restriction ? `, ${restriction.toLowerCase()}` : ''}${gag.final ? ', ends a visit' : ''}${isLive ? ' (Johnny now)' : ''}`,
-                onClick: (event) => pickGag(gag, event),
-            });
-            if (filter && !bandsFor(gag).some((band) => band.id === filter)) card.classList.add('is-dim');
-            grid.appendChild(card);
+            const notes = [isLive ? 'now' : null, restriction ? restriction.toLowerCase() : null, gag.final ? 'ends a visit' : null].filter(Boolean);
+            const entry = el('button', 'island-diary-entry island-diary-pick', gagName(gag).toLowerCase().replace(/^./, (c) => c.toUpperCase()));
+            entry.type = 'button';
+            // The same key a card had, so focus comes back here from the scene screen.
+            entry.dataset.focus = `card:${gag.script}:${gag.tagId}`;
+            if (isLive) entry.dataset.role = 'live';
+            entry.setAttribute('aria-label', `${gagName(gag)}${restriction ? `, ${restriction.toLowerCase()}` : ''}${gag.final ? ', ends a visit' : ''}${isLive ? ' (Johnny now)' : ''}`);
+            if (notes.length) entry.appendChild(el('small', null, notes.join(' · ')));
+            entry.addEventListener('click', (event) => pickGag(gag, event));
+            if (filter && !bandsFor(gag).some((band) => band.id === filter)) entry.classList.add('is-dim');
+            const item = el('li');
+            item.appendChild(entry);
+            list.appendChild(item);
         }
-        panel.append(grid, backToToday());
+        panel.append(list, backToToday());
     } else if (picked) {
         // A day: its story scene, and one question. No detour through the scene screen.
         const scene = picked.scene;
