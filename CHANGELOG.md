@@ -4,6 +4,7 @@ This changelog tracks the browser project. Its version numbers are separate from
 
 ## Unreleased
 
+- Added a loading screen: the page stays covered, with a progress bar, until the title screen's artwork and fonts have loaded, instead of showing the cabinet, shelf and controls arriving piece by piece. It lifts after 10 seconds regardless, so a stalled download cannot leave the page blank.
 - The Story timeline is now an island map (#96) instead of a day → time → gag ladder. It opens on a beach scene that fills the panel: a painted fold-out map with sixteen named places holding the 40 everyday gags, eleven numbered flags in the sand for the story days, and an open logbook whose handwritten checklist is the visit in progress (done, happening now, still to come). Pick a place, then a gag. Pressing a flag picks that day on the map and offers to start it; anything else chosen then plays as that day. The time-of-day chips dim what is closed. The artwork is provisional.
 - A scene picked in the Timeline asks one question, **What time of day?**, with the times it cannot play at crossed out. A scene that always shows the night sky only offers night, and scenes set away from the island do not ask. Your place on the map and keyboard focus are kept as Johnny moves on. The old day and time steps listed nearly the same gags 33 times over; the day changes only one scene and the time of day matters for 12.
 - Added the regular weight of the Caveat handwriting font alongside the bold already bundled, for the map's diary.

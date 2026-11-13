@@ -4,5 +4,8 @@ import '@fontsource/vt323';
 import '@fontsource/caveat/400.css';
 import '@fontsource/caveat/700.css';
 import { runJohnnyCastaway } from './games/johnny/browser-app.mjs';
+import { runLoadingScreen } from './games/johnny/ui/loading-screen.mjs';
 
+// Before the app starts, so it sees the title screen (or the missing-data card) appear.
+runLoadingScreen();
 runJohnnyCastaway();
