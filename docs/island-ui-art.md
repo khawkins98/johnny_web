@@ -76,6 +76,59 @@ Log remains an overlay over the right control cheek (its left edge at 71% is bey
 
 The [historical pixel study](ui-early-pixel-study.md) records the earlier `agy` SVG generation method. Do not assume SVG output will match a painted raster reference automatically. Prefer direct editing of a measured existing asset or a reference-guided raster edit when continuity matters. No generator credentials or CLI setup are required to build/run the checked-in PNG skin.
 
+## Generating artwork from the command line (2026-11-12)
+
+Recorded while making the Story timeline's island map (a fold-out map with painted objects, on a beach with a logbook). Both installed agent CLIs were first given the same two briefs, one run each: a map base, and a sheet of six small objects on a transparent background. The provisional artwork that followed is in [`island-map-art/`](../src/games/johnny/ui/island-map-art/), with its exact prompts in `prompts.json`. This section is the working recipe and the problems met, so the next person does not rediscover them.
+
+### What worked: Codex
+
+`codex-cli 0.167.0`, using its built-in image generator (the same tool that made the five active images). About one to two minutes per image.
+
+```sh
+mkdir -p /tmp/art && cd /tmp/art
+cp <repo>/src/games/johnny/ui/island-art/objects.png style-reference.png
+codex exec -s workspace-write --skip-git-repo-check -C "$PWD" \
+  "$(cat prompt.txt)" -i style-reference.png < /dev/null > run.log 2>&1
+```
+
+Three things in that command matter, and each cost a failed run:
+
+- **Put the prompt before `-i`.** `-i` accepts several files, so a prompt placed after it is read as another image and Codex reports "No prompt provided".
+- **Redirect stdin from `/dev/null`** when not at a terminal. Otherwise `codex exec` waits for piped input and never starts.
+- **`--skip-git-repo-check` and `-C`** let it run in a scratch directory outside the repository, which is where generated candidates belong until one is chosen.
+
+The reply ends with the file name and pixel size; the full tool trace is in the log.
+
+### Prompt shape that produced usable results
+
+- First line: "Use your built-in image generation tool to create ONE raster image and save it as `<name>.png` in the current directory. Do not draw it with code, SVG or a plotting library; if you have no image generation tool, say so plainly and stop." Without it an agent may write a drawing script.
+- Say what the image is, then list what must be **absent**: people, text, labels, borders. For a base that objects will sit on, say that open space must be left and why.
+- For a sprite sheet: "N separate objects in one horizontal row, N equal columns, each centred with clear space around it, fully transparent background", then a numbered list, one concrete object per line.
+- End with the style paragraph: hand-painted gouache, deep palm-green ink contours, sun-bleached driftwood / cream / faded aqua with small orange highlights, 1992 illustrated adventure-game box art, chunky shapes that read at 64 pixels, and "not photorealistic, not a 3D render, not pixel art". Name the reference file and ask to match its style and palette.
+- For a second sheet in a set, use the **first generated sheet** as the reference, so the set stays in one hand.
+
+Codex returned a 1536×1024 map with fold creases and frayed edges, and a 2172×724 RGBA sheet of six clearly readable objects with real transparency. Columns are not perfectly equal: crop each to its alpha bounding box rather than assuming a grid.
+
+### Antigravity: usable for a map base, not for transparent objects
+
+`agy 1.5.3`. It delegates to an internal `image-generator` helper.
+
+- **Headless mode denies its own tools.** `agy -p "…" --mode accept-edits` produced no output: "a tool required the `command` permission that headless mode cannot prompt for". It ran once given a per-session allow rule inside its sandbox:
+  `agy -p "$(cat prompt.txt)" --mode accept-edits --sandbox --settings '{"permissions":{"allow":["command(*)"]}}' --print-timeout 600s`
+  Keep `--sandbox`: the allow rule lets it run any command.
+- **Map base: good.** A 1536×1030 fold-out map in about three minutes, in a compatible style, brighter and cleaner than Codex's.
+- **Object sheet: not usable as delivered.** It produced six separate images with opaque white backgrounds at about 220×320 each, then spent the rest of the ten-minute limit writing its own script to remove the backgrounds, and timed out (`DEADLINE_EXCEEDED`). The drawings themselves were fine.
+- The earlier Antigravity pass in this project (see the [historical pixel study](ui-early-pixel-study.md)) wrote SVG rectangles rather than raster paintings.
+
+- **Run it one job at a time.** Four concept-art runs started together produced one image between them; the same four run one after another all finished, though one needed a third attempt.
+- **Concept art: good.** Asked for four whole-screen layout directions as opaque images, it gave four distinct, usable paintings to choose between. The beach layout of the island map follows one of them.
+
+The first comparison was one run each, a small sample. The split that held up through the rest of the work: Codex for anything that needs transparency or must match existing objects (the map's sixteen places, flags and props, and the beach and logbook plates); Antigravity for opaque concept art and background plates.
+
+### Before promoting a candidate
+
+The rules in "Editing or regenerating artwork" above still apply: save the exact prompt, tool, reference identities and date beside the asset; inspect alpha directly; keep proprietary references in ignored scratchpad. Generated art must not depict the original game's characters or copy its sprites; the interface illustrations are original objects only.
+
 ## Verification checklist
 
 ```sh
