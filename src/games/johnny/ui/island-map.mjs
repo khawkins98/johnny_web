@@ -15,7 +15,7 @@ import { islandPlaces, placeForGag, placeOpenAt, storyTrail } from '../island-pl
 import { bandById, bandsFor, restrictionLabel } from '../story-steps.mjs';
 import { islandMapArt, islandMapArtSize } from './island-map-art.mjs';
 
-// Handwriting for the diary. No web font is bundled, so this names the common system hands.
+// Handwriting for the diary: Caveat (bundled through @fontsource in src/index.mjs), then system hands.
 const HAND = "'Caveat', 'Bradley Hand', 'Segoe Print', 'Ink Free', 'Noteworthy', cursive";
 
 export const ISLAND_MAP_STYLE = `

@@ -26,6 +26,14 @@ This repository is a hard fork of
 [xesf/castaway](https://github.com/xesf/castaway) by Alexandre Fontoura,
 whose original work is gratefully acknowledged. For a modern desktop viewer capable of inspecting these DGDS assets, see [xesf/dgds-viewer](https://github.com/xesf/dgds-viewer).
 
+## Bundled Font
+
+The interface's handwriting is **Caveat**, Copyright 2014 The Caveat Project Authors
+(https://github.com/googlefonts/caveat), and its screen lettering is **VT323**; both
+are licensed under the SIL Open Font License, Version 1.1, and are bundled unmodified
+from the `@fontsource/caveat` and `@fontsource/vt323` packages, which carry the full
+licence text.
+
 ## ScummVM DGDS Behavioral Reference
 
 This project regularly consults the [ScummVM DGDS engine](https://github.com/scummvm/scummvm/tree/master/engines/dgds)
