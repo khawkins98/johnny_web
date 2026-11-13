@@ -313,10 +313,10 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let mountedPreview = null;
     let previewGeneration = 0;
     let renderedGagId = null;
-    // `step` is where the viewer is: the scene list ('home') or one scene ('detail'), with the
+    // `step` is where the viewer is: the island map ('home') or one scene ('detail'), with the
     // chosen time of day. While `followLive` holds it tracks Johnny.
     let step = null;
-    // Where the scene list was scrolled to, so coming back from a scene returns there.
+    // Where the map screen was scrolled to, so coming back from a scene returns there.
     let homeScroll = 0;
     let stepperRoot = null;
     let faceQueue = null;
@@ -370,23 +370,14 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         // the bands' clock times agree), else the stored setting, else 09:00.
         startTime: status?.startTime ?? sequenceTools?.getStartTime?.() ?? DEFAULT_START_TIME,
     });
-    // The island map is the way in on screens with room for it; the list everywhere else, and
-    // whichever the viewer last chose after that.
-    const VIEW_KEY = 'jc-timeline-view';
-    const preferredView = () => {
-        let saved = null;
-        try { saved = localStorage.getItem(VIEW_KEY); } catch { /* Not remembered. */ }
-        if (saved === 'map' || saved === 'list') return saved;
-        return window.matchMedia?.('(min-width: 900px)')?.matches ? 'map' : 'list';
-    };
-    // Keep the open screen on where Johnny is: the scene list tracks the day and time, and the
+    // Keep the open screen on where Johnny is: the map tracks the day and time, and the
     // scene screen (when it is showing the running gag) follows on to the next gag.
     const followLive = (status, level = step?.level ?? 'home') => {
         const live = liveSpot(status);
         step = { level: level === 'detail' && live.gag ? 'detail' : 'home', day: live.day,
             // Always a time the gag can play at: the outline's Play button and preview use it too.
             band: live.gag ? bandForGag(live.gag, live.band, live.band) : live.band ?? 'early',
-            gag: live.gag, filter: step?.filter ?? null, view: step?.view ?? preferredView(), place: step?.place ?? null, mapDay: step?.mapDay ?? null,
+            gag: live.gag, filter: step?.filter ?? null, place: step?.place ?? null, mapDay: step?.mapDay ?? null,
             followLive: true };
     };
     const playGag = (gag, day, band) => {
@@ -498,6 +489,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         mountedPreview?.destroy();
         mountedPreview = null;
         title.textContent = 'How it works';
+        modal.classList.remove('is-map-home');
         subtitle.textContent = '';
         clear(body);
         clear(links);
@@ -522,6 +514,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (!step || step.followLive) followLive(status);
         title.textContent = 'Story timeline';
         subtitle.textContent = clockDescription(status);
+        // The map is its own screen: a slim header, and the sky and tide go in the diary.
+        modal.classList.toggle('is-map-home', step.level !== 'detail' || !step.gag);
         const shell = document.createElement('div');
         shell.className = 'scene-flow-story-shell';
         faceQueue ??= createCardFaceQueue({ resolveEntry, sequenceTools });
@@ -539,6 +533,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
             today: status?.band ? (sequenceTools?.getStoryDay?.() ?? live.day) : live.day,
             nowBand: status?.band ? null : live.band,
             onGoBack: typeof sequenceTools?.startRun === 'function' ? () => sequenceTools.startRun({ mode: 'live' }) : null,
+            conditions: clockDescription(status).replace(/^Playing day \d+ · /, '').replace(/^./, (c) => c.toUpperCase()),
             gagName,
             faces: faceQueue,
             onStep: (patch, from = null) => {
@@ -548,11 +543,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 const lastPlace = step.place;
                 const lastDay = step.mapDay;
                 if (before === 'home') homeScroll = modal.scrollTop;
-                // The scene list always tracks where Johnny is; a picked scene stays put.
+                // The map always tracks where Johnny is; a picked scene stays put.
                 step = { ...step, ...patch, followLive: (patch.level ?? before) === 'home' };
-                if (patch.view) {
-                    try { localStorage.setItem(VIEW_KEY, patch.view); } catch { /* Not remembered. */ }
-                }
                 if (patch.gag) step.gag = gagFacts(patch.gag);
                 // One resolved time of day for the Play button, the outline's Play and the preview.
                 if (step.level === 'detail' && step.gag) step.band = bandForGag(step.gag, step.band, live.band);
@@ -565,7 +557,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 } else if ('mapDay' in patch) focusKey(`day:${lastDay ?? ''}`);
                 else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
                 if (step.level !== before) {
-                    // A new screen: the scene starts at its top; the list returns to where it was,
+                    // A new screen: the scene starts at its top; the map returns to where it was,
                     // with focus on the card that was open.
                     modal.scrollTop = step.level === 'home' ? homeScroll : 0;
                     if (step.level === 'home' && leaving) {

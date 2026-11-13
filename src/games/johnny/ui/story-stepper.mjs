@@ -2,8 +2,8 @@
  * story-stepper.mjs — the story timeline in two screens: pick what to watch, then
  * (only if it matters) what time of day.
  *
- * Home is a fold-out map of the island (see island-map.mjs) or, as a plain list, the 11
- * story scenes in day order and the 40 everyday gags by kind. The
+ * Home is a beach scene (see island-map.mjs): a fold-out map of the island holding the 40
+ * everyday gags, eleven flags for the story days, and a diary of the visit in progress. The
  * day changes only which story scene plays and the time of day only matters for a
  * dozen gags, so neither is a step of its own; time of day is a choice on the scene.
  *
@@ -11,15 +11,13 @@
  * the current screen and reports choices through callbacks.
  */
 import {
-    TIDE_BANDS, bandById, bandForGag, bandsFor, describeWhenItPlays, everydayGagsByFamily, restrictionLabel, storyScenes,
+    TIDE_BANDS, bandById, bandForGag, bandsFor, describeWhenItPlays,
 } from '../story-steps.mjs';
 import { CARD_HEIGHT, CARD_WIDTH, paintCardFace } from './story-card-faces.mjs';
 import { DEFAULT_START_TIME, bandClockRanges } from '../start-time.mjs';
 import { ISLAND_MAP_STYLE, renderIslandMap } from './island-map.mjs';
 
 const pad = (value) => String(value).padStart(2, '0');
-// Where a pick was clicked, so the next step can fly the card from there.
-const originOf = (event) => event?.currentTarget?.querySelector?.('canvas')?.getBoundingClientRect?.() ?? null;
 
 export const STEPPER_STYLE = `
 .story-steps { margin: 4px 0 12px; color: #234e52; font: 14px/1.45 'Trebuchet MS', Arial, sans-serif; }
@@ -34,14 +32,6 @@ export const STEPPER_STYLE = `
 .story-steps-card:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; }
 .story-steps-card .story-steps-badge { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); padding: 2px 6px; background: #f2cc91; color: #234e52;
   border: 2px solid #22553b; font-size: 12px; }
-.story-steps-visit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 14px; padding: 8px 10px;
-  border: 2px dashed #8bb9a8; }
-.story-steps-visit > span { color: #53736a; margin-right: 4px; }
-.story-steps-visit button { min-height: 40px; border-radius: 5px; padding: 3px 8px; border: 1px solid #8bb9a8; background: #c7e4df; color: #234e52;
-  font: 13px/1.35 'Trebuchet MS', Arial, sans-serif; cursor: pointer; }
-.story-steps-visit button[data-role="seen"] { opacity: .65; }
-.story-steps-visit button[data-role="live"] { background: #f2cc91; color: #234e52; border-color: #22553b; }
-.story-steps-visit button:disabled { cursor: default; opacity: .5; }
 .story-steps-hero { display: grid; grid-template-columns: 150px 1fr; gap: 18px; align-items: start; }
 .story-steps-hero .story-steps-card { cursor: default; }
 .story-steps-hero ul { list-style: none; margin: 6px 0 12px; padding: 0; color: #234e52; }
@@ -60,33 +50,9 @@ export const STEPPER_STYLE = `
   .story-steps-card:hover canvas { transform: none; }
 }
 
-/* Where Johnny is and the visit in progress sit along the bottom edge of the panel, like a
-   status strip, so the map or the list gets the top of the screen. */
-.story-steps-now { position: sticky; bottom: 0; z-index: 6; box-shadow: 0 -5px 10px -4px #234e5244;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 14px 0 0; padding: 10px 12px;
-  border: 2px solid #8bb9a8; border-radius: 9px 5px; background: #e4f1dc; }
-/* On a small screen a pinned strip would take a fifth of the view, and the end of a long list is
-   a long way down: there it goes back to the top and scrolls with the page. */
-@media (max-width: 700px), (max-height: 620px) {
-  .story-steps { display: flex; flex-direction: column; }
-  .story-steps-now { position: static; order: -1; margin: 0 0 14px; box-shadow: none; }
-}
-.story-steps-now-where { margin: 0; }
-.story-steps-now-where strong { display: block; font: 700 17px/1.25 Georgia, serif; color: #22553b; }
-/* One row that scrolls sideways, so a long visit never pushes the scenes off the first screen. */
-.story-steps-now .story-steps-visit { flex: 1 1 100%; min-width: 0; margin: 0; padding: 2px 0 6px; border: 0;
-  flex-wrap: nowrap; overflow-x: auto; }
-.story-steps-now .story-steps-visit > * { flex: none; }
 .story-steps-link { border: 0; background: none; padding: 0; min-height: 40px; color: #22553b; cursor: pointer;
   font: 700 14px/1.35 'Trebuchet MS', Arial, sans-serif; text-decoration: underline; }
 .story-steps-link:focus-visible, .story-steps-chip:focus-visible { outline: 3px solid #e99a32; outline-offset: 2px; }
-.story-steps-section { margin: 0 0 18px; }
-.story-steps-section > h3 { margin: 0; font: 34px/1 'Caveat', cursive; color: #22553b; }
-.story-steps-section > p { margin: 4px 0 10px; }
-.story-steps-family { margin: 0 0 14px; }
-.story-steps-family h4 { margin: 0 0 2px; color: #53736a; font: 700 13px/1.35 'Trebuchet MS', Arial, sans-serif;
-  letter-spacing: .05em; text-transform: uppercase; }
-.story-steps-days { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 22px 10px; }
 .story-steps-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
 .story-steps-chip { min-height: 40px; padding: 4px 14px; border: 2px solid #22553b; border-radius: 999px; background: #fff9dc; color: #234e52;
   font: 700 13px/1.35 'Trebuchet MS', Arial, sans-serif; cursor: pointer; }
@@ -97,8 +63,6 @@ export const STEPPER_STYLE = `
 .story-steps-hint { margin: 0 0 10px; color: #53736a; }
 .story-steps-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .story-steps-backrow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; margin: 0 0 8px; }
-.story-steps-viewbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; margin: 0 0 10px; }
-.story-steps-viewbar .story-steps-chips { margin: 0; }
 ${ISLAND_MAP_STYLE}
 `;
 
@@ -111,7 +75,7 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
     if (onClick) {
         button.type = 'button';
         button.addEventListener('click', onClick);
-        // Lets the panel put focus back on this card after it redraws the list.
+        // Lets the panel put focus back on this card after it redraws.
         button.dataset.focus = `card:${gag.script}:${gag.tagId}`;
     } else button.setAttribute('role', 'img');
     button.className = 'story-steps-card';
@@ -165,10 +129,10 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  *
  * @param {HTMLElement} host
  * @param {object} options
- * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string, view?:'map'|'list', place?:string, mapDay?:number}} options.step
+ * @param {{level:'home'|'detail', day:number, band:string, gag:object|null, filter?:string, place?:string, mapDay?:number}} options.step
  * @param {{day:number, band:string|null, gag:object|null, startTime?:number}} options.live  where Johnny is now,
  *        and the Start Time (HHMM) the story clock counts from
- * @param {Array} options.visit       the live visit (visitSequence), for the Now bar
+ * @param {Array} options.visit       the live visit (visitSequence), for the diary
  * @param {{day:number, band:string}|null} options.visiting  a temporary visit in progress
  * @param {number} [options.today]    the saved story day (differs from live.day while visiting)
  * @param {string|null} [options.nowBand]  the real time of day, or null when it is not known
@@ -179,11 +143,12 @@ function cardButton({ gag, name, kicker, live = false, badge = null, faces, labe
  * @param {()=>void} options.onLive   show the gag Johnny is playing now
  * @param {(()=>void)|null} options.onGoBack  leave a temporary visit
  * @param {((gag, day, band)=>boolean)|null} options.onPlayGag
+ * @param {string} [options.conditions]  the sky and tide now, for the diary
  * @returns {HTMLElement} the rendered screen, for playStepEntrance
  */
 export function renderStoryStepper(host, {
     step, live, visit = [], visiting = null, today = live.day, nowBand = live.band, gagName, faces, onStep, onLive,
-    onGoBack = null, onPlayGag = null,
+    onGoBack = null, onPlayGag = null, conditions = '',
 }) {
     const root = document.createElement('section');
     root.className = 'story-steps';
@@ -227,152 +192,32 @@ export function renderStoryStepper(host, {
     };
 
     if (step.level !== 'detail' || !step.gag) {
-        // Now: where Johnny is, and the visit in progress.
-        const now = el('div', 'story-steps-now');
-        const where = el('p', 'story-steps-now-where');
-        const liveBand = bandById(live.band);
-        where.appendChild(el('strong', null, visiting
-            ? `Visiting Day ${visiting.day} · ${bandById(visiting.band)?.label ?? ''}`
-            : `Now: Day ${live.day}${liveBand ? ` · ${liveBand.label}` : ''}`));
-        where.appendChild(document.createTextNode(live.gag ? gagName(live.gag) : 'Nothing is playing yet.'));
-        now.appendChild(where);
-        if (live.gag) {
-            const show = el('button', 'story-steps-link', 'How this gag works ›');
-            show.type = 'button';
-            show.dataset.focus = 'now-link';
-            show.addEventListener('click', onLive);
-            now.appendChild(show);
-        }
-        if (visiting && onGoBack) {
-            const back = el('button', 'story-steps-play', 'Go back');
-            back.type = 'button';
-            back.dataset.focus = 'go-back';
-            back.title = 'Return now to the day and gag you left. Nothing from this visit is saved.';
-            back.addEventListener('click', onGoBack);
-            now.appendChild(back);
-        }
-        if (visit.length) {
-            const strip = el('div', 'story-steps-visit');
-            strip.appendChild(el('span', null, 'This visit:'));
-            for (const gag of visit) {
-                const chip = document.createElement('button');
-                chip.type = 'button';
-                chip.dataset.role = gag.role;
-                chip.dataset.focus = `visit:${gag.index ?? 0}`;
-                const name = gag.filler ? 'pause' : gagName(gag);
-                chip.textContent = `${pad(gag.index ?? 0)} ${name}${gag.repeat > 1 ? ` ×${gag.repeat}` : ''}`;
-                chip.title = gag.role === 'live' ? 'Johnny now' : gag.role === 'seen' ? 'Already played' : 'Planned';
-                if (gag.filler) chip.disabled = true;
-                else chip.addEventListener('click', () => onStep({ level: 'detail', gag, day: live.day }));
-                strip.appendChild(chip);
-            }
-            now.appendChild(strip);
-            // Start the row at the gag that is playing.
-            const liveChip = strip.querySelector('[data-role="live"]');
-            if (liveChip) strip.scrollLeft = Math.max(0, liveChip.offsetLeft - 80);
-        }
+        // Home is the beach: the island map, the day flags and the diary. At its top, a
+        // time-of-day filter that only dims what cannot play then; it starts nothing.
         const filter = bandById(step.filter);
-        // The time-of-day filter only dims what cannot play then; it starts nothing.
-        const filterChips = () => {
-            const chips = el('div', 'story-steps-chips');
-            chips.setAttribute('role', 'group');
-            chips.setAttribute('aria-label', 'Show what can play at');
-            const any = el('button', 'story-steps-chip', 'Any time');
-            any.type = 'button';
-            any.dataset.focus = 'filter:any';
-            any.setAttribute('aria-pressed', String(!filter));
-            any.addEventListener('click', () => onStep({ filter: null }));
-            chips.appendChild(any);
-            for (const option of TIDE_BANDS) {
-                chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, focus: 'filter', onPick: (id) => onStep({ filter: id }) }));
-            }
-            return chips;
-        };
-        // Two ways to see the same scenes: the island map, or everything as a list.
-        const view = step.view === 'map' ? 'map' : 'list';
-        const viewbar = el('div', 'story-steps-viewbar');
-        const views = el('div', 'story-steps-chips');
-        views.setAttribute('role', 'group');
-        views.setAttribute('aria-label', 'View');
-        for (const [id, label] of [['map', 'Map'], ['list', 'List']]) {
-            const chip = el('button', 'story-steps-chip', label);
-            chip.type = 'button';
-            chip.dataset.view = id;
-            chip.dataset.focus = `view:${id}`;
-            chip.setAttribute('aria-pressed', String(view === id));
-            chip.addEventListener('click', () => onStep({ view: id }));
-            views.appendChild(chip);
+        const chips = el('div', 'story-steps-chips story-steps-filter');
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', 'Show what can play at');
+        const any = el('button', 'story-steps-chip', 'Any time');
+        any.type = 'button';
+        any.dataset.focus = 'filter:any';
+        any.setAttribute('aria-pressed', String(!filter));
+        any.addEventListener('click', () => onStep({ filter: null }));
+        chips.appendChild(any);
+        for (const option of TIDE_BANDS) {
+            chips.appendChild(bandChip(option, { pressed: filter?.id === option.id, focus: 'filter', onPick: (id) => onStep({ filter: id }) }));
         }
-        viewbar.appendChild(views);
-        if (view === 'map') {
-            viewbar.appendChild(filterChips());
-            root.appendChild(viewbar);
-            renderIslandMap(root, {
-                place: step.place ?? null, day: step.mapDay ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
-                // On the beach the Now strip's content is the diary: where Johnny is and the visit.
-                visit, visiting, onLive, onGoBack,
-                // Starting a day plays its story scene at the filtered time, else the time now,
-                // whichever the scene can actually show.
-                onStartDay: onPlayGag
-                    ? (scene) => onPlayGag(scene, scene.keyDay, bandForGag(scene, filter?.id ?? live.band, live.band)) : null,
-                makeCard: (options) => cardButton({ ...options, faces }),
-            });
-            return root;
-        }
-        root.appendChild(viewbar);
-
-        // The story: one scene per day, in order.
-        const story = el('section', 'story-steps-section');
-        story.appendChild(el('h3', null, 'The story'));
-        story.appendChild(el('p', null, 'Eleven days, one scene each. Pick a day to visit it.'));
-        const days = el('div', 'story-steps-grid story-steps-days');
-        for (const scene of storyScenes()) {
-            const day = scene.keyDay;
-            const isToday = day === today;
-            days.appendChild(cardButton({
-                gag: scene, faces,
-                name: gagName(scene),
-                kicker: `Day ${pad(day)}`,
-                live: isToday,
-                badge: isToday ? 'TODAY' : null,
-                label: `Day ${day}: ${gagName(scene)}${isToday ? ' (today)' : ''}`,
-                onClick: (event) => onStep({ level: 'detail', gag: scene, day }, originOf(event)),
-            }));
-        }
-        story.appendChild(days);
-        root.appendChild(story);
-
-        // Everyday gags by kind. The filter only dims what cannot play then.
-        const groups = everydayGagsByFamily();
-        const total = groups.reduce((count, group) => count + group.gags.length, 0);
-        const everyday = el('section', 'story-steps-section');
-        everyday.appendChild(el('h3', null, 'Things Johnny does'));
-        everyday.appendChild(el('p', null, `${total} everyday gags. They can turn up on any day; a few only by day or only at night.`));
-        everyday.appendChild(filterChips());
-        for (const group of groups) {
-            const family = el('div', 'story-steps-family');
-            family.appendChild(el('h4', null, group.label));
-            const grid = el('div', 'story-steps-grid');
-            for (const gag of group.gags) {
-                const isLive = sameGag(gag, live.gag);
-                const restriction = restrictionLabel(gag);
-                const card = cardButton({
-                    gag, faces,
-                    name: gagName(gag),
-                    kicker: restriction || (gag.final ? 'Ends a visit' : 'Gag'),
-                    live: isLive,
-                    badge: isLive ? 'NOW' : null,
-                    label: `${gagName(gag)}${restriction ? `, ${restriction.toLowerCase()}` : ''}${gag.final ? ', ends a visit' : ''}${isLive ? ' (Johnny now)' : ''}`,
-                    onClick: (event) => onStep({ level: 'detail', gag, day: live.day }, originOf(event)),
-                });
-                if (filter && !bandsFor(gag).some((band) => band.id === filter.id)) card.classList.add('is-dim');
-                grid.appendChild(card);
-            }
-            family.appendChild(grid);
-            everyday.appendChild(family);
-        }
-        root.appendChild(everyday);
-        root.appendChild(now);
+        renderIslandMap(root, {
+            toolbar: chips, conditions,
+            place: step.place ?? null, day: step.mapDay ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
+            // The diary shows where Johnny is and the visit in progress.
+            visit, visiting, onLive, onGoBack,
+            // Starting a day plays its story scene at the filtered time, else the time now,
+            // whichever the scene can actually show.
+            onStartDay: onPlayGag
+                ? (scene) => onPlayGag(scene, scene.keyDay, bandForGag(scene, filter?.id ?? live.band, live.band)) : null,
+            makeCard: (options) => cardButton({ ...options, faces }),
+        });
         return root;
     }
 
@@ -386,7 +231,7 @@ export function renderStoryStepper(host, {
     const day = gag.keyDay || step.day || live.day;
 
     const backRow = el('div', 'story-steps-backrow');
-    const back = el('button', 'story-steps-link', '‹ All scenes');
+    const back = el('button', 'story-steps-link', '‹ Back to the map');
     back.type = 'button';
     back.dataset.focus = 'back';
     back.addEventListener('click', () => onStep({ level: 'home' }));

@@ -10,7 +10,7 @@
 
 export const STEP_LEVELS = Object.freeze(['home', 'detail']);
 
-/** 'forward' when moving from the scene list into one scene, 'back' when returning, else null. */
+/** 'forward' when moving from the map into one scene, 'back' when returning, else null. */
 export function stepDirection(fromLevel, toLevel) {
     const from = STEP_LEVELS.indexOf(fromLevel);
     const to = STEP_LEVELS.indexOf(toLevel);
@@ -80,6 +80,6 @@ export function playStepEntrance(root, motion) {
         dealIn(rest, motion.direction);
         return;
     }
-    const items = root.querySelectorAll('.story-steps-grid > *, .story-steps-now');
+    const items = root.querySelectorAll('.story-steps-grid > *');
     dealIn([...items], motion.direction);
 }

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupSceneFlowPanel } from '../scene-flow-panel.mjs';
+import { placeForGag } from '../../island-places.mjs';
 
 // Synthetic ADS bytecode ops, matching the shape scene-flow.test.mjs uses. Real
 // ADS ops carry a numeric `opcode` (which the outline grouping in scene-flow.mjs reads
@@ -112,13 +113,25 @@ const makeSequenceTools = (initialActive) => {
 // The panel title is always "Story timeline"; the gag being inspected is named
 // in the detail heading below the visit row (e.g. "Johnny fishes · LIVE GAG").
 const detailName = () => document.querySelector('.scene-flow-matrix-detail-heading strong')?.textContent ?? '';
-// The panel opens on the scene list; the Now bar links to the gag Johnny is playing.
+// The panel opens on the island map; the diary's current entry opens the gag Johnny is playing.
 const openOnLiveGag = (panel) => {
     panel.open();
-    document.querySelector('.story-steps-now .story-steps-link').click();
+    document.querySelector('.island-diary-entry[data-role="live"]').click();
 };
-const cardNamed = (pattern) => Array.from(document.querySelectorAll('.story-steps-card'))
-    .find((card) => pattern.test(card.getAttribute('aria-label')));
+const placeButton = (id) => document.querySelector(`.island-map-place[data-place="${id}"]`);
+const flag = (day) => document.querySelector(`.island-map-day[data-focus="day:${day}"]`);
+// Open an everyday gag's scene screen from the map: its place, then (where a place holds
+// several) its card in the diary.
+const pickGag = (script, tagId) => {
+    const card = () => document.querySelector(`[data-focus="card:${script}:${tagId}"]`);
+    if (!card()) placeButton(placeForGag({ script, tagId }).id).click();
+    card()?.click();
+};
+// Open a story day's scene screen: its flag, then the link in the diary.
+const pickDay = (day) => {
+    if (flag(day).getAttribute('aria-pressed') !== 'true') flag(day).click();
+    document.querySelector('[data-focus="day-detail"]').click();
+};
 const timeChips = (scope) => Array.from(document.querySelectorAll(`${scope} .story-steps-chip[data-band]`));
 
 describe('scene-flow panel', () => {
@@ -246,7 +259,7 @@ describe('scene-flow panel', () => {
         expect(detailName()).toContain('Johnny naps');
     });
 
-    it('opens on the scene list, and plays a picked story scene at a chosen time of day', () => {
+    it('opens on the island map, and plays a picked story scene at a chosen time of day', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
         sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
@@ -257,20 +270,15 @@ describe('scene-flow panel', () => {
         panel.open();
 
         // Where Johnny is, without a ladder of steps to climb.
-        expect(document.querySelector('.story-steps-now-where').textContent).toBe('Now: Day 2 · Early dayJohnny fishes');
+        expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
         expect(document.querySelector('.story-steps-crumbs')).toBeNull();
         expect(document.querySelector('.scene-flow-matrix-detail')).toBeNull();
-
-        // The story: 11 day scenes in order, today marked. Everyday gags: 40, grouped by kind.
-        const days = Array.from(document.querySelectorAll('.story-steps-days .story-steps-card'));
-        expect(days).toHaveLength(11);
-        expect(days[1].getAttribute('aria-label')).toMatch(/^Day 2: .*\(today\)$/);
-        expect(Array.from(document.querySelectorAll('.story-steps-family h4'), (h) => h.textContent))
-            .toEqual(['Fishing', 'Around the island', 'Camp life', 'Visitors and coconuts', 'Out and about', 'Bottles', 'Odds and ends']);
-        expect(document.querySelectorAll('.story-steps-family .story-steps-card')).toHaveLength(40);
+        // No list to switch to: the map is the only way in.
+        expect(document.querySelector('[data-view]')).toBeNull();
+        expect(flag(2).getAttribute('aria-label')).toMatch(/^Day 2: .*\(today\)$/);
 
         // Day 7's scene: one question, what time of day, defaulting to the time now.
-        days[6].click();
+        pickDay(7);
         expect(document.querySelector('.story-steps-hero-name').textContent).toMatch(/^Day 7: /);
         const chips = () => timeChips('.story-steps-hero');
         expect(chips().map((chip) => [chip.dataset.band, chip.getAttribute('aria-pressed'), chip.disabled]))
@@ -284,10 +292,10 @@ describe('scene-flow panel', () => {
         expect(startRun).toHaveBeenCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7, band: 'night' });
         expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
 
-        // Reopening returns to the scene list.
+        // Reopening returns to the map.
         panel.open();
         expect(document.querySelector('.story-steps-hero')).toBeNull();
-        expect(document.querySelector('.story-steps-now')).not.toBeNull();
+        expect(document.querySelector('.island-map')).not.toBeNull();
         panel.destroy();
     });
 
@@ -301,22 +309,15 @@ describe('scene-flow panel', () => {
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
 
-        const home = timeChips('.story-steps-section');
+        const home = timeChips('.story-steps-filter');
         expect(home.map((chip) => chip.getAttribute('aria-label'))).toEqual([
             'Early day, 07:00–11:00, 15:00–19:00, 23:00–03:00',
             'Late day, 03:00–05:00, 11:00–13:00, 19:00–21:00',
             'Night (the time now), 05:00–07:00, 13:00–15:00, 21:00–23:00',
         ]);
-        // The filter dims what cannot play then; it does not hide or reorder anything.
-        const earlyOnly = cardNamed(/, early day only/);
-        expect(earlyOnly.classList.contains('is-dim')).toBe(false);
+        // An early-day-only gag: the other times are crossed out, and night (now, and the filter) is not chosen for it.
         home[2].click();
-        expect(cardNamed(/, early day only/).classList.contains('is-dim')).toBe(true);
-        expect(cardNamed(/, night only/).classList.contains('is-dim')).toBe(false);
-        expect(document.querySelectorAll('.story-steps-family .story-steps-card')).toHaveLength(40);
-
-        // An early-day-only gag: the other times are crossed out, and night (now) is not chosen for it.
-        cardNamed(/, early day only/).click();
+        pickGag('ACTIVITY.ADS', 8);
         expect(timeChips('.story-steps-hero').map((chip) => [chip.getAttribute('aria-pressed'), chip.disabled]))
             .toEqual([['true', false], ['false', true], ['false', true]]);
         expect(document.querySelector('.story-steps-hint').textContent).toBe('This one only plays in the early day.');
@@ -329,11 +330,11 @@ describe('scene-flow panel', () => {
         Object.assign(sequenceTools, { getStoryDay: () => 2, getStartTime: () => null });
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
-        expect(timeChips('.story-steps-section')[2].getAttribute('aria-label')).toBe('Night, 07:00–09:00, 15:00–17:00, 23:00–01:00');
+        expect(timeChips('.story-steps-filter')[2].getAttribute('aria-label')).toBe('Night, 07:00–09:00, 15:00–17:00, 23:00–01:00');
         panel.destroy();
     });
 
-    it('shows the live visit in the Now bar, with links between a planned gag, the running gag and the list', () => {
+    it('shows the live visit in the diary, with links between a planned gag, the running gag and the map', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         sequenceTools.status = () => ({ active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 2, storyDay: 2, tidePhase: 3 });
         sequenceTools.snapshot = () => [{ script: 'FISHY.ADS', tagId: 6, sequence: { index: 2 } }];
@@ -343,12 +344,12 @@ describe('scene-flow panel', () => {
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
 
-        const chips = Array.from(document.querySelectorAll('.story-steps-now .story-steps-visit button'));
+        const chips = Array.from(document.querySelectorAll('.island-diary-entry'));
         expect(chips.map((chip) => chip.dataset.role)).toEqual(['live', 'planned']);
         chips[1].click();
         expect(detailName()).toContain('Johnny naps · GAG 2 OF 2');
-        // From a planned gag, one link each back to the list and to the running gag.
-        expect(Array.from(document.querySelectorAll('.story-steps-backrow button'), (b) => b.textContent)).toEqual(['‹ All scenes', '↖ Johnny now']);
+        // From a planned gag, one link each back to the map and to the running gag.
+        expect(Array.from(document.querySelectorAll('.story-steps-backrow button'), (b) => b.textContent)).toEqual(['‹ Back to the map', '↖ Johnny now']);
         document.querySelector('.story-steps-backrow [data-focus="live"]').click();
         expect(detailName()).toContain('Johnny fishes · LIVE GAG');
         document.querySelector('.story-steps-backrow button').click();
@@ -365,7 +366,7 @@ describe('scene-flow panel', () => {
         sequenceTools.startRun = vi.fn();
         const dayAds = { ...FISHY_ADS, scenes: [{ ...FISHY_ADS.scenes[0], tagId: { id: 9, description: 'Daytime example' } }] };
         const panel = setupSceneFlowPanel({ resolveEntry: (name) => name === 'ACTIVITY.ADS' ? dayAds : resolveEntry(name), sequenceTools });
-        const pick = () => { panel.open(); cardNamed(/Daytime example/).click(); };
+        const pick = () => { panel.open(); pickGag('ACTIVITY.ADS', 9); };
         pick();
         expect(timeChips('.story-steps-hero').map((chip) => [chip.getAttribute('aria-pressed'), chip.disabled]))
             .toEqual([['true', false], ['false', false], ['false', true]]);
@@ -384,7 +385,7 @@ describe('scene-flow panel', () => {
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
         // Day 5, the date, forces the night sky.
-        cardNamed(/^Day 5: /).click();
+        pickDay(5);
         expect(timeChips('.story-steps-hero').map((chip) => [chip.getAttribute('aria-pressed'), chip.disabled]))
             .toEqual([['false', true], ['false', true], ['true', false]]);
         expect(document.querySelector('.story-steps-hint').textContent).toBe('This scene always plays at night.');
@@ -392,7 +393,7 @@ describe('scene-flow panel', () => {
         expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ storyDay: 5, band: 'night' }));
         // Day 3 is set away from the island: no question at all.
         panel.open();
-        cardNamed(/^Day 3: /).click();
+        pickDay(3);
         expect(timeChips('.story-steps-hero')).toEqual([]);
         expect(document.querySelector('.story-steps-hint').textContent).toMatch(/away from the island/);
         // A story scene offers one action; a whole-day visit stays in the Log.
@@ -400,15 +401,17 @@ describe('scene-flow panel', () => {
         panel.destroy();
     });
 
-    it('keeps your place and focus in the list through live updates, filters and a trip into a scene', () => {
+    it('keeps your place and focus on the map through live updates, filters and a trip into a scene', () => {
         const sequenceTools = makeSequenceTools({ script: 'FISHY.ADS', tagId: 5 });
         const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
         panel.open();
         const modal = document.getElementById('scene-flow-modal');
         const focused = () => document.activeElement?.dataset?.focus;
 
-        // A live update redraws the list.
-        const card = cardNamed(/, night only/);
+        // A live update redraws the map and the open place.
+        placeButton('campfire').click();
+        const nightCard = () => document.querySelector('[data-focus="card:BUILDING.ADS:8"]');
+        const card = nightCard();
         card.focus();
         modal.scrollTop = 900;
         sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 6 });
@@ -417,18 +420,18 @@ describe('scene-flow panel', () => {
         expect(focused()).toBe(card.dataset.focus);
 
         // A filter chip keeps the scroll position, the focus and (through later updates) its setting.
-        const night = timeChips('.story-steps-section')[2];
+        const night = timeChips('.story-steps-filter')[2];
         night.focus();
         night.click();
         expect(modal.scrollTop).toBe(900);
         expect(focused()).toBe('filter:night');
         sequenceTools.setActive({ script: 'FISHY.ADS', tagId: 5 });
-        expect(timeChips('.story-steps-section')[2].getAttribute('aria-pressed')).toBe('true');
+        expect(timeChips('.story-steps-filter')[2].getAttribute('aria-pressed')).toBe('true');
         expect(modal.scrollTop).toBe(900);
 
-        // Into a scene and back: the scene starts at its top with focus on the way back; the list
+        // Into a scene and back: the scene starts at its top with focus on the way back; the map
         // returns to where it was, with focus on the card that was open.
-        cardNamed(/, night only/).click();
+        nightCard().click();
         expect(modal.scrollTop).toBe(0);
         expect(focused()).toBe('back');
         // A picked scene stays put through live updates.
@@ -442,7 +445,7 @@ describe('scene-flow panel', () => {
         panel.destroy();
     });
 
-    it('marks today and the time now from the saved position while visiting, and keeps previews out of the visit strip', () => {
+    it('marks today and the time now from the saved position while visiting, and keeps previews out of the diary', () => {
         let status = { active: { script: 'FISHY.ADS', tagId: 5 }, current: 1, total: 3, storyDay: 1, tidePhase: 13 };
         const listeners = new Set();
         const publish = (next) => { status = next; for (const listener of listeners) listener(status); };
@@ -455,13 +458,14 @@ describe('scene-flow panel', () => {
         // A single-gag preview of day 5, then back to the visit; the same gag is reported twice.
         publish({ active: { script: 'MARY.ADS', tagId: 1 }, current: 1, total: 1, storyDay: 5, band: 'early', tidePhase: 0, preview: true });
         panel.open();
-        expect(document.querySelector('.story-steps-now-where strong').textContent).toBe('Visiting Day 5 · Early day');
-        expect(cardNamed(/\(today\)/).getAttribute('aria-label')).toMatch(/^Day 1: /);
-        expect(timeChips('.story-steps-section').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night']);
+        expect(document.querySelector('.island-diary-eyebrow').textContent).toBe('Visiting');
+        expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 5 · Early day');
+        expect(document.querySelector('.island-map-day.is-today').getAttribute('aria-label')).toMatch(/^Day 1: /);
+        expect(timeChips('.story-steps-filter').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night']);
         publish(live);
         publish({ ...live });
-        expect(timeChips('.story-steps-section').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night · now']);
-        expect(Array.from(document.querySelectorAll('.story-steps-visit button'), (chip) => chip.dataset.role)).toEqual(['live']);
+        expect(timeChips('.story-steps-filter').map((chip) => chip.textContent)).toEqual(['Early day', 'Late day', 'Night · now']);
+        expect(Array.from(document.querySelectorAll('.island-diary-entry'), (entry) => entry.dataset.role)).toEqual(['live']);
         panel.destroy();
     });
 
@@ -476,7 +480,7 @@ describe('scene-flow panel', () => {
         const pickAtNight = () => {
             panel.open();
             // A real ordinary gag that also has our synthetic outline.
-            cardNamed(/Night example/).click();
+            pickGag('MISCGAG.ADS', 1);
             timeChips('.story-steps-hero')[2].click();
         };
         pickAtNight();
@@ -488,11 +492,12 @@ describe('scene-flow panel', () => {
         document.querySelector('.scene-flow-play-button').click();
         expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview-child', storyDay: 2, band: 'night' }));
 
-        // While visiting, the Now bar says so and offers the way back.
+        // While visiting, the diary says so and offers the way back.
         status = { ...status, storyDay: 6, band: 'night', preview: false };
         panel.open();
-        expect(document.querySelector('.story-steps-now-where strong').textContent).toBe('Visiting Day 6 · Night');
-        document.querySelector('.story-steps-now .story-steps-play').click();
+        expect(document.querySelector('.island-diary-eyebrow').textContent).toBe('Visiting');
+        expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 6 · Night');
+        document.querySelector('.island-map-panel [data-focus="go-back"]').click();
         expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
         panel.destroy();
     });
@@ -507,16 +512,10 @@ describe('scene-flow panel', () => {
             panel.open();
             return { panel, sequenceTools };
         };
-        const showMap = () => document.querySelector('[data-view="map"]').click();
-        const placeButton = (id) => document.querySelector(`.island-map-place[data-place="${id}"]`);
         afterEach(() => { vi.unstubAllGlobals(); localStorage.clear(); });
 
-        it('is one click from the list, remembers the choice, and shows sixteen places and eleven days', () => {
+        it('shows sixteen places and eleven days, with today\'s diary page beside them', () => {
             const { panel } = start();
-            // No room is known for it here, so the list is the way in.
-            expect(document.querySelector('.island-map')).toBeNull();
-            expect(document.querySelector('[data-view="list"]').getAttribute('aria-pressed')).toBe('true');
-            showMap();
             expect(document.querySelectorAll('.island-map-place')).toHaveLength(16);
             expect(Array.from(document.querySelectorAll('.island-map-day'), (day) => day.getAttribute('aria-label').slice(0, 6)))
                 .toEqual(['Day 1:', 'Day 2:', 'Day 3:', 'Day 4:', 'Day 5:', 'Day 6:', 'Day 7:', 'Day 8:', 'Day 9:', 'Day 10', 'Day 11']);
@@ -525,30 +524,28 @@ describe('scene-flow panel', () => {
             expect(placeButton('fishing').getAttribute('aria-label')).toBe('The fishing spot, 8 gags (Johnny now)');
             expect(placeButton('fishing').classList.contains('is-live')).toBe(true);
             expect(placeButton('shark').querySelector('.island-map-name').textContent).toBe('Shark waters');
-            expect(localStorage.getItem('jc-timeline-view')).toBe('map');
-            panel.close();
-            panel.open();
-            expect(document.querySelector('.island-map')).not.toBeNull();
-            // On the beach, where Johnny is and the visit are the diary, not a strip.
-            expect(document.querySelector('.story-steps-now')).toBeNull();
+            // Where Johnny is and the visit are the diary.
             expect(document.querySelector('.island-map-panel').getAttribute('aria-label')).toBe('Diary: today on the island');
             expect(document.querySelector('.island-diary-eyebrow').textContent).toBe('Today on the island');
-            document.querySelector('[data-view="list"]').click();
-            expect(document.querySelector('.island-map')).toBeNull();
-            expect(document.querySelectorAll('.story-steps-family .story-steps-card')).toHaveLength(40);
+            // The map screen keeps the panel's furniture slim: the chips are on the beach, and the
+            // sky and tide are written in the diary instead of under the title.
+            expect(document.getElementById('scene-flow-modal').classList.contains('is-map-home')).toBe(true);
+            expect(timeChips('.island-beach .island-top')).toHaveLength(3);
+            expect(document.querySelector('.island-diary-conditions').textContent).toMatch(/^Day sky · Beach: (low|high) tide$/);
+            placeButton('sandcastle').click();
+            expect(document.getElementById('scene-flow-modal').classList.contains('is-map-home')).toBe(false);
+            document.querySelector('.story-steps-backrow button').click();
+            // A view saved by an earlier version, when there was a list too, changes nothing.
             panel.destroy();
-        });
-
-        it('opens on the map where the screen has room for it', () => {
-            vi.stubGlobal('matchMedia', (query) => ({ matches: query === '(min-width: 900px)' }));
-            const { panel } = start();
+            localStorage.setItem('jc-timeline-view', 'list');
+            const again = setupSceneFlowPanel({ resolveEntry, sequenceTools: makeSequenceTools({ script: 'FISHING.ADS', tagId: 3 }) });
+            again.open();
             expect(document.querySelector('.island-map')).not.toBeNull();
-            panel.destroy();
+            again.destroy();
         });
 
         it('lists a place\'s gags beside the map, and goes straight to a place with one', () => {
             const { panel, sequenceTools } = start();
-            showMap();
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
 
             placeButton('campfire').focus();
@@ -594,8 +591,6 @@ describe('scene-flow panel', () => {
 
         it('picks a day from its flag: the map shows that day, asks to start it, and plays picks as that day', () => {
             const { panel, sequenceTools } = start();
-            showMap();
-            const flag = (day) => document.querySelector(`.island-map-day[data-focus="day:${day}"]`);
             expect(document.querySelector('.island-map-story')).toBeNull();
 
             flag(7).click();
@@ -618,7 +613,6 @@ describe('scene-flow panel', () => {
 
             // Start the day: its story scene, at the time now.
             panel.open();
-            showMap();
             flag(7).click();
             document.querySelector('.island-map-panel [data-focus="start-day"]').click();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'preview', script: 'MARY.ADS', tagId: 4, storyDay: 7, band: 'early' });
@@ -626,12 +620,10 @@ describe('scene-flow panel', () => {
 
             // Day 5 always plays at night, whatever the time now; the outline is still one link away.
             panel.open();
-            showMap();
             flag(5).click();
             document.querySelector('.island-map-panel [data-focus="start-day"]').click();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ storyDay: 5, band: 'night' }));
             panel.open();
-            showMap();
             flag(5).click();
             document.querySelector('.island-map-panel [data-focus="day-detail"]').click();
             expect(document.querySelector('.story-steps-hero-name').textContent).toMatch(/^Day 5: /);
@@ -662,7 +654,6 @@ describe('scene-flow panel', () => {
             const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
             publish({ ...status, active, current: 2 });
             panel.open();
-            showMap();
             expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Late day');
             const entries = Array.from(document.querySelectorAll('.island-diary-entry'));
             expect(entries.map((entry) => [entry.dataset.role, entry.getAttribute('aria-label').split(': ')[1]]))
@@ -697,10 +688,9 @@ describe('scene-flow panel', () => {
 
         it('dims places with nothing on at the chosen time, without hiding them', () => {
             const { panel } = start();
-            showMap();
             const away = () => Array.from(document.querySelectorAll('.island-map-place.is-away'), (place) => place.dataset.place).sort();
             expect(away()).toEqual([]);
-            timeChips('.story-steps-viewbar')[2].click(); // Night
+            timeChips('.story-steps-filter')[2].click(); // Night
             expect(away()).toEqual(['bottle', 'raft', 'shark']);
             expect(document.querySelector('.island-map').classList.contains('is-night')).toBe(true);
             expect(placeButton('shark').getAttribute('aria-label')).toBe('Shark waters, SHARK1, nothing on at this time'.replace('SHARK1', 'MISCGAG.ADS #2'));
@@ -715,10 +705,9 @@ describe('scene-flow panel', () => {
             panel.destroy();
         });
 
-        it('keeps the open place, filter and view through live updates and a switch to the list and back', () => {
+        it('keeps the open place and filter through live updates', () => {
             const { panel, sequenceTools } = start();
-            showMap();
-            timeChips('.story-steps-viewbar')[2].click();
+            timeChips('.story-steps-filter')[2].click();
             placeButton('fishing').click();
             const before = placeButton('fishing');
             sequenceTools.status = () => ({ active: { script: 'BUILDING.ADS', tagId: 1 }, current: 2, total: 2, storyDay: 2, tidePhase: 3 });
@@ -729,16 +718,11 @@ describe('scene-flow panel', () => {
             expect(document.querySelector('.island-map').classList.contains('is-night')).toBe(true);
             // The marker followed Johnny to the sandcastle.
             expect(Array.from(document.querySelectorAll('.island-map-place.is-live'), (place) => place.dataset.place)).toEqual(['sandcastle']);
-
-            document.querySelector('[data-view="list"]').click();
-            showMap();
-            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The fishing spot');
             panel.destroy();
         });
 
         it('marks no place while Johnny idles, and moves through places in reading order', () => {
             const { panel } = start({ script: 'POSE', tagId: 1 });
-            showMap();
             expect(document.querySelectorAll('.island-map-place.is-live')).toHaveLength(0);
             const order = Array.from(document.querySelectorAll('.island-map-place'), (place) =>
                 [Math.round(parseFloat(place.style.top) / 14), parseFloat(place.style.left)]);
@@ -755,14 +739,6 @@ describe('scene-flow panel', () => {
             panel.destroy();
         });
 
-        it('ignores a junk saved view', () => {
-            localStorage.setItem('jc-timeline-view', 'sideways');
-            const sequenceTools = makeSequenceTools({ script: 'FISHING.ADS', tagId: 3 });
-            const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
-            panel.open();
-            expect(document.querySelector('[data-view="list"]').getAttribute('aria-pressed')).toBe('true');
-            panel.destroy();
-        });
     });
 
     it('shows temporary clock lifetime and scene exceptions, then hides it on live status', () => {

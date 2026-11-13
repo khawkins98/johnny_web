@@ -21,9 +21,26 @@ const HAND = "'Caveat', 'Bradley Hand', 'Segoe Print', 'Ink Free', 'Noteworthy',
 export const ISLAND_MAP_STYLE = `
 .island-beach { position: relative; padding: clamp(10px, 1.6vw, 22px); border: 2px solid #8bb9a8; border-radius: 9px 5px;
   background: #ecd9a6 var(--island-beach) center bottom / cover no-repeat; }
-/* The days: flags planted in the sand above the map, not on it. */
-.island-days { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 2px clamp(2px, 1.1vw, 16px);
-  margin: 0 0 clamp(6px, 1vw, 14px); padding: 0; }
+/* With the map as the Timeline's home, the beach is the whole panel: no frame inside a frame.
+   The panel's padding, header bar and status line go (the sky and tide are in the diary); the
+   title stays for screen readers, and the close button floats over the sand. */
+body #scene-flow-modal.is-map-home { padding: 0; }
+body #scene-flow-modal.is-map-home .scene-flow-header { position: sticky; top: 0; height: 0; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+body #scene-flow-modal.is-map-home .scene-flow-header .scene-flow-close { top: 10px; right: 12px; box-shadow: 0 2px 4px #5a431f55; }
+body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#scene-flow-modal.is-map-home #scene-flow-subtitle { display: none; }
+#scene-flow-modal.is-map-home .island-beach { border: 0; border-radius: 0; }
+#scene-flow-modal.is-map-home .island-top { padding-right: 52px; }
+#scene-flow-modal.is-map-home .scene-flow-story-shell { padding: 0; background: none; box-shadow: none; }
+#scene-flow-modal.is-map-home .story-steps { margin: 0; }
+#scene-flow-modal.is-map-home .scene-flow-links:empty { display: none; }
+/* The top of the beach: the time-of-day chips, and the days as flags planted in the sand above
+   the map, not on it. */
+.island-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px clamp(10px, 2vw, 28px); margin: 0 0 clamp(6px, 1vw, 14px); }
+.island-top .story-steps-chips { flex: none; margin: 0; }
+.island-top .story-steps-chip { min-height: 36px; padding: 2px 12px; font-size: 12.5px; box-shadow: 0 2px 2px #5a431f33; }
+.island-days { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 2px clamp(2px, 1.1vw, 16px);
+  margin: 0; padding: 0; }
 .island-map-day { position: relative; flex: none; width: clamp(40px, 4.4vw, 62px); padding: 0; border: 0; background: none; cursor: pointer; line-height: 0;
   filter: drop-shadow(0 2px 1px #0003); transition: transform .14s; }
 .island-map-day > img { display: block; width: 100%; height: auto; }
@@ -44,10 +61,11 @@ export const ISLAND_MAP_STYLE = `
    sideways instead of shrinking. It is also capped by the window's height, so the whole island
    is on screen at once rather than running below the fold. */
 .island-map-main { min-width: 0; }
-.island-map-scroll { min-width: 0; overflow-x: auto; padding: 22px 30px 26px; }
+/* Sideways only: without overflow-y the browser would add a needless vertical scrollbar. */
+.island-map-scroll { min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 22px 38px 56px; }
 .island-map-hint { margin: 0 0 6px; color: #234e52; font: 13px/1.4 'Trebuchet MS', Arial, sans-serif; }
 .island-map-hint[hidden] { display: none; }
-.island-map { position: relative; min-width: 720px; max-width: max(720px, calc((100dvh - 480px) * 1.5)); margin-inline: auto; line-height: 0;
+.island-map { position: relative; min-width: 720px; max-width: max(720px, min(100%, calc((100dvh - 268px) * 1.5))); margin-inline: auto; line-height: 0;
   border-radius: 4px; box-shadow: 3px 6px 8px #5a431f55; container-type: inline-size; }
 .island-map-base { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 4px; transition: filter .3s; }
 .island-map.is-night .island-map-base { filter: brightness(.58) saturate(.85) hue-rotate(10deg); }
@@ -70,13 +88,14 @@ export const ISLAND_MAP_STYLE = `
   font: 700 clamp(10px, 1.22cqw, 15px)/1.35 'Trebuchet MS', Arial, sans-serif; }
 .island-map-thing.is-live .island-map-name { background: #f2cc91; }
 /* The diary: an open logbook lying on the sand. Its page is the picture; the writing is live. */
-.island-map-panel { position: relative; min-height: 420px; padding: 11% 23% 20% 13%; color: #234e52;
+.island-map-panel { position: relative; min-height: 420px; padding: 11% 23% 27% 13%; color: #234e52;
   background: var(--island-logbook) center / 100% 100% no-repeat; font: 21px/1.3 ${HAND}; }
 .island-map-starfish { position: absolute; left: -9%; top: -7%; width: 22%; height: auto; pointer-events: none; filter: drop-shadow(0 3px 2px #0004); }
 .island-map-panel h3 { margin: 0 0 2px; font: 700 30px/1.1 ${HAND}; color: #22553b; }
 .island-map-panel h3:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; }
 .island-map-panel p { margin: 0 0 8px; }
 .island-map-panel .island-diary-eyebrow { margin: 0; font: 700 12px/1.3 'Trebuchet MS', Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #53736a; }
+.island-map-panel .island-diary-conditions { margin: 0 0 4px; font: 12px/1.35 'Trebuchet MS', Arial, sans-serif; color: #53736a; }
 .island-diary-list { list-style: none; margin: 4px 0 8px; padding: 0; max-height: min(30dvh, 290px); overflow-y: auto; }
 .island-diary-list li { margin: 0; }
 .island-diary-entry { display: inline-block; max-width: 100%; min-height: 34px; margin: 0 0 1px; padding: 2px 12px 2px 26px; border: 0; background: none; cursor: pointer;
@@ -143,7 +162,7 @@ const sameGag = (a, b) => Boolean(a && b && a.script === b.script && a.tagId ===
  */
 export function renderIslandMap(root, {
     place: openId = null, day: pickedDay = null, filter = null, live, today, visit = [], visiting = null,
-    gagName, makeCard, onStep, onLive = () => {}, onGoBack = null, onStartDay = null,
+    gagName, makeCard, onStep, onLive = () => {}, onGoBack = null, onStartDay = null, toolbar = null, conditions = '',
 }) {
     const beach = el('div', 'island-beach');
     beach.style.setProperty('--island-beach', `url("${islandMapArt.beach}")`);
@@ -179,7 +198,10 @@ export function renderIslandMap(root, {
         if (isToday) days.appendChild(picture('footprints', islandMapArt.footprints, 'island-map-footprints'));
         days.appendChild(button);
     }
-    beach.appendChild(days);
+    const top = el('div', 'island-top');
+    if (toolbar) top.appendChild(toolbar);
+    top.appendChild(days);
+    beach.appendChild(top);
 
     const layout = el('div', 'island-map-layout');
     const map = el('div', `island-map${filter === 'night' ? ' is-night' : ''}`);
@@ -326,6 +348,8 @@ export function renderIslandMap(root, {
         panel.setAttribute('aria-label', 'Diary: today on the island');
         heading.textContent = `Day ${visiting?.day ?? live.day}${band ? ` · ${band.label}` : ''}`;
         panel.append(el('p', 'island-diary-eyebrow', visiting ? 'Visiting' : 'Today on the island'), heading);
+        // The sky and the tide: the panel's own line for these is hidden on this screen.
+        if (conditions) panel.appendChild(el('p', 'island-diary-conditions', conditions));
         if (visiting && onGoBack) {
             const back = el('button', 'story-steps-play', 'Go back');
             back.type = 'button';
