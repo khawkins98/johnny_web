@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runLoadingScreen } from '../loading-screen.mjs';
+import { runLoadingScreen, PLAYING_EVENT } from '../loading-screen.mjs';
 
 const page = () => {
     document.body.innerHTML = `
@@ -33,6 +33,16 @@ describe('loading screen', () => {
         const cover = page();
         runLoadingScreen({ art: [] });
         document.getElementById('data-error').classList.add('visible');
+        await vi.advanceTimersByTimeAsync(100);
+        expect(cover.classList.contains('is-done')).toBe(true);
+    });
+
+    it('lifts when playback begins with no title screen, as a screensaver link does', async () => {
+        const cover = page();
+        runLoadingScreen({ art: [] });
+        await vi.advanceTimersByTimeAsync(500);
+        expect(cover.classList.contains('is-done')).toBe(false);
+        window.dispatchEvent(new Event(PLAYING_EVENT));
         await vi.advanceTimersByTimeAsync(100);
         expect(cover.classList.contains('is-done')).toBe(true);
     });
