@@ -153,6 +153,13 @@
     </head>
     <body>
         <noscript><style>#jc-loading { display: none; }</style>You need to enable JavaScript to run this app.</noscript>
+        <!-- Runs without the app: if its script never loads or fails, the cover must still lift. -->
+        <script>
+            setTimeout(function () {
+                var cover = document.getElementById('jc-loading');
+                if (cover) cover.remove();
+            }, 12000);
+        </script>
         <div id="jc-loading" role="status">
             <span>Loading Johnny Castaway…</span>
             <div class="jc-loading-bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>

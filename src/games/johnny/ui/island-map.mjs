@@ -5,8 +5,8 @@
  * place you can go and watch; a row of eleven numbered flags for the story days, planted
  * outside the map because days are not places on the island; and an open logbook, the
  * diary, with today's visit written in as a checklist. It is a flat picture with buttons
- * on it: nothing here animates the game or changes playback. Picking a gag or starting a
- * day hands over to the same scene screen and Play actions as the list view.
+ * on it. Picking a gag or starting a day plays it at once through the callbacks below;
+ * Shift-click opens the scene screen (how a gag unfolds) instead.
  *
  * The stepper owns the state (the open place, the picked day, the time-of-day filter);
  * this module draws the scene and reports choices through callbacks.
@@ -31,6 +31,11 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 #scene-flow-modal.is-map-home #scene-flow-subtitle { display: none; }
 #scene-flow-modal.is-map-home .island-beach { border: 0; border-radius: 0; }
 #scene-flow-modal.is-map-home .island-top { padding-right: 100px; }
+/* Narrow: the chips cannot share a row with the two round buttons, so they start below them. */
+@media (max-width: 700px) {
+  #scene-flow-modal.is-map-home .island-top { padding: 50px 0 0; }
+  #scene-flow-modal .island-top .story-steps-chips { flex: 0 1 100%; min-width: 0; }
+}
 #scene-flow-modal.is-map-home .scene-flow-story-shell { padding: 0; background: none; box-shadow: none; }
 #scene-flow-modal.is-map-home .story-steps { margin: 0; }
 #scene-flow-modal.is-map-home .scene-flow-links:empty { display: none; }
@@ -57,6 +62,14 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 /* Side by side only where the map still gets its full minimum width beside the diary; below
    that the diary sits under the map. */
 .island-map-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: clamp(12px, 1.8vw, 26px); align-items: start; }
+/* Stacked under the map, the logbook keeps a book's size (not the full width of the panel) and
+   shows its whole list: the page scrolls here anyway. */
+@media (max-width: 1179.98px) {
+  /* Its padding is a share of the book's own width here, not of the full-width row it sits in. */
+  .island-map-layout > .island-map-panel { --book: min(400px, 100vw - 64px); width: var(--book); box-sizing: border-box; justify-self: center;
+    padding: calc(var(--book) * .11) calc(var(--book) * .23) calc(var(--book) * .27) calc(var(--book) * .13); }
+  .island-map-panel .island-diary-list { max-height: none; }
+}
 @media (min-width: 1180px) { .island-map-layout { grid-template-columns: minmax(0, 1fr) clamp(280px, 24vw, 370px); } }
 /* Objects must stay big enough to recognise and press, so the map keeps a minimum size and pans
    sideways instead of shrinking. It is also capped by the window's height, so the whole island

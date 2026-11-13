@@ -19,8 +19,11 @@ describe('share link', () => {
         expect(shareHashFor({ active: { script: 'FISHING.ADS', tagId: 3 }, storyDay: 2, tidePhase: 3 }))
             .toBe('#stage=FISHING.ADS:3&day=2&mode=preview&time=early');
         // A visit's chosen time wins over the clock's.
-        expect(shareHashFor({ active: { script: 'MARY.ADS', tagId: 1 }, storyDay: 5, tidePhase: 3, band: 'night' }))
+        expect(shareHashFor({ active: { script: 'MARY.ADS', tagId: 1 }, storyDay: 5, tidePhase: 3, band: 'night', preview: true }))
             .toBe('#stage=MARY.ADS:1&day=5&mode=preview&time=night');
+        // A whole visit (from the Log, or a sequence link) keeps being one.
+        expect(shareHashFor({ active: { script: 'FISHING.ADS', tagId: 3 }, storyDay: 4, band: 'late', preview: false }))
+            .toBe('#stage=FISHING.ADS:3&day=4&mode=sequence&time=late');
         // Nothing playing, a pause between gags, or a gag the game does not have: no link.
         expect(shareHashFor(null)).toBeNull();
         expect(shareHashFor({ active: { script: 'POSE', tagId: 1 }, storyDay: 2 })).toBeNull();

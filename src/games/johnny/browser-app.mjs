@@ -10,6 +10,12 @@ import { createJohnnyStoryController } from './story-controller.mjs';
 import { runJohnnySequenceTransition } from './ui/transitions.mjs';
 import { runJohnnyWalk, runJohnnyPose } from './walking.mjs';
 import { createJohnnySelectionPresenter } from './island-presenter.mjs';
+import { bandForGag, gagFacts } from './story-steps.mjs';
+
+// A time of day asked for from outside (a shared link, a pasted hash) may be one this gag cannot
+// play at, or not a time at all. Whatever the route, the story only ever gets one it can show.
+const withPlayableBand = (script, tagId, options) =>
+    (options?.band == null ? options : { ...options, band: bandForGag(gagFacts({ script, tagId }), options.band) });
 
 export const runJohnnyCastaway = () => {
     const story = createJohnnyStoryController();
@@ -38,8 +44,8 @@ export const runJohnnyCastaway = () => {
             options: HOLIDAY_THEME_OPTIONS,
         },
         debugSequence: {
-            preview: (script, tagId, options) => story.preview(script, tagId, options),
-            planFrom: (script, tagId, options) => story.planFrom(script, tagId, options),
+            preview: (script, tagId, options) => story.preview(script, tagId, withPlayableBand(script, tagId, options)),
+            planFrom: (script, tagId, options) => story.planFrom(script, tagId, withPlayableBand(script, tagId, options)),
             returnToLive: () => story.returnToLive(),
             holdPlace: (kind) => story.holdPlace(kind),
             keepVisit: (options) => story.keepVisit(options),

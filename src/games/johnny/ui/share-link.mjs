@@ -23,7 +23,8 @@ export const shareHashFor = (status) => {
         script: status.active.script,
         tagId: status.active.tagId,
         storyDay: status.storyDay ?? 1,
-        mode: 'preview',
+        // A whole visit (the Log's Visit this day, or a sequence link) stays one; anything else is the single gag.
+        mode: status.band && !status.preview ? 'sequence' : 'preview',
         band: status.band ?? bandForPhase(status.tidePhase)?.id ?? null,
     });
 };

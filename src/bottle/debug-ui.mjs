@@ -548,7 +548,12 @@ export function setupDebugUI({ themes = null, sequenceTools = null } = {}) {
     if (linkedStage) {
         followPlaybackCheckbox.checked = false;
         preferredStoryDay = String(linkedStage.storyDay);
-        sequenceTools.startRun?.(linkedStage);
+        // A link from outside may name a gag this game does not have. Normal play must still start.
+        try {
+            sequenceTools.startRun?.(linkedStage);
+        } catch (error) {
+            console.warn('[stage link] ignored:', error?.message ?? error);
+        }
     }
 
     const playbackLabel = makeSectionLabel('Now playing — host event');

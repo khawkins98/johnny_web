@@ -293,6 +293,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     let isOpen = false;
     const close = () => {
         isOpen = false;
+        about.open = false;
         mapGeneration++;
         previewGeneration++;
         mountedPreview?.destroy();
@@ -362,11 +363,27 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     // A visit started from the map: Go back then returns to the map as well as to the gag that
     // was interrupted. A visit started elsewhere (the Log) leaves the Timeline closed.
     let visitFromTimeline = false;
+    // What the map was showing when the pick was made, so coming back does not lose it.
+    let mapToResume = null;
+    // Go back was pressed before the interrupted gag is running again: open once it is.
+    let reopenWhenPlaying = false;
+    const reopenMap = () => {
+        reopenWhenPlaying = false;
+        const resume = mapToResume;
+        open();
+        if (!isOpen || !step || !resume) return;
+        Object.assign(step, resume);
+        renderCurrent();
+        focusKey(step.place ? `place:${step.place}` : step.mapDay ? `day:${step.mapDay}` : null);
+    };
     returnLive.onclick = () => {
-        const reopen = visitFromTimeline;
+        // Only a single gag picked in the Timeline: a whole visit comes from the Log.
+        const reopen = visitFromTimeline && Boolean(temporaryStatus?.preview);
         visitFromTimeline = false;
         sequenceTools?.startRun?.({ mode: 'live' });
-        if (reopen) open();
+        if (!reopen) return;
+        if (sequenceTools?.status?.()?.active) reopenMap();
+        else reopenWhenPlaying = true;
     };
     let temporaryStatus = null;
     const saveClock = document.createElement('button');
@@ -421,6 +438,7 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                 mode: 'preview', script: gag.script, tagId: gag.tagId, storyDay: gag.keyDay || day, band,
             });
             visitFromTimeline = true;
+            mapToResume = step?.level === 'home' ? { filter: step.filter ?? null, place: step.place ?? null, mapDay: step.mapDay ?? null } : null;
             close();
             return true;
         } catch {
@@ -454,11 +472,21 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     document.body.appendChild(overlay);
 
     overlay.addEventListener('click', (event) => {
+        // A click anywhere else puts the About box away.
+        if (about.open && !about.contains(event.target)) about.open = false;
         if (event.target === overlay) close();
     });
     // Named so destroy() can remove it (window listeners outlive the modal DOM).
     const onKeydown = (e) => {
-        if (e.key === 'Escape' && overlay.style.display === 'flex') close();
+        if (e.key === 'Escape' && overlay.style.display === 'flex') {
+            // Esc closes the About box first, and the Timeline only when it is already closed.
+            if (about.open) {
+                about.open = false;
+                aboutSummary.focus();
+                return;
+            }
+            close();
+        }
         if (e.key !== 't' && e.key !== 'T') return;
         if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
         if (e.target?.matches?.('input, select, textarea, [contenteditable="true"]')) return;
@@ -586,7 +614,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
                     // Opening a place moves on to its list: the panel may be below the map or a
                     // long way on in reading order.
                     focusKey('place-panel');
-                    modal.querySelector('.island-map-panel')?.scrollIntoView?.({ block: 'nearest' });
+                    // Only where the diary is stacked under the map: beside it, scrolling would push the chips off the top.
+                    if (!window.matchMedia?.('(min-width: 1180px)')?.matches) modal.querySelector('.island-map-panel')?.scrollIntoView?.({ block: 'nearest' });
                 } else if ('mapDay' in patch) focusKey(`day:${lastDay ?? ''}`);
                 else if ('place' in patch) focusKey(`place:${lastPlace ?? ''}`);
                 if (step.level !== before) {
@@ -972,6 +1001,8 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
         if (isOpen || document.querySelector('#settings-overlay[aria-hidden="false"]')) return;
         isOpen = true;
         step = null;
+        // Opened afresh: what an earlier pick left on the map is no longer wanted.
+        mapToResume = null;
         renderedGagId = null;
         previousFocus = document.activeElement === cog ? null : document.activeElement;
         releaseBackground = isolateDialog(overlay);
@@ -989,6 +1020,9 @@ export function setupSceneFlowPanel({ resolveEntry = () => null, sequenceTools =
     const unsubscribeStatus = sequenceTools?.subscribeStatus?.((status) => {
         // The visit is over (it ran out, or was kept with Stay here): nothing to come back from.
         if (temporaryStatus?.band && !status?.band) visitFromTimeline = false;
+        // A whole visit is running: that came from the Log, whatever was picked before it.
+        if (status?.band && !status.preview) visitFromTimeline = false;
+        if (reopenWhenPlaying && status?.active && !status.band) queueMicrotask(reopenMap);
         temporaryStatus = status;
         clockNotice.hidden = !status?.band;
         const band = bandById(status?.band);

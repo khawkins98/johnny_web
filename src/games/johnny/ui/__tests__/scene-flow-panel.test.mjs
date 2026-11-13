@@ -107,6 +107,7 @@ const makeSequenceTools = (initialActive) => {
             status = active ? { active } : null;
             for (const listener of listeners) listener(status);
         },
+        publish: (next) => { for (const listener of listeners) listener(next); },
     };
 };
 
@@ -599,8 +600,8 @@ describe('scene-flow panel', () => {
             document.querySelector('[data-focus="card:BUILDING.ADS:8"]').click(); // A night gag, picked in the early day.
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'preview', script: 'BUILDING.ADS', tagId: 8, storyDay: 2, band: 'night' });
             expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
-            panel.open();
-            placeButton('campfire').click(); // Close the place again.
+            panel.open(); // Opened afresh: today's page, no place open.
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
 
             // One thing happens at the sandcastle: no list, it plays; Shift-click opens its outline,
             // and back lands on the place.
@@ -608,11 +609,42 @@ describe('scene-flow panel', () => {
             expect(document.querySelector('.story-steps-hero')).toBeNull();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'preview', script: 'BUILDING.ADS', tagId: 1, band: 'early' }));
             // Go back on the visit notice returns to the gag that was interrupted and to the map.
-            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('true');
+            const hidden = () => document.getElementById('scene-flow-overlay').getAttribute('aria-hidden');
+            const visit = { active: { script: 'BUILDING.ADS', tagId: 1 }, storyDay: 2, band: 'early', preview: true };
+            expect(hidden()).toBe('true');
+            sequenceTools.publish(visit);
             document.getElementById('timeline-go-back').click();
             expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
-            expect(document.getElementById('scene-flow-overlay').getAttribute('aria-hidden')).toBe('false');
+            expect(hidden()).toBe('false');
             expect(document.querySelector('.island-map')).not.toBeNull();
+
+            // It comes back as it was left: the same place open, the same time of day chosen.
+            timeChips('.story-steps-filter')[2].click();
+            placeButton('campfire').click();
+            document.querySelector('[data-focus="card:BUILDING.ADS:8"]').click();
+            sequenceTools.publish({ ...visit, active: { script: 'BUILDING.ADS', tagId: 8 }, band: 'night' });
+            document.getElementById('timeline-go-back').click();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('The campfire');
+            expect(timeChips('.story-steps-filter')[2].getAttribute('aria-pressed')).toBe('true');
+            expect(document.activeElement.dataset.focus).toBe('place:campfire');
+            placeButton('campfire').click();
+            document.querySelector('[data-focus="filter:any"]').click();
+
+            // A whole visit started from the Log afterwards is not the Timeline's to reopen.
+            placeButton('sandcastle').click();
+            sequenceTools.publish(visit);
+            sequenceTools.publish({ ...visit, preview: false }); // Visit this day, from the Log.
+            document.getElementById('timeline-go-back').click();
+            expect(hidden()).toBe('true');
+
+            // Esc puts the About box away before it closes the Timeline.
+            panel.open();
+            const about = document.getElementById('scene-flow-about');
+            about.open = true;
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect([about.open, hidden()]).toEqual([false, 'false']);
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+            expect(hidden()).toBe('true');
             shiftClick(document.querySelector('[data-place="sandcastle"]'));
             document.querySelector('.story-steps-backrow button').click();
             expect(document.activeElement.dataset.focus).toBe('place:sandcastle');
