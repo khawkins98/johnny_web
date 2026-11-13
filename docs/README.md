@@ -30,6 +30,7 @@ Start with the [project setup](../README.md#run-locally) to run Johnny, or [Cont
 These records retain the conditions and limitations of their original investigations. For current behavior, use the guides above.
 
 - [Executable findings](scrantic-re-findings.md) preserve addresses, provenance and corrections; their opening table identifies superseded sections. [Fire handoff timing](building-handoff-timing.md) records successive measurements, newest first.
+- [Native macOS screen saver assessment](native-macos-screensaver-assessment.md) records why issue #45 led to screensaver mode in the web app, and the developer reports it relied on.
 - [Initial scaling assessment](enhanced-scaling-assessment.md) and [retired pixel artwork study](ui-early-pixel-study.md) describe earlier proposals and assets. Current illustrated UI and CRT instructions live in their maintenance guides.
 - [Oracle methodology](../tools/faithfulness-oracle/METHODOLOGY.md) explains capture reproduction and [private maintainer evidence](../tools/faithfulness-oracle/METHODOLOGY.md#maintainer-assets). Generated reports and scene flows identify their generators; do not hand-edit their results.
 - [Changelog](../CHANGELOG.md), [v1.4.0 notes](releases/v1.4.0-notes.md) and [v1.4.0 release record](releases/v1.4.0-plan.md) preserve release scope and checks performed at the time.

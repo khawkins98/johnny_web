@@ -31,7 +31,7 @@ The Island TV interface, with the Log closed to show the TV controls. Original J
 
 Press **Play** to start Johnny with the illustrated Island TV. Fresh preferences use Balanced CRT, automatic picture sizing, drifting clouds and the original story clock. **Options** remembers your choices across visits; **Picture** opens the picture presets. See [CRT setup and controls](docs/optional-crt.md) for models, tuning and fallback behavior.
 
-Use the [playback toolbar and Island Log](docs/playback-toolbar.md) to pause, change speed, hide the cabinet or jump to a gag. To run it as a screensaver from a bookmark or desktop link, see [screensaver mode](docs/screensaver-mode.md). The [story timeline](docs/story-timeline-guide.md) (`T`) lets you browse days, times and scenes without interrupting playback until you choose a Play action.
+Use the [playback toolbar and Island Log](docs/playback-toolbar.md) to pause, change speed, hide the cabinet or jump to a gag. The [story timeline](docs/story-timeline-guide.md) (`T`) lets you browse days, times and scenes without interrupting playback until you choose a Play action. To open Johnny from a bookmark or desktop link with no title screen, use [screensaver mode](docs/screensaver-mode.md).
 
 Johnny's [11-day story](docs/story-over-time.md) unfolds across visits, with progress saved in your browser. To change when night falls or explore a particular day/time, see [browsing and playback clocks](docs/story-timeline-guide.md#browsing-and-playback-clocks).
 

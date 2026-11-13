@@ -1,36 +1,62 @@
 # Screensaver mode
 
-Add `?saver` to the app's address and it opens as a screensaver: no title screen, no Island TV, only the picture on black.
+A link ending in `?saver` opens Johnny as a screensaver: no title screen and no Island TV, only the picture on black.
+
+It runs in a browser tab or window. It is not listed in the system's screen saver settings, does not start when the machine goes idle, and does not cover the lock screen. The [native macOS screen saver assessment](native-macos-screensaver-assessment.md) records why.
+
+## Start it
+
+1. Open the app as usual and import the game data if you have not already. The saver uses the data imported in that browser, at that address.
+2. Open **Options** and find **Screensaver link**.
+3. Drag the link to the bookmarks bar or to the desktop. On the desktop it becomes a file you double-click.
+4. Open the link. Johnny starts playing in a tab filled with the picture.
+
+You can also type the flag yourself:
 
 ```
-https://<where the app is served>/?saver
+https://<address>/?saver
 ```
 
-**Options → Screensaver link** gives the link for the copy you are using. Drag it to the bookmarks bar, or to the desktop, where it becomes a file you double-click.
+Without game data the "Ready to cast away?" card asks for the files as usual. After the import the page reloads into the saver.
 
-## What it does
+## Fill the screen
+
+The browser's bars stay around the picture, because a page may only go fullscreen in answer to a click or key press. Use the browser's own fullscreen command (Control-Command-F on macOS, F11 elsewhere) or a [launcher](#open-it-from-a-launcher).
+
+## Sound
+
+Playback starts silent. Browsers only let a page start audio after a click or key press, and a saver link has no Play button to supply one. With **Options → Sound** on, sound joins at your first click or key press.
+
+Esc does not count as that key press. If you leave with Esc, sound joins at the next click or key.
+
+## Leave
+
+**Esc**, **F**, **H**, **R** (Return to title) or the **Show TV** tab returns to the ordinary app. Each also takes `?saver` off the address, so a reload opens the app normally.
+
+Moving the mouse does not leave. **Space** (pause), **S** (Options) and **T** (Timeline) work without leaving.
+
+## While it runs
 
 | | |
 | --- | --- |
-| Start | Skips the title screen and enters Full view. |
-| Screen | Asks the browser to keep the display awake, so the system's own screensaver or display sleep does not cut in. Browsers without the Screen Wake Lock API, or that refuse it, still play. |
-| Pointer | Hidden after three seconds without moving, along with the Show TV tab and corner buttons. Moving it brings them back, and Tab still reaches the Show TV tab. The pointer stays while Options or the Timeline is open. |
-| Game data | Uses the data already imported at that address. With none, the usual "add the game files" card appears; after the import the page reloads into the saver. |
-| Leaving | **Esc**, **F**, **H** or the **Show TV** tab returns to the ordinary app and takes `?saver` off the address; so does **R** (Return to title). Moving the mouse does not leave: a page cannot close itself, so it would only bring the interface back at every bump. The other keys keep working without leaving: **Space** pauses, **S** opens Options, **T** the Timeline. |
+| Display | The page asks the browser to keep the display awake, so the system's screen saver and display sleep do not cut in. A browser without the Screen Wake Lock API, or one that refuses the request, still plays. |
+| Pointer | After three seconds without moving, the pointer, the Show TV tab and the corner buttons are hidden. Moving the pointer brings them back, and Tab still reaches the Show TV tab. The pointer stays visible while Options or the Timeline is open. |
 
-`?saver=off`, `?saver=0` and `?saver=false` are treated as an ordinary visit. A scene link can be combined with it: `?saver#stage=FISHING.ADS:3`.
+## Address options
 
-## Two things the browser decides
+| Address | Result |
+| --- | --- |
+| `?saver`, `?saver=1` | Screensaver mode. |
+| `?saver=off`, `?saver=0`, `?saver=false` | An ordinary visit. |
+| `?saver#stage=FISHING.ADS:3` | Screensaver mode, starting with that scene. Any [scene link](story-timeline-guide.md#share-or-bookmark-what-is-playing) can be combined this way. |
 
-**Fullscreen.** A page may only go fullscreen in answer to a click or key press, so a bookmark opens a tab filled with the picture, with the browser's own bars still around it. Use the browser's fullscreen command (macOS: Control-Command-F) or a launcher, below.
+## Open it from a launcher
 
-**Sound.** A page may only start audio after a click or key press. The title screen's Play button is that click on an ordinary visit. A saver link has none, so playback starts silent, and sound joins at the first click or key press if **Options → Sound** is on. Browsers do not count Esc as that key press: after leaving with Esc, sound joins at the next one.
+A launcher opens the link in a fullscreen window with no browser bars. These command lines use Chromium's `--kiosk`, `--app` and `--autoplay-policy` switches. This project has not run them; treat them as a starting point.
 
-## Launchers
+Import the game data first, in the browser the launcher uses and at the address it opens.
 
-A launcher opens the link in a window with no browser bars. Imported game data belongs to one browser and one address, so import it once in the browser the launcher uses, at the address it opens.
-
-macOS, Chrome (fullscreen, no bars, sound allowed from the start):
+macOS, Chrome:
 
 ```bash
 open -na "Google Chrome" --args --kiosk --app="https://<address>/?saver" \
@@ -43,30 +69,10 @@ Linux, Chromium:
 chromium --kiosk --app="https://<address>/?saver" --autoplay-policy=no-user-gesture-required
 ```
 
-Quit a kiosk window with the browser's quit shortcut (Command-Q, or Alt-F4).
+`--autoplay-policy=no-user-gesture-required` lets sound play from the start. Quit a kiosk window with the browser's quit shortcut: Command-Q on macOS, Alt-F4 on Linux.
 
-Saved as `Johnny.command` (macOS, `chmod +x`) or a `.desktop` entry (Linux), either line is a double-click launcher. To start it when the machine goes idle, hand the same line to whatever already watches for idleness: `xidlehook`, `swayidle` or `xautolock` on Linux. This project does not ship an idle watcher.
+To make a double-click launcher, save the line as `Johnny.command` and run `chmod +x` on it (macOS), or put it in a `.desktop` entry (Linux).
 
-Safari has no kiosk flag. **File → Add to Dock** on the saver link makes a standalone window, but Safari gives that window its own storage, so the game data has to be imported there too.
+To start it when the machine goes idle, give the same line to a program that already watches for idleness, such as `xidlehook`, `swayidle` or `xautolock` on Linux. This project does not ship an idle watcher.
 
-## Why not a native macOS screen saver
-
-Issue #45 proposed a `.saver` bundle hosting the app in a `WKWebView`. Research in November 2026 found the host too unreliable to build on:
-
-- Third-party savers run only in Apple's `legacyScreenSaver` host. The newer extension API Apple's own savers use is not public.
-- Since macOS 14 developers report the host no longer sends `stopAnimation`, creates duplicate saver instances, and leaves processes running after the saver is dismissed ([Apple forums](https://developer.apple.com/forums/thread/787444), [ScreenSaverMinimal](https://github.com/AerialScreensaver/ScreenSaverMinimal), [Wade Tregaskis](https://wadetregaskis.com/how-to-make-a-macos-screen-saver/)).
-- A report against macOS 26.4 says `WKWebView` content in a legacy saver goes blank after about three seconds (FB22353950, [forum listing](https://developer.apple.com/forums/tags/screensaver)).
-- On macOS 27 one developer reports static frames and wrong timing and moved to a standalone app ([System 47](https://github.com/mikelawson68/System47-Releases/issues/3)); another reports the saver's sandbox container can no longer be written by an installer, which is where game data would have had to go.
-- A saver receives no input, so importing game data would need a second, native import path.
-
-These are other developers' reports; none was reproduced for this project. The alternatives weighed:
-
-| Approach | Outcome |
-| --- | --- |
-| `.saver` with `WKWebView` | Rejected: the reports above. |
-| `.saver` running the engine in JavaScriptCore with a native raster | Rejected: avoids the web view but keeps the host's lifecycle faults, and needs audio, presentation and import written again. |
-| Full native port of the engine | Rejected: a second copy of script behaviour to keep faithful. |
-| Standalone app with its own idle timer and a normal `WKWebView` | Workable, not built. It would load this same `?saver` page. |
-| **Saver mode in the web app** | Built. No second host, and it works on any desktop OS. |
-
-Saver mode does not appear in System Settings → Screen Saver and does not draw over the lock screen. A Linux saver is the likelier next step: XScreenSaver and its relatives run an ordinary program when the machine goes idle, which the Chromium line above already is.
+Safari has no kiosk switch. **File → Add to Dock** on the saver link makes a standalone window, but Safari gives that window its own storage, so import the game data there too.
