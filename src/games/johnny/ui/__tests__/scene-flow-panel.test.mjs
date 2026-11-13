@@ -113,17 +113,18 @@ const makeSequenceTools = (initialActive) => {
 // The panel title is always "Story timeline"; the gag being inspected is named
 // in the detail heading below the visit row (e.g. "Johnny fishes · LIVE GAG").
 const detailName = () => document.querySelector('.scene-flow-matrix-detail-heading strong')?.textContent ?? '';
-// The panel opens on the island map; the diary's current entry opens the gag Johnny is playing.
-const openOnLiveGag = (panel) => {
-    panel.open();
-    document.querySelector('.island-diary-entry[data-role="live"]').click();
-};
+// The panel opens on the island map; Shift-click on the diary's current entry opens the gag Johnny is playing.
+
 const placeButton = (id) => document.querySelector(`.island-map-place[data-place="${id}"]`);
 const flag = (day) => document.querySelector(`.island-map-day[data-focus="day:${day}"]`);
 // Open an everyday gag's scene screen from the map: its place, then (where a place holds
 // several) its card in the diary.
 // A plain click plays a gag; Shift-click opens its outline instead.
 const shiftClick = (node) => node.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+const openOnLiveGag = (panel) => {
+    panel.open();
+    shiftClick(document.querySelector('.island-diary-entry[data-role="live"]'));
+};
 const pickGag = (script, tagId) => {
     const card = () => document.querySelector(`[data-focus="card:${script}:${tagId}"]`);
     if (card()) return shiftClick(card());
@@ -352,7 +353,7 @@ describe('scene-flow panel', () => {
 
         const chips = Array.from(document.querySelectorAll('.island-diary-entry'));
         expect(chips.map((chip) => chip.dataset.role)).toEqual(['live', 'planned']);
-        chips[1].click();
+        shiftClick(chips[1]);
         expect(detailName()).toContain('Johnny naps · GAG 2 OF 2');
         // From a planned gag, one link each back to the map and to the running gag.
         expect(Array.from(document.querySelectorAll('.story-steps-backrow button'), (b) => b.textContent)).toEqual(['‹ Back to the map', '↖ Johnny now']);
@@ -685,13 +686,18 @@ describe('scene-flow panel', () => {
             // Idle pauses are not diary entries.
             expect(document.querySelectorAll('.island-diary-list li')).toHaveLength(3);
 
-            // An entry opens that gag; the one happening now opens the running gag and follows it.
-            entries[2].click();
+            // Shift-click an entry for its outline; the one happening now opens the running gag and follows it.
+            shiftClick(entries[2]);
             expect(document.querySelector('.story-steps-hero')).not.toBeNull();
             document.querySelector('.story-steps-backrow button').click();
-            document.querySelector('.island-diary-entry[data-role="live"]').click();
+            shiftClick(document.querySelector('.island-diary-entry[data-role="live"]'));
             expect(detailName()).toContain('LIVE GAG');
             document.querySelector('.story-steps-backrow button').click();
+
+            // A plain click plays the entry now, as on the rest of the map.
+            document.querySelector('.island-diary-entry[data-role="planned"]').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'preview', script: 'VISITOR.ADS', tagId: 4, storyDay: 2, band: 'late' });
+            panel.open();
 
             // A place or a day turns the page; one link turns back to today.
             placeButton('campfire').click();

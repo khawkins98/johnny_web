@@ -12,7 +12,7 @@
  * this module draws the scene and reports choices through callbacks.
  */
 import { islandPlaces, placeForGag, placeOpenAt, storyTrail } from '../island-places.mjs';
-import { bandById, bandsFor, restrictionLabel } from '../story-steps.mjs';
+import { bandById, bandsFor, restrictionLabel, gagFacts } from '../story-steps.mjs';
 import { islandMapArt, islandMapArtSize } from './island-map-art.mjs';
 
 // Handwriting for the diary: Caveat (bundled through @fontsource in src/index.mjs), then system hands.
@@ -394,7 +394,13 @@ export function renderIslandMap(root, {
                     entry.dataset.focus = `visit:${gag.index ?? 0}`;
                     entry.setAttribute('aria-label', `${gagName(gag)}: ${gag.role === 'live' ? 'happening now' : gag.role === 'seen' ? 'done' : 'still to come'}`);
                     if (gag.role === 'live') entry.setAttribute('aria-current', 'true');
-                    entry.addEventListener('click', () => (gag.role === 'live' ? onLive() : onStep({ level: 'detail', gag, day: live.day })));
+                    // Like any gag on the map: a click plays it now, Shift-click opens how it unfolds.
+                    if (onPlay) entry.title = PLAY_HINT;
+                    entry.addEventListener('click', (event) => {
+                        if (onPlay && !event.shiftKey && onPlay(gagFacts(gag), live.day) !== false) return;
+                        if (gag.role === 'live') onLive();
+                        else onStep({ level: 'detail', gag, day: live.day });
+                    });
                     item.appendChild(entry);
                 }
                 list.appendChild(item);
