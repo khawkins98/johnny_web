@@ -1005,7 +1005,12 @@ export const createJohnnyStoryController = ({
             if (storyDay != null) setStoryDay(storyDay);
             if (band != null) writeStartTime(storage, startTimeForPhase(now(), timelinePhase(band)));
             // A single gag has no visit of its own to carry on: plan one from the new position.
-            if (preview) queue = [];
+            // The gag it interrupted belongs to the old position, so it is no longer "the gag
+            // playing" either: a later preview must not hold it as the place to go back to.
+            if (preview) {
+                queue = [];
+                playing = null;
+            }
             else if (sequenceStatus) sequenceStatus = Object.freeze({ ...sequenceStatus, band: null });
             publishStatus();
         },

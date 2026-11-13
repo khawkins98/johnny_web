@@ -4,6 +4,7 @@ This changelog tracks the browser project. Its version numbers are separate from
 
 ## Unreleased
 
+- Fixed **Go back** after **Stay here** on a single gag: picking another gag and going back returned to the gag and day from before the stay. It now returns to a fresh visit on the day you stayed on.
 - The address bar now follows playback: as each gag starts, the link is rewritten to name the gag, story day and time of day (`#stage=FISHING.ADS:3&day=2&mode=preview&time=early`), so it can be bookmarked or shared at any moment. Opening such a link plays that gag as a temporary visit. Stage links gain an optional `time`.
 - Scrolling down with the wheel or trackpad now raises a tucked playback shelf, and scrolling up tucks it again. The page has nothing to scroll, so the gesture used to do nothing.
 - Added a loading screen: the page stays covered, with a progress bar, until the title screen's artwork and fonts have loaded, instead of showing the cabinet, shelf and controls arriving piece by piece. It lifts after 10 seconds regardless, and after 12 even if the app's script fails to load, so the page is never left blank.
