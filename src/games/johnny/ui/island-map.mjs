@@ -36,7 +36,8 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 #scene-flow-modal.is-map-home .scene-flow-links:empty { display: none; }
 /* The top of the beach: the time-of-day chips, and the days as flags planted in the sand above
    the map, not on it. */
-.island-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px clamp(10px, 2vw, 28px); margin: 0 0 clamp(6px, 1vw, 14px); }
+/* Above the diary, so a flag is never half behind the starfish on the logbook's corner. */
+.island-top { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px clamp(10px, 2vw, 28px); margin: 0 0 clamp(6px, 1vw, 14px); }
 .island-top .story-steps-chips { flex: none; margin: 0; }
 .island-top .story-steps-chip { min-height: 36px; padding: 2px 12px; font-size: 12.5px; box-shadow: 0 2px 2px #5a431f33; }
 .island-days { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: center; gap: 2px clamp(2px, 1.1vw, 16px);
@@ -49,8 +50,8 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 #scene-flow-modal .island-map-day:focus-visible, #scene-flow-modal .island-map-thing:focus-visible { outline: none; }
 .island-map-day:focus-visible > img, .island-map-thing:focus-visible > img { outline: 3px solid #e99a32; outline-offset: 3px; border-radius: 8px; }
 /* The number is written on the cloth. */
-.island-map-daynum { position: absolute; left: 62%; top: 23%; transform: translate(-50%, -50%); color: #234e52;
-  font: 700 clamp(12px, 1.25vw, 17px)/1 'Trebuchet MS', Arial, sans-serif; }
+.island-map-daynum { position: absolute; left: 51%; top: 26.5%; transform: translate(-50%, -50%); letter-spacing: -.03em; color: #234e52;
+  font: 700 clamp(11px, 1.15vw, 16px)/1 'Trebuchet MS', Arial, sans-serif; }
 .island-map-day.is-flagged .island-map-daynum { color: #fff9dc; }
 .island-map-footprints { flex: none; align-self: flex-end; width: clamp(28px, 3vw, 44px); height: auto; margin: 0 -6px 0 -10px; opacity: .8; }
 /* Side by side only where the map still gets its full minimum width beside the diary; below
@@ -90,7 +91,7 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 /* The diary: an open logbook lying on the sand. Its page is the picture; the writing is live. */
 .island-map-panel { position: relative; min-height: 420px; padding: 11% 23% 27% 13%; color: #234e52;
   background: var(--island-logbook) center / 100% 100% no-repeat; font: 21px/1.3 ${HAND}; }
-.island-map-starfish { position: absolute; left: -9%; top: -7%; width: 22%; height: auto; pointer-events: none; filter: drop-shadow(0 3px 2px #0004); }
+.island-map-starfish { position: absolute; left: -9%; top: -4%; width: 22%; height: auto; pointer-events: none; filter: drop-shadow(0 3px 2px #0004); }
 .island-map-panel h3 { margin: 0 0 2px; font: 700 30px/1.1 ${HAND}; color: #22553b; }
 .island-map-panel h3:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; }
 .island-map-panel p { margin: 0 0 8px; }
