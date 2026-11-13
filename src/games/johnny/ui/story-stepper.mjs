@@ -309,13 +309,14 @@ export function renderStoryStepper(host, {
             root.appendChild(viewbar);
             renderIslandMap(root, {
                 place: step.place ?? null, day: step.mapDay ?? null, filter: filter?.id ?? null, live, today, gagName, onStep,
+                // On the beach the Now strip's content is the diary: where Johnny is and the visit.
+                visit, visiting, onLive, onGoBack,
                 // Starting a day plays its story scene at the filtered time, else the time now,
                 // whichever the scene can actually show.
                 onStartDay: onPlayGag
                     ? (scene) => onPlayGag(scene, scene.keyDay, bandForGag(scene, filter?.id ?? live.band, live.band)) : null,
                 makeCard: (options) => cardButton({ ...options, faces }),
             });
-            root.appendChild(now);
             return root;
         }
         root.appendChild(viewbar);

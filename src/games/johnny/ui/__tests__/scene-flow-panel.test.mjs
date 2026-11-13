@@ -529,8 +529,10 @@ describe('scene-flow panel', () => {
             panel.close();
             panel.open();
             expect(document.querySelector('.island-map')).not.toBeNull();
-            // The list is still one click away, and the Now bar is on both.
-            expect(document.querySelector('.story-steps-now')).not.toBeNull();
+            // On the beach, where Johnny is and the visit are the diary, not a strip.
+            expect(document.querySelector('.story-steps-now')).toBeNull();
+            expect(document.querySelector('.island-map-panel').getAttribute('aria-label')).toBe('Diary: today on the island');
+            expect(document.querySelector('.island-diary-eyebrow').textContent).toBe('Today on the island');
             document.querySelector('[data-view="list"]').click();
             expect(document.querySelector('.island-map')).toBeNull();
             expect(document.querySelectorAll('.story-steps-family .story-steps-card')).toHaveLength(40);
@@ -547,7 +549,7 @@ describe('scene-flow panel', () => {
         it('lists a place\'s gags beside the map, and goes straight to a place with one', () => {
             const { panel, sequenceTools } = start();
             showMap();
-            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
 
             placeButton('campfire').focus();
             placeButton('campfire').click();
@@ -574,7 +576,7 @@ describe('scene-flow panel', () => {
 
             // Pressing the open place again closes it and keeps focus there.
             placeButton('campfire').click();
-            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
             expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('false');
             expect(document.activeElement.dataset.focus).toBe('place:campfire');
 
@@ -641,8 +643,55 @@ describe('scene-flow panel', () => {
             expect(document.querySelector('.island-map-panel p').textContent).toBe('4 things happen here. Pick one. Playing as day 5.');
             flag(5).click();
             expect(document.querySelector('.island-map-story')).toBeNull();
-            expect(document.querySelector('.island-map-panel h3').textContent).toBe("Johnny's island");
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Early day');
             expect(document.activeElement.dataset.focus).toBe('day:5');
+            panel.destroy();
+        });
+
+        it('writes the visit into the diary as a checklist: done, happening now, still to come', () => {
+            localStorage.clear();
+            const active = { script: 'FISHING.ADS', tagId: 3 };
+            let status = { active: { script: 'BUILDING.ADS', tagId: 1 }, current: 1, total: 4, storyDay: 2, tidePhase: 9 };
+            const listeners = new Set();
+            const publish = (next) => { status = next; for (const listener of listeners) listener(status); };
+            const sequenceTools = {
+                status: () => status, getStoryDay: () => 2, startRun: vi.fn(),
+                snapshot: () => [{ script: 'POSE', tagId: 1, sequence: { index: 3 } }, { script: 'VISITOR.ADS', tagId: 4, sequence: { index: 4 } }],
+                subscribeStatus: (listener) => { listeners.add(listener); listener(status); return () => listeners.delete(listener); },
+            };
+            const panel = setupSceneFlowPanel({ resolveEntry, sequenceTools });
+            publish({ ...status, active, current: 2 });
+            panel.open();
+            showMap();
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 2 · Late day');
+            const entries = Array.from(document.querySelectorAll('.island-diary-entry'));
+            expect(entries.map((entry) => [entry.dataset.role, entry.getAttribute('aria-label').split(': ')[1]]))
+                .toEqual([['seen', 'done'], ['live', 'happening now'], ['planned', 'still to come']]);
+            expect(entries[1].getAttribute('aria-current')).toBe('true');
+            // Idle pauses are not diary entries.
+            expect(document.querySelectorAll('.island-diary-list li')).toHaveLength(3);
+
+            // An entry opens that gag; the one happening now opens the running gag and follows it.
+            entries[2].click();
+            expect(document.querySelector('.story-steps-hero')).not.toBeNull();
+            document.querySelector('.story-steps-backrow button').click();
+            document.querySelector('.island-diary-entry[data-role="live"]').click();
+            expect(detailName()).toContain('LIVE GAG');
+            document.querySelector('.story-steps-backrow button').click();
+
+            // A place or a day turns the page; one link turns back to today.
+            placeButton('campfire').click();
+            expect(document.querySelector('.island-diary-list')).toBeNull();
+            document.querySelector('[data-focus="diary-today"]').click();
+            expect(document.querySelector('.island-diary-list')).not.toBeNull();
+            expect(placeButton('campfire').getAttribute('aria-pressed')).toBe('false');
+
+            // While visiting, the page says so and offers the way back.
+            publish({ ...status, storyDay: 6, band: 'night', preview: false });
+            expect(document.querySelector('.island-diary-eyebrow').textContent).toBe('Visiting');
+            expect(document.querySelector('.island-map-panel h3').textContent).toBe('Day 6 · Night');
+            document.querySelector('.island-map-panel [data-focus="go-back"]').click();
+            expect(sequenceTools.startRun).toHaveBeenLastCalledWith({ mode: 'live' });
             panel.destroy();
         });
 
@@ -697,7 +746,11 @@ describe('scene-flow panel', () => {
                 expect(order[i][0] > order[i - 1][0] || (order[i][0] === order[i - 1][0] && order[i][1] >= order[i - 1][1])).toBe(true);
             }
             // Days come first, in order, and every picture reserves its space before it loads.
-            expect(document.querySelector('.island-map button').dataset.focus).toBe('day:1');
+            // The days are planted outside the map, in order, before it.
+            expect(document.querySelector('.island-map .island-map-day')).toBeNull();
+            expect(Array.from(document.querySelectorAll('.island-days button'), (flag) => flag.dataset.focus))
+                .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((day) => `day:${day}`));
+            expect(document.querySelector('.island-days').compareDocumentPosition(document.querySelector('.island-map')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
             expect(Array.from(document.querySelectorAll('.island-map img')).every((img) => img.width > 0 && img.height > 0)).toBe(true);
             panel.destroy();
         });
