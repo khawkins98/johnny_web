@@ -26,6 +26,8 @@ The earlier Google Antigravity (`agy`) pixel-art pass remains documented in [his
 | Live root/canvas scaling into the aperture | [`settings.mjs`, `applyScaling()`](../src/games/johnny/ui/settings.mjs) |
 | Actual picture effects, independent of the illustration | [`crt/`](../src/games/johnny/ui/crt/) and [CRT guide](optional-crt.md) |
 | Original painted PNGs and exact generator prompts | [`island-art/`](../src/games/johnny/ui/island-art/) |
+| Bundled fonts: Caveat 400/700 (handwriting) and VT323, SIL OFL, from `@fontsource` | [`src/index.mjs`](../src/index.mjs) |
+| Island map view, its places and provisional artwork | [`island-map.mjs`](../src/games/johnny/ui/island-map.mjs), [`island-places.mjs`](../src/games/johnny/island-places.mjs), [`island-map-art/`](../src/games/johnny/ui/island-map-art/) |
 
 The preview studies and user references were saved in ignored `scratchpad/issue81/art-direction/`, including a reference manifest. That directory is local research and may not exist in a fresh checkout. **Nothing needed to build or amend the active skin depends on it.** The active artwork, prompts and geometry are versioned here. Keep future proprietary captures/references in ignored scratchpad too.
 
@@ -159,7 +161,7 @@ An independent UX/UI subagent reviewed the actual splash, live shelf, Log, Setti
 
 - `island-theme.css` owns shared paper/ink colours, body/display type, control/focus treatment and Settings header. Its skin is present before launch and with the cabinet hidden, rather than depending on a playback-only body class. Use its `--island-*` variables for new surfaces.
 - `island-objects.css` owns the authoritative crop windows for all painted object silhouettes. Both splash and playback use the same classes. Keep transparent gutters and complete lower edges; do not reintroduce guessed source-column widths in a second stylesheet.
-- Timeline furniture, the Now bar, time-of-day chips, outlines and canvas card paper/text now follow the same palette and readable typography. Original game previews and fallback pixel illustrations retain their own image colours. The canvas-card palette/font lives in `story-card-faces.mjs`; changing it does not require invalidating the cached game frames because furniture is repainted separately.
+- Timeline furniture, time-of-day chips, outlines and canvas card paper/text now follow the same palette and readable typography. Original game previews and fallback pixel illustrations retain their own image colours. The canvas-card palette/font lives in `story-card-faces.mjs`; changing it does not require invalidating the cached game frames because furniture is repainted separately.
 - Mobile/short Log is one scroller with a sticky title; desktop retains its two roomy sections. Settings and Timeline keep their Close control/title while long content scrolls.
 - Visible labels are associated with all core Settings selects. `dialog-background.mjs` isolates modal background controls and restores their previous inert state, including a previously hidden HUD. Opening the same modal twice must not overwrite that state; Settings and Timeline do not stack on one another, and the shared helper keeps Tab/Shift+Tab inside the active dialog.
 - Primary Log actions use the darker shared action green for readable cream text, including hover. Day text uses the darker `--island-orange-ink` companion; bright orange remains the decorative highlight. Raster lettering remains decorative; all controls keep live accessible names/state. Timeline has a separate “Days & gags” state caption.

@@ -11,13 +11,17 @@ export const parseDebugStageHash = (hash = '') => {
     const mode = params.get('mode') || 'preview';
     if (!script.endsWith('.ADS') || !Number.isInteger(tagId) || tagId < 1) return null;
     if (!Number.isInteger(storyDay) || storyDay < 1 || storyDay > 11 || !MODES.has(mode)) return null;
-    return Object.freeze({ script, tagId, storyDay, mode });
+    // Optional time of day (a game-defined band id such as "night"); left out when absent or malformed.
+    const band = params.get('time');
+    return Object.freeze({ script, tagId, storyDay, mode, ...(band && /^[a-z]{1,16}$/.test(band) ? { band } : {}) });
 };
 
-export const formatDebugStageHash = ({ script, tagId, storyDay = 1, mode = 'preview' }) => {
+export const formatDebugStageHash = ({ script, tagId, storyDay = 1, mode = 'preview', band = null }) => {
     const params = new URLSearchParams();
     params.set('stage', `${script}:${tagId}`);
     params.set('day', String(storyDay));
     params.set('mode', MODES.has(mode) ? mode : 'preview');
-    return `#${params}`;
+    if (band) params.set('time', band);
+    // A colon is legal in a fragment; leaving it unescaped keeps the link readable.
+    return `#${params}`.replace(/%3A/g, ':');
 };
