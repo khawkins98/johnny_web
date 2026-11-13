@@ -2,7 +2,7 @@
 
 Test artwork for the story timeline's island map, [issue #96](https://github.com/khawkins98/johnny_web/issues/96). **Provisional:** good enough to build and judge the map against, and due to be replaced by one final, consistent pass once the layout and the list of places have settled.
 
-Original illustrations generated with Codex's built-in image generator on 2026-11-12, under the repository's MIT license. No original-game artwork is included, and none of it depicts the game's characters. Exact prompts, references and processing are in [`prompts.json`](prompts.json); the working recipe is being added to [Maintaining the illustrated Island UI](../../../../../docs/island-ui-art.md) in [#95](https://github.com/khawkins98/johnny_web/pull/95).
+Original illustrations generated with Codex's built-in image generator on 2026-11-12, under the repository's MIT license. No original-game artwork is included, and none of it depicts the game's characters. Exact prompts, references and processing are in [`prompts.json`](prompts.json); the working recipe is in [Maintaining the illustrated Island UI](../../../../../docs/island-ui-art.md#generating-artwork-from-the-command-line-2026-11-12).
 
 | File | Role |
 | --- | --- |
