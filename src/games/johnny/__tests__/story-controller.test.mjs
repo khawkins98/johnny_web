@@ -298,6 +298,21 @@ describe('Johnny host story controller', () => {
             controller.next();
             expect(controller.status()).toMatchObject({ storyDay: 4, band: null });
         });
+
+        it('after staying on a single gag, going back from a later one does not return to the old day', () => {
+            const { controller } = start();
+            const before = controller.next(); // The day-1 gag the first preview interrupts.
+            controller.holdPlace('preview');
+            controller.keepVisit({ storyDay: 4, band: 'late', preview: true });
+
+            // A second single gag, picked while the kept one is still on screen.
+            controller.holdPlace('preview');
+            controller.returnToLive();
+            const resumed = controller.next();
+            expect(controller.status()).toMatchObject({ storyDay: 4, current: 1 });
+            expect(resumed.sequence).not.toBe(before.sequence);
+            expect(controller.getStoryDay()).toBe(4);
+        });
     });
 
     it('plans ordinary scenes followed by one final and rotates five wipes', () => {
