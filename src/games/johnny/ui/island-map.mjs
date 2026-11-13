@@ -91,7 +91,8 @@ body #scene-flow-modal.is-map-home #scene-flow-title { position: absolute; width
 /* The diary: an open logbook lying on the sand. Its page is the picture; the writing is live. */
 .island-map-panel { position: relative; min-height: 420px; padding: 11% 23% 27% 13%; color: #234e52;
   background: var(--island-logbook) center / 100% 100% no-repeat; font: 21px/1.3 ${HAND}; }
-.island-map-starfish { position: absolute; left: -9%; top: -4%; width: 22%; height: auto; pointer-events: none; filter: drop-shadow(0 3px 2px #0004); }
+/* On the logbook's bottom corner: at the top it reached into the row of flags. */
+.island-map-starfish { position: absolute; left: -9%; bottom: 1%; transform: rotate(-14deg); width: 22%; height: auto; pointer-events: none; filter: drop-shadow(0 3px 2px #0004); }
 .island-map-panel h3 { margin: 0 0 2px; font: 700 30px/1.1 ${HAND}; color: #22553b; }
 .island-map-panel h3:focus-visible { outline: 3px solid #e99a32; outline-offset: 3px; }
 .island-map-panel p { margin: 0 0 8px; }
